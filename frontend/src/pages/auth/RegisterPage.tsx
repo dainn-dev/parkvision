@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { Button, Badge } from '../../components/ui';
 import { usePlatform } from '../../context/PlatformContext';
+import { useAuth } from '../../context/AuthContext';
+import { ApiError } from '../../api/client';
 import { PublicViewType } from '../../components/layout/PublicNavbar';
 
 interface RegisterPageProps {
@@ -31,7 +33,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
   onNavigate,
   onRegistrationSuccess
 }) => {
-  const { createTenant, login, setAppWorkspace, setTenantNavTab, addToast } = usePlatform();
+  const { setAppWorkspace, setTenantNavTab, addToast } = usePlatform();
+  const { register } = useAuth();
 
   // Wizard Steps: 1: Organization -> 2: Scale & Plan -> 3: Admin Credentials
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -83,14 +86,14 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
     setCurrentStep(3);
   };
 
-  const handleFinalSubmit = (e: React.FormEvent) => {
+  const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminName.trim() || !adminEmail.trim() || !password) {
       setErrorMessage('Vui lòng nhập đầy đủ họ tên, email và mật khẩu.');
       return;
     }
-    if (password.length < 6) {
-      setErrorMessage('Mật khẩu tối thiểu phải từ 6 ký tự trở lên.');
+    if (password.length < 10) {
+      setErrorMessage('Mật khẩu tối thiểu phải từ 10 ký tự trở lên.');
       return;
     }
     if (password !== confirmPassword) {
@@ -105,44 +108,30 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
     setErrorMessage(null);
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await register({
+        tenantName: orgName.trim(),
+        slug,
+        planCode: selectedPlan === 'business' ? 'pro' : selectedPlan,
+        contactEmail: adminEmail.trim(),
+        ownerEmail: adminEmail.trim(),
+        ownerFullName: adminName.trim(),
+        ownerPassword: password,
+      });
 
-      // 1. Create Tenant in Platform Context
-      const tenantCode = (slug.slice(0, 8) || 'TENANT').toUpperCase();
-      createTenant(
-        {
-          name: orgName,
-          code: tenantCode,
-          email: adminEmail,
-          phone: adminPhone || '+84 28 8899 0000',
-          timezone: 'Asia/Ho_Chi_Minh',
-          status: 'ACTIVE'
-        },
-        {
-          name: adminName,
-          email: adminEmail,
-          phone: adminPhone
-        }
-      );
-
-      // 2. Automatically Log in as this Tenant Admin
-      login(adminEmail, password);
-
-      // 3. Switch workspace directly to Tenant Portal
       setAppWorkspace('tenant');
       setTenantNavTab('dashboard');
-
       addToast({
         type: 'success',
         title: 'Khởi tạo Tenant thành công!',
-        description: `Chào mừng ${orgName}! Bạn đang sử dụng gói dùng thử 14 ngày của ${selectedPlan.toUpperCase()}.`
+        description: `Chào mừng ${orgName}! Workspace đã sẵn sàng với gói ${selectedPlan.toUpperCase()}.`
       });
-
-      if (onRegistrationSuccess) {
-        onRegistrationSuccess();
-      }
-    }, 1000);
+      onRegistrationSuccess?.();
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : 'Không thể đăng ký Tenant lúc này.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { Button, Badge } from '../../components/ui';
 import { usePlatform } from '../../context/PlatformContext';
+import { useAuth } from '../../context/AuthContext';
+import { ApiError } from '../../api/client';
 import { PublicViewType } from '../../components/layout/PublicNavbar';
 
 interface LoginPageProps {
@@ -31,13 +33,14 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
-  const { login, addToast } = usePlatform();
+  const { addToast } = usePlatform();
+  const { login, verifyMfa } = useAuth();
 
   // Login Form state
-  const [email, setEmail] = useState('anh.nh@kyanon.digital');
-  const [password, setPassword] = useState('••••••••••••');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isMfaEnabledForAccount, setIsMfaEnabledForAccount] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<'mfa_off' | 'mfa_on'>('mfa_off');
 
   // Flow Step: 'credentials' | 'mfa_challenge' | 'backup_code'
   const [step, setStep] = useState<'credentials' | 'mfa_challenge' | 'backup_code'>('credentials');
@@ -68,34 +71,32 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     }
   }, [step]);
 
-  // Preset demo accounts selection
+  // Development presets match the users created by backend/scripts/seed.py.
   const handleSelectPreset = (presetType: 'mfa_off' | 'mfa_on') => {
     setErrorMessage(null);
+    setStep('credentials');
+    setSelectedPreset(presetType);
     if (presetType === 'mfa_off') {
-      setEmail('admin.normal@vehicleplatform.io');
-      setPassword('Password123!');
-      setIsMfaEnabledForAccount(false);
-      setStep('credentials');
+      setEmail('owner@demo.example.com');
+      setPassword('DemoOwner!123');
       addToast({
         type: 'info',
-        title: 'Đã chọn Tài khoản chưa bật MFA',
-        description: 'Mật khẩu sẽ đăng nhập trực tiếp vào hệ thống.'
+        title: 'Đã chọn Tenant Demo',
+        description: 'Tài khoản được tạo bởi backend seed.'
       });
     } else {
-      setEmail('admin.mfa@vehicleplatform.io');
-      setPassword('Password123!');
-      setIsMfaEnabledForAccount(true);
-      setStep('credentials');
+      setEmail('admin@example.com');
+      setPassword('ChangeMe!123');
       addToast({
         type: 'info',
-        title: 'Đã chọn Tài khoản ĐÃ BẬT MFA',
-        description: 'Yêu cầu nhập thêm mã TOTP 6 chữ số sau mật khẩu.'
+        title: 'Đã chọn Platform Admin',
+        description: 'Backend sẽ yêu cầu MFA nếu tài khoản đã kích hoạt TOTP.'
       });
     }
   };
 
   // Handle credentials submit (Step 1)
-  const handleCredentialsSubmit = (e: React.FormEvent) => {
+  const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
       setErrorMessage('Vui lòng nhập đầy đủ Email và Mật khẩu.');
@@ -105,29 +106,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     setErrorMessage(null);
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
-
-      if (isMfaEnabledForAccount) {
-        // Requires MFA -> Advance to Step 2 MFA Challenge
+    try {
+      const result = await login(email, password);
+      if (result.requiresMfa) {
         setStep('mfa_challenge');
         addToast({
           type: 'warning',
           title: 'MFA Required',
           description: 'Mật khẩu hợp lệ. Vui lòng nhập mã TOTP từ ứng dụng Authenticator.'
         });
-      } else {
-        // Direct login without MFA
-        const res = login(email, password);
-        if (res.success) {
-          addToast({
-            type: 'success',
-            title: 'Đăng nhập thành công',
-            description: `Chào mừng ${email} quay trở lại bảng điều khiển.`
-          });
-        }
+        return;
       }
-    }, 800);
+
+      addToast({
+        type: 'success',
+        title: 'Đăng nhập thành công',
+        description: `Chào mừng ${email} quay trở lại bảng điều khiển.`
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : 'Không thể kết nối tới máy chủ.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Handle OTP digit change
@@ -166,10 +166,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     }
   };
 
-  // Auto fill test passcode 123456
-  const handleFillDemoCode = () => {
-    setOtpDigits(['1', '2', '3', '4', '5', '6']);
+  const completeMfaChallenge = async (code: string, backup = false) => {
+    setIsLoading(true);
     setErrorMessage(null);
+    try {
+      await verifyMfa(code);
+      addToast({
+        type: 'success',
+        title: backup ? 'Đăng nhập bằng Mã khôi phục' : 'Xác thực MFA thành công',
+        description: backup
+          ? 'Đã xác thực bằng mã sao lưu khẩn cấp.'
+          : 'Mã TOTP hợp lệ. Đang khởi tạo phiên làm việc bảo mật...'
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : 'Không thể xác thực MFA.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Submit MFA Code (Step 2)
@@ -182,22 +195,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
       return;
     }
 
-    setIsLoading(true);
-    setErrorMessage(null);
-
-    setTimeout(() => {
-      setIsLoading(false);
-      if (code === '000000') {
-        setErrorMessage('Mã TOTP không chính xác hoặc đã hết hạn. Vui lòng thử lại.');
-      } else {
-        login(email, password, code);
-        addToast({
-          type: 'success',
-          title: 'Xác thực MFA thành công',
-          description: 'Mã TOTP hợp lệ. Đang khởi tạo phiên làm việc bảo mật...'
-        });
-      }
-    }, 900);
+    void completeMfaChallenge(code);
   };
 
   // Submit Backup Code
@@ -208,18 +206,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
       return;
     }
 
-    setIsLoading(true);
-    setErrorMessage(null);
-
-    setTimeout(() => {
-      setIsLoading(false);
-      login(email, password, backupCode);
-      addToast({
-        type: 'success',
-        title: 'Đăng nhập bằng Mã khôi phục',
-        description: 'Đã xác thực bằng mã sao lưu khẩn cấp.'
-      });
-    }, 900);
+    void completeMfaChallenge(backupCode.trim(), true);
   };
 
   return (
@@ -276,7 +263,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             type="button"
             onClick={() => handleSelectPreset('mfa_off')}
             className={`px-2.5 py-1 rounded-lg border font-mono text-[11px] transition-all cursor-pointer flex items-center gap-1.5 ${
-              !isMfaEnabledForAccount
+              selectedPreset === 'mfa_off'
                 ? 'bg-[#238636]/20 border-[#3fb950] text-[#3fb950] font-bold shadow-sm'
                 : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:text-white hover:border-[#484f58]'
             }`}
@@ -288,7 +275,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             type="button"
             onClick={() => handleSelectPreset('mfa_on')}
             className={`px-2.5 py-1 rounded-lg border font-mono text-[11px] transition-all cursor-pointer flex items-center gap-1.5 ${
-              isMfaEnabledForAccount
+              selectedPreset === 'mfa_on'
                 ? 'bg-[#8250df]/20 border-[#8250df] text-[#a371f7] font-bold shadow-sm'
                 : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:text-white hover:border-[#484f58]'
             }`}
@@ -343,29 +330,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                 </div>
               </div>
 
-              {/* MFA Toggle Option Switch */}
-              <div className="p-3 bg-[#0d0e12] border border-[#30363d] rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className={`p-1.5 rounded-lg ${isMfaEnabledForAccount ? 'bg-[#8250df]/20 text-[#a371f7]' : 'bg-[#21262d] text-[#8b949e]'}`}>
-                    <Smartphone className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-white block">Tài khoản có bật MFA (TOTP)</span>
-                    <span className="text-[10px] text-[#8b949e] block">
-                      {isMfaEnabledForAccount ? 'Yêu cầu mã 6 chữ số sau mật khẩu' : 'Đăng nhập trực tiếp chỉ với mật khẩu'}
-                    </span>
-                  </div>
+              <div className="p-3 bg-[#0d0e12] border border-[#30363d] rounded-xl flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-[#8250df]/20 text-[#a371f7]">
+                  <Smartphone className="w-4 h-4" />
                 </div>
-
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isMfaEnabledForAccount}
-                    onChange={(e) => setIsMfaEnabledForAccount(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-[#21262d] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#58a6ff]"></div>
-                </label>
+                <div>
+                  <span className="text-xs font-bold text-white block">MFA do máy chủ quyết định</span>
+                  <span className="text-[10px] text-[#8b949e] block">
+                    Bước nhập mã chỉ xuất hiện khi tài khoản đã kích hoạt TOTP.
+                  </span>
+                </div>
               </div>
 
               {errorMessage && (
@@ -449,15 +423,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                   </div>
                 )}
 
-                {/* Helper Auto Fill Demo */}
-                <div className="flex items-center justify-between text-[11px] pt-1">
-                  <button
-                    type="button"
-                    onClick={handleFillDemoCode}
-                    className="text-[#58a6ff] hover:underline flex items-center gap-1 font-mono cursor-pointer"
-                  >
-                    <Sparkles className="w-3 h-3" /> Tự động điền mã demo (123456)
-                  </button>
+                <div className="flex items-center justify-end text-[11px] pt-1">
                   <button
                     type="button"
                     onClick={() => {

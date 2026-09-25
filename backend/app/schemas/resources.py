@@ -273,6 +273,20 @@ class RuleOut(CamelModel):
     created_at: datetime
 
 
+class RuleSimulationIn(CamelModel):
+    plate_number: str = Field(min_length=1, max_length=32)
+    site_id: uuid.UUID | None = None
+    timestamp: datetime
+
+
+class RuleSimulationOut(CamelModel):
+    decision: str
+    reason: str
+    matched_rule_id: uuid.UUID | None = None
+    matched_rule_name: str | None = None
+    registered_vehicle_id: uuid.UUID | None = None
+
+
 # ---------- access events ----------
 class AccessEventIn(CamelModel):
     site_id: uuid.UUID | None = None

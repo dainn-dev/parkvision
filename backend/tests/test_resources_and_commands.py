@@ -163,6 +163,49 @@ async def test_decision_engine_rules(client: AsyncClient, tenant, gate):
 
 
 @pytest.mark.asyncio
+async def test_rule_simulator_uses_live_evaluator(client: AsyncClient, tenant, gate):
+    _, site_id = gate
+    tid = tenant["tenant_id"]
+    vehicle = await client.post(
+        f"/api/v1/tenants/{tid}/vehicles",
+        json={"plateNumber": "SIM-123", "tag": "resident"},
+        headers=csrf(client),
+    )
+    assert vehicle.status_code == 201, vehicle.text
+    rule = await client.post(
+        f"/api/v1/tenants/{tid}/rules",
+        json={
+            "name": "Residents",
+            "ruleType": "allow_list",
+            "priority": 1,
+            "siteId": site_id,
+            "conditions": {"tags": ["resident"]},
+            "schedule": {"daysOfWeek": [4], "startTime": "08:00", "endTime": "18:00"},
+        },
+        headers=csrf(client),
+    )
+    assert rule.status_code == 201, rule.text
+
+    simulated = await client.post(
+        f"/api/v1/tenants/{tid}/rules/simulate",
+        json={
+            "plateNumber": "SIM-123",
+            "siteId": site_id,
+            "timestamp": "2026-09-24T10:00:00Z",
+        },
+        headers=csrf(client),
+    )
+    assert simulated.status_code == 200, simulated.text
+    assert simulated.json() == {
+        "decision": "allow",
+        "reason": "rule:Residents",
+        "matchedRuleId": rule.json()["id"],
+        "matchedRuleName": "Residents",
+        "registeredVehicleId": vehicle.json()["id"],
+    }
+
+
+@pytest.mark.asyncio
 async def test_audit_written_and_visible_to_admins(client: AsyncClient, tenant, gate):
     tid = tenant["tenant_id"]
     res = await client.get(f"/api/v1/tenants/{tid}/audit-logs")

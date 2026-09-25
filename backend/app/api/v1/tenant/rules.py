@@ -11,8 +11,9 @@ from app.api.v1.tenant import TenantCtx, get_tenant_db, tenant_ctx
 from app.core.errors import not_found
 from app.models import TenantAccessRule
 from app.schemas.common import Page, paginate
-from app.schemas.resources import RuleIn, RuleOut
+from app.schemas.resources import RuleIn, RuleOut, RuleSimulationIn, RuleSimulationOut
 from app.services.audit_service import write_audit
+from app.services.event_service import decide_access_with_rule
 
 router = APIRouter(
     prefix="/tenants/{tenant_id}",
@@ -44,6 +45,38 @@ async def list_rules(
         .all()
     )
     return paginate([RuleOut.model_validate(r) for r in rows], total, page, limit)
+
+
+@router.post("/rules/simulate", response_model=RuleSimulationOut)
+async def simulate_rule(
+    body: RuleSimulationIn,
+    ctx: TenantCtx = Depends(tenant_ctx),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> RuleSimulationOut:
+    decision, reason, vehicle_id, matched_rule_id = await decide_access_with_rule(
+        db,
+        ctx.tenant_id,
+        body.plate_number,
+        evaluated_at=body.timestamp,
+        site_id=body.site_id,
+    )
+    matched_rule_name = None
+    if matched_rule_id is not None:
+        matched_rule_name = (
+            await db.execute(
+                select(TenantAccessRule.name).where(
+                    TenantAccessRule.id == matched_rule_id,
+                    TenantAccessRule.tenant_id == ctx.tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+    return RuleSimulationOut(
+        decision=str(decision),
+        reason=reason,
+        matched_rule_id=matched_rule_id,
+        matched_rule_name=matched_rule_name,
+        registered_vehicle_id=vehicle_id,
+    )
 
 
 @router.post("/rules", response_model=RuleOut, status_code=201)

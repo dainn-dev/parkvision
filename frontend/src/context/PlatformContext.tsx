@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useAuth } from './AuthContext';
 import {
   PrimaryTab,
   PlatformSubTab,
@@ -97,6 +98,7 @@ export interface ToastMessage {
 
 interface PlatformContextType {
   // Authentication State
+  authStatus: 'loading' | 'anonymous' | 'authenticated';
   isAuthenticated: boolean;
   currentUser: {
     id: string;
@@ -105,8 +107,7 @@ interface PlatformContextType {
     role: string;
     mfaEnabled: boolean;
   };
-  login: (email: string, pass: string, otp?: string) => { requiresMfa: boolean; success: boolean };
-  logout: () => void;
+  logout: () => Promise<void>;
 
   // Theme State
   theme: 'dark' | 'light';
@@ -333,30 +334,17 @@ interface PlatformContextType {
 const PlatformContext = createContext<PlatformContextType | undefined>(undefined);
 
 export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Auth State
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
-  const [currentUser, setCurrentUser] = useState({
-    id: 'adm-001',
-    name: 'Anthony Nguyen',
-    email: 'anh.nh@kyanon.digital',
-    role: 'Platform Owner',
-    mfaEnabled: true,
-  });
-
-  const login = (emailInput: string, passInput: string, otpCode?: string) => {
-    setIsAuthenticated(true);
-    setCurrentUser((prev) => ({
-      ...prev,
-      email: emailInput,
-      name: emailInput.split('@')[0].replace('.', ' ').toUpperCase(),
-      mfaEnabled: !!otpCode
-    }));
-    return { requiresMfa: false, success: true };
+  // Auth State is owned by AuthProvider; this context keeps UI and domain state only.
+  const { status: authStatus, session, logout } = useAuth();
+  const isAuthenticated = authStatus === 'authenticated';
+  const currentUser = {
+    id: session?.user.id ?? '',
+    name: session?.user.fullName ?? '',
+    email: session?.user.email ?? '',
+    role: session?.user.role ?? '',
+    mfaEnabled: session?.user.mfaEnabled ?? false,
   };
 
-  const logout = () => {
-    setIsAuthenticated(false);
-  };
 
   // Theme State
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -2826,9 +2814,9 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   return (
     <PlatformContext.Provider
       value={{
+        authStatus,
         isAuthenticated,
         currentUser,
-        login,
         logout,
         theme,
         toggleTheme,

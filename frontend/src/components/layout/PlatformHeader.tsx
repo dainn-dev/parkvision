@@ -356,14 +356,22 @@ export const PlatformHeader: React.FC<{
               <div className="border-t border-[#30363d] my-1" />
 
               <button
-                onClick={() => {
+                onClick={async () => {
                   setIsProfileOpen(false);
-                  logout();
-                  addToast({
-                    type: 'info',
-                    title: 'Đã đăng xuất',
-                    description: 'Phiên làm việc đã kết thúc. Vui lòng đăng nhập lại.'
-                  });
+                  try {
+                    await logout();
+                    addToast({
+                      type: 'info',
+                      title: 'Đã đăng xuất',
+                      description: 'Phiên làm việc đã kết thúc. Vui lòng đăng nhập lại.'
+                    });
+                  } catch {
+                    addToast({
+                      type: 'warning',
+                      title: 'Đã xóa phiên cục bộ',
+                      description: 'Không thể xác nhận đăng xuất với máy chủ.'
+                    });
+                  }
                 }}
                 className="w-full text-left px-4 py-2.5 text-[#f85149] hover:bg-[#da3633]/20 flex items-center gap-2 cursor-pointer"
               >

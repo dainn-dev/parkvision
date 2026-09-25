@@ -15,12 +15,22 @@ def normalize_plate(plate: str) -> str:
     return re.sub(r"[^A-Z0-9]", "", plate.upper())
 
 
-async def decide_access(
-    db: AsyncSession, tenant_id: uuid.UUID, plate_number: str | None
-) -> tuple[str, str, uuid.UUID | None]:
-    """Evaluate registered vehicles + access rules → (decision, reason, vehicle_id)."""
+async def decide_access_with_rule(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    plate_number: str | None,
+    *,
+    evaluated_at: datetime | None = None,
+    site_id: uuid.UUID | None = None,
+) -> tuple[str, str, uuid.UUID | None, uuid.UUID | None]:
+    """Evaluate registered vehicles and rules deterministically.
+
+    Returns ``(decision, reason, vehicle_id, matched_rule_id)``. Callers that
+    simulate a future passage must provide ``evaluated_at`` so simulation and
+    live ingest use exactly the same evaluator.
+    """
     if not plate_number:
-        return AccessDecision.DENY, "no_plate_detected", None
+        return AccessDecision.DENY, "no_plate_detected", None, None
 
     normalized = normalize_plate(plate_number)
     vehicle = (
@@ -46,7 +56,9 @@ async def decide_access(
         .all()
     )
 
-    now = datetime.now(timezone.utc)
+    now = evaluated_at or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
 
     def schedule_open(schedule: dict) -> bool:
         if not schedule:
@@ -76,7 +88,9 @@ async def decide_access(
     else:
         base_decision, reason = AccessDecision.ALLOW, "vehicle_registered"
 
-    for rule in sorted(rules, key=lambda r: r.priority):
+    for rule in sorted(rules, key=lambda r: (r.priority, str(r.id))):
+        if rule.site_id is not None and rule.site_id != site_id:
+            continue
         applies = rule.conditions.get("tags") or rule.conditions.get("plates") or []
         if applies:
             tag_hit = vehicle is not None and vehicle.tag in applies
@@ -86,11 +100,19 @@ async def decide_access(
         if not schedule_open(rule.schedule):
             continue
         if rule.rule_type == "deny_list":
-            return AccessDecision.DENY, f"rule:{rule.name}", vehicle.id if vehicle else None
+            return AccessDecision.DENY, f"rule:{rule.name}", vehicle.id if vehicle else None, rule.id
         if rule.rule_type == "allow_list":
-            return AccessDecision.ALLOW, f"rule:{rule.name}", vehicle.id if vehicle else None
+            return AccessDecision.ALLOW, f"rule:{rule.name}", vehicle.id if vehicle else None, rule.id
 
-    return base_decision, reason, vehicle.id if vehicle else None
+    return base_decision, reason, vehicle.id if vehicle else None, None
+
+
+async def decide_access(
+    db: AsyncSession, tenant_id: uuid.UUID, plate_number: str | None
+) -> tuple[str, str, uuid.UUID | None]:
+    """Backward-compatible decision interface for existing callers."""
+    decision, reason, vehicle_id, _ = await decide_access_with_rule(db, tenant_id, plate_number)
+    return decision, reason, vehicle_id
 
 
 async def record_access_event(
@@ -110,7 +132,13 @@ async def record_access_event(
     force_decision: str | None = None,
     force_reason: str | None = None,
 ) -> AccessEvent:
-    decision, reason, vehicle_id = await decide_access(db, tenant_id, plate_number)
+    decision, reason, vehicle_id, _ = await decide_access_with_rule(
+        db,
+        tenant_id,
+        plate_number,
+        evaluated_at=occurred_at,
+        site_id=site_id,
+    )
     if force_decision:
         decision, reason = force_decision, force_reason or "manual_override"
     event = AccessEvent(

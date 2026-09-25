@@ -42,6 +42,7 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const PlatformAppContent: React.FC = () => {
   const {
+    authStatus,
     isAuthenticated,
     appWorkspace,
     primaryTab,
@@ -141,6 +142,17 @@ const PlatformAppContent: React.FC = () => {
       </div>
     );
   };
+
+  if (authStatus === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#0d0e12] text-[#c9d1d9] flex items-center justify-center">
+        <div className="flex items-center gap-3 text-sm text-[#8b949e]">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#58a6ff] animate-pulse" />
+          Đang khôi phục phiên làm việc...
+        </div>
+      </div>
+    );
+  }
 
   // 1. UN-AUTHENTICATED STATE: Render Public Pages (Landing, Policies, Login, Register)
   if (!isAuthenticated) {
