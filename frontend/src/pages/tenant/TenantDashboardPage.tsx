@@ -136,7 +136,7 @@ export const TenantDashboardPage: React.FC = () => {
 
   const occupancyPercent = site.capacity
     ? Math.round(((site.currentOccupancy || 0) / site.capacity) * 100)
-    : 66;
+    : 0;
 
   // Real lanes: gates joined with lane + edge-device + latest access event
   const lanes = gates.map((gate) => {
