@@ -198,7 +198,6 @@ interface PlatformContextType {
   navigateTo: (tab: PrimaryTab, subTab?: string, detailId?: string) => void;
 
   appWorkspace: 'platform' | 'tenant';
-  setAppWorkspace: (workspace: 'platform' | 'tenant') => void;
   tenantNavTab: TenantNavigationTab;
   setTenantNavTab: (tab: TenantNavigationTab) => void;
   selectedSiteId: string | null;
@@ -346,7 +345,6 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         role: me.userType === 'platform_admin' ? `Platform ${me.user.role}` : `Tenant ${me.user.role}`,
         mfaEnabled: me.user.mfaEnabled,
       });
-      setAppWorkspace(me.userType === 'platform_admin' ? 'platform' : 'tenant');
       setIsMfaVerified(me.mfaVerified);
     },
     []
@@ -416,7 +414,9 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null);
   const [selectedAdminId, setSelectedAdminId] = useState<string | null>(null);
 
-  const [appWorkspace, setAppWorkspace] = useState<'platform' | 'tenant'>('tenant');
+  // Workspace is role-derived: platform admins always get the platform console,
+  // tenant users always get the tenant portal — there is no manual switcher.
+  const appWorkspace: 'platform' | 'tenant' = userType === 'platform_admin' ? 'platform' : 'tenant';
   const [tenantNavTab, setTenantNavTab] = useState<TenantNavigationTab>('dashboard');
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [tenantSiteFilter, setTenantSiteFilter] = useState('all');
@@ -667,17 +667,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (isAuthenticated && userType === 'platform_admin') void loadPlatformData();
   }, [isAuthenticated, userType, loadPlatformData]);
 
-  // Platform admin previewing the Tenant workspace without a selection: pick the first tenant.
-  useEffect(() => {
-    if (isAuthenticated && userType === 'platform_admin' && appWorkspace === 'tenant' && !selectedTenantId && tenants.length > 0) {
-      setSelectedTenantId(tenants[0].id);
-    }
-  }, [isAuthenticated, userType, appWorkspace, selectedTenantId, tenants]);
 
-  // Tenant users can never enter the platform workspace.
-  useEffect(() => {
-    if (userType === 'tenant_user' && appWorkspace === 'platform') setAppWorkspace('tenant');
-  }, [userType, appWorkspace]);
 
   // Tenant data when the active tenant is known
   useEffect(() => {
@@ -1504,7 +1494,6 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         revokeCredential,
         navigateTo,
         appWorkspace,
-        setAppWorkspace,
         tenantNavTab,
         setTenantNavTab,
         selectedSiteId,

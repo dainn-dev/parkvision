@@ -33,7 +33,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
   onNavigate,
   onScrollToSection
 }) => {
-  const { isAuthenticated, appWorkspace, setAppWorkspace, theme, toggleTheme } = usePlatform();
+  const { isAuthenticated, theme, toggleTheme } = usePlatform();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleNavClick = (sectionId: string) => {

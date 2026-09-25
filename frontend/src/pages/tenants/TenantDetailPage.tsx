@@ -35,7 +35,7 @@ export const TenantDetailPage: React.FC<{
   tenantId: string;
   onBack: () => void;
 }> = ({ tenantId, onBack }) => {
-  const { tenants, setTenantStatus, auditLogs, setAppWorkspace, setTenantNavTab } = usePlatform();
+  const { tenants, setTenantStatus, auditLogs } = usePlatform();
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'usage' | 'activity'>('overview');
 
   const tenant = tenants.find((t) => t.id === tenantId) || tenants[0];
@@ -116,19 +116,6 @@ export const TenantDetailPage: React.FC<{
 
           {/* Quick Lifecycle Action Buttons */}
           <div className="flex items-center gap-3 shrink-0">
-            <Button
-              variant="primary"
-              size="sm"
-              icon={Building2}
-              onClick={() => {
-                setAppWorkspace('tenant');
-                setTenantNavTab('dashboard');
-              }}
-              className="bg-[#58a6ff] hover:bg-[#58a6ff]/90 text-slate-950 font-bold"
-            >
-              Open Tenant Portal & Sites →
-            </Button>
-
             {tenant.status === 'ACTIVE' ? (
               <Button
                 variant="danger"

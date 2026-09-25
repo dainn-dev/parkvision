@@ -31,7 +31,6 @@ import { TenantNavTab } from '../../types/tenant';
 export const PlatformSidebar: React.FC = () => {
   const {
     appWorkspace,
-    setAppWorkspace,
     primaryTab,
     setPrimaryTab,
     platformSubTab,
@@ -50,7 +49,6 @@ export const PlatformSidebar: React.FC = () => {
     tenantVehicles,
     tenantLocation,
     currentUser,
-    userType,
     setSelectedTenantId
   } = usePlatform();
 
@@ -63,46 +61,6 @@ export const PlatformSidebar: React.FC = () => {
 
   return (
     <aside className="w-64 bg-[#0d0e12] border-r border-[#30363d] flex flex-col shrink-0 select-none">
-      {/* Workspace Switcher Header */}
-      <div className="p-3 border-b border-[#30363d] bg-[#161b22]/70">
-        <div className="text-[10px] uppercase font-bold text-[#8b949e] px-2 mb-1.5 tracking-wider">
-          Current Workspace
-        </div>
-        <div className="grid grid-cols-2 gap-1 bg-[#0d0e12] p-1 rounded-xl border border-[#30363d]">
-          <button
-            onClick={() => {
-              if (userType !== 'platform_admin') return;
-              setAppWorkspace('platform');
-              setSelectedTenantId(null);
-            }}
-            disabled={userType !== 'platform_admin'}
-            title={userType !== 'platform_admin' ? 'Platform admin only' : undefined}
-            className={`py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-              userType !== 'platform_admin' ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
-            } ${
-              appWorkspace === 'platform'
-                ? 'bg-[#21262d] text-[#58a6ff] shadow-xs'
-                : 'text-[#8b949e] hover:text-[#c9d1d9]'
-            }`}
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            Platform
-          </button>
-
-          <button
-            onClick={() => setAppWorkspace('tenant')}
-            className={`py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              appWorkspace === 'tenant'
-                ? 'bg-[#58a6ff]/20 text-[#58a6ff] border border-[#58a6ff]/30 shadow-xs'
-                : 'text-[#8b949e] hover:text-[#c9d1d9]'
-            }`}
-          >
-            <Building2 className="w-3.5 h-3.5" />
-            Tenant
-          </button>
-        </div>
-      </div>
-
       {/* Brand Header */}
       <div className="h-14 px-5 border-b border-[#30363d] flex items-center justify-between bg-[#0d0e12]">
         <div className="flex items-center gap-2.5">
