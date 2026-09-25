@@ -1,6 +1,8 @@
 """Public endpoints: plans, legal documents, tenant self-registration."""
 
-from fastapi import APIRouter
+import re
+
+from fastapi import APIRouter, Query
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -10,10 +12,12 @@ from app.database import anonymous_session, platform_session
 from app.models import LegalDocument, Plan, Tenant, TenantUser
 from app.schemas.auth import RegisterTenantIn, RegisterTenantOut
 from app.schemas.common import Page, paginate
-from app.schemas.resources import LegalDocOut, PlanOut
+from app.schemas.resources import CheckCodeOut, LegalDocOut, PlanOut
 from app.security import hash_password
 
 router = APIRouter(tags=["public"])
+
+SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{1,119}$")
 
 
 @router.get("/plans", response_model=Page[PlanOut])
@@ -41,6 +45,25 @@ async def latest_legal_doc(doc_type: str) -> LegalDocOut:
     if row is None:
         raise not_found("legal_document", doc_type) from None
     return LegalDocOut.model_validate(row)
+
+
+@router.get("/tenants/check-code", response_model=CheckCodeOut)
+async def check_tenant_code(slug: str = Query(min_length=2, max_length=120)) -> CheckCodeOut:
+    """Realtime slug availability check for the registration form."""
+    normalized = slug.strip().lower()
+    if not SLUG_PATTERN.fullmatch(normalized):
+        return CheckCodeOut(available=False, slug=normalized, reason="invalid_slug")
+    # platform_session: RLS hides tenant rows from anonymous context; this
+    # endpoint only returns a boolean, so no tenant data leaks.
+    async with platform_session() as db:
+        exists = (
+            await db.execute(select(Tenant.id).where(Tenant.slug == normalized).limit(1))
+        ).scalar_one_or_none()
+    return CheckCodeOut(
+        available=exists is None,
+        slug=normalized,
+        reason="taken" if exists is not None else None,
+    )
 
 
 @router.post("/register", response_model=RegisterTenantOut, status_code=201)
