@@ -1021,6 +1021,15 @@ export interface components {
             vehicleId: string | null;
             /** Platenumber */
             plateNumber: string | null;
+            /** Correctedplate */
+            correctedPlate?: string | null;
+            /** Verifiedby */
+            verifiedBy?: string | null;
+            /**
+             * Correctedat
+             * Format: date-time
+             */
+            correctedAt?: string | null;
             /** Direction */
             direction: string;
             /** Decision */
@@ -2068,6 +2077,201 @@ export interface components {
             status?: string | null;
             /** Notes */
             notes?: string | null;
+        };
+        /** CheckCodeOut */
+        CheckCodeOut: {
+            /** Available */
+            available: boolean;
+            /** Slug */
+            slug?: string | null;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** RuleSimulateOut */
+        RuleSimulateOut: {
+            /** Decision */
+            decision: string;
+            /** Reason */
+            reason: string;
+            /** Matchedrule */
+            matchedRule?: string | null;
+            /** Vehicleid */
+            vehicleId?: string | null;
+        };
+        /** BulkResolveOut */
+        BulkResolveOut: {
+            /** Resolved */
+            resolved: number;
+        };
+        /** TenantSettingsIn */
+        TenantSettingsIn: {
+            /** Ocrconfidencethreshold */
+            ocrConfidenceThreshold?: number | null;
+            /** Loopcleardelayms */
+            loopClearDelayMs?: number | null;
+            /** Webhookurl */
+            webhookUrl?: string | null;
+            /** Telegramchatid */
+            telegramChatId?: string | null;
+            /** Notifyoncritical */
+            notifyOnCritical?: boolean | null;
+            /** Retentiondays */
+            retentionDays?: number | null;
+            [key: string]: unknown;
+        };
+        /** TenantSettingsOut */
+        TenantSettingsOut: {
+            /** Ocrconfidencethreshold */
+            ocrConfidenceThreshold?: number | null;
+            /** Loopcleardelayms */
+            loopClearDelayMs?: number | null;
+            /** Webhookurl */
+            webhookUrl?: string | null;
+            /** Telegramchatid */
+            telegramChatId?: string | null;
+            /** Notifyoncritical */
+            notifyOnCritical?: boolean | null;
+            /** Retentiondays */
+            retentionDays?: number | null;
+            [key: string]: unknown;
+        };
+        /** DashboardSummaryOut */
+        DashboardSummaryOut: {
+            /** Sites */
+            sites: number;
+            /** Gates */
+            gates: number;
+            /** Gatesonline */
+            gatesOnline: number;
+            /** Devices */
+            devices: number;
+            /** Devicesonline */
+            devicesOnline: number;
+            /** Vehicles */
+            vehicles: number;
+            /** Users */
+            users: number;
+            /** Todayevents */
+            todayEvents: number;
+            /** Todayallowed */
+            todayAllowed: number;
+            /** Todaydenied */
+            todayDenied: number;
+            /** Todayunknown */
+            todayUnknown: number;
+            /** Openincidents */
+            openIncidents: number;
+            /** Capacity */
+            capacity: number;
+            /** Currentoccupancy */
+            currentOccupancy: number;
+            /** Occupancyrate */
+            occupancyRate: number;
+        };
+        /** HourlyFlowPoint */
+        HourlyFlowPoint: {
+            /** Hour */
+            hour: string;
+            /** Entries */
+            entries: number;
+            /** Exits */
+            exits: number;
+            /** Allowed */
+            allowed: number;
+            /** Denied */
+            denied: number;
+        };
+        /** HourlyFlowOut */
+        HourlyFlowOut: {
+            /** Points */
+            points: components["schemas"]["HourlyFlowPoint"][];
+        };
+        /** MetricsOverviewOut */
+        MetricsOverviewOut: {
+            /** Tenantstotal */
+            tenantsTotal: number;
+            /** Tenantsactive */
+            tenantsActive: number;
+            /** Userstotal */
+            usersTotal: number;
+            /** Sessionsactive */
+            sessionsActive: number;
+            /** Eventstoday */
+            eventsToday: number;
+            /** Commandstoday */
+            commandsToday: number;
+            /** Openincidents */
+            openIncidents: number;
+            /** Gatestotal */
+            gatesTotal: number;
+            /** Edgedevicesonline */
+            edgeDevicesOnline: number;
+            /** Edgedevicestotal */
+            edgeDevicesTotal: number;
+        };
+        /** ThroughputPoint */
+        ThroughputPoint: {
+            /** Hour */
+            hour: string;
+            /** Events */
+            events: number;
+            /** Commands */
+            commands: number;
+        };
+        /** ThroughputChartOut */
+        ThroughputChartOut: {
+            /** Points */
+            points: components["schemas"]["ThroughputPoint"][];
+        };
+        /** SnapshotGate */
+        SnapshotGate: {
+            /** Gateid */
+            gateId: string;
+            /** Tenantid */
+            tenantId: string;
+            /** Siteid */
+            siteId: string;
+            /** Gatename */
+            gateName: string;
+            /** Sitename */
+            siteName: string;
+            /** Status */
+            status: string;
+            /** Lastrecordedat */
+            lastRecordedAt?: string | null;
+            /** Laststate */
+            lastState?: string | null;
+            /** Payload */
+            payload?: Record<string, unknown> | null;
+        };
+        /** SnapshotDevice */
+        SnapshotDevice: {
+            /** Deviceid */
+            deviceId: string;
+            /** Tenantid */
+            tenantId: string;
+            /** Siteid */
+            siteId: string | null;
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
+            /** Lastheartbeatat */
+            lastHeartbeatAt?: string | null;
+        };
+        /** TelemetrySnapshotOut */
+        TelemetrySnapshotOut: {
+            /** Captureddat */
+            capturedAt: string;
+            /** Gates */
+            gates: components["schemas"]["SnapshotGate"][];
+            /** Devices */
+            devices: components["schemas"]["SnapshotDevice"][];
+        };
+        /** EdgeRebootOut */
+        EdgeRebootOut: {
+            /** Commandids */
+            commandIds: string[];
         };
     };
     responses: never;

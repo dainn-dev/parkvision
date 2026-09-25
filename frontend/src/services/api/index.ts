@@ -69,6 +69,7 @@ export const authApi = {
 export const publicApi = {
   plans: () => api.get<PlanOut[]>('/plans'),
   legal: (doc: 'terms' | 'privacy' | 'dpa' | 'sla') => api.get<LegalDocOut>(`/legal/${doc}`),
+  checkCode: (slug: string) => api.get<S['CheckCodeOut']>(`/tenants/check-code${qs({ slug })}`),
   register: (body: {
     tenantName: string;
     slug: string;
@@ -111,6 +112,10 @@ export const platformApi = {
   infraHealth: () => api.get<InfraHealth>('/platform/infra/health'),
   auditLogs: (p: { page?: number; limit?: number; action?: string; actorId?: string; fromTs?: string; toTs?: string } = {}) =>
     api.get<Page<AuditLogOut>>(`/platform/audit-logs${qs(p)}`),
+  metricsOverview: () => api.get<S['MetricsOverviewOut']>('/platform/metrics/overview'),
+  throughputChart: (hours = 24) => api.get<S['ThroughputChartOut']>(`/platform/metrics/throughput-chart${qs({ hours })}`),
+  telemetrySnapshot: () => api.get<S['TelemetrySnapshotOut']>('/platform/monitoring/telemetry-snapshot'),
+  rebootEdgeDevice: (deviceId: string) => api.post<S['EdgeRebootOut']>(`/platform/edge-devices/${deviceId}/reboot`),
 };
 
 // ---------- Tenant-scoped ----------
@@ -185,6 +190,20 @@ export const tenantApi = {
   exportAudit: (t: string, body: { fromTs?: string; toTs?: string; action?: string }) => api.post<JobOut>(T(t, '/audit-logs/export'), body),
 
   job: (t: string, id: string) => api.get<JobOut>(T(t, `/jobs/${id}`)),
+
+  simulateRule: (t: string, plateNumber?: string) =>
+    api.post<S['RuleSimulateOut']>(T(t, '/rules/simulate'), { plateNumber }),
+  correctPlate: (t: string, id: string, plateNumber: string) =>
+    api.patch<S['AccessEventOut']>(T(t, `/access-events/${id}/correct-plate`), { plateNumber }),
+  bulkResolveIncidents: (t: string, incidentIds: string[], resolutionNotes?: string) =>
+    api.post<S['BulkResolveOut']>(T(t, '/incidents/bulk-resolve'), { incidentIds, resolutionNotes }),
+
+  settings: (t: string) => api.get<S['TenantSettingsOut']>(T(t, '/settings')),
+  updateSettings: (t: string, body: S['TenantSettingsIn']) =>
+    api.put<S['TenantSettingsOut']>(T(t, '/settings'), body),
+
+  dashboardSummary: (t: string) => api.get<S['DashboardSummaryOut']>(T(t, '/dashboard/summary')),
+  hourlyFlow: (t: string, hours = 24) => api.get<S['HourlyFlowOut']>(T(t, `/dashboard/hourly-flow${qs({ hours })}`)),
 };
 
 // ---------- WebSocket ----------

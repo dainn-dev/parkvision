@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { platformApi } from '../services/api';
+import type { components } from '../services/api/schema';
 import { usePlatform } from '../context/PlatformContext';
 import {
   Building2,
@@ -43,16 +45,26 @@ export const DashboardPage: React.FC<{
     incidents,
     securityAlerts,
     auditLogs,
-    navigateTo
+    navigateTo,
+    userType
   } = usePlatform();
+
+  // Server-aggregated platform metrics + throughput (Phase 2)
+  const [metrics, setMetrics] = useState<components['schemas']['MetricsOverviewOut'] | null>(null);
+  const [throughput, setThroughput] = useState<components['schemas']['ThroughputPoint'][] | null>(null);
+  useEffect(() => {
+    if (userType !== 'platform_admin') return;
+    platformApi.metricsOverview().then(setMetrics).catch(() => setMetrics(null));
+    platformApi.throughputChart(24).then((r) => setThroughput(r.points)).catch(() => setThroughput(null));
+  }, [userType]);
 
   // Aggregate Stats Calculations
   const activeTenants = tenants.filter((t) => t.status === 'ACTIVE').length;
   const trialTenants = tenants.filter((t) => t.status === 'TRIAL').length;
   const suspendedTenants = tenants.filter((t) => t.status === 'SUSPENDED').length;
 
-  const totalUsersCount = tenants.reduce((acc, t) => acc + t.statistics.usersCount, 0);
-  const totalEventsCount = tenants.reduce((acc, t) => acc + t.statistics.eventsCount, 0);
+  const totalUsersCount = metrics?.usersTotal ?? tenants.reduce((acc, t) => acc + t.statistics.usersCount, 0);
+  const totalEventsCount = metrics?.eventsToday ?? tenants.reduce((acc, t) => acc + t.statistics.eventsCount, 0);
 
   const totalCameras = cameras.length;
   const onlineCameras = cameras.filter((c) => c.status === 'ONLINE').length;
@@ -68,21 +80,12 @@ export const DashboardPage: React.FC<{
   const criticalAlertsCount = openAlerts.filter((a) => a.severity === 'CRITICAL').length;
   const highAlertsCount = openAlerts.filter((a) => a.severity === 'HIGH').length;
 
-  // Chart Mock Data for 24 hours throughput
-  const hourlyThroughputData = [
-    { time: '00:00', events: 42000, latency: 45 },
-    { time: '02:00', events: 28000, latency: 38 },
-    { time: '04:00', events: 19000, latency: 35 },
-    { time: '06:00', events: 68000, latency: 42 },
-    { time: '08:00', events: 184000, latency: 58 },
-    { time: '10:00', events: 245000, latency: 62 },
-    { time: '12:00', events: 210000, latency: 52 },
-    { time: '14:00', events: 238000, latency: 55 },
-    { time: '16:00', events: 260000, latency: 64 },
-    { time: '18:00', events: 215000, latency: 48 },
-    { time: '20:00', events: 142000, latency: 41 },
-    { time: '22:00', events: 88000, latency: 39 }
-  ];
+  // 24h throughput from server aggregation (fallback: empty series)
+  const hourlyThroughputData = (throughput ?? []).map((p) => ({
+    time: new Date(p.hour).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    events: p.events,
+    commands: p.commands
+  }));
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -144,8 +147,8 @@ export const DashboardPage: React.FC<{
 
         <StatCard
           title="Recognition Events (24h)"
-          value={`${(totalEventsCount / 1000000).toFixed(2)}M`}
-          subtitle="Real-time gate OCR payload throughput"
+          value={totalEventsCount.toLocaleString()}
+          subtitle={metrics ? "Live count today across all tenants" : "Real-time gate OCR payload throughput"}
           changeType="neutral"
           icon={Activity}
           onClick={() => navigateTo('monitoring')}
@@ -271,7 +274,7 @@ export const DashboardPage: React.FC<{
           action={
             <div className="flex items-center gap-2">
               <Badge variant="blue" size="sm">24-Hour Range</Badge>
-              <Badge variant="emerald" size="sm" dot>Sub-50ms Latency</Badge>
+              <Badge variant="emerald" size="sm" dot>Live SQL aggregation</Badge>
             </div>
           }
         />
@@ -300,10 +303,20 @@ export const DashboardPage: React.FC<{
                 <Area
                   type="monotone"
                   dataKey="events"
+                  name="Access events"
                   stroke="#58a6ff"
                   strokeWidth={2.5}
                   fillOpacity={1}
                   fill="url(#colorEvents)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="commands"
+                  name="Gate commands"
+                  stroke="#a371f7"
+                  strokeWidth={1.5}
+                  fillOpacity={0}
+                  fill="transparent"
                 />
               </AreaChart>
             </ResponsiveContainer>
