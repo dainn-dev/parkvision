@@ -131,13 +131,7 @@ async def record_access_event(
     )
     db.add(event)
     if site_id is not None and str(decision) == AccessDecision.ALLOW:
-        delta = (
-            1
-            if direction == EventDirection.ENTRY
-            else -1
-            if direction == EventDirection.EXIT
-            else 0
-        )
+        delta = 1 if direction == EventDirection.ENTRY else -1 if direction == EventDirection.EXIT else 0
         if delta:
             # floor 0 on exits; cap at 2x capacity when capacity is set
             await db.execute(

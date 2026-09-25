@@ -207,9 +207,7 @@ async def create_incident(
         ip=request.client.host if request.client else None,
     )
     out = IncidentOut.model_validate(row)
-    await publish_ws(
-        str(ctx.tenant_id), {"type": "incident", "incident": out.model_dump(mode="json")}
-    )
+    await publish_ws(str(ctx.tenant_id), {"type": "incident", "incident": out.model_dump(mode="json")})
     return out
 
 
@@ -248,9 +246,7 @@ async def acknowledge_incident(
         ip=request.client.host if request.client else None,
     )
     out = IncidentOut.model_validate(row)
-    await publish_ws(
-        str(ctx.tenant_id), {"type": "incident_update", "incident": out.model_dump(mode="json")}
-    )
+    await publish_ws(str(ctx.tenant_id), {"type": "incident_update", "incident": out.model_dump(mode="json")})
     return out
 
 
@@ -291,7 +287,5 @@ async def resolve_incident(
         ip=request.client.host if request.client else None,
     )
     out = IncidentOut.model_validate(row)
-    await publish_ws(
-        str(ctx.tenant_id), {"type": "incident_update", "incident": out.model_dump(mode="json")}
-    )
+    await publish_ws(str(ctx.tenant_id), {"type": "incident_update", "incident": out.model_dump(mode="json")})
     return out
