@@ -61,8 +61,12 @@ async def create_site(
     row = TenantSite(
         tenant_id=ctx.tenant_id,
         name=body.name,
+        code=body.code,
         address=body.address,
         timezone=body.timezone,
+        latitude=body.latitude,
+        longitude=body.longitude,
+        capacity=body.capacity or 0,
         status=body.status or "active",
     )
     db.add(row)

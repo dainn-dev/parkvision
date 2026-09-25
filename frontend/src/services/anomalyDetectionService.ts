@@ -62,53 +62,7 @@ export class BarrierAnomalyDetector {
   private sensitivityMultiplier: number = 1.0; // 1.0 = standard 3-sigma, 0.7 = high sensitivity, 1.4 = conservative
   private listeners: Set<(anomalies: BarrierAnomalyResult[]) => void> = new Set();
 
-  constructor() {
-    this.seedInitialAnomalies();
-  }
-
-  /**
-   * Seed a realistic pre-existing anomaly to showcase the ML heuristic immediately on load
-   */
-  private seedInitialAnomalies() {
-    const initialAnomaly: BarrierAnomalyResult = {
-      id: 'ml-anom-abc-01',
-      gateId: 'bg-001-01',
-      gateCode: 'GATE-ABC-IN1',
-      gateName: 'Cổng Vào 01 (Làn Xe Máy & Ô tô)',
-      siteId: 'site-b-001',
-      siteName: 'Trung tâm Vận tải & Bãi xe ABC Logistics',
-      tenantId: 't-001',
-      tenantName: 'ABC Logistics & Parking',
-      detectedAt: '1 phút trước',
-      anomalyScore: 93,
-      severity: 'CRITICAL',
-      primaryType: 'UNUSUALLY_HIGH_FREQUENCY',
-      title: 'Tần suất yêu cầu truy cập vượt ngưỡng dị thường (48 req/phút)',
-      description: 'Phát hiện lưu lượng kích hoạt cảm biến vòng từ và yêu cầu OCR liên tục với chu kỳ < 1.25 giây, cao gấp 3.4x so với phân phối Poisson lịch sử.',
-      hypothesis: 'Hiện tượng bám đuôi sát xe (tailgating burst), vòng lặp cảm biến từ bị nhiễu do vật kim loại rung, hoặc hành vi spam thẻ RFID liên tục.',
-      recommendedAction: 'Kích hoạt bộ lọc Rate Limiting tại Edge Gateway (Tối đa 1 lệnh/2.5s) và kiểm tra tín hiệu cuộn từ số 2.',
-      features: {
-        currentReqPerMin: 48.2,
-        baselineReqPerMin: 14.2,
-        baselineStdDev: 3.1,
-        zScore: 10.97,
-        ewmaRate: 42.6,
-        burstRatio: 3.39,
-        interArrivalVariance: 0.14,
-        cyclesLast5Min: 86,
-        motorTempC: 44.8,
-        rejectionRatePercent: 8.5
-      },
-      mitigationStatus: 'ACTIVE',
-      historicalWindow: {
-        timestamps: ['-10m', '-8m', '-6m', '-4m', '-2m', 'Hiện tại'],
-        observedFreq: [14, 15, 16, 28, 44, 48],
-        baselineFreq: [14, 14, 14, 14, 14, 14]
-      }
-    };
-
-    this.activeAnomalies.set(initialAnomaly.gateId, initialAnomaly);
-  }
+  constructor() {}
 
   /**
    * Register a listener for real-time anomaly state changes
@@ -296,59 +250,6 @@ export class BarrierAnomalyDetector {
     // If gate is stuck or offline, synthesize appropriate rate
     if (gate.status === 'STUCK') return baseline.meanReqPerMin * 2.2;
     return baseline.meanReqPerMin + (Math.sin(Date.now() / 10000) * baseline.stdDevReqPerMin * 0.8);
-  }
-
-  /**
-   * Interactive Simulator: Injects a high-frequency access burst anomaly (Tailgating / Replay / DoS)
-   */
-  public triggerHighFrequencyBurst(targetSiteId: string = 'site-b-001', targetGateId?: string): BarrierAnomalyResult {
-    const gateId = targetGateId || (targetSiteId === 'site-b-004' ? 'bg-004-03' : 'bg-001-01');
-    const baseline = DEFAULT_GATE_BASELINES[gateId] || FALLBACK_BASELINE;
-
-    // Inject massive burst: 4x-5x baseline
-    const burstReqPerMin = baseline.meanReqPerMin * 3.8 + 8;
-    const zScore = (burstReqPerMin - baseline.meanReqPerMin) / baseline.stdDevReqPerMin;
-
-    const anomaly: BarrierAnomalyResult = {
-      id: `anom-sim-${Date.now()}`,
-      gateId,
-      gateCode: gateId === 'bg-004-03' ? 'GATE-TSN-CUSTOMS' : 'GATE-ABC-IN1',
-      gateName: gateId === 'bg-004-03' ? 'Cổng Kiểm Soát Hải Quan Đặc Biệt' : 'Cổng Vào 01 (Làn Xe Máy & Ô tô)',
-      siteId: targetSiteId,
-      siteName: targetSiteId === 'site-b-004' ? 'Ga Hàng Hóa Sân Bay Tân Sơn Nhất' : 'Trung tâm Vận tải & Bãi xe ABC Logistics',
-      tenantId: targetSiteId === 'site-b-004' ? 't-004' : 't-001',
-      tenantName: targetSiteId === 'site-b-004' ? 'Tan Son Nhat Air Cargo Terminal' : 'ABC Logistics & Parking',
-      detectedAt: 'Vừa phát hiện (Mô phỏng)',
-      anomalyScore: 96,
-      severity: 'CRITICAL',
-      primaryType: 'UNUSUALLY_HIGH_FREQUENCY',
-      title: `Tần suất yêu cầu bất thường: ${burstReqPerMin.toFixed(0)} req/phút (Z = +${zScore.toFixed(1)}σ)`,
-      description: `Phát hiện cụm yêu cầu liên tiếp (burst train) với thời gian giãn cách giữa các lần kích hoạt loop sensor chỉ 0.8s. Vượt 380% baseline lịch sử.`,
-      hypothesis: 'Có hiện tượng bám đuôi phương tiện sát nút (tailgating attack) hoặc vòng cảm biến từ bị kích hoạt liên tục do nhiễu rung.',
-      recommendedAction: 'Kích hoạt ngay chính sách Rate-Limiting tại Edge: Áp dụng giãn cách tối thiểu 2.5s giữa các lần nâng cần.',
-      features: {
-        currentReqPerMin: Number(burstReqPerMin.toFixed(1)),
-        baselineReqPerMin: baseline.meanReqPerMin,
-        baselineStdDev: baseline.stdDevReqPerMin,
-        zScore: Number(zScore.toFixed(2)),
-        ewmaRate: Number((burstReqPerMin * 0.85).toFixed(1)),
-        burstRatio: Number((burstReqPerMin / baseline.meanReqPerMin).toFixed(2)),
-        interArrivalVariance: 0.08,
-        cyclesLast5Min: 98,
-        motorTempC: 48.2,
-        rejectionRatePercent: 12.4
-      },
-      mitigationStatus: 'ACTIVE',
-      historicalWindow: {
-        timestamps: ['-10m', '-8m', '-6m', '-4m', '-2m', 'Hiện tại'],
-        observedFreq: [14, 15, 17, 32, 48, Math.round(burstReqPerMin)],
-        baselineFreq: [14, 14, 14, 14, 14, 14]
-      }
-    };
-
-    this.activeAnomalies.set(gateId, anomaly);
-    this.notify();
-    return anomaly;
   }
 
   /**

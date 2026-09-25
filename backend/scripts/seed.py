@@ -80,7 +80,16 @@ async def main() -> None:
             )
         ).scalar_one_or_none()
         if site is None:
-            site = TenantSite(tenant_id=tenant.id, name="HQ Garage", address="1 Demo St", timezone="UTC")
+            site = TenantSite(
+                tenant_id=tenant.id,
+                name="HQ Garage",
+                code="HQ",
+                address="1 Demo St, Quận 1, TP.HCM",
+                timezone="Asia/Ho_Chi_Minh",
+                latitude=10.7769,
+                longitude=106.7009,
+                capacity=120,
+            )
             db.add(site)
             await db.flush()
 

@@ -4,11 +4,11 @@ import re
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import AccessDecision, VehicleStatus, VehicleTag
-from app.models import AccessEvent, RegisteredVehicle, TenantAccessRule
+from app.core.enums import AccessDecision, EventDirection, VehicleStatus, VehicleTag
+from app.models import AccessEvent, RegisteredVehicle, TenantAccessRule, TenantSite
 
 
 def normalize_plate(plate: str) -> str:
@@ -130,6 +130,32 @@ async def record_access_event(
         occurred_at=occurred_at or datetime.now(timezone.utc),
     )
     db.add(event)
+    if site_id is not None and str(decision) == AccessDecision.ALLOW:
+        delta = (
+            1
+            if direction == EventDirection.ENTRY
+            else -1
+            if direction == EventDirection.EXIT
+            else 0
+        )
+        if delta:
+            # floor 0 on exits; cap at 2x capacity when capacity is set
+            await db.execute(
+                update(TenantSite)
+                .where(TenantSite.id == site_id, TenantSite.tenant_id == tenant_id)
+                .values(
+                    current_occupancy=func.greatest(
+                        0,
+                        func.least(
+                            case(
+                                (TenantSite.capacity > 0, TenantSite.capacity * 2),
+                                else_=2_147_483_647,
+                            ),
+                            TenantSite.current_occupancy + delta,
+                        ),
+                    )
+                )
+            )
     await db.flush()
     return event
 

@@ -151,8 +151,13 @@ class TenantSite(TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    code: Mapped[str | None] = mapped_column(String(50))
     address: Mapped[str | None] = mapped_column(Text)
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC")
+    latitude: Mapped[float | None] = mapped_column(Numeric(10, 7))
+    longitude: Mapped[float | None] = mapped_column(Numeric(10, 7))
+    capacity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    current_occupancy: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
 
     __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_site_name"),)

@@ -51,7 +51,7 @@ import {
   barrierTelemetryWsUrl,
   ApiError,
 } from '../services/api';
-import type { LaneOut } from '../services/api';
+import type { IncidentOut, LaneOut } from '../services/api';
 import {
   mapAccessEvent,
   mapAuditLog,
@@ -232,7 +232,10 @@ interface PlatformContextType {
   updateTenantSite: (siteId: string, siteData: Partial<TenantSite>) => void;
   deleteTenantSite: (siteId: string) => void;
   resolveTenantAlert: (alertId: string) => void;
-  triggerGateCommand: (gateId: string, command: 'OPEN' | 'CLOSE' | 'LOCK' | 'RESET') => void;
+  triggerGateCommand: (
+    gateId: string,
+    command: 'OPEN' | 'CLOSE' | 'LOCK' | 'UNLOCK' | 'RESET' | 'REBOOT' | 'RELINK',
+  ) => void;
   simulateNewAccessEvent: (customEvent?: Partial<AccessEvent>) => void;
   addRegisteredVehicle: (vehicleData: { plate: string; ownerName: string; model: string; type: string; siteId?: string }) => void;
   deleteRegisteredVehicle: (id: string) => void;
@@ -700,8 +703,8 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         try {
           const msg = JSON.parse(ev.data);
           const kind = msg?.type ?? msg?.event ?? '';
-          if (/access|event/i.test(kind) || msg?.decision) {
-            const out = msg.payload ?? msg;
+          if (/access|event/i.test(kind) || msg?.decision || (kind === 'telemetry' && msg?.plateNumber)) {
+            const out = msg.event ?? msg.payload ?? msg;
             const mapped = mapAccessEvent({
               id: out.id ?? `evt-${Date.now()}`,
               siteId: out.siteId ?? out.site_id,
@@ -709,7 +712,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
               laneId: out.laneId ?? out.lane_id,
               vehicleId: out.vehicleId ?? out.vehicle_id,
               plateNumber: out.plateNumber ?? out.plate_number ?? out.plate,
-              direction: out.direction ?? 'IN',
+              direction: (out.direction ?? 'IN').toString().toUpperCase() === 'EXIT' ? 'OUT' : 'IN',
               decision: out.decision ?? 'unknown',
               reason: out.reason,
               confidence: out.confidence,
@@ -719,11 +722,60 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
               occurredAt: out.occurredAt ?? out.occurred_at ?? new Date().toISOString(),
             } as any, { siteName: siteNameOf(out.siteId ?? out.site_id), gateName: gateNameOf(out.gateId ?? out.gate_id) });
             setAccessEvents((prev) => [mapped, ...prev.slice(0, 99)]);
-          } else if (/incident/i.test(kind)) {
-            void loadTenantData(activeTenantId);
-          } else if (/telemetry|gate|heartbeat/i.test(kind)) {
+            if (kind !== 'telemetry') setLastUpdatedTime(new Date().toLocaleTimeString());
+          }
+          if (kind === 'incident' || kind === 'incident_update') {
+            const inc = msg.incident;
+            if (inc) {
+              const mapped = mapIncident(inc as IncidentOut, {
+                siteName: siteNameOf(inc.siteId),
+                gateName: gateNameOf(inc.gateId),
+                tenantName: tenantNameRef.current,
+              });
+              setIncidents((prev) => {
+                const idx = prev.findIndex((i) => i.id === mapped.id);
+                if (idx === -1) return [mapped, ...prev];
+                const next = [...prev];
+                next[idx] = mapped;
+                return next;
+              });
+            } else if (msg.gateId) {
+              // MQTT-sourced incident frame carries raw payload — degrade the gate card
+              setGates((prev) => prev.map((g) => (g.id === msg.gateId ? { ...g, status: 'DEGRADED' } : g)));
+            }
             setLastUpdatedTime(new Date().toLocaleTimeString());
-            void loadTenantData(activeTenantId);
+          } else if (/telemetry|heartbeat/i.test(kind) && msg.gateId) {
+            // Apply gate telemetry as a delta — no REST refetch per frame
+            const { type: _t, siteId: _s, gateId: _g, ...payload } = msg;
+            const isoNow = new Date().toISOString();
+            setGates((prev) =>
+              prev.map((g) => {
+                if (g.id !== msg.gateId) return g;
+                const rawStatus = typeof payload.state === 'string' ? payload.state : g.rawStatus;
+                return {
+                  ...g,
+                  rawStatus,
+                  status:
+                    rawStatus === 'fault'
+                      ? 'DEGRADED'
+                      : rawStatus === 'offline'
+                        ? 'OFFLINE'
+                        : g.status === 'OFFLINE' && rawStatus !== 'offline'
+                          ? 'ONLINE'
+                          : g.status,
+                  lastTelemetry: { recordedAt: isoNow, state: rawStatus ?? null, payload },
+                  lastHeartbeat: isoNow,
+                };
+              }),
+            );
+            if (msg.deviceId) {
+              setEdgeDevices((prev) =>
+                prev.map((d) =>
+                  d.id === msg.deviceId ? { ...d, status: 'ONLINE', lastHeartbeat: isoNow } : d,
+                ),
+              );
+            }
+            setLastUpdatedTime(new Date().toLocaleTimeString());
           }
         } catch {
           /* malformed frame */
@@ -994,10 +1046,14 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       .catch(toastErr('Failed to resolve alert'));
   };
 
-  const triggerGateCommand = (gateId: string, command: 'OPEN' | 'CLOSE' | 'LOCK' | 'RESET') => {
+  const triggerGateCommand = (
+    gateId: string,
+    command: 'OPEN' | 'CLOSE' | 'LOCK' | 'UNLOCK' | 'RESET' | 'REBOOT' | 'RELINK',
+  ) => {
     if (!activeTenantId) return;
+    const wire = command === 'RESET' ? 'reboot' : command.toLowerCase();
     tenantApi
-      .sendCommand(activeTenantId, gateId, command.toLowerCase(), crypto.randomUUID())
+      .sendCommand(activeTenantId, gateId, wire, crypto.randomUUID())
       .then((cmd) => {
         addToast({ type: 'success', title: `Command ${command} sent`, description: cmd.id });
         // Poll for the ack a couple of times, then surface the outcome.

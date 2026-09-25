@@ -60,6 +60,7 @@ class GateCommand(StrEnum):
     LOCK = "lock"
     UNLOCK = "unlock"
     REBOOT = "reboot"
+    RELINK = "relink"
 
 
 class CommandStatus(StrEnum):
