@@ -35,7 +35,6 @@ import {
   TenantVehicle,
   VehicleType,
   TenantAccessRule,
-  AccessRuleSimulationResult,
   TenantMember,
   TenantUser,
   TenantInvitation,
@@ -136,6 +135,7 @@ interface PlatformContextType {
   setSettingsSection: (section: SettingsSection) => void;
 
   selectedTenantId: string | null;
+  activeTenantId: string | null;
   setSelectedTenantId: (id: string | null) => void;
   selectedAdminId: string | null;
   setSelectedAdminId: (id: string | null) => void;
@@ -178,6 +178,7 @@ interface PlatformContextType {
 
   acknowledgeIncident: (id: string, assignedTo?: string) => void;
   resolveIncident: (id: string, note?: string) => void;
+  bulkResolveIncidents: (ids: string[], note?: string) => void;
 
   pushAuditLog: (
     category: AuditLogItem['category'],
@@ -283,7 +284,6 @@ interface PlatformContextType {
   duplicateTenantAccessRule: (ruleId: string) => Promise<TenantAccessRule | null>;
   deleteTenantAccessRule: (id: string) => void;
   reorderRulePriorities: (ruleIdsInOrder: string[]) => void;
-  simulateAccessDecision: (params: { plate: string; siteId: string; gateId: string; timestamp?: string }) => AccessRuleSimulationResult;
   detectRuleConflicts: (rule: Partial<TenantAccessRule>, excludeRuleId?: string) => string[];
 
   inviteTenantUser: (data: {
@@ -515,7 +515,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const loadTenantData = useCallback(async (tId: string) => {
     setIsTenantRefreshing(true);
     try {
-      const [sitesPage, gatesPage, devicesPage, vehiclesPage, rulesPage, usersPage, eventsPage, incidentsPage, auditPage] =
+      const [sitesPage, gatesPage, devicesPage, vehiclesPage, rulesPage, usersPage, eventsPage, incidentsPage, auditPage, dashSummary, hourlyFlow] =
         await Promise.all([
           tenantApi.sites(tId, { limit: 200 }),
           tenantApi.gates(tId, { limit: 200 }),
@@ -526,6 +526,8 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
           tenantApi.accessEvents(tId, { limit: 100 }),
           tenantApi.incidents(tId, { limit: 100 }),
           tenantApi.auditLogs(tId, { limit: 100 }).catch(() => ({ data: [], meta: { page: 1, limit: 100, total: 0 } })),
+          tenantApi.dashboardSummary(tId).catch(() => null),
+          tenantApi.hourlyFlow(tId, 24).catch(() => null),
         ]);
 
       const tName = tenantNameRef.current;
@@ -596,32 +598,45 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         auditPage.data.filter((a) => /user|invite|member/i.test(a.action)).map(mapUserAuditLog)
       );
 
-      // Derived aggregates
+      // Aggregates: prefer server-side dashboard summary (accurate beyond page
+      // limit); fall back to counting the fetched page when the endpoint is down.
       const today = new Date().toDateString();
       const todayEvents = eventsPage.data.filter((e) => new Date(e.occurredAt).toDateString() === today);
       setTenantSummary({
-        sites: { total: sites.length, active: sites.filter((s) => s.status !== 'INACTIVE').length, inactive: sites.filter((s) => s.status === 'INACTIVE').length },
+        sites: { total: dashSummary?.sites ?? sites.length, active: sites.filter((s) => s.status !== 'INACTIVE').length, inactive: sites.filter((s) => s.status === 'INACTIVE').length },
         cameras: { total: 0, online: 0, offline: 0 },
-        gates: { total: gatesMapped.length, online: gatesMapped.filter((g) => g.status === 'ONLINE').length, offline: gatesMapped.filter((g) => g.status !== 'ONLINE').length },
+        gates: {
+          total: dashSummary?.gates ?? gatesMapped.length,
+          online: dashSummary?.gatesOnline ?? gatesMapped.filter((g) => g.status === 'ONLINE').length,
+          offline: dashSummary ? dashSummary.gates - dashSummary.gatesOnline : gatesMapped.filter((g) => g.status !== 'ONLINE').length,
+        },
         vehicles: {
-          total: vehicles.length,
+          total: dashSummary?.vehicles ?? vehicles.length,
           active: vehicles.filter((v) => v.status === 'active').length,
           inactive: vehicles.filter((v) => v.status !== 'active').length,
           newThisMonth: vehicles.filter((v) => new Date(v.createdAt).getMonth() === new Date().getMonth()).length,
         },
         accessToday: {
-          total: todayEvents.length,
-          allowed: todayEvents.filter((e) => e.decision === 'allow' || e.decision === 'allowed').length,
-          denied: todayEvents.filter((e) => e.decision === 'deny' || e.decision === 'denied').length,
-          unknown: todayEvents.filter((e) => !/allow|deny/i.test(e.decision)).length,
+          total: dashSummary?.todayEvents ?? todayEvents.length,
+          allowed: dashSummary?.todayAllowed ?? todayEvents.filter((e) => e.decision === 'allow' || e.decision === 'allowed').length,
+          denied: dashSummary?.todayDenied ?? todayEvents.filter((e) => e.decision === 'deny' || e.decision === 'denied').length,
+          unknown: dashSummary?.todayUnknown ?? todayEvents.filter((e) => !/allow|deny/i.test(e.decision)).length,
           percentChange: 0,
         },
       });
       setTenantHealth({
         overall: devicesPage.data.every((d) => d.status === 'online') ? 'HEALTHY' : 'WARNING',
         cameras: { total: 0, online: 0, offline: 0 },
-        gates: { total: gatesMapped.length, online: gatesMapped.filter((g) => g.status === 'ONLINE').length, offline: gatesMapped.filter((g) => g.status !== 'ONLINE').length },
-        edgeDevices: { total: devicesPage.data.length, online: devicesPage.data.filter((d) => d.status === 'online').length, offline: devicesPage.data.filter((d) => d.status !== 'online').length },
+        gates: {
+          total: dashSummary?.gates ?? gatesMapped.length,
+          online: dashSummary?.gatesOnline ?? gatesMapped.filter((g) => g.status === 'ONLINE').length,
+          offline: dashSummary ? dashSummary.gates - dashSummary.gatesOnline : gatesMapped.filter((g) => g.status !== 'ONLINE').length,
+        },
+        edgeDevices: {
+          total: dashSummary?.devices ?? devicesPage.data.length,
+          online: dashSummary?.devicesOnline ?? devicesPage.data.filter((d) => d.status === 'online').length,
+          offline: dashSummary ? dashSummary.devices - dashSummary.devicesOnline : devicesPage.data.filter((d) => d.status !== 'online').length,
+        },
       } as TenantSystemHealth);
       setTenantAlerts(
         incidentsPage.data
@@ -641,18 +656,30 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
             status: 'OPEN' as const,
           }))
       );
-      // Hourly activity buckets for the chart
-      const buckets = new Map<string, AccessActivityDataPoint>();
-      for (const e of eventsPage.data) {
-        const d = new Date(e.occurredAt);
-        const key = `${d.getHours().toString().padStart(2, '0')}:00`;
-        const b = buckets.get(key) ?? { time: key, timestamp: d.toISOString(), allowed: 0, denied: 0, unknown: 0 };
-        if (/allow/i.test(e.decision)) b.allowed++;
-        else if (/deny/i.test(e.decision)) b.denied++;
-        else b.unknown++;
-        buckets.set(key, b);
+      // Hourly activity: server-aggregated buckets; fall back to counting the
+      // fetched page when the endpoint is unavailable.
+      if (hourlyFlow) {
+        const points = hourlyFlow.points.map((p) => ({
+          time: `${new Date(p.hour).getHours().toString().padStart(2, '0')}:00`,
+          timestamp: p.hour,
+          allowed: p.allowed,
+          denied: p.denied,
+          unknown: p.entries + p.exits - p.allowed - p.denied,
+        }));
+        if (points.length) setAccessActivity(points);
+      } else {
+        const buckets = new Map<string, AccessActivityDataPoint>();
+        for (const e of eventsPage.data) {
+          const d = new Date(e.occurredAt);
+          const key = `${d.getHours().toString().padStart(2, '0')}:00`;
+          const b = buckets.get(key) ?? { time: key, timestamp: d.toISOString(), allowed: 0, denied: 0, unknown: 0 };
+          if (/allow/i.test(e.decision)) b.allowed++;
+          else if (/deny/i.test(e.decision)) b.denied++;
+          else b.unknown++;
+          buckets.set(key, b);
+        }
+        if (buckets.size) setAccessActivity(Array.from(buckets.values()).sort((a, b) => a.time.localeCompare(b.time)));
       }
-      if (buckets.size) setAccessActivity(Array.from(buckets.values()).sort((a, b) => a.time.localeCompare(b.time)));
       setLastUpdatedTime(new Date().toLocaleTimeString());
     } catch (e) {
       console.error('loadTenantData failed', e);
@@ -953,6 +980,17 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       .resolveIncident(activeTenantId, id, note)
       .then(() => loadTenantData(activeTenantId))
       .catch(toastErr('Failed to resolve incident'));
+  };
+
+  const bulkResolveIncidents = (ids: string[], note?: string) => {
+    if (!activeTenantId || ids.length === 0) return;
+    tenantApi
+      .bulkResolveIncidents(activeTenantId, ids, note)
+      .then((r) => {
+        addToast({ type: 'success', title: `Resolved ${r.resolved} incident${r.resolved === 1 ? '' : 's'}` });
+        return loadTenantData(activeTenantId);
+      })
+      .catch(toastErr('Failed to bulk-resolve incidents'));
   };
 
   const acknowledgeAlert = (_id: string) => addToast({ type: 'info', title: 'Not supported by API' });
@@ -1370,45 +1408,6 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     })();
   };
 
-  const simulateAccessDecision = (params: { plate: string; siteId: string; gateId: string; timestamp?: string }): AccessRuleSimulationResult => {
-    // Local evaluation against the loaded rules (the API has no simulate endpoint).
-    const plateNorm = params.plate.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const matches = tenantAccessRules
-      .filter((r) => r.status === 'ACTIVE')
-      .sort((a, b) => a.priority - b.priority)
-      .map((r) => {
-        const targetPlate = (r.target.licensePlate ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const targetMatched = r.target.type === 'ALL_VEHICLES' || (targetPlate !== '' && targetPlate === plateNorm);
-        const scopeMatched = r.scope.allSites || r.scope.siteIds.includes(params.siteId) || r.scope.gateIds.includes(params.gateId);
-        return {
-          ruleId: r.id,
-          ruleCode: r.code,
-          ruleName: r.name,
-          priority: r.priority,
-          action: r.action,
-          matched: targetMatched && scopeMatched,
-          targetMatched,
-          scopeMatched,
-          scheduleMatched: true,
-          matchReason: targetMatched && scopeMatched ? 'Target and scope matched' : 'No match',
-        };
-      });
-    const winner = matches.find((m) => m.matched);
-    const winningRule = winner ? tenantAccessRules.find((r) => r.id === winner.ruleId) ?? null : null;
-    return {
-      plate: params.plate,
-      siteId: params.siteId,
-      siteName: siteNameOf(params.siteId) ?? params.siteId,
-      gateId: params.gateId,
-      gateName: gateNameOf(params.gateId) ?? params.gateId,
-      timestamp: params.timestamp ?? new Date().toISOString(),
-      decision: winningRule?.action ?? 'DENY',
-      winningRule,
-      reason: winningRule ? `Matched rule "${winningRule.name}" (#${winningRule.priority})` : 'No active rule matched — default deny',
-      allEvaluatedRules: matches,
-    };
-  };
-
   // ---------- Tenant users ----------
   const inviteTenantUser = async (data: { email: string; fullName?: string; role: TenantUserRole }) => {
     if (!activeTenantId) return { success: false, message: 'No tenant selected' };
@@ -1506,6 +1505,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         settingsSection,
         setSettingsSection,
         selectedTenantId,
+        activeTenantId,
         setSelectedTenantId,
         selectedAdminId,
         setSelectedAdminId,
@@ -1541,6 +1541,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         updateSettings,
         acknowledgeIncident,
         resolveIncident,
+        bulkResolveIncidents,
         pushAuditLog,
         acknowledgeAlert,
         resolveAlert,
@@ -1604,7 +1605,6 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         duplicateTenantAccessRule,
         deleteTenantAccessRule,
         reorderRulePriorities,
-        simulateAccessDecision,
         detectRuleConflicts,
         inviteTenantUser,
         createTenantUserManually,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Building2,
   Car,
@@ -55,6 +55,22 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [slugCheck, setSlugCheck] = useState<{ available: boolean; slug?: string | null; reason?: string | null } | null>(null);
+
+  // Debounced slug availability check (GET /tenants/check-code)
+  useEffect(() => {
+    if (!slug || slug.length < 2) {
+      setSlugCheck(null);
+      return;
+    }
+    const t = setTimeout(() => {
+      publicApi
+        .checkCode(slug)
+        .then((r) => setSlugCheck({ available: r.available, slug: r.slug, reason: r.reason }))
+        .catch(() => setSlugCheck(null));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [slug]);
 
   // Auto-generate slug from org name
   const handleOrgNameChange = (val: string) => {
@@ -72,6 +88,14 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
     e.preventDefault();
     if (!orgName.trim()) {
       setErrorMessage('Vui lòng nhập tên công ty hoặc tòa nhà của bạn.');
+      return;
+    }
+    if (slugCheck && !slugCheck.available) {
+      setErrorMessage(
+        slugCheck.reason === 'invalid_slug'
+          ? 'Mã tenant chỉ được chứa chữ thường, số và dấu gạch ngang.'
+          : 'Mã tenant này đã được sử dụng — vui lòng chọn mã khác.'
+      );
       return;
     }
     setErrorMessage(null);
@@ -254,6 +278,15 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                     className="flex-1 px-3 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-r-xl text-xs sm:text-sm font-mono text-[#58a6ff] focus:outline-none focus:border-[#58a6ff]"
                   />
                 </div>
+                {slugCheck && (
+                  <p className={`text-[11px] mt-1 ${slugCheck.available ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                    {slugCheck.available
+                      ? `✓ anpr.cloud/${slugCheck.slug ?? slug} khả dụng`
+                      : slugCheck.reason === 'invalid_slug'
+                        ? '✗ Chỉ dùng chữ thường, số và dấu gạch ngang (a-z, 0-9, -)'
+                        : '✗ Mã định danh đã được sử dụng'}
+                  </p>
+                )}
                 <p className="text-[11px] text-[#8b949e] mt-1">Dùng để phân vùng dữ liệu an toàn độc lập (Multi-Tenant RLS).</p>
               </div>
 

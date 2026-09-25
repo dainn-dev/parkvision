@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { usePlatform } from '../../context/PlatformContext';
+import { tenantApi } from '../../services/api';
 import { AccessEvent } from '../../types/tenant';
 import {
   X,
@@ -37,7 +39,25 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
   onOverride,
   onBlock
 }) => {
+  const { activeTenantId, addToast } = usePlatform();
+  const [correctionInput, setCorrectionInput] = useState('');
+  const [isCorrecting, setIsCorrecting] = useState(false);
+
   if (!isOpen || !event) return null;
+
+  const submitCorrection = () => {
+    const plate = correctionInput.trim().toUpperCase().replace(/[\s.-]/g, '');
+    if (!plate || !activeTenantId || isCorrecting) return;
+    setIsCorrecting(true);
+    tenantApi
+      .correctPlate(activeTenantId, event.id, plate)
+      .then(() => {
+        addToast({ type: 'success', title: 'Plate corrected', description: `${event.plate} → ${plate}` });
+        setCorrectionInput('');
+      })
+      .catch(() => addToast({ type: 'error', title: 'Correction failed' }))
+      .finally(() => setIsCorrecting(false));
+  };
 
   const getDecisionBadge = (decision: AccessEvent['decision']) => {
     switch (decision) {
@@ -142,6 +162,37 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
                 Gate Decision
               </div>
               {getDecisionBadge(event.decision)}
+            </div>
+          </div>
+
+          {/* Plate Correction */}
+          <div className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">
+                OCR Correction
+              </span>
+              {event.correctedPlate && (
+                <span className="text-[10px] text-[#d29922] font-mono">
+                  corrected → {event.correctedPlate} by {event.verifiedBy ?? 'operator'}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={correctionInput}
+                onChange={(e) => setCorrectionInput(e.target.value.toUpperCase())}
+                placeholder="Correct plate (e.g. 30F12345)"
+                className="flex-1 px-3 py-1.5 bg-[#0d0e12] border border-[#30363d] rounded-lg font-mono text-[11px] text-white focus:outline-none focus:border-[#58a6ff]"
+              />
+              <button
+                type="button"
+                onClick={submitCorrection}
+                disabled={isCorrecting || !correctionInput.trim()}
+                className="px-3 py-1.5 rounded-lg bg-[#1f6feb]/20 border border-[#1f6feb]/40 text-[#58a6ff] text-[11px] font-semibold hover:bg-[#1f6feb]/30 disabled:opacity-40 transition-colors cursor-pointer"
+              >
+                {isCorrecting ? 'Saving…' : 'Correct'}
+              </button>
             </div>
           </div>
 

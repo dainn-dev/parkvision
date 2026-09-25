@@ -385,7 +385,9 @@ export const mapAccessEvent = (
   direction: upper(e.direction, 'IN') as AccessEvent['direction'],
   decision: upper(e.decision, 'UNKNOWN') as AccessEvent['decision'],
   reason: e.reason ?? undefined,
-  verifiedBy: e.source,
+  verifiedBy: e.verifiedBy ?? e.source,
+  correctedPlate: e.correctedPlate ?? undefined,
+  correctedAt: e.correctedAt ?? undefined,
 });
 
 export const mapIncident = (

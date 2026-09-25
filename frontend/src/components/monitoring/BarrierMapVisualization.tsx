@@ -104,6 +104,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     triggerGateCommand,
     resolveIncident,
     acknowledgeIncident,
+    bulkResolveIncidents,
   } = usePlatform();
 
   // Active view: 'd3-map' | 'grid'
@@ -922,8 +923,8 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
       if (alert.gateId) {
         triggerGateCommand(alert.gateId, alert.type === 'OFFLINE' ? 'RELINK' : 'REBOOT');
       }
-      resolveIncident(alert.id, 'resolved_bulk');
     });
+    bulkResolveIncidents(alerts.map(a => a.id), 'resolved_bulk');
     setInAppToasts([]);
     setIsIncidentsDrawerOpen(false);
 
