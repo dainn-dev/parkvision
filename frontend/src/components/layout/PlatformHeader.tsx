@@ -30,6 +30,7 @@ export const PlatformHeader: React.FC<{
     openMfaModal,
     logout,
     currentUser,
+    appWorkspace,
     primaryTab,
     isLiveSimulationActive,
     setIsLiveSimulationActive,
@@ -288,7 +289,7 @@ export const PlatformHeader: React.FC<{
             </div>
             <div className="text-left hidden sm:block">
               <span className="text-xs font-bold text-white block leading-none">{currentUser?.name || 'Anthony N.'}</span>
-              <span className="text-[10px] text-[#58a6ff] block leading-tight font-semibold font-mono">PLATFORM GOV</span>
+              <span className="text-[10px] text-[#58a6ff] block leading-tight font-semibold font-mono">{appWorkspace === 'platform' ? 'PLATFORM GOV' : 'TENANT PORTAL'}</span>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-[#8b949e]" />
           </button>

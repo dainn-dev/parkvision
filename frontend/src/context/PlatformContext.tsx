@@ -84,11 +84,15 @@ import {
 } from '../data/tenantMockData';
 import {
   INITIAL_SETTINGS,
-  INITIAL_CAMERAS,
-  INITIAL_SECURITY_ALERTS,
-  INITIAL_LOGIN_EVENTS,
-  INITIAL_CREDENTIALS,
 } from '../data/mockData';
+// UI role labels -> backend TenantUserRole enum
+const mapUiRoleToBackend = (role: string): string => {
+  const r = (role ?? '').toUpperCase();
+  if (r === 'OWNER' || r === 'ADMIN' || r === 'TENANT_ADMIN') return 'admin';
+  if (r === 'OPERATOR' || r === 'SITE_MANAGER' || r === 'MANAGER') return 'operator';
+  return 'viewer';
+};
+
 interface ToastMessage {
   id: string;
   type: 'success' | 'error' | 'warning' | 'info';
@@ -99,6 +103,7 @@ interface ToastMessage {
 interface PlatformContextType {
   isAuthenticated: boolean;
   isSessionLoading: boolean;
+  userType: string;
   currentUser: {
     id: string;
     name: string;
@@ -162,12 +167,13 @@ interface PlatformContextType {
   updateTenant: (id: string, updateData: Partial<Tenant>) => Promise<void>;
   setTenantStatus: (id: string, status: TenantStatus, reason?: string) => Promise<void>;
 
-  createAdmin: (adminData: Partial<PlatformAdmin>) => Promise<void>;
+  createAdmin: (adminData: Partial<PlatformAdmin> & { password?: string }) => Promise<void>;
   updateAdmin: (id: string, updateData: Partial<PlatformAdmin>) => void;
   disableAdmin: (id: string, reason?: string) => void;
   resetAdminMfa: (id: string) => void;
 
   toggleFeatureFlag: (id: string) => void;
+  createFeatureFlag: (key: string, description: string) => void;
   updateSettings: (section: SettingsSection, newSettings: any) => void;
 
   acknowledgeIncident: (id: string, assignedTo?: string) => void;
@@ -192,7 +198,6 @@ interface PlatformContextType {
   navigateTo: (tab: PrimaryTab, subTab?: string, detailId?: string) => void;
 
   appWorkspace: 'platform' | 'tenant';
-  setAppWorkspace: (workspace: 'platform' | 'tenant') => void;
   tenantNavTab: TenantNavigationTab;
   setTenantNavTab: (tab: TenantNavigationTab) => void;
   selectedSiteId: string | null;
@@ -324,6 +329,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [isSessionLoading, setIsSessionLoading] = useState<boolean>(true);
   const [currentUser, setCurrentUser] = useState({ id: '', name: '', email: '', role: '', mfaEnabled: false });
   const [tenantId, setTenantId] = useState<string | null>(null);
+  const [tenantSlug, setTenantSlug] = useState<string | null>(null);
   const [userType, setUserType] = useState<string>('');
 
   const applyMe = useCallback(
@@ -331,6 +337,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       setIsAuthenticated(true);
       setUserType(me.userType);
       setTenantId(me.tenantId ?? null);
+      setTenantSlug(me.tenantSlug ?? null);
       setCurrentUser({
         id: me.user.id,
         name: me.user.fullName,
@@ -338,7 +345,6 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         role: me.userType === 'platform_admin' ? `Platform ${me.user.role}` : `Tenant ${me.user.role}`,
         mfaEnabled: me.user.mfaEnabled,
       });
-      setAppWorkspace(me.userType === 'platform_admin' ? 'platform' : 'tenant');
       setIsMfaVerified(me.mfaVerified);
     },
     []
@@ -408,7 +414,9 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null);
   const [selectedAdminId, setSelectedAdminId] = useState<string | null>(null);
 
-  const [appWorkspace, setAppWorkspace] = useState<'platform' | 'tenant'>('tenant');
+  // Workspace is role-derived: platform admins always get the platform console,
+  // tenant users always get the tenant portal — there is no manual switcher.
+  const appWorkspace: 'platform' | 'tenant' = userType === 'platform_admin' ? 'platform' : 'tenant';
   const [tenantNavTab, setTenantNavTab] = useState<TenantNavigationTab>('dashboard');
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [tenantSiteFilter, setTenantSiteFilter] = useState('all');
@@ -437,12 +445,13 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [settings, setSettings] = useState<PlatformSettings>(INITIAL_SETTINGS);
   const [services, setServices] = useState<ServiceHealthItem[]>([]);
   const [edgeDevices, setEdgeDevices] = useState<EdgeDeviceHealth[]>([]);
-  const [cameras, setCameras] = useState<CameraHealth[]>(INITIAL_CAMERAS);
+  // No camera/security-activity/credential APIs exist yet — start honest-empty instead of mock.
+  const [cameras, setCameras] = useState<CameraHealth[]>([]);
   const [gates, setGates] = useState<GateHealth[]>([]);
   const [incidents, setIncidents] = useState<OperationalIncident[]>([]);
-  const [securityAlerts] = useState<SecurityAlert[]>(INITIAL_SECURITY_ALERTS);
-  const [loginEvents] = useState<LoginActivityEvent[]>(INITIAL_LOGIN_EVENTS);
-  const [credentials] = useState<ApiCredential[]>(INITIAL_CREDENTIALS);
+  const [securityAlerts] = useState<SecurityAlert[]>([]);
+  const [loginEvents] = useState<LoginActivityEvent[]>([]);
+  const [credentials] = useState<ApiCredential[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
 
   const [tenantLocation, setTenantLocation] = useState<TenantLocation>(INITIAL_TENANT_LOCATION);
@@ -475,6 +484,10 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         platformApi.getSettings().catch(() => []),
         platformApi.infraHealth().catch(() => null),
       ]);
+      platformApi
+        .auditLogs({ limit: 100 })
+        .then((auditPage) => setAuditLogs(auditPage.data.map(mapAuditLog)))
+        .catch(() => setAuditLogs([]));
       const mappedTenants = tenantsPage.data.map(mapTenant);
       setTenants(mappedTenants);
       const adminRows = adminsRows.map(mapPlatformAdmin);
@@ -518,10 +531,9 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       const gatesMapped = gatesPage.data.map((g) => mapGate(g, tId, tName));
       const gateNames = new Map(gatesPage.data.map((g) => [g.id, g.name]));
       const lanesNested = await Promise.all(
-        sitesPage.data.map((s) => tenantApi.lanes(tId, s.id).catch(() => ({ data: [] as LaneOut[], meta: { page: 1, limit: 100, total: 0 } })))
+        sitesPage.data.map((s) => tenantApi.lanes(tId, s.id).catch(() => [] as LaneOut[]))
       );
-      const allLanes = lanesNested.flatMap((p) => p.data);
-      setTenantLanes(allLanes);
+      setTenantLanes(lanesNested.flat());
 
       setTenantSites(sites.map((s) => ({
         ...s,
@@ -529,10 +541,24 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         onlineGateCount: gatesPage.data.filter((g) => g.siteId === s.id && (g.status === 'open' || g.status === 'closed')).length,
         edgeDeviceCount: devicesPage.data.filter((d) => d.siteId === s.id).length,
         onlineEdgeDeviceCount: devicesPage.data.filter((d) => d.siteId === s.id && d.status === 'online').length,
-        lanesCount: 0,
+        lanesCount: lanesNested[sitesPage.data.findIndex((pg) => pg.id === s.id)]?.length ?? 0,
       })));
       setGates(gatesMapped);
       setEdgeDevices(devicesPage.data.map((d) => mapDevice(d, tId, tName)));
+
+      const primarySite = sitesPage.data[0];
+      if (primarySite) {
+        setTenantLocation((prev) => ({
+          ...prev,
+          name: primarySite.name,
+          status: primarySite.status === 'active' ? 'ACTIVE' : 'INACTIVE',
+          timezone: primarySite.timezone || prev.timezone,
+          address: {
+            ...prev.address,
+            line1: primarySite.address ?? prev.address.line1
+          }
+        }));
+      }
 
       const vehicles = vehiclesPage.data;
       setTenantVehicles(vehicles.map((v) => mapVehicle(v, tId)));
@@ -641,12 +667,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (isAuthenticated && userType === 'platform_admin') void loadPlatformData();
   }, [isAuthenticated, userType, loadPlatformData]);
 
-  // Platform admin previewing the Tenant workspace without a selection: pick the first tenant.
-  useEffect(() => {
-    if (isAuthenticated && userType === 'platform_admin' && appWorkspace === 'tenant' && !selectedTenantId && tenants.length > 0) {
-      setSelectedTenantId(tenants[0].id);
-    }
-  }, [isAuthenticated, userType, appWorkspace, selectedTenantId, tenants]);
+
 
   // Tenant data when the active tenant is known
   useEffect(() => {
@@ -657,15 +678,14 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     void loadTenantData(activeTenantId);
   }, [isAuthenticated, activeTenantId, loadTenantData, tenants]);
 
-  // Resolve tenant name for tenant_user sessions
+  // Resolve tenant name for tenant_user sessions — me() only exposes the slug,
+  // and tenant users may not call platform endpoints, so display the slug.
   useEffect(() => {
-    if (isAuthenticated && userType === 'tenant_user' && tenantId && !tenantNameRef.current) {
-      platformApi.getTenant(tenantId).then((t) => {
-        tenantNameRef.current = t.name;
-        setTenantLocation((prev) => ({ ...prev, tenantId: t.id, tenantName: t.name, name: t.name, email: t.contactEmail ?? prev.email, status: t.status === 'active' ? 'ACTIVE' : 'INACTIVE' }));
-      }).catch(() => undefined);
+    if (isAuthenticated && userType === 'tenant_user' && tenantId && tenantSlug) {
+      tenantNameRef.current = tenantSlug;
+      setTenantLocation((prev) => ({ ...prev, tenantId, tenantName: tenantSlug, name: tenantSlug }));
     }
-  }, [isAuthenticated, userType, tenantId]);
+  }, [isAuthenticated, userType, tenantId, tenantSlug]);
 
   // ---------- Realtime WebSocket ----------
   useEffect(() => {
@@ -768,7 +788,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const createTenant = async (tenantData: Partial<Tenant>, adminData: any) => {
     try {
       await platformApi.createTenant({
-        tenantName: tenantData.name ?? '',
+        name: tenantData.name ?? '',
         slug: (tenantData.code ?? tenantData.name ?? '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || `tenant-${Date.now()}`,
         planCode: 'starter',
         contactEmail: tenantData.email ?? adminData?.email ?? '',
@@ -809,11 +829,18 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const createAdmin = async (adminData: Partial<PlatformAdmin> & { password?: string }) => {
     try {
+      const rawRole = (adminData.role ?? '').toLowerCase();
+      const uiRole = (adminData.role ?? '').toUpperCase();
+      const role = ['super_admin', 'ops', 'support'].includes(rawRole)
+        ? rawRole
+        : uiRole === 'PLATFORM_ADMIN' ? 'super_admin'
+          : uiRole === 'PLATFORM_SECURITY' ? 'ops'
+            : 'support';
       await platformApi.createAdmin({
         email: adminData.email ?? '',
-        password: adminData.password ?? `Temp-${Date.now().toString(36)}xZ!`,
+        password: adminData.password ?? '',
         fullName: adminData.name ?? '',
-        role: (adminData.role ?? 'platform_support').toLowerCase(),
+        role,
       });
       await loadPlatformData();
       addToast({ type: 'success', title: 'Admin Created', description: `${adminData.name} added.` });
@@ -829,6 +856,16 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     addToast({ type: 'info', title: 'Not supported', description: 'The backend does not expose disabling admins.' });
   const resetAdminMfa = (_id: string) =>
     addToast({ type: 'info', title: 'Not supported', description: 'The backend does not expose per-user MFA reset.' });
+
+  const createFeatureFlag = (key: string, description: string) => {
+    platformApi
+      .putFlag(key, { enabled: false, description })
+      .then(async () => {
+        await loadPlatformData();
+        addToast({ type: 'success', title: 'Feature Flag Created', description: key });
+      })
+      .catch(toastErr('Failed to create flag'));
+  };
 
   const toggleFeatureFlag = (id: string) => {
     const flag = featureFlags.find((f) => f.id === id);
@@ -892,8 +929,19 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const updateTenantLocation = (updatedData: Partial<TenantLocation>) => {
     setTenantLocation((prev) => ({ ...prev, ...updatedData }));
-    if (activeTenantId && updatedData.name) {
-      platformApi.updateTenant(activeTenantId, { name: updatedData.name }).catch(() => undefined);
+    const site = tenantSites[0];
+    if (activeTenantId && site && updatedData.name) {
+      tenantApi
+        .updateSite(activeTenantId, site.id, {
+          name: updatedData.name,
+          address: typeof updatedData.address === 'string'
+            ? updatedData.address
+            : [updatedData.address?.line1, updatedData.address?.city, updatedData.address?.country]
+                .filter(Boolean)
+                .join(', ') || undefined
+        })
+        .then(() => loadTenantData(activeTenantId))
+        .catch(toastErr('Failed to update site'));
     }
   };
 
@@ -903,8 +951,12 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const toggleLocationStatus = (status: 'ACTIVE' | 'INACTIVE') => {
     setTenantLocation((prev) => ({ ...prev, status }));
-    if (activeTenantId) {
-      platformApi.updateTenant(activeTenantId, { status: status === 'ACTIVE' ? 'active' : 'inactive' }).catch(() => undefined);
+    const site = tenantSites[0];
+    if (activeTenantId && site) {
+      tenantApi
+        .updateSite(activeTenantId, site.id, { status: status.toLowerCase() })
+        .then(() => loadTenantData(activeTenantId))
+        .catch(toastErr('Failed to update site status'));
     }
   };
 
@@ -1090,7 +1142,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         let tries = 0;
         const poll = setInterval(() => {
           tries += 1;
-          tenantApi.job(activeTenantId!, job.id).then((j) => {
+          tenantApi.job(activeTenantId!, job.jobId).then((j) => {
             if (j.status === 'done' || j.status === 'failed' || tries >= 20) {
               clearInterval(poll);
               resolve((j.result as { created?: number; skipped?: number; updated?: number }) ?? {});
@@ -1114,7 +1166,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const inviteTenantMember = (memberData: { name: string; email: string; role: string; siteAccess: string[] }) => {
     if (!activeTenantId) return;
     tenantApi
-      .inviteUser(activeTenantId, { email: memberData.email, fullName: memberData.name, role: memberData.role.toLowerCase() })
+      .inviteUser(activeTenantId, { email: memberData.email, fullName: memberData.name, role: mapUiRoleToBackend(memberData.role) })
       .then(() => loadTenantData(activeTenantId))
       .then(() => addToast({ type: 'success', title: 'Invitation sent', description: memberData.email }))
       .catch(toastErr('Failed to invite member'));
@@ -1152,15 +1204,20 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (!activeTenantId) return { success: false, message: 'No tenant selected' };
     const conflicts = detectRuleConflicts(ruleData);
     try {
+      const siteIds = (ruleData.scope?.siteIds ?? []).filter((s: string) => s && !s.startsWith('ALL_'));
+      const gateIds = (ruleData.scope?.gateIds ?? []).filter((g: string) => g && !g.startsWith('ALL_'));
       const r = await tenantApi.createRule(activeTenantId, {
-        siteId: ruleData.scope?.siteIds?.[0] ?? ruleData.siteId,
+        siteId: siteIds[0] ?? undefined,
         name: ruleData.name ?? '',
-        ruleType: (ruleData.type ?? ruleData.code ?? 'custom').toLowerCase(),
+        ruleType: (ruleData.action ?? 'custom').toLowerCase(),
         priority: ruleData.priority ?? 100,
         schedule: ruleData.schedule ?? {},
         conditions: {
           plateNumber: ruleData.target?.licensePlate,
-          gateIds: ruleData.scope?.gateIds,
+          gateIds: gateIds.length ? gateIds : undefined,
+          allSites: ruleData.scope?.allSites || undefined,
+          allGates: ruleData.scope?.allGates || undefined,
+          targetType: ruleData.target?.type,
           notes: ruleData.target?.notes ?? ruleData.description,
         },
         active: true,
@@ -1175,20 +1232,25 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const updateTenantAccessRule = async (ruleId: string, ruleData: Partial<TenantAccessRule>) => {
     if (!activeTenantId) return { success: false, message: 'No tenant selected' };
     try {
+      const siteIds = (ruleData.scope?.siteIds ?? []).filter((s: string) => s && !s.startsWith('ALL_'));
+      const gateIds = (ruleData.scope?.gateIds ?? []).filter((g: string) => g && !g.startsWith('ALL_'));
       const r = await tenantApi.updateRule(activeTenantId, ruleId, {
         name: ruleData.name,
-        ruleType: ruleData.type?.toLowerCase() ?? ruleData.code?.toLowerCase(),
+        ruleType: ruleData.action?.toLowerCase(),
         priority: ruleData.priority,
         schedule: ruleData.schedule as object | undefined,
         conditions: ruleData.target
           ? {
               plateNumber: ruleData.target.licensePlate,
-              gateIds: ruleData.scope?.gateIds,
+              gateIds: gateIds.length ? gateIds : undefined,
+              allSites: ruleData.scope?.allSites || undefined,
+              allGates: ruleData.scope?.allGates || undefined,
+              targetType: ruleData.target.type,
               notes: ruleData.target.notes ?? ruleData.description,
             }
           : undefined,
         active: ruleData.status ? ruleData.status === 'ACTIVE' : undefined,
-        siteId: ruleData.scope?.siteIds?.[0],
+        siteId: siteIds[0] ?? undefined,
       });
       await loadTenantData(activeTenantId);
       return { success: true, rule: mapRule(r) };
@@ -1298,7 +1360,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       await tenantApi.inviteUser(activeTenantId, {
         email: data.email,
         fullName: data.fullName ?? data.email,
-        role: data.role.toLowerCase(),
+        role: mapUiRoleToBackend(data.role),
       });
       await loadTenantData(activeTenantId);
       return { success: true };
@@ -1365,6 +1427,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       value={{
         isAuthenticated,
         isSessionLoading,
+        userType,
         currentUser,
         login,
         logout,
@@ -1417,6 +1480,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         updateAdmin,
         disableAdmin,
         resetAdminMfa,
+        createFeatureFlag,
         toggleFeatureFlag,
         updateSettings,
         acknowledgeIncident,
@@ -1430,7 +1494,6 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         revokeCredential,
         navigateTo,
         appWorkspace,
-        setAppWorkspace,
         tenantNavTab,
         setTenantNavTab,
         selectedSiteId,

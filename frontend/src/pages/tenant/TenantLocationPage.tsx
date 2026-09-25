@@ -345,10 +345,10 @@ export const TenantLocationPage: React.FC = () => {
               <div>
                 <span className="text-[11px] text-[#8b949e] block mb-0.5">Slot Capacity</span>
                 <span className="text-white font-semibold text-xs">
-                  {location.capacity || 800} Vehicles
+                  {location.capacity || 0} Vehicles
                 </span>
                 <span className="text-[10px] text-[#8b949e] ml-2">
-                  (Occupancy: {location.currentOccupancy || 534} / 66.8%)
+                  (Occupancy: {location.currentOccupancy || 0}{location.capacity ? ` / ${Math.round((location.currentOccupancy || 0) / location.capacity * 100)}%` : ''})
                 </span>
               </div>
 
@@ -691,7 +691,7 @@ export const TenantLocationPage: React.FC = () => {
                 <span className="text-[11px] text-[#8b949e] block mb-0.5">Facility Lead</span>
                 <span className="text-white font-semibold flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-[#8b949e]" />
-                  {location.contactPerson || 'Le Hoang Nam'}
+                  {location.contactPerson || '—'}
                 </span>
               </div>
 

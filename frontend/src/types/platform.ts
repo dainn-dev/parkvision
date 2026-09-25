@@ -52,7 +52,7 @@ export interface Tenant {
 
 // Platform Administrator Types
 export type AdminStatus = 'ACTIVE' | 'DISABLED' | 'LOCKED' | 'PENDING';
-export type AdminRole = 'PLATFORM_ADMIN' | 'PLATFORM_SUPPORT' | 'PLATFORM_SECURITY';
+export type AdminRole = 'PLATFORM_ADMIN' | 'PLATFORM_SUPPORT' | 'PLATFORM_SECURITY' | 'super_admin' | 'ops' | 'support';
 
 export interface PlatformAdmin {
   id: string;
@@ -171,7 +171,7 @@ export interface ServiceHealthItem {
   category: 'core' | 'database' | 'storage' | 'realtime' | 'queue';
   status: ServiceHealthStatus;
   responseTimeMs: number;
-  uptimePercent: number;
+  uptimePercent: number | null;
   errorRatePercent: number;
   details?: string;
   lastChecked: string;

@@ -31,7 +31,6 @@ import { TenantNavTab } from '../../types/tenant';
 export const PlatformSidebar: React.FC = () => {
   const {
     appWorkspace,
-    setAppWorkspace,
     primaryTab,
     setPrimaryTab,
     platformSubTab,
@@ -47,6 +46,8 @@ export const PlatformSidebar: React.FC = () => {
     tenantAlerts,
     tenantSites,
     tenants,
+    tenantVehicles,
+    tenantLocation,
     currentUser,
     setSelectedTenantId
   } = usePlatform();
@@ -60,41 +61,6 @@ export const PlatformSidebar: React.FC = () => {
 
   return (
     <aside className="w-64 bg-[#0d0e12] border-r border-[#30363d] flex flex-col shrink-0 select-none">
-      {/* Workspace Switcher Header */}
-      <div className="p-3 border-b border-[#30363d] bg-[#161b22]/70">
-        <div className="text-[10px] uppercase font-bold text-[#8b949e] px-2 mb-1.5 tracking-wider">
-          Current Workspace
-        </div>
-        <div className="grid grid-cols-2 gap-1 bg-[#0d0e12] p-1 rounded-xl border border-[#30363d]">
-          <button
-            onClick={() => {
-              setAppWorkspace('platform');
-              setSelectedTenantId(null);
-            }}
-            className={`py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              appWorkspace === 'platform'
-                ? 'bg-[#21262d] text-[#58a6ff] shadow-xs'
-                : 'text-[#8b949e] hover:text-[#c9d1d9]'
-            }`}
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            Platform
-          </button>
-
-          <button
-            onClick={() => setAppWorkspace('tenant')}
-            className={`py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              appWorkspace === 'tenant'
-                ? 'bg-[#58a6ff]/20 text-[#58a6ff] border border-[#58a6ff]/30 shadow-xs'
-                : 'text-[#8b949e] hover:text-[#c9d1d9]'
-            }`}
-          >
-            <Building2 className="w-3.5 h-3.5" />
-            Tenant
-          </button>
-        </div>
-      </div>
-
       {/* Brand Header */}
       <div className="h-14 px-5 border-b border-[#30363d] flex items-center justify-between bg-[#0d0e12]">
         <div className="flex items-center gap-2.5">
@@ -107,7 +73,7 @@ export const PlatformSidebar: React.FC = () => {
           </div>
           <div>
             <h1 className="text-xs font-bold tracking-tight text-white flex items-center gap-1 font-mono">
-              {appWorkspace === 'tenant' ? 'ACME PARKING' : 'PLATFORM'} <span className="text-[#58a6ff]">{appWorkspace === 'tenant' ? 'PORTAL' : 'GOV'}</span>
+              {appWorkspace === 'tenant' ? (tenantLocation.tenantName || tenantLocation.name || 'TENANT').toUpperCase() : 'PLATFORM'} <span className="text-[#58a6ff]">{appWorkspace === 'tenant' ? 'PORTAL' : 'GOV'}</span>
             </h1>
             <p className="text-[9px] text-[#8b949e] font-semibold uppercase tracking-wider">
               {appWorkspace === 'tenant' ? 'Tenant Site Management' : 'Superadmin Control'}
@@ -194,7 +160,7 @@ export const PlatformSidebar: React.FC = () => {
                   <span>Vehicles & Whitelist</span>
                 </div>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#21262d] text-[#8b949e] font-mono">
-                  620
+                  {tenantVehicles.length}
                 </span>
               </button>
 

@@ -51,7 +51,7 @@ export const CreateTenantModal: React.FC<{
     const newErr: Record<string, string> = {};
     if (!adminName.trim()) newErr.adminName = 'Administrator full name is required';
     if (!adminEmail.trim() || !adminEmail.includes('@')) newErr.adminEmail = 'Valid admin email is required';
-    if (!adminPassword || adminPassword.length < 8) newErr.adminPassword = 'Password must be at least 8 characters';
+    if (!adminPassword || adminPassword.length < 10) newErr.adminPassword = 'Password must be at least 10 characters';
     setErrors(newErr);
     return Object.keys(newErr).length === 0;
   };

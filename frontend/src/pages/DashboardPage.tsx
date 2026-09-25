@@ -54,15 +54,15 @@ export const DashboardPage: React.FC<{
   const totalUsersCount = tenants.reduce((acc, t) => acc + t.statistics.usersCount, 0);
   const totalEventsCount = tenants.reduce((acc, t) => acc + t.statistics.eventsCount, 0);
 
-  const totalCameras = 1842;
-  const onlineCameras = 1712;
+  const totalCameras = cameras.length;
+  const onlineCameras = cameras.filter((c) => c.status === 'ONLINE').length;
   const offlineCameras = totalCameras - onlineCameras;
 
-  const totalGates = 326;
-  const onlineGates = 324;
+  const totalGates = gates.length;
+  const onlineGates = gates.filter((g) => g.status === 'ONLINE').length;
 
-  const totalEdge = 1756;
-  const onlineEdge = 1680;
+  const totalEdge = edgeDevices.length;
+  const onlineEdge = edgeDevices.filter((d) => d.status === 'ONLINE').length;
 
   const openAlerts = securityAlerts.filter((a) => a.status === 'OPEN');
   const criticalAlertsCount = openAlerts.filter((a) => a.severity === 'CRITICAL').length;
@@ -128,8 +128,7 @@ export const DashboardPage: React.FC<{
           title="Total Platform Tenants"
           value={tenants.length}
           subtitle={`${activeTenants} Active • ${trialTenants} Trial • ${suspendedTenants} Suspended`}
-          change="+2 this month"
-          changeType="positive"
+          changeType="neutral"
           icon={Building2}
           onClick={() => navigateTo('tenants')}
         />
@@ -138,8 +137,7 @@ export const DashboardPage: React.FC<{
           title="Active Platform Users"
           value={totalUsersCount.toLocaleString()}
           subtitle="Across all active enterprise tenant orgs"
-          change="+124 this month"
-          changeType="positive"
+          changeType="neutral"
           icon={Users}
           onClick={() => navigateTo('tenants')}
         />
@@ -148,17 +146,16 @@ export const DashboardPage: React.FC<{
           title="Recognition Events (24h)"
           value={`${(totalEventsCount / 1000000).toFixed(2)}M`}
           subtitle="Real-time gate OCR payload throughput"
-          change="+12.4% vs prev week"
-          changeType="positive"
+          changeType="neutral"
           icon={Activity}
           onClick={() => navigateTo('monitoring')}
         />
 
         <StatCard
           title="Platform Service Health"
-          value="99.98%"
-          subtitle="Patroni HA DB + Edge Cluster SLA"
-          change="● All Core Systems Operational"
+          value={services.length ? `${services.filter((s) => s.status === 'HEALTHY').length}/${services.length}` : '—'}
+          subtitle="Core infrastructure services online"
+          change="● Live infra health"
           changeType="positive"
           icon={ShieldCheck}
           badge={<Badge variant="emerald" dot>HEALTHY</Badge>}
@@ -201,7 +198,7 @@ export const DashboardPage: React.FC<{
                     {srv.responseTimeMs} ms
                   </span>
                   <span className="text-[10px] text-emerald-400 font-medium">
-                    {srv.uptimePercent}% uptime
+                    {srv.uptimePercent != null ? `${srv.uptimePercent}% uptime` : 'uptime n/a'}
                   </span>
                 </div>
               </div>
@@ -227,7 +224,7 @@ export const DashboardPage: React.FC<{
                 </div>
               </div>
               <Badge variant={offlineCameras > 0 ? 'amber' : 'emerald'} size="sm">
-                {((onlineCameras / totalCameras) * 100).toFixed(1)}%
+                {totalCameras ? `${((onlineCameras / totalCameras) * 100).toFixed(1)}%` : '—'}
               </Badge>
             </div>
 
@@ -247,7 +244,7 @@ export const DashboardPage: React.FC<{
                   <p className="text-[11px] text-slate-400">{onlineGates} / {totalGates} Active · Xem Bản Đồ D3 →</p>
                 </div>
               </div>
-              <Badge variant="emerald" size="sm">99.4%</Badge>
+              <Badge variant="emerald" size="sm">{totalGates ? `${((onlineGates / totalGates) * 100).toFixed(1)}%` : '—'}</Badge>
             </div>
 
             <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
@@ -260,7 +257,7 @@ export const DashboardPage: React.FC<{
                   <p className="text-[11px] text-slate-400">{onlineEdge} / {totalEdge} Connected</p>
                 </div>
               </div>
-              <Badge variant="emerald" size="sm">95.7%</Badge>
+              <Badge variant="emerald" size="sm">{totalEdge ? `${((onlineEdge / totalEdge) * 100).toFixed(1)}%` : '—'}</Badge>
             </div>
           </CardContent>
         </Card>

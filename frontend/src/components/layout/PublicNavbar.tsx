@@ -20,7 +20,7 @@ import {
 import { usePlatform } from '../../context/PlatformContext';
 import { Button, Badge } from '../ui';
 
-export type PublicViewType = 'landing' | 'login' | 'register' | 'privacy' | 'terms' | 'sla';
+export type PublicViewType = 'landing' | 'login' | 'register' | 'privacy' | 'terms' | 'sla' | 'activate';
 
 interface PublicNavbarProps {
   currentView: PublicViewType;
@@ -33,7 +33,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
   onNavigate,
   onScrollToSection
 }) => {
-  const { isAuthenticated, appWorkspace, setAppWorkspace, theme, toggleTheme } = usePlatform();
+  const { isAuthenticated, theme, toggleTheme } = usePlatform();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleNavClick = (sectionId: string) => {

@@ -38,7 +38,8 @@ export const PlatformAdminsPage: React.FC = () => {
     sessions,
     revokeSession,
     revokeAllUserSessions,
-    auditLogs
+    auditLogs,
+    addToast
   } = usePlatform();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,10 +60,15 @@ export const PlatformAdminsPage: React.FC = () => {
   );
 
   const handleCreateAdmin = () => {
+    if (!newPassword || newPassword.length < 10) {
+      addToast({ type: 'error', title: 'Validation Error', description: 'Initial password must be at least 10 characters.' });
+      return;
+    }
     createAdmin({
       name: newName,
       email: newEmail,
-      role: newRole
+      role: newRole,
+      password: newPassword
     });
 
     setIsAddModalOpen(false);
@@ -325,9 +331,9 @@ export const PlatformAdminsPage: React.FC = () => {
             value={newRole}
             onChange={(e) => setNewRole(e.target.value as AdminRole)}
             options={[
-              { value: 'PLATFORM_ADMIN', label: 'PLATFORM_ADMIN (Full Global Control)' },
-              { value: 'PLATFORM_SUPPORT', label: 'PLATFORM_SUPPORT (Tenant Read & Operational Support)' },
-              { value: 'PLATFORM_SECURITY', label: 'PLATFORM_SECURITY (Security & Audit Operations)' }
+              { value: 'super_admin', label: 'SUPER_ADMIN (Full Global Control)' },
+              { value: 'ops', label: 'OPS (Security & Audit Operations)' },
+              { value: 'support', label: 'SUPPORT (Tenant Read & Operational Support)' }
             ]}
           />
 

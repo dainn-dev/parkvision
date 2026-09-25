@@ -84,30 +84,30 @@ export const TenantDashboardPage: React.FC = () => {
 
   // 1 Tenant = 1 Site constraint: Get the single dedicated site
   const site: TenantSite = tenantSites[0] || {
-    id: 'site-001',
-    name: 'Main Campus Facility',
-    code: 'SITE-MC',
-    tenantId: 't-001',
-    tenantName: 'Acme Parking Systems',
-    address: '120 Nguyen Hue Blvd, District 1, Ho Chi Minh City',
-    status: 'HEALTHY',
-    cameraCount: 20,
-    onlineCameraCount: 20,
-    gateCount: 4,
-    onlineGateCount: 4,
-    edgeDeviceCount: 3,
-    onlineEdgeDeviceCount: 3,
-    vehicleCount: 620,
-    todayAccessCount: 5420,
-    lanesCount: 4,
-    operatingHours: '24/7 Operations',
-    capacity: 800,
-    currentOccupancy: 534,
-    coordinates: { lat: 10.7769, lng: 106.7009 },
-    createdAt: '2026-01-10T08:00:00Z',
-    description: 'Corporate headquarters facility with automated barrier gates, dual-angle ANPR cameras, and real-time edge processing.',
-    managerName: 'Le Hoang Nam',
-    managerPhone: '+84 90 311 2233'
+    id: '',
+    name: 'No site configured',
+    code: '—',
+    tenantId: '',
+    tenantName: '',
+    address: '—',
+    status: 'INACTIVE',
+    cameraCount: 0,
+    onlineCameraCount: 0,
+    gateCount: 0,
+    onlineGateCount: 0,
+    edgeDeviceCount: 0,
+    onlineEdgeDeviceCount: 0,
+    vehicleCount: 0,
+    todayAccessCount: 0,
+    lanesCount: 0,
+    operatingHours: '—',
+    capacity: 0,
+    currentOccupancy: 0,
+    coordinates: { lat: 0, lng: 0 },
+    createdAt: '',
+    description: 'Create a site to activate this dashboard.',
+    managerName: '—',
+    managerPhone: '—'
   };
 
   // Drawers & Modals state
@@ -136,7 +136,7 @@ export const TenantDashboardPage: React.FC = () => {
 
   const occupancyPercent = site.capacity
     ? Math.round(((site.currentOccupancy || 0) / site.capacity) * 100)
-    : 66;
+    : 0;
 
   // Real lanes: gates joined with lane + edge-device + latest access event
   const lanes = gates.map((gate) => {
@@ -304,8 +304,8 @@ export const TenantDashboardPage: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-[#8b949e] pt-2 border-t border-[#30363d]/60">
-            <span className="text-[#3fb950] font-medium">4/4 Lanes Live</span>
-            <span className="text-[#58a6ff]">24/7 Hours</span>
+            <span className="text-[#3fb950] font-medium">{lanes.length}/{tenantLanes.length} Lanes Live</span>
+            <span className="text-[#58a6ff]">{tenantSites.length} Site{tenantSites.length === 1 ? '' : 's'}</span>
           </div>
         </div>
 
@@ -334,7 +334,7 @@ export const TenantDashboardPage: React.FC = () => {
 
           <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#30363d]/60">
             <span className="text-[#58a6ff] font-medium">{occupancyPercent}% Filled</span>
-            <span className="text-[#3fb950] font-medium">{(site.capacity || 800) - (site.currentOccupancy || 0)} Free</span>
+            <span className="text-[#3fb950] font-medium">{(site.capacity || 0) - (site.currentOccupancy || 0)} Free</span>
           </div>
         </div>
 
@@ -423,7 +423,7 @@ export const TenantDashboardPage: React.FC = () => {
               <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
                 Facility Lanes & Barrier Gate Controllers
                 <span className="text-[10px] font-mono font-bold px-2 py-0.2 rounded-full bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
-                  4/4 Active
+                  {lanes.length} Active
                 </span>
               </h3>
               <p className="text-xs text-[#8b949e] mt-0.5">

@@ -32,7 +32,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
   onNavigate,
   onRegistrationSuccess
 }) => {
-  const { login, setAppWorkspace, setTenantNavTab, addToast } = usePlatform();
+  const { login, setTenantNavTab, addToast } = usePlatform();
 
   // Wizard Steps: 1: Organization -> 2: Scale & Plan -> 3: Admin Credentials
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -125,7 +125,6 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
         return;
       }
 
-      setAppWorkspace('tenant');
       setTenantNavTab('dashboard');
 
       addToast({

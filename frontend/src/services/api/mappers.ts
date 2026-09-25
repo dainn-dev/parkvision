@@ -153,7 +153,7 @@ export const mapInfraHealth = (h: InfraHealth): ServiceHealthItem[] =>
     category: serviceCategory(name),
     status: (c.status === 'up' ? 'HEALTHY' : 'DOWN') as ServiceHealthItem['status'],
     responseTimeMs: Math.round(c.latencyMs ?? 0),
-    uptimePercent: 0,
+    uptimePercent: null,
     errorRatePercent: 0,
     details: c.error,
     lastChecked: new Date().toISOString(),

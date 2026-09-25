@@ -11,6 +11,7 @@ from app.core.enums import ActorType, PlatformAdminRole
 from app.core.errors import conflict, not_found
 from app.database import platform_session
 from app.models import (
+    AuditLog,
     FeatureFlag,
     PlatformAdmin,
     PlatformSetting,
@@ -21,6 +22,7 @@ from app.models import (
 from app.schemas.auth import SessionOut
 from app.schemas.common import MessageOut, Page, paginate
 from app.schemas.resources import (
+    AuditLogOut,
     FeatureFlagIn,
     FeatureFlagOut,
     PlatformAdminIn,
@@ -91,6 +93,20 @@ async def create_tenant(
             await db.flush()
         except Exception:
             raise conflict("Tenant slug is already taken") from None
+        if body.owner_email and body.owner_password and body.owner_full_name:
+            owner = TenantUser(
+                tenant_id=tenant.id,
+                email=body.owner_email.lower(),
+                password_hash=hash_password(body.owner_password),
+                full_name=body.owner_full_name,
+                role="owner",
+                status="active",
+            )
+            db.add(owner)
+            try:
+                await db.flush()
+            except Exception:
+                raise conflict("A user with the owner email already exists") from None
         await write_audit(
             db,
             tenant_id=tenant.id,
@@ -142,6 +158,7 @@ async def update_tenant(
             details={"changes": list(changes.keys())},
             ip=request.client.host if request.client else None,
         )
+        await db.flush()
         await db.refresh(row)
     return TenantOut.model_validate(row)
 
@@ -226,6 +243,9 @@ async def put_setting(
             db.add(row)
         else:
             row.value = body.value
+        await db.flush()
+        # onupdate expires updated_at post-flush; reload before the session closes.
+        await db.refresh(row)
         await write_audit(
             db,
             tenant_id=None,
@@ -268,6 +288,8 @@ async def put_flag(
             row.description = body.description
             row.enabled = body.enabled
             row.tenant_overrides = body.tenant_overrides
+        await db.flush()
+        await db.refresh(row)
         await write_audit(
             db,
             tenant_id=None,
@@ -330,3 +352,39 @@ async def revoke_any_session(
             resource_id=str(session_id),
         )
     return MessageOut(message="Session revoked")
+
+
+@router.get("/audit-logs", response_model=Page[AuditLogOut])
+async def list_platform_audit_logs(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
+    action: str | None = None,
+    actor_id: uuid.UUID | None = None,
+    from_ts: datetime | None = None,
+    to_ts: datetime | None = None,
+) -> Page[AuditLogOut]:
+    cond = [AuditLog.actor_type == ActorType.PLATFORM_ADMIN]
+    if action:
+        cond.append(AuditLog.action.ilike(f"{action}%"))
+    if actor_id:
+        cond.append(AuditLog.actor_id == actor_id)
+    if from_ts:
+        cond.append(AuditLog.created_at >= from_ts)
+    if to_ts:
+        cond.append(AuditLog.created_at <= to_ts)
+    async with platform_session() as db:
+        total = (await db.execute(select(func.count()).select_from(AuditLog).where(*cond))).scalar_one()
+        rows = (
+            (
+                await db.execute(
+                    select(AuditLog)
+                    .where(*cond)
+                    .order_by(AuditLog.created_at.desc())
+                    .offset((page - 1) * limit)
+                    .limit(limit)
+                )
+            )
+            .scalars()
+            .all()
+        )
+    return paginate([AuditLogOut.model_validate(r) for r in rows], total, page, limit)

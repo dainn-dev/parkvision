@@ -14,7 +14,7 @@ import {
 } from '../../components/ui';
 
 export const FeatureFlagsPage: React.FC = () => {
-  const { featureFlags, toggleFeatureFlag, addToast } = usePlatform();
+  const { featureFlags, toggleFeatureFlag, createFeatureFlag, addToast } = usePlatform();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -38,11 +38,7 @@ export const FeatureFlagsPage: React.FC = () => {
       return;
     }
 
-    addToast({
-      type: 'success',
-      title: 'Feature Flag Created',
-      description: `Feature flag ${flagKey.toUpperCase()} provisioned.`
-    });
+    createFeatureFlag(flagKey.trim(), flagDesc.trim() || flagName.trim());
 
     setIsAddModalOpen(false);
     setFlagKey('');
