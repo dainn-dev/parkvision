@@ -14,6 +14,7 @@ from app.api.deps import AuthContext, get_auth_context
 from app.config import settings
 from app.core.enums import ActorType
 from app.core.errors import unauthorized
+from app.core.rate_limit import rate_limited
 from app.database import platform_session
 from app.models import PlatformAdmin, Tenant, TenantUser, UserSession
 from app.schemas.auth import (
@@ -95,7 +96,7 @@ def _user_out(user: TenantUser | PlatformAdmin, tenant_id=None) -> UserOut:
     )
 
 
-@router.post("/login")
+@router.post("/login", dependencies=[Depends(rate_limited("login", 10, 60))])
 async def login(body: LoginIn, request: Request, response: Response) -> dict:
     ip = request.client.host if request.client else None
     ua = request.headers.get("user-agent")
@@ -133,7 +134,7 @@ async def mfa_verify(body: MfaVerifyIn, request: Request, response: Response) ->
     return {"data": {"mfaRequired": False, "csrfToken": csrf}}
 
 
-@router.post("/activate", response_model=MessageOut)
+@router.post("/activate", response_model=MessageOut, dependencies=[Depends(rate_limited("activate", 10, 60))])
 async def activate_account(body: ActivateIn, request: Request) -> MessageOut:
     """Set a password from an invite token emailed by a tenant admin."""
     import hashlib

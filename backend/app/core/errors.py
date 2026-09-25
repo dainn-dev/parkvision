@@ -47,3 +47,7 @@ def bad_request(message: str, details: dict[str, Any] | None = None) -> ApiError
 
 def unprocessable(message: str, details: dict[str, Any] | None = None) -> ApiError:
     return ApiError(status.HTTP_422_UNPROCESSABLE_ENTITY, "unprocessable_entity", message, details)
+
+
+def too_many_requests(message: str = "Rate limit exceeded") -> ApiError:
+    return ApiError(status.HTTP_429_TOO_MANY_REQUESTS, "rate_limited", message)

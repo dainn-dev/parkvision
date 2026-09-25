@@ -71,11 +71,34 @@ def create_app() -> FastAPI:
         expose_headers=["X-Request-Id"],
     )
 
+    from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+    from starlette.responses import Response as StarletteResponse
+
+    http_requests = Counter(
+        "vm_http_requests_total",
+        "HTTP requests by route template and status",
+        ["method", "route", "status"],
+    )
+    http_duration = Histogram(
+        "vm_http_request_duration_seconds",
+        "HTTP request latency by route template",
+        ["method", "route"],
+        buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5),
+    )
+
     @app.middleware("http")
     async def request_context(request: Request, call_next):
+        import time
+
         request_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:16]
         request.state.request_id = request_id
+        start = time.perf_counter()
         response = await call_next(request)
+        route = request.scope.get("route")
+        route_label = getattr(route, "path", request.url.path)
+        if route_label != "/metrics":
+            http_requests.labels(request.method, route_label, response.status_code).inc()
+            http_duration.labels(request.method, route_label).observe(time.perf_counter() - start)
         response.headers["X-Request-Id"] = request_id
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
@@ -111,6 +134,10 @@ def create_app() -> FastAPI:
     @app.get("/healthz", tags=["health"])
     async def healthz() -> dict:
         return {"status": "ok"}
+
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics() -> StarletteResponse:
+        return StarletteResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     @app.get("/readyz", tags=["health"])
     async def readyz() -> dict:

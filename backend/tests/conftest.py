@@ -25,6 +25,7 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET", "test-secret-0123456789abcdef0123456789abcdef")
 os.environ.setdefault("FIELD_ENCRYPTION_KEY", "test-fernet-key")
 os.environ.setdefault("COOKIE_SECURE", "false")
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 
 from app.config import settings  # noqa: E402
 
