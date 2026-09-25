@@ -15,11 +15,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 os.environ.setdefault(
     "DATABASE_URL",
-    "postgresql+asyncpg://vehicle_app:vehicle_app@localhost:5432/vehicle_mgmt",
+    "postgresql+asyncpg://vehicle_app:vehicle_app@localhost:5432/vehicle_mgmt_test",
 )
 os.environ.setdefault(
     "MIGRATION_DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt",
+    "postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt_test",
 )
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET", "test-secret-0123456789abcdef0123456789abcdef")
@@ -34,10 +34,38 @@ def anyio_backend():
     return "asyncio"
 
 
+def _dbname(url: str) -> str:
+    return url.rstrip("/").rsplit("/", 1)[-1]
+
+
 @pytest_asyncio.fixture(scope="session")
 async def migrated():
-    """Run migrations once per test session (alembic CLI equivalent)."""
-    engine = create_async_engine(settings.migration_database_url)
+    """Drop+remigrate the *test* database once per test session.
+
+    Guarded: refuses to run against a database whose name doesn't end in
+    `_test`, so a stray `pytest` can never wipe the dev DB.
+    """
+    url = settings.migration_database_url
+    dbname = _dbname(url)
+    if not dbname.endswith("_test"):
+        raise RuntimeError(
+            f"Refusing to drop schema in non-test database '{dbname}'. "
+            "Point MIGRATION_DATABASE_URL at a *_test database."
+        )
+
+    # Ensure the test database itself exists (connect via the always-present
+    # `postgres` maintenance DB).
+    admin_url = url.rsplit("/", 1)[0] + "/postgres"
+    admin_engine = create_async_engine(admin_url, isolation_level="AUTOCOMMIT")
+    async with admin_engine.connect() as conn:
+        exists = (
+            await conn.execute(text("SELECT 1 FROM pg_database WHERE datname = :d"), {"d": dbname})
+        ).scalar()
+        if not exists:
+            await conn.execute(text(f'CREATE DATABASE "{dbname}"'))
+    await admin_engine.dispose()
+
+    engine = create_async_engine(url)
     async with engine.begin() as conn:
         await conn.execute(text("DROP SCHEMA public CASCADE"))
         await conn.execute(text("CREATE SCHEMA public"))

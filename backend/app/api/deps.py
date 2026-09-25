@@ -18,7 +18,8 @@ CSRF_EXEMPT_PATH_PREFIXES = (
     "/api/v1/auth/mfa",
     "/api/v1/auth/refresh",
     "/api/v1/register",
-    "/api/v1/public",
+    "/api/v1/plans",
+    "/api/v1/legal",
 )
 
 

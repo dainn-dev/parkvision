@@ -33,6 +33,7 @@ dev = [
     "ruff==0.8.4",
     "pytest-cov==6.0.0",
     "trio==0.27.0",
+    "websockets==15.0.1",  # e2e realtime harness (tests/e2e)
 ]
 
 [tool.ruff]
