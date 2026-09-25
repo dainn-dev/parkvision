@@ -17,7 +17,8 @@ import {
   Clock,
   Mail,
   Phone,
-  Globe
+  Globe,
+  UserCog
 } from 'lucide-react';
 import {
   Button,
@@ -35,7 +36,8 @@ export const TenantDetailPage: React.FC<{
   tenantId: string;
   onBack: () => void;
 }> = ({ tenantId, onBack }) => {
-  const { tenants, setTenantStatus, auditLogs } = usePlatform();
+  const { tenants, setTenantStatus, auditLogs, impersonateTenant } = usePlatform();
+  const [isImpersonating, setIsImpersonating] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'usage' | 'activity'>('overview');
 
   const tenant = tenants.find((t) => t.id === tenantId) || tenants[0];
@@ -116,6 +118,22 @@ export const TenantDetailPage: React.FC<{
 
           {/* Quick Lifecycle Action Buttons */}
           <div className="flex items-center gap-3 shrink-0">
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={UserCog}
+              loading={isImpersonating}
+              onClick={async () => {
+                setIsImpersonating(true);
+                try {
+                  await impersonateTenant(tenant.id);
+                } finally {
+                  setIsImpersonating(false);
+                }
+              }}
+            >
+              Impersonate
+            </Button>
             {tenant.status === 'ACTIVE' ? (
               <Button
                 variant="danger"

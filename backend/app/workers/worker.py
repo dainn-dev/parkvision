@@ -16,6 +16,7 @@ class WorkerSettings:
         cron(jobs.expire_stale_commands, minute=set(range(60)), second=10),
         cron(jobs.mark_offline_devices, minute=set(range(60)), second=set(range(0, 60, 15))),
         cron(jobs.cleanup_expired_sessions, hour=3, minute=15),
+        cron(jobs.incident_notify, second=45),
     ]
     redis_settings = jobs.redis_settings()
     max_jobs = 10

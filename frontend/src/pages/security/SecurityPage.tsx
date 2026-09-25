@@ -41,12 +41,20 @@ export const SecurityPage: React.FC = () => {
     credentials,
     rotateCredential,
     revokeCredential,
+    createCredential,
+    issuedSecret,
+    clearIssuedSecret,
+    tenants,
     securitySubTab,
     setSecuritySubTab,
     addToast
   } = usePlatform();
 
   const [selectedAlertModal, setSelectedAlertModal] = useState<any>(null);
+  const [isCreateCredOpen, setIsCreateCredOpen] = useState(false);
+  const [credName, setCredName] = useState('');
+  const [credTenantId, setCredTenantId] = useState('');
+  const [credExpires, setCredExpires] = useState('365');
 
   const openAlerts = securityAlerts.filter((a) => a.status !== 'RESOLVED');
   const criticalCount = openAlerts.filter((a) => a.severity === 'CRITICAL').length;
@@ -289,6 +297,11 @@ export const SecurityPage: React.FC = () => {
       {securitySubTab === 'credentials' && (
         <Card className="overflow-hidden">
           <CardHeader title="Edge Hardware & Service API Credentials" subtitle="Issued authentication secrets and rotation lifecycle" />
+          <div className="px-6 pb-3 flex justify-end border-b border-slate-800 -mt-2">
+            <Button variant="primary" size="sm" icon={Key} onClick={() => { setCredName(''); setCredTenantId(''); setIsCreateCredOpen(true); }}>
+              Issue Credential
+            </Button>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
@@ -336,6 +349,71 @@ export const SecurityPage: React.FC = () => {
             </table>
           </div>
         </Card>
+      )}
+
+      {/* One-time plaintext key display */}
+      {issuedSecret && (
+        <Modal isOpen onClose={clearIssuedSecret} title="API Key Issued — lưu ngay" subtitle={`Credential: ${issuedSecret.name}`}>
+          <div className="space-y-3">
+            <p className="text-xs text-amber-300 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              Key chỉ hiển thị một lần — copy và lưu trữ an toàn trước khi đóng.
+            </p>
+            <div className="p-4 bg-slate-950 rounded-xl border border-emerald-800/50 font-mono text-emerald-300 text-sm break-all select-all">
+              {issuedSecret.key}
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { navigator.clipboard?.writeText(issuedSecret.key); addToast({ type: 'success', title: 'Copied key' }); }}
+              >
+                Copy
+              </Button>
+              <Button variant="primary" size="sm" onClick={clearIssuedSecret}>Done</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Create credential modal */}
+      {isCreateCredOpen && (
+        <Modal
+          isOpen={isCreateCredOpen}
+          onClose={() => setIsCreateCredOpen(false)}
+          title="Issue API Credential"
+          subtitle="Tạo key pk_* cho edge hardware hoặc service integration"
+        >
+          <div className="space-y-4">
+            <Input label="Credential Name" value={credName} onChange={(e) => setCredName(e.target.value)} placeholder="edge-gateway-north" />
+            <Select
+              label="Tenant Scope"
+              value={credTenantId}
+              onChange={(e) => setCredTenantId(e.target.value)}
+              options={[{ value: '', label: '— Platform-wide (no tenant) —' }, ...tenants.map((t) => ({ value: t.id, label: t.name }))]}
+            />
+            <Input label="Expires In (days)" type="number" value={credExpires} onChange={(e) => setCredExpires(e.target.value)} />
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="ghost" size="sm" onClick={() => setIsCreateCredOpen(false)}>Cancel</Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  if (!credName.trim()) { addToast({ type: 'warning', title: 'Name required' }); return; }
+                  createCredential({
+                    name: credName.trim(),
+                    tenantId: credTenantId || null,
+                    scopes: ['edge:ingest', 'edge:commands'],
+                    expiresInDays: credExpires ? parseInt(credExpires, 10) : null,
+                  });
+                  setIsCreateCredOpen(false);
+                }}
+              >
+                Issue
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* Alert Evidence Modal */}

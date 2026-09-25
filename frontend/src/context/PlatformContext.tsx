@@ -53,6 +53,7 @@ import {
 import type { IncidentOut, LaneOut } from '../services/api';
 import {
   mapAccessEvent,
+  mapApiCredential,
   mapAuditLog,
   mapDevice,
   mapFeatureFlag,
@@ -195,6 +196,12 @@ interface PlatformContextType {
   revokeAllUserSessions: (userId: string) => void;
   rotateCredential: (id: string) => void;
   revokeCredential: (id: string) => void;
+  createCredential: (body: { name: string; tenantId?: string | null; scopes?: string[]; expiresInDays?: number | null }) => void;
+  issuedSecret: { name: string; key: string } | null;
+  clearIssuedSecret: () => void;
+  impersonation: { tenantId: string; tenantName: string; expiresIn: number } | null;
+  impersonateTenant: (tenantId: string) => Promise<void>;
+  exitImpersonation: () => Promise<void>;
 
   navigateTo: (tab: PrimaryTab, subTab?: string, detailId?: string) => void;
 
@@ -454,7 +461,9 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [incidents, setIncidents] = useState<OperationalIncident[]>([]);
   const [securityAlerts] = useState<SecurityAlert[]>([]);
   const [loginEvents] = useState<LoginActivityEvent[]>([]);
-  const [credentials] = useState<ApiCredential[]>([]);
+  const [credentials, setCredentials] = useState<ApiCredential[]>([]);
+  const [issuedSecret, setIssuedSecret] = useState<{ name: string; key: string } | null>(null);
+  const [impersonation, setImpersonation] = useState<{ tenantId: string; tenantName: string; expiresIn: number } | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
 
   const [tenantLocation, setTenantLocation] = useState<TenantLocation>(INITIAL_TENANT_LOCATION);
@@ -479,13 +488,14 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   // ---------- Loaders ----------
   const loadPlatformData = useCallback(async () => {
     try {
-      const [tenantsPage, adminsRows, sessionRows, flags, settingsRows, health] = await Promise.all([
+      const [tenantsPage, adminsRows, sessionRows, flags, settingsRows, health, credentialRows] = await Promise.all([
         platformApi.listTenants({ limit: 200 }),
         platformApi.listAdmins(),
         platformApi.listSessions({ activeOnly: true }).catch(() => []),
         platformApi.listFlags(),
         platformApi.getSettings().catch(() => []),
         platformApi.infraHealth().catch(() => null),
+        platformApi.credentials().catch(() => []),
       ]);
       platformApi
         .auditLogs({ limit: 100 })
@@ -501,6 +511,11 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       };
       setSessions(sessionRows.map((s) => mapSession(s, lookup)));
       setFeatureFlags(flags.map(mapFeatureFlag));
+      setCredentials(
+        credentialRows.map((c) =>
+          mapApiCredential(c, mappedTenants.find((t) => t.id === c.tenantId)?.name)
+        )
+      );
       setSettings((prev) => settingsFromRows(settingsRows, prev));
       if (health) setServices(mapInfraHealth(health));
       setLastUpdatedTime(new Date().toLocaleTimeString());
@@ -1009,8 +1024,56 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       .forEach((s) => revokeSession(s.id));
   };
 
-  const rotateCredential = (_id: string) => addToast({ type: 'info', title: 'Not supported by API' });
-  const revokeCredential = (_id: string) => addToast({ type: 'info', title: 'Not supported by API' });
+  const rotateCredential = (id: string) => {
+    platformApi
+      .rotateCredential(id)
+      .then((r) => {
+        setIssuedSecret({ name: r.name, key: r.plaintextKey });
+        return loadPlatformData();
+      })
+      .catch(toastErr('Failed to rotate credential'));
+  };
+  const revokeCredential = (id: string) => {
+    platformApi
+      .revokeCredential(id)
+      .then(() => loadPlatformData())
+      .then(() => addToast({ type: 'success', title: 'Credential revoked' }))
+      .catch(toastErr('Failed to revoke credential'));
+  };
+  const createCredential = (body: { name: string; tenantId?: string | null; scopes?: string[]; expiresInDays?: number | null }) => {
+    platformApi
+      .createCredential(body)
+      .then((r) => {
+        setIssuedSecret({ name: r.name, key: r.plaintextKey });
+        return loadPlatformData();
+      })
+      .catch(toastErr('Failed to create credential'));
+  };
+  const clearIssuedSecret = () => setIssuedSecret(null);
+
+  const impersonateTenant = async (tId: string) => {
+    const r = await platformApi.impersonateTenant(tId);
+    setImpersonation({ tenantId: r.tenantId, tenantName: r.tenantName, expiresIn: r.expiresIn });
+    const me = await authApi.me();
+    applyMe(me);
+    setTenantNavTab('dashboard');
+    addToast({ type: 'info', title: 'Đang mạo danh', description: `Tenant: ${r.tenantName} — 15 phút` });
+  };
+
+  const exitImpersonation = async () => {
+    try {
+      await authApi.refresh();
+    } catch {
+      // fall through — still clear local state
+    }
+    setImpersonation(null);
+    try {
+      const me = await authApi.me();
+      applyMe(me);
+    } catch {
+      setIsAuthenticated(false);
+    }
+  };
 
   // ---------- Tenant handlers ----------
   const refreshTenantDashboard = () => {
@@ -1549,6 +1612,12 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         revokeAllUserSessions,
         rotateCredential,
         revokeCredential,
+        createCredential,
+        issuedSecret,
+        clearIssuedSecret,
+        impersonation,
+        impersonateTenant,
+        exitImpersonation,
         navigateTo,
         appWorkspace,
         tenantNavTab,

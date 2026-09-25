@@ -1807,6 +1807,8 @@ export interface components {
             expiresAt: string;
             /** Revokedat */
             revokedAt: string | null;
+            /** Risklevel */
+            riskLevel?: string | null;
             /**
              * Current
              * @default false
@@ -2272,6 +2274,60 @@ export interface components {
         EdgeRebootOut: {
             /** Commandids */
             commandIds: string[];
+        };
+        /** ApiCredentialCreateIn */
+        ApiCredentialCreateIn: {
+            /** Name */
+            name: string;
+            /** Tenantid */
+            tenantId?: string | null;
+            /** Scopes */
+            scopes?: string[];
+            /** Expiresindays */
+            expiresInDays?: number | null;
+        };
+        /** ApiCredentialOut */
+        ApiCredentialOut: {
+            /** Id */
+            id: string;
+            /** Tenantid */
+            tenantId: string | null;
+            /** Name */
+            name: string;
+            /** Keyprefix */
+            keyPrefix: string;
+            /** Scopes */
+            scopes: string[];
+            /** Status */
+            status: string;
+            /** Expiresat */
+            expiresAt?: string | null;
+            /** Lastusedat */
+            lastUsedAt?: string | null;
+            /** Graceactive */
+            graceActive: boolean;
+            /** Createdat */
+            createdAt: string;
+        };
+        /** ApiCredentialCreatedOut */
+        ApiCredentialCreatedOut: ApiCredentialOut & {
+            /** Plaintextkey */
+            plaintextKey: string;
+            /** Previousgraceuntil */
+            previousGraceUntil?: string | null;
+        };
+        /** ImpersonateOut */
+        ImpersonateOut: {
+            /** Tenantid */
+            tenantId: string;
+            /** Tenantname */
+            tenantName: string;
+            /** Impersonateduserid */
+            impersonatedUserId: string;
+            /** Expiresin */
+            expiresIn: number;
+            /** Csrftoken */
+            csrfToken: string;
         };
     };
     responses: never;

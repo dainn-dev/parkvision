@@ -5,6 +5,7 @@
  */
 import type {
   AccessEventOut,
+  ApiCredentialOut,
   AuditLogOut,
   DeviceOut,
   FeatureFlagOut,
@@ -23,6 +24,7 @@ import type {
 } from './index';
 import type {
   ActiveSession,
+  ApiCredential,
   AuditLogItem,
   EdgeDeviceHealth,
   FeatureFlag,
@@ -106,7 +108,7 @@ export const mapSession = (
     browser: s.userAgent ?? '',
     os: '',
     ipAddress: s.ip ?? '',
-    riskLevel: 'NORMAL',
+    riskLevel: (s.riskLevel ?? 'normal').toUpperCase() === 'SUSPICIOUS' ? 'SUSPICIOUS' : (s.riskLevel ?? 'normal').toUpperCase() === 'IMPERSONATED' ? 'HIGH_RISK' : 'NORMAL',
     createdTime: s.createdAt,
     lastActive: s.lastSeenAt ?? s.createdAt,
   };
@@ -424,4 +426,19 @@ export const mapPlan = (p: PlanOut) => ({
   priceMonthlyCents: p.priceMonthlyCents,
   currency: p.currency,
   limits: p.limits as Record<string, number>,
+});
+
+export const mapApiCredential = (
+  c: ApiCredentialOut,
+  tenantName?: string,
+): ApiCredential => ({
+  id: c.id,
+  name: c.name,
+  type: c.scopes?.some((s) => s.startsWith('edge')) ? 'EDGE_KEY' : 'PLATFORM_KEY',
+  ownerName: tenantName ?? (c.tenantId ? c.tenantId.slice(0, 8) : 'Platform'),
+  keyPrefix: c.keyPrefix,
+  status: c.status.toUpperCase() as ApiCredential['status'],
+  lastUsedAt: c.lastUsedAt ? new Date(c.lastUsedAt).toLocaleString() : 'never',
+  createdAt: c.createdAt,
+  expiresAt: c.expiresAt ?? undefined,
 });

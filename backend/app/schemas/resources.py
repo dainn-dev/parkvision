@@ -545,3 +545,38 @@ class JobOut(CamelModel):
     created_at: datetime
     finished_at: datetime | None
     row_count: int
+
+
+class ApiCredentialCreateIn(CamelModel):
+    name: str = Field(min_length=2, max_length=120)
+    tenant_id: uuid.UUID | None = None
+    scopes: list[str] = Field(default_factory=list)
+    expires_in_days: int | None = Field(default=None, ge=1, le=3650)
+
+
+class ApiCredentialOut(CamelModel):
+    id: uuid.UUID
+    tenant_id: uuid.UUID | None
+    name: str
+    key_prefix: str
+    scopes: list[str]
+    status: str
+    expires_at: datetime | None
+    last_used_at: datetime | None
+    grace_active: bool
+    created_at: datetime
+
+
+class ApiCredentialCreatedOut(ApiCredentialOut):
+    """Returned once on create/rotate — plaintext key is never stored or shown again."""
+
+    plaintext_key: str
+    previous_grace_until: datetime | None = None
+
+
+class ImpersonateOut(CamelModel):
+    tenant_id: uuid.UUID
+    tenant_name: str
+    impersonated_user_id: uuid.UUID
+    expires_in: int
+    csrf_token: str

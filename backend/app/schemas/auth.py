@@ -84,6 +84,7 @@ class SessionOut(CamelModel):
     last_seen_at: datetime | None
     expires_at: datetime
     revoked_at: datetime | None
+    risk_level: str | None = None
     current: bool = False
 
     @field_validator("ip", mode="before")
