@@ -1,1 +1,1 @@
-# api package
+"""HTTP API package."""

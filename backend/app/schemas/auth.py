@@ -1,90 +1,97 @@
-"""Auth-related request/response schemas."""
-
+import uuid
 from datetime import datetime
-from uuid import UUID
 
-from pydantic import EmailStr, Field, IPvAnyAddress
+from pydantic import EmailStr, Field
 
 from app.schemas.common import CamelModel
 
 
-class LoginRequest(CamelModel):
+class LoginIn(CamelModel):
     email: EmailStr
-    password: str = Field(min_length=1, max_length=256)
-    kind: str = "tenant_user"  # tenant_user | platform_admin
-    device_info: dict | None = None
+    password: str = Field(min_length=8, max_length=200)
+    tenant_slug: str | None = None  # optional disambiguator if email collides
 
 
-class LoginResponse(CamelModel):
-    status: str  # "authenticated" | "mfa_required"
-    user: "UserProfile | None" = None
-    mfa_required: bool = False
-    expires_in: int | None = None
+class MfaVerifyIn(CamelModel):
+    code: str = Field(min_length=6, max_length=10)
+    # Alternatively a backup code is accepted in `code` too.
 
 
-class MfaVerifyRequest(CamelModel):
-    code: str = Field(min_length=6, max_length=64)  # TOTP or backup code
+class MfaSetupOut(CamelModel):
+    secret: str
+    provisioning_uri: str
 
 
-class MfaSetupResponse(CamelModel):
-    secret: str  # base32 — shown once for manual entry
-    otpauth_uri: str
-
-
-class MfaConfirmRequest(CamelModel):
+class MfaEnableIn(CamelModel):
     code: str = Field(min_length=6, max_length=10)
 
 
-class MfaConfirmResponse(CamelModel):
+class MfaEnableOut(CamelModel):
     backup_codes: list[str]
 
 
-class UserProfile(CamelModel):
-    id: UUID
-    kind: str
-    email: str
+class RefreshIn(CamelModel):
+    # body-based refresh for non-browser clients; cookie refresh works without a body
+    refresh_token: str | None = None
+
+
+class UserOut(CamelModel):
+    id: uuid.UUID
+    email: EmailStr
     full_name: str
     role: str
-    tenant_id: UUID | None = None
-    mfa_enabled: bool = False
-    impersonating: bool = False
+    status: str
+    mfa_enabled: bool
+    tenant_id: uuid.UUID | None = None
+    last_login_at: datetime | None = None
 
 
-class RefreshResponse(CamelModel):
-    expires_in: int
+class MeOut(CamelModel):
+    user: UserOut
+    user_type: str
+    tenant_id: uuid.UUID | None = None
+    tenant_slug: str | None = None
+    mfa_verified: bool
+    session_id: uuid.UUID
+    csrf_token: str
 
 
-class PasswordForgotRequest(CamelModel):
-    email: EmailStr
-    kind: str = "tenant_user"
+class RegisterTenantIn(CamelModel):
+    tenant_name: str = Field(min_length=2, max_length=200)
+    slug: str = Field(min_length=2, max_length=120, pattern=r"^[a-z0-9-]+$")
+    plan_code: str = "starter"
+    contact_email: EmailStr
+    owner_email: EmailStr
+    owner_full_name: str = Field(min_length=2, max_length=200)
+    owner_password: str = Field(min_length=10, max_length=200)
 
 
-class PasswordResetRequest(CamelModel):
-    token: str
-    new_password: str = Field(min_length=12, max_length=256)
+class RegisterTenantOut(CamelModel):
+    tenant_id: uuid.UUID
+    owner_user_id: uuid.UUID
+    message: str
 
 
-class InviteAcceptRequest(CamelModel):
-    token: str
-    password: str = Field(min_length=12, max_length=256)
-    full_name: str = Field(min_length=1, max_length=200)
-
-
-class SessionInfo(CamelModel):
-    id: UUID
-    user_kind: str
-    user_id: UUID
-    tenant_id: UUID | None = None
-    device_info: dict = {}
-    ip_address: IPvAnyAddress | None = None
-    user_agent: str | None = None
-    mfa_verified: bool = False
+class SessionOut(CamelModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    user_type: str
+    tenant_id: uuid.UUID | None
+    ip: str | None
+    user_agent: str | None
+    mfa_verified: bool
     created_at: datetime
+    last_seen_at: datetime | None
     expires_at: datetime
-    last_used_at: datetime | None = None
-    revoked_at: datetime | None = None
+    revoked_at: datetime | None
+    current: bool = False
 
 
-class ChangePasswordRequest(CamelModel):
+class ChangePasswordIn(CamelModel):
     current_password: str
-    new_password: str = Field(min_length=12, max_length=256)
+    new_password: str = Field(min_length=10, max_length=200)
+
+
+class ActivateIn(CamelModel):
+    token: str = Field(min_length=20, max_length=200)
+    password: str = Field(min_length=10, max_length=200)

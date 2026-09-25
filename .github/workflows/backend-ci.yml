@@ -1,0 +1,81 @@
+name: backend-ci
+
+on:
+  push:
+    paths: ["backend/**", ".github/workflows/backend-ci.yml"]
+  pull_request:
+    paths: ["backend/**", ".github/workflows/backend-ci.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vehicle_mgmt
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+      emqx:
+        image: emqx/emqx:5.8.1
+        env:
+          EMQX_ALLOW_ANONYMOUS: "true"
+        ports: ["1883:1883"]
+        options: >-
+          --health-cmd "/opt/emqx/bin/emqx ping"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install
+        working-directory: backend
+        run: pip install -e ".[dev]"
+
+      - name: Ruff lint
+        working-directory: backend
+        run: ruff check .
+
+      - name: Ruff format check
+        working-directory: backend
+        run: ruff format --check .
+
+      - name: Start mqtt-bridge (drains Redis outbox → EMQX)
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://vehicle_app:vehicle_app@localhost:5432/vehicle_mgmt
+          MIGRATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: ci-test-secret-0123456789abcdef0123456789ab
+          FIELD_ENCRYPTION_KEY: ci-fernet-key
+          COOKIE_SECURE: "false"
+        run: |
+          alembic upgrade head
+          nohup python -m app.realtime.mqtt_bridge > bridge.log 2>&1 &
+          sleep 3
+
+      - name: Pytest
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://vehicle_app:vehicle_app@localhost:5432/vehicle_mgmt
+          MIGRATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: ci-test-secret-0123456789abcdef0123456789ab
+          FIELD_ENCRYPTION_KEY: ci-fernet-key
+          COOKIE_SECURE: "false"
+        run: pytest tests -q

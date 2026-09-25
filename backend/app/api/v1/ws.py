@@ -1,66 +1,82 @@
-"""Realtime WebSocket: /ws/tenants/{tenantId}/barrier-telemetry.
+"""Barrier telemetry WebSocket: /ws/tenants/{tenant_id}/barrier-telemetry.
 
-Auth uses the same HttpOnly access cookie as REST. A bearer `Authorization`
-header is also accepted for non-browser clients.
+Auth: access JWT via cookie or ?token= (non-browser clients). Fan-out is via
+Redis pub/sub so any API worker can serve the socket.
 """
 
 import asyncio
-import contextlib
 import json
-import logging
-from uuid import UUID
+import uuid
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
+import jwt as pyjwt
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from app.core.errors import unauthorized
-from app.core.security import PURPOSE_ACCESS, decode_jwt
-from app.realtime.broker import relay_loop
+from app.config import settings
+from app.core.enums import ActorType
+from app.redis_client import get_redis, ws_channel
+from app.security import decode_access_token
+from app.services.auth_service import validate_session_state
 
-log = logging.getLogger("parkvision.ws")
-
-router = APIRouter(tags=["realtime"])
-
-
-def _ws_principal(websocket: WebSocket) -> dict:
-    auth = websocket.headers.get("authorization")
-    token = None
-    if auth and auth.lower().startswith("bearer "):
-        token = auth[7:].strip()
-    if token is None:
-        token = websocket.cookies.get("pv_access")
-    if token is None:
-        # also allow subprotocol-token for browsers that can't set headers:
-        # client may pass ?token=<jwt> — only accepted over secure deployments
-        token = websocket.query_params.get("token")
-    if token is None:
-        raise unauthorized()
-    payload = decode_jwt(token, purpose=PURPOSE_ACCESS)
-    if payload.get("kind") != "tenant_user":
-        raise unauthorized("Tenant user credentials required")
-    return payload
+router = APIRouter(tags=["websocket"])
 
 
-@router.websocket("/ws/tenants/{tenantId}/barrier-telemetry")
-async def barrier_telemetry(websocket: WebSocket, tenantId: UUID) -> None:
+async def _ws_auth(ws: WebSocket, tenant_id: uuid.UUID) -> bool:
+    token = ws.cookies.get(settings.access_cookie_name) or ws.query_params.get("token")
+    if not token:
+        await ws.close(code=4401)
+        return False
     try:
-        payload = _ws_principal(websocket)
-    except Exception:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        claims = decode_access_token(token)
+    except pyjwt.PyJWTError:
+        await ws.close(code=4401)
+        return False
+    if claims.get("mfa_pending"):
+        await ws.close(code=4401)
+        return False
+    typ = claims.get("typ")
+    tid = claims.get("tid")
+    if typ == ActorType.TENANT_USER and (tid is None or uuid.UUID(tid) != tenant_id):
+        await ws.close(code=4403)
+        return False
+    if typ != ActorType.PLATFORM_ADMIN and typ != ActorType.TENANT_USER:
+        await ws.close(code=4403)
+        return False
+    if not await validate_session_state(uuid.UUID(claims["sid"])):
+        await ws.close(code=4401)
+        return False
+    return True
+
+
+@router.websocket("/ws/tenants/{tenant_id}/barrier-telemetry")
+async def barrier_telemetry(ws: WebSocket, tenant_id: uuid.UUID) -> None:
+    await ws.accept()
+    if not await _ws_auth(ws, tenant_id):
         return
 
-    if payload.get("tenant") != str(tenantId):
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
+    redis = get_redis()
+    pubsub = redis.pubsub()
+    await pubsub.subscribe(ws_channel(tenant_id))
 
-    await websocket.accept()
-    await websocket.send_text(json.dumps({"kind": "subscribed", "tenantId": str(tenantId)}))
+    async def forward() -> None:
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                await ws.send_text(message["data"])
+
+    async def heartbeat() -> None:
+        while True:
+            await asyncio.sleep(30)
+            await ws.send_text(json.dumps({"type": "ping"}))
+
+    fwd = asyncio.create_task(forward())
+    hb = asyncio.create_task(heartbeat())
     try:
-        await relay_loop(websocket, tenantId)
+        # Block on client disconnect; drain inbound pings/close frames.
+        while True:
+            await ws.receive_text()
     except WebSocketDisconnect:
         pass
-    except asyncio.CancelledError:
-        raise
-    except Exception:
-        log.exception("ws relay failed for tenant %s", tenantId)
-        with contextlib.suppress(Exception):
-            await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
+    finally:
+        fwd.cancel()
+        hb.cancel()
+        await pubsub.unsubscribe(ws_channel(tenant_id))
+        await pubsub.aclose()

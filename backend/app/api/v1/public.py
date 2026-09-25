@@ -1,64 +1,84 @@
-"""Public, unauthenticated endpoints: plans, legal docs, tenant registration."""
+"""Public endpoints: plans, legal documents, tenant self-registration."""
 
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
-from app.core.database import get_db
-from app.models import LegalDocument, SubscriptionPlan, TenantRegistration
-from app.schemas.common import MessageResponse
-from app.schemas.identity import (
-    LegalDocOut,
-    PlanOut,
-    RegistrationCreate,
-    RegistrationOut,
-)
-from app.services.common import get_or_404
+from app.core.enums import AccountStatus, TenantStatus, TenantUserRole
+from app.core.errors import conflict, not_found
+from app.database import anonymous_session, platform_session
+from app.models import LegalDocument, Plan, Tenant, TenantUser
+from app.schemas.auth import RegisterTenantIn, RegisterTenantOut
+from app.schemas.common import Page, paginate
+from app.schemas.resources import LegalDocOut, PlanOut
+from app.security import hash_password
 
 router = APIRouter(tags=["public"])
 
-DbDep = Annotated[AsyncSession, Depends(get_db)]
+
+@router.get("/plans", response_model=Page[PlanOut])
+async def list_plans() -> Page[PlanOut]:
+    async with anonymous_session() as db:
+        rows = (
+            (await db.execute(select(Plan).where(Plan.public.is_(True)).order_by(Plan.price_monthly_cents)))
+            .scalars()
+            .all()
+        )
+    return paginate([PlanOut.model_validate(r) for r in rows], len(rows), 1, len(rows) or 1)
 
 
-@router.get("/health")
-async def health() -> dict:
-    return {"status": "ok"}
+@router.get("/legal/{doc_type}", response_model=LegalDocOut)
+async def latest_legal_doc(doc_type: str) -> LegalDocOut:
+    async with anonymous_session() as db:
+        row = (
+            await db.execute(
+                select(LegalDocument)
+                .where(LegalDocument.doc_type == doc_type)
+                .order_by(LegalDocument.published_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+    if row is None:
+        raise not_found("legal_document", doc_type) from None
+    return LegalDocOut.model_validate(row)
 
 
-@router.get("/public/plans", response_model=list[PlanOut])
-async def list_plans(db: DbDep) -> list[PlanOut]:
-    result = await db.execute(
-        select(SubscriptionPlan).where(SubscriptionPlan.active.is_(True))
+@router.post("/register", response_model=RegisterTenantOut, status_code=201)
+async def register_tenant(body: RegisterTenantIn) -> RegisterTenantOut:
+    async with platform_session() as db:
+        plan = (await db.execute(select(Plan).where(Plan.code == body.plan_code))).scalar_one_or_none()
+        if plan is None:
+            raise not_found("plan", body.plan_code) from None
+
+        tenant = Tenant(
+            name=body.tenant_name,
+            slug=body.slug,
+            plan_code=body.plan_code,
+            status=str(TenantStatus.TRIAL),
+            contact_email=body.contact_email.lower(),
+        )
+        db.add(tenant)
+        try:
+            await db.flush()
+        except IntegrityError:
+            raise conflict("Tenant slug is already taken") from None
+
+        owner = TenantUser(
+            tenant_id=tenant.id,
+            email=body.owner_email.lower(),
+            password_hash=hash_password(body.owner_password),
+            full_name=body.owner_full_name,
+            role=str(TenantUserRole.OWNER),
+            status=str(AccountStatus.ACTIVE),
+        )
+        db.add(owner)
+        try:
+            await db.flush()
+        except IntegrityError:
+            raise conflict("A user with this email already exists") from None
+
+    return RegisterTenantOut(
+        tenant_id=tenant.id,
+        owner_user_id=owner.id,
+        message="Tenant registered. You can log in now.",
     )
-    return [PlanOut.model_validate(p) for p in result.scalars()]
-
-
-@router.get("/public/legal/{slug}", response_model=LegalDocOut)
-async def get_legal(slug: str, db: DbDep) -> LegalDocOut:
-    doc = await get_or_404(db, LegalDocument, slug, "Document not found")
-    return LegalDocOut.model_validate(doc)
-
-
-@router.post(
-    "/public/tenant-registrations",
-    status_code=status.HTTP_201_CREATED,
-    response_model=RegistrationOut,
-)
-async def register_tenant(payload: RegistrationCreate, db: DbDep) -> RegistrationOut:
-    registration = TenantRegistration(
-        company_name=payload.company_name,
-        contact_name=payload.contact_name,
-        contact_email=payload.contact_email.lower(),
-        plan_code=payload.plan_code,
-        payload=payload.payload,
-    )
-    db.add(registration)
-    await db.commit()
-    return RegistrationOut.model_validate(registration)
-
-
-@router.get("/public/message", response_model=MessageResponse, include_in_schema=False)
-async def message() -> MessageResponse:
-    return MessageResponse(message="ok")

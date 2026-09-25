@@ -1,60 +1,94 @@
-# ParkVision Backend
+# Vehicle Management — FastAPI backend
 
-FastAPI backend for the ParkVision multi-tenant ANPR vehicle-access platform (see `SYSTEM_ARCHITECTURE_AND_DATABASE_DESIGN.md`).
+Multi-tenant vehicle access & barrier-gate management backend implementing
+`SYSTEM_ARCHITECTURE_AND_DATABASE_DESIGN.md`.
 
 ## Stack
 
-- **API:** FastAPI + Uvicorn, SQLAlchemy 2 (async, asyncpg), Alembic
-- **DB:** PostgreSQL 16 — RLS tenant isolation (`app.current_tenant_id`, `app.is_platform_admin` transaction-local GUCs), quarterly `access_events` partitions, monthly `gate_telemetry_logs` partitions
-- **Auth:** JWT access/refresh in Secure HttpOnly cookies (`pv_access`, `pv_refresh`), double-submit CSRF (`pv_csrf` + `x-csrf-token`), opaque refresh tokens with rotation + reuse detection, Argon2 passwords, TOTP MFA (Fernet-encrypted secrets, backup codes)
-- **Realtime:** Redis pub/sub fan-out → WebSocket `/ws/tenants/{tenantId}/barrier-telemetry`
-- **IoT:** EMQX MQTT 5 — topics `tenants/{t}/sites/{s}/gates/{g}/{telemetry|incident|command|command-ack|event}`; standalone ingest process `app.mqtt_ingest`
-- **Background:** arq worker (Redis) — invite/reset emails, CSV vehicle import, partition maintenance, command timeouts, edge-offline sweep
-- **Storage:** S3-compatible (MinIO locally) presigned URLs for ANPR snapshots
-- **Email:** SMTP → Mailpit locally
+| Component | Choice |
+|---|---|
+| API | FastAPI (async) + Uvicorn |
+| DB | PostgreSQL 16, SQLAlchemy 2.x async + asyncpg, Alembic |
+| Multi-tenancy | Postgres **row-level security** via `app.current_tenant_id` (SET LOCAL per transaction); controlled `app.platform_bypass` for platform paths |
+| Auth | Argon2 passwords, JWT access tokens + opaque rotating refresh tokens in **HttpOnly Secure cookies**, double-submit CSRF, TOTP MFA (Fernet-encrypted secrets, hashed backup codes), refresh-reuse family revocation |
+| Realtime | EMQX (MQTT 5) ↔ bridge → PostgreSQL + Redis pub/sub → WebSocket `/ws/tenants/{id}/barrier-telemetry` |
+| Commands | `gate_commands` table: idempotency-key dedupe, outbox via Redis → MQTT `…/command`, edge `command_ack` → ack/timeout |
+| Storage | S3-compatible (LocalStack) presigned PUT/GET for ANPR images |
+| Worker | arq on Redis: invites (Mailpit SMTP), CSV vehicle import, audit CSV export → S3, partition creation, command-timeout & offline sweeps, session cleanup |
+| Partitioning | `gate_telemetry_logs` monthly, `access_events` quarterly (+ DEFAULT safety partitions; worker creates future ones) |
 
-## Local development
+## Quick start
 
 ```bash
-python3.12 -m venv .venv && source .venv/bin/activate
-pip install -e '.[dev]'
-cp .env.example .env
-
-# Infrastructure (postgres/redis/emqx/minio/mailpit + api/worker/ingestor)
-docker compose up -d postgres redis emqx minio minio-init mailpit
-
-# Runtime uses `parkvision_app` (non-superuser, created by docker/init.sql)
-# so RLS is enforced; migrations run as the owner `parkvision`.
-alembic upgrade head   # uses MIGRATION_DATABASE_URL if set, else DATABASE_URL
-python -m app.main                 # API on :8000 (docs at /docs)
-python -m arq app.workers.worker.WorkerSettings   # worker
-python -m app.mqtt_ingest          # MQTT ingestor
+cp .env.example .env        # dev defaults already work
+docker compose up -d --build
+docker compose exec api python -m scripts.seed   # demo tenant + users
 ```
 
-Or everything in Docker: `docker compose up --build`.
+Services: API `:8000` (`/docs`), Postgres `:5432`, EMQX `:1883`/dashboard `:18083`,
+LocalStack S3 `:9000`, Mailpit UI `:8025`.
 
-Bootstrap admin: set `BOOTSTRAP_PLATFORM_ADMIN_EMAIL` / `BOOTSTRAP_PLATFORM_ADMIN_PASSWORD` before first API start to seed a `super_admin`.
+Seeded logins:
 
-## Tests / lint
+- Platform admin: `admin@example.com` / `ChangeMe!123`
+- Demo tenant owner: `owner@demo.example.com` / `DemoOwner!123`
+
+## Request flow notes
+
+- REST is under `/api/v1`. Tenant routes are `/api/v1/tenants/{tenantId}/…` —
+  the path tenant must equal the JWT tenant (platform admins bypass).
+- Mutating calls with cookie auth need `X-CSRF-Token` matching the `vm_csrf`
+  cookie (login returns it in `data.csrfToken` and `/auth/me` re-issues it).
+- `POST /gates/{id}/commands` returns **202**: command is queued to the edge;
+  `acknowledged`/`timeout` arrive async via the WebSocket or
+  `GET /commands/{id}`.
+- Error envelope: `{error: {code, message, details}, requestId}`.
+- Pagination: `{data: [...], meta: {page, limit, total}}`; JSON is camelCase.
+
+## MQTT topics (per the design doc)
+
+```
+tenants/{tenantId}/sites/{siteId}/gates/{gateId}/telemetry   # edge → backend
+tenants/{tenantId}/sites/{siteId}/gates/{gateId}/incident    # edge → backend
+tenants/{tenantId}/sites/{siteId}/gates/{gateId}/command     # backend → edge
+```
+
+Edge acks commands by publishing `{"type":"command_ack","commandId":…,"success":true}`
+on the telemetry topic. Heartbeats: `{"type":"heartbeat","deviceId":…}`.
+ANPR reads: telemetry payload with `plateNumber`, `direction`, `confidence`,
+`laneId`, `plateImageKey`, `overviewImageKey` → recorded as `access_events`.
+
+## Local dev without Docker
 
 ```bash
-pytest
-ruff check app alembic
+python -m venv .venv && .venv/bin/pip install -e ".[dev]"
+# point .env at localhost services, then:
+.venv/bin/alembic upgrade head
+.venv/bin/uvicorn app.main:app --reload
+```
+
+## Tests
+
+```bash
+# with Postgres + Redis from compose running:
+DATABASE_URL=postgresql+asyncpg://vehicle_app:vehicle_app@localhost:5432/vehicle_mgmt \
+MIGRATION_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt \
+REDIS_URL=redis://localhost:6379/0 \
+.venv/bin/pytest
 ```
 
 ## Layout
 
-- `app/core` — config, database (RLS-scoped sessions), security (JWT/cookies/CSRF/MFA), deps, errors
-- `app/models` — SQLAlchemy models mirroring the design doc DDL
-- `app/schemas` — camelCase Pydantic DTOs + `Page[T]` envelope
-- `app/services` — auth sessions/rotation, command idempotency + MQTT publish, partitions, CSV importer, audit
-- `app/api/v1` — public / auth / platform governance / tenant routers + WS
-- `app/workers` — arq tasks + cron jobs
-- `app/storage` — S3 presign helpers
-- `app/realtime` — Redis→WebSocket relay
-- `app/mqtt_ingest.py` — MQTT→DB/Redis ingest daemon
-- `alembic/versions/0001_initial.py` — full schema: 20+ tables, partitions, RLS policies, seeds
-
-## Error/pagination conventions
-
-Errors return `{"error": {"code", "message", "details?"}}`; lists return `{"items": [...], "total", "page", "pageSize"}`. All JSON is camelCase; DB is snake_case (aliased by `CamelModel`).
+```
+app/
+  api/v1/         routers: public, auth, platform, tenant/*
+  models.py       SQLAlchemy models (14 design tables + platform tables)
+  database.py     engine + RLS-scoped session factories
+  security.py     JWT, Argon2, TOTP, refresh tokens
+  services/       auth, commands, events/decisions, audit, storage, infra
+  realtime/       mqtt_bridge (EMQX↔DB/Redis), ws fan-out
+  workers/        arq jobs + WorkerSettings (cron maintenance)
+migrations/       Alembic — initial DDL, RLS policies, partitions, seeds
+scripts/seed.py   demo data
+tests/            pytest integration suite (compose Postgres/Redis)
+```

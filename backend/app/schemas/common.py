@@ -1,13 +1,13 @@
-"""Camel-case base + pagination envelope.
-
-Public JSON is camelCase; DB columns are snake_case. `alias_generator=to_camel`
-plus `populate_by_name` accepts both spellings on input and emits camelCase.
-"""
-
-from typing import Any
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
-from pydantic.alias_generators import to_camel
+
+
+def to_camel(s: str) -> str:
+    head, *rest = s.split("_")
+    return head + "".join(p.title() for p in rest)
 
 
 class CamelModel(BaseModel):
@@ -15,25 +15,38 @@ class CamelModel(BaseModel):
         alias_generator=to_camel,
         populate_by_name=True,
         from_attributes=True,
+        use_enum_values=True,
     )
 
 
-class Page[T](CamelModel):
-    items: list[T]
+T = TypeVar("T")
+
+
+class PageMeta(CamelModel):
+    page: int
+    limit: int
     total: int
-    page: int = 1
-    page_size: int = 50
 
 
-class PaginationParams(BaseModel):
-    page: int = Field(default=1, ge=1)
-    page_size: int = Field(default=50, ge=1, le=200)
-
-    @property
-    def offset(self) -> int:
-        return (self.page - 1) * self.page_size
+class Page(CamelModel, Generic[T]):
+    data: list[T]
+    meta: PageMeta
 
 
-class MessageResponse(CamelModel):
+def paginate(items: list[T], total: int, page: int, limit: int) -> Page[T]:
+    return Page[T](data=items, meta=PageMeta(page=page, limit=limit, total=total))
+
+
+class IdOut(CamelModel):
+    id: uuid.UUID
+
+
+class MessageOut(CamelModel):
     message: str
-    extra: dict[str, Any] | None = None
+
+
+class HealthOut(CamelModel):
+    status: str
+    version: str = "0.1.0"
+    time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    checks: dict[str, Any] = {}

@@ -1,416 +1,379 @@
-"""Authentication flows: login, MFA challenge, rotating refresh sessions."""
+"""Authentication flows: login, MFA staging, refresh rotation, logout, sessions.
 
-import secrets
-from datetime import UTC, datetime, timedelta
-from uuid import UUID
+Refresh tokens rotate on every use; presenting a rotated/revoked token marks
+the whole session family compromised and revokes it.
+"""
 
-from fastapi import Request, Response
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+import uuid
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
-from app.core.config import get_settings
-from app.core.deps import ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE
-from app.core.errors import AppError, forbidden, unauthorized
-from app.core.security import (
-    PURPOSE_ACCESS,
-    PURPOSE_MFA_CHALLENGE,
-    create_jwt,
-    decode_jwt,
-    decrypt_totp_secret,
-    hash_opaque,
+from sqlalchemy import select, update
+
+from app.config import settings
+from app.core.enums import AccountStatus, ActorType
+from app.core.errors import unauthorized
+from app.database import platform_session
+from app.models import PlatformAdmin, Tenant, TenantUser, UserSession
+from app.security import (
+    create_access_token,
+    decrypt_secret,
+    encrypt_secret,
+    generate_backup_codes,
+    hash_backup_code,
     hash_password,
-    new_backup_codes,
-    new_csrf_token,
-    new_opaque_token,
-    verify_backup_code,
+    hash_refresh_token,
+    new_refresh_token,
+    new_totp_secret,
+    totp_uri,
     verify_password,
     verify_totp,
 )
-from app.models import PlatformAdmin, TenantUser, UserSession
-from app.models.enums import AccountStatus, ActorKind
-from app.services.audit import audit
-
-MAX_FAILED_ATTEMPTS = 5
-LOCK_MINUTES = 15
 
 
-def _set_auth_cookies(
-    response: Response,
-    *,
-    access_token: str,
-    refresh_token: str | None,
-    csrf: str,
-) -> None:
-    settings = get_settings()
-    common = dict(
-        secure=settings.cookie_secure,
-        samesite=settings.cookie_samesite,  # type: ignore[arg-type]
-        domain=settings.cookie_domain or None,
-    )
-    response.set_cookie(
-        ACCESS_COOKIE,
-        access_token,
-        httponly=True,
-        max_age=settings.access_token_ttl_seconds,
-        path="/",
-        **common,
-    )
-    if refresh_token is not None:
-        response.set_cookie(
-            REFRESH_COOKIE,
-            refresh_token,
-            httponly=True,
-            max_age=settings.refresh_token_ttl_seconds,
-            path="/api/v1/auth",
-            **common,
-        )
-    # CSRF cookie is JS-readable (double-submit pattern)
-    response.set_cookie(
-        CSRF_COOKIE,
-        csrf,
-        httponly=False,
-        max_age=settings.refresh_token_ttl_seconds,
-        path="/",
-        **common,
-    )
+@dataclass
+class TokenBundle:
+    access_token: str
+    refresh_token: str
+    session_id: uuid.UUID
+    expires_in: int
 
 
-def clear_auth_cookies(response: Response) -> None:
-    settings = get_settings()
-    for name, path in (
-        (ACCESS_COOKIE, "/"),
-        (REFRESH_COOKIE, "/api/v1/auth"),
-        (CSRF_COOKIE, "/"),
-        ("pv_mfa", "/api/v1/auth"),
-    ):
-        response.delete_cookie(name, path=path, domain=settings.cookie_domain or None)
+@dataclass
+class LoginResult:
+    bundle: TokenBundle | None
+    mfa_required: bool
+    pending_token: str | None  # short-lived access token with mfa_pending=true
+    user: TenantUser | PlatformAdmin | None
+    user_type: str | None
 
 
-async def _find_user(db: AsyncSession, email: str, kind: str):
-    if kind == "platform_admin":
-        result = await db.execute(select(PlatformAdmin).where(PlatformAdmin.email == email.lower()))
-    else:
-        result = await db.execute(select(TenantUser).where(TenantUser.email == email.lower()))
-    return result.scalar_one_or_none()
+def _new_session_expiry() -> datetime:
+    return datetime.now(timezone.utc) + timedelta(seconds=settings.refresh_token_ttl_seconds)
 
 
-def _user_email(user) -> str:
-    return user.email
-
-
-def _user_tenant_id(user, kind: str) -> UUID | None:
-    return user.tenant_id if kind == "tenant_user" else None
-
-
-def _user_mfa_enabled(user) -> bool:
-    return bool(user.mfa_enabled)
-
-
-async def _issue_session(
-    db: AsyncSession,
-    request: Request,
-    response: Response,
-    *,
-    user,
-    kind: str,
-    mfa_verified: bool,
-    acting_admin_id: UUID | None = None,
-) -> UserSession:
-    settings = get_settings()
-    raw_refresh, refresh_hash = new_opaque_token()
-    session = UserSession(
-        user_kind=kind,
-        user_id=user.id,
-        tenant_id=_user_tenant_id(user, kind),
-        refresh_token_hash=refresh_hash,
-        device_info={} if request is None else _device_info(request),
-        ip_address=request.client.host if request and request.client else None,
-        user_agent=request.headers.get("user-agent") if request else None,
-        mfa_verified=mfa_verified,
-        acting_admin_id=acting_admin_id,
-        expires_at=datetime.now(UTC) + timedelta(seconds=settings.refresh_token_ttl_seconds),
-        last_used_at=datetime.now(UTC),
-    )
-    db.add(session)
-    await db.flush()
-
-    csrf = new_csrf_token()
-    claims = {
-        "kind": kind,
-        "role": user.role,
-        "sid": str(session.id),
-        "tenant": str(_user_tenant_id(user, kind)) if _user_tenant_id(user, kind) else None,
-        "act": str(acting_admin_id) if acting_admin_id else None,
-        "mfa": mfa_verified,
-    }
-    access = create_jwt(
-        subject=str(user.id),
-        purpose=PURPOSE_ACCESS,
-        ttl_seconds=settings.access_token_ttl_seconds,
-        claims=claims,
-    )
-    _set_auth_cookies(response, access_token=access, refresh_token=raw_refresh, csrf=csrf)
-    return session
-
-
-def _device_info(request: Request) -> dict:
-    return {"user_agent": request.headers.get("user-agent", "")[:300]}
-
-
-async def login(
-    db: AsyncSession,
-    request: Request,
-    response: Response,
-    *,
-    email: str,
-    password: str,
-    kind: str,
-    device_info: dict | None,
-) -> dict:
-    email = email.lower()
-    user = await _find_user(db, email, kind)
-    # uniform failure — do not reveal whether the account exists
-    if user is None or user.password_hash is None or not verify_password(password, user.password_hash):
-        await audit(
-            db,
-            action="auth.login_failed",
-            actor_kind=ActorKind.SYSTEM,
-            actor_id=None,
-            detail={"email": email, "kind": kind},
-            ip_address=request.client.host if request.client else None,
-        )
-        raise unauthorized("Invalid credentials")
-
-    if user.status != AccountStatus.ACTIVE:
-        raise forbidden(f"Account is {user.status}")
-
-    if _user_mfa_enabled(user):
-        settings = get_settings()
-        mfa_token = create_jwt(
-            subject=str(user.id),
-            purpose=PURPOSE_MFA_CHALLENGE,
-            ttl_seconds=settings.mfa_token_ttl_seconds,
-            claims={"kind": kind},
-        )
-        response.set_cookie(
-            "pv_mfa",
-            mfa_token,
-            httponly=True,
-            secure=settings.cookie_secure,
-            samesite=settings.cookie_samesite,  # type: ignore[arg-type]
-            max_age=settings.mfa_token_ttl_seconds,
-            path="/api/v1/auth",
-            domain=settings.cookie_domain or None,
-        )
-        return {"status": "mfa_required", "mfaRequired": True}
-
-    user.last_login_at = datetime.now(UTC)
-    await _issue_session(
-        db, request, response, user=user, kind=kind, mfa_verified=False
-    )
-    await audit(
-        db,
-        action="auth.login",
-        actor_kind=kind,
-        actor_id=user.id,
-        actor_email=user.email,
-        tenant_id=_user_tenant_id(user, kind),
-        ip_address=request.client.host if request.client else None,
-    )
-    return {"status": "authenticated", "user": user}
-
-
-async def verify_mfa(
-    db: AsyncSession,
-    request: Request,
-    response: Response,
-    *,
-    code: str,
-) -> dict:
-    token = request.cookies.get("pv_mfa")
-    if not token:
-        raise unauthorized("No MFA challenge in progress")
-    payload = decode_jwt(token, purpose=PURPOSE_MFA_CHALLENGE)
-    kind = payload.get("kind", "tenant_user")
-    user_id = UUID(payload["sub"])
-
-    if kind == "platform_admin":
-        user = await db.get(PlatformAdmin, user_id)
-    else:
-        user = await db.get(TenantUser, user_id)
-    if user is None or not user.mfa_enabled or not user.mfa_secret_enc:
-        raise unauthorized("MFA not configured")
-
-    ok = verify_totp(decrypt_totp_secret(user.mfa_secret_enc), code)
-    if not ok and user.mfa_backup_hashes:
-        idx = verify_backup_code(code, list(user.mfa_backup_hashes))
-        if idx is not None:
-            remaining = list(user.mfa_backup_hashes)
-            remaining.pop(idx)
-            user.mfa_backup_hashes = remaining
-            ok = True
-    if not ok:
-        raise unauthorized("Invalid MFA code")
-
-    response.delete_cookie("pv_mfa", path="/api/v1/auth")
-    user.last_login_at = datetime.now(UTC)
-    await _issue_session(db, request, response, user=user, kind=kind, mfa_verified=True)
-    await audit(
-        db,
-        action="auth.mfa_verified",
-        actor_kind=kind,
-        actor_id=user.id,
-        actor_email=user.email,
-        tenant_id=_user_tenant_id(user, kind),
-    )
-    return {"status": "authenticated", "user": user}
-
-
-async def refresh(
-    db: AsyncSession,
-    request: Request,
-    response: Response,
-) -> UserSession:
-    raw = request.cookies.get(REFRESH_COOKIE)
-    if not raw:
-        # bearer refresh: Authorization: Bearer <refresh JWT>? We use opaque tokens only.
-        raise unauthorized("No refresh token")
-
-    result = await db.execute(
-        select(UserSession).where(UserSession.refresh_token_hash == hash_opaque(raw))
-    )
-    session = result.scalar_one_or_none()
-    if session is None:
-        raise unauthorized("Unknown refresh token")
-
-    now = datetime.now(UTC)
-    if session.revoked_at is not None:
-        # Replay of a rotated token — revoke the whole forward chain.
-        await _revoke_chain(db, session, reason="refresh_reuse")
-        clear_auth_cookies(response)
-        raise unauthorized("Refresh token reuse detected — sessions revoked")
-    if session.expires_at <= now:
-        clear_auth_cookies(response)
-        raise unauthorized("Session expired")
-
-    # Rotate: revoke this session and issue a successor.
-    if session.user_kind == "platform_admin":
-        user = await db.get(PlatformAdmin, session.user_id)
-    else:
-        user = await db.get(TenantUser, session.user_id)
-    if user is None or user.status != AccountStatus.ACTIVE:
-        clear_auth_cookies(response)
-        raise unauthorized("Account unavailable")
-
-    new_session = await _issue_session(
-        db,
-        request,
-        response,
-        user=user,
-        kind=session.user_kind,
-        mfa_verified=session.mfa_verified,
-        acting_admin_id=session.acting_admin_id,
-    )
-    session.revoked_at = now
-    session.revoked_reason = "rotated"
-    session.replaced_by_id = new_session.id
-    await db.flush()
-    return new_session
-
-
-async def _revoke_chain(db: AsyncSession, session: UserSession, *, reason: str) -> None:
-    now = datetime.now(UTC)
-    current: UserSession | None = session
-    seen: set[UUID] = set()
-    while current is not None and current.id not in seen:
-        seen.add(current.id)
-        if current.revoked_reason != "rotated":
-            current.revoked_at = now
-            current.revoked_reason = reason
-        if current.replaced_by_id is None:
-            break
-        current = await db.get(UserSession, current.replaced_by_id)
-    await db.flush()
-
-
-async def logout(db: AsyncSession, request: Request, response: Response) -> None:
-    raw = request.cookies.get(REFRESH_COOKIE)
-    if raw:
-        result = await db.execute(
-            select(UserSession).where(UserSession.refresh_token_hash == hash_opaque(raw))
-        )
-        session = result.scalar_one_or_none()
-        if session and session.revoked_at is None:
-            session.revoked_at = datetime.now(UTC)
-            session.revoked_reason = "logout"
-    clear_auth_cookies(response)
-
-
-async def impersonate(
-    db: AsyncSession,
-    request: Request,
-    response: Response,
-    *,
-    admin: PlatformAdmin,
-    tenant_id: UUID,
-    user_id: UUID | None,
-) -> dict:
-    """Platform admin obtains a tenant-scoped session for support."""
-    if user_id is not None:
-        user = await db.get(TenantUser, user_id)
-        if user is None or user.tenant_id != tenant_id:
-            raise AppError(404, "NOT_FOUND", "Tenant user not found")
-    else:
-        result = await db.execute(
-            select(TenantUser)
-            .where(TenantUser.tenant_id == tenant_id, TenantUser.role == "owner")
-            .limit(1)
-        )
-        user = result.scalar_one_or_none()
-        if user is None:
-            result = await db.execute(
-                select(TenantUser).where(TenantUser.tenant_id == tenant_id).limit(1)
-            )
-            user = result.scalar_one_or_none()
-        if user is None:
-            raise AppError(404, "NOT_FOUND", "No users in tenant")
-
-    await _issue_session(
-        db,
-        request,
-        response,
-        user=user,
-        kind="tenant_user",
-        mfa_verified=True,
-        acting_admin_id=admin.id,
-    )
-    await audit(
-        db,
-        action="platform.impersonate",
-        actor_kind=ActorKind.PLATFORM_ADMIN,
-        actor_id=admin.id,
-        actor_email=admin.email,
+def _bundle(session: UserSession, user_id, user_type, tenant_id, role, mfa) -> TokenBundle:
+    access = create_access_token(
+        user_id=user_id,
+        user_type=user_type,
+        session_id=session.id,
         tenant_id=tenant_id,
-        target_type="tenant_user",
-        target_id=str(user.id),
+        role=role,
+        mfa_verified=mfa,
     )
-    return {"status": "authenticated", "user": user, "impersonating": True}
+    return TokenBundle(
+        access_token=access,
+        refresh_token=session.refresh_token_plain,
+        session_id=session.id,
+        expires_in=settings.access_token_ttl_seconds,
+    )
 
 
-def make_password_hash(password: str) -> str:
-    if len(password) < 12:
-        raise AppError(422, "WEAK_PASSWORD", "Password must be at least 12 characters")
-    return hash_password(password)
+async def _create_session(
+    session,
+    *,
+    user_id: uuid.UUID,
+    user_type: str,
+    tenant_id: uuid.UUID | None,
+    ip: str | None,
+    user_agent: str | None,
+    mfa_verified: bool,
+) -> UserSession:
+    refresh_plain = new_refresh_token()
+    sess = UserSession(
+        user_id=user_id,
+        user_type=user_type,
+        tenant_id=tenant_id,
+        family_id=uuid.uuid4(),
+        refresh_token_hash=hash_refresh_token(refresh_plain),
+        ip=ip,
+        user_agent=user_agent,
+        mfa_verified=mfa_verified,
+        expires_at=_new_session_expiry(),
+        last_seen_at=datetime.now(timezone.utc),
+    )
+    session.add(sess)
+    await session.flush()
+    sess.refresh_token_plain = refresh_plain
+    return sess
 
 
-__all__ = [
-    "clear_auth_cookies",
-    "impersonate",
-    "login",
-    "logout",
-    "make_password_hash",
-    "new_backup_codes",
-    "refresh",
-    "secrets",
-    "verify_mfa",
-]
+async def login(email: str, password: str, ip: str | None, user_agent: str | None) -> LoginResult:
+    """Verify credentials; return a full session or an mfa_pending token."""
+    async with platform_session() as db:
+        user: TenantUser | PlatformAdmin | None = None
+        user_type = None
+        tenant_id = None
+
+        res = await db.execute(select(TenantUser).where(TenantUser.email == email.lower()))
+        user = res.scalar_one_or_none()
+        if user is not None:
+            user_type = ActorType.TENANT_USER
+            tenant_id = user.tenant_id
+        else:
+            res = await db.execute(select(PlatformAdmin).where(PlatformAdmin.email == email.lower()))
+            user = res.scalar_one_or_none()
+            user_type = ActorType.PLATFORM_ADMIN if user else None
+
+        if user is None or not verify_password(password, user.password_hash):
+            raise unauthorized("Invalid email or password")
+        if user.status != AccountStatus.ACTIVE:
+            raise unauthorized("Account is not active")
+
+        if user.mfa_enabled:
+            # Stage a session not yet usable for resource calls.
+            sess = await _create_session(
+                db,
+                user_id=user.id,
+                user_type=str(user_type),
+                tenant_id=tenant_id,
+                ip=ip,
+                user_agent=user_agent,
+                mfa_verified=False,
+            )
+            pending = create_access_token(
+                user_id=user.id,
+                user_type=str(user_type),
+                session_id=sess.id,
+                tenant_id=tenant_id,
+                role=user.role,
+                mfa_verified=False,
+                mfa_pending=True,
+            )
+            return LoginResult(
+                bundle=None,
+                mfa_required=True,
+                pending_token=pending,
+                user=user,
+                user_type=str(user_type),
+            )
+
+        sess = await _create_session(
+            db,
+            user_id=user.id,
+            user_type=str(user_type),
+            tenant_id=tenant_id,
+            ip=ip,
+            user_agent=user_agent,
+            mfa_verified=False,
+        )
+        user.last_login_at = datetime.now(timezone.utc)
+        return LoginResult(
+            bundle=_bundle(sess, user.id, str(user_type), tenant_id, user.role, False),
+            mfa_required=False,
+            pending_token=None,
+            user=user,
+            user_type=str(user_type),
+        )
+
+
+async def complete_mfa(user_id: uuid.UUID, session_id: uuid.UUID, code: str) -> TokenBundle:
+    """Second step after login when MFA is on: verify TOTP or backup code."""
+    async with platform_session() as db:
+        sess = (
+            await db.execute(select(UserSession).where(UserSession.id == session_id))
+        ).scalar_one_or_none()
+        if sess is None or sess.revoked_at is not None or sess.expires_at < datetime.now(timezone.utc):
+            raise unauthorized("Session expired")
+
+        user: TenantUser | PlatformAdmin | None = None
+        if sess.user_type == ActorType.TENANT_USER:
+            user = (await db.execute(select(TenantUser).where(TenantUser.id == user_id))).scalar_one_or_none()
+        else:
+            user = (
+                await db.execute(select(PlatformAdmin).where(PlatformAdmin.id == user_id))
+            ).scalar_one_or_none()
+        if user is None or not user.mfa_secret:
+            raise unauthorized("MFA not configured")
+
+        secret = decrypt_secret(user.mfa_secret)
+        ok = verify_totp(secret, code)
+        if not ok and user.mfa_backup_hashes:
+            hashed = hash_backup_code(code.strip())
+            if hashed in user.mfa_backup_hashes:
+                user.mfa_backup_hashes = [h for h in user.mfa_backup_hashes if h != hashed]
+                ok = True
+        if not ok:
+            raise unauthorized("Invalid MFA code")
+
+        sess.mfa_verified = True
+        sess.last_seen_at = datetime.now(timezone.utc)
+        user.last_login_at = datetime.now(timezone.utc)
+        # Completing MFA upgrades the staged session to a full session;
+        # issue a fresh refresh token for it.
+        new_plain = new_refresh_token()
+        sess.prev_refresh_token_hash = sess.refresh_token_hash
+        sess.refresh_token_hash = hash_refresh_token(new_plain)
+        sess.rotated_at = datetime.now(timezone.utc)
+        sess.refresh_token_plain = new_plain
+        await db.flush()
+        return _bundle(sess, user.id, sess.user_type, sess.tenant_id, user.role, True)
+
+
+REUSE_GRACE_SECONDS = 60  # tolerate concurrent retries of the just-rotated token
+
+
+async def refresh_session(raw_refresh_token: str) -> TokenBundle:
+    """Rotate the refresh token; reuse of an old token revokes the family."""
+    async with platform_session() as db:
+        token_hash = hash_refresh_token(raw_refresh_token)
+        sess = (
+            await db.execute(
+                select(UserSession).where(
+                    (UserSession.refresh_token_hash == token_hash)
+                    | (UserSession.prev_refresh_token_hash == token_hash)
+                )
+            )
+        ).scalar_one_or_none()
+
+        if sess is None:
+            raise unauthorized("Invalid refresh token")
+        now = datetime.now(timezone.utc)
+
+        presented_previous = sess.prev_refresh_token_hash == token_hash
+        if presented_previous:
+            within_grace = (
+                sess.rotated_at is not None
+                and (now - sess.rotated_at).total_seconds() <= REUSE_GRACE_SECONDS
+                and sess.revoked_at is None
+            )
+            if not within_grace:
+                # Reuse of a rotated token outside the retry window: treat as
+                # theft and revoke the whole session family.
+                await db.execute(
+                    update(UserSession).where(UserSession.family_id == sess.family_id).values(revoked_at=now)
+                )
+                # Commit the revocation before raising — raising inside
+                # session.begin() would roll it back.
+                await db.commit()
+                raise unauthorized("Refresh token reuse detected; session revoked")
+
+        if sess.revoked_at is not None:
+            raise unauthorized("Session revoked")
+        if sess.expires_at < now:
+            raise unauthorized("Session expired")
+
+        user: TenantUser | PlatformAdmin | None = None
+        if sess.user_type == ActorType.TENANT_USER:
+            user = (
+                await db.execute(select(TenantUser).where(TenantUser.id == sess.user_id))
+            ).scalar_one_or_none()
+        else:
+            user = (
+                await db.execute(select(PlatformAdmin).where(PlatformAdmin.id == sess.user_id))
+            ).scalar_one_or_none()
+        if user is None or user.status != AccountStatus.ACTIVE:
+            raise unauthorized("Account is not active")
+
+        if presented_previous:
+            # Retry within grace: return a fresh token without re-rotating so a
+            # racing client cannot lock itself out.
+            sess.last_seen_at = now
+            sess.refresh_token_plain = raw_refresh_token
+            await db.flush()
+            return _bundle(sess, user.id, sess.user_type, sess.tenant_id, user.role, sess.mfa_verified)
+
+        new_plain = new_refresh_token()
+        sess.prev_refresh_token_hash = sess.refresh_token_hash
+        sess.refresh_token_hash = hash_refresh_token(new_plain)
+        sess.rotated_at = now
+        sess.expires_at = _new_session_expiry()
+        sess.last_seen_at = now
+        sess.refresh_token_plain = new_plain
+        await db.flush()
+        return _bundle(sess, user.id, sess.user_type, sess.tenant_id, user.role, sess.mfa_verified)
+
+
+async def flag_family_compromised(session_id: uuid.UUID) -> None:
+    async with platform_session() as db:
+        await db.execute(
+            update(UserSession)
+            .where(
+                UserSession.family_id
+                == select(UserSession.family_id).where(UserSession.id == session_id).scalar_subquery()
+            )
+            .values(revoked_at=datetime.now(timezone.utc))
+        )
+
+
+async def logout(session_id: uuid.UUID) -> None:
+    async with platform_session() as db:
+        await db.execute(
+            update(UserSession)
+            .where(UserSession.id == session_id)
+            .values(revoked_at=datetime.now(timezone.utc))
+        )
+
+
+async def validate_session_state(session_id: uuid.UUID) -> bool:
+    async with platform_session() as db:
+        sess = (
+            await db.execute(
+                select(UserSession.revoked_at, UserSession.expires_at).where(UserSession.id == session_id)
+            )
+        ).one_or_none()
+        if sess is None:
+            return False
+        revoked_at, expires_at = sess
+        return revoked_at is None and expires_at > datetime.now(timezone.utc)
+
+
+async def mfa_setup(user: TenantUser | PlatformAdmin) -> tuple[str, str]:
+    """Generate (and stash encrypted) a new TOTP secret. Returns secret + URI."""
+    secret = new_totp_secret()
+    async with platform_session() as db:
+        if isinstance(user, TenantUser):
+            row = (await db.execute(select(TenantUser).where(TenantUser.id == user.id))).scalar_one()
+        else:
+            row = (await db.execute(select(PlatformAdmin).where(PlatformAdmin.id == user.id))).scalar_one()
+        row.mfa_secret = encrypt_secret(secret)
+    return secret, totp_uri(secret, user.email)
+
+
+async def mfa_enable(user_id: uuid.UUID, user_type: str, code: str) -> list[str]:
+    async with platform_session() as db:
+        model = TenantUser if user_type == ActorType.TENANT_USER else PlatformAdmin
+        row = (await db.execute(select(model).where(model.id == user_id))).scalar_one_or_none()
+        if row is None or not row.mfa_secret:
+            raise unauthorized("Run MFA setup first")
+        if not verify_totp(decrypt_secret(row.mfa_secret), code):
+            raise unauthorized("Invalid MFA code")
+        row.mfa_enabled = True
+        codes = generate_backup_codes()
+        row.mfa_backup_hashes = [hash_backup_code(c) for c in codes]
+        return codes
+
+
+async def mfa_disable(user_id: uuid.UUID, user_type: str, code: str) -> None:
+    async with platform_session() as db:
+        model = TenantUser if user_type == ActorType.TENANT_USER else PlatformAdmin
+        row = (await db.execute(select(model).where(model.id == user_id))).scalar_one_or_none()
+        if row is None or not row.mfa_enabled or not row.mfa_secret:
+            raise unauthorized("MFA is not enabled")
+        if not verify_totp(decrypt_secret(row.mfa_secret), code):
+            raise unauthorized("Invalid MFA code")
+        row.mfa_enabled = False
+        row.mfa_secret = None
+        row.mfa_backup_hashes = None
+
+
+async def change_password(user_id: uuid.UUID, user_type: str, current: str, new: str) -> None:
+    async with platform_session() as db:
+        model = TenantUser if user_type == ActorType.TENANT_USER else PlatformAdmin
+        row = (await db.execute(select(model).where(model.id == user_id))).scalar_one_or_none()
+        if row is None or not verify_password(current, row.password_hash):
+            raise unauthorized("Current password is incorrect")
+        row.password_hash = hash_password(new)
+        # Revoke all other sessions for this user (keep the current one alive is
+        # handled by the caller if needed; simplest secure default: revoke all
+        # and force re-login).
+        await db.execute(
+            update(UserSession)
+            .where(UserSession.user_id == user_id, UserSession.user_type == str(user_type))
+            .values(revoked_at=datetime.now(timezone.utc))
+        )
+
+
+async def resolve_tenant_for_user(tenant_id: uuid.UUID) -> Tenant | None:
+    async with platform_session() as db:
+        return (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalar_one_or_none()

@@ -1,74 +1,65 @@
-"""FastAPI application factory + entrypoint."""
+"""FastAPI application factory."""
 
-import logging
+import contextlib
+import uuid
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, ORJSONResponse
 
-from app.api.v1.router import api_router
-from app.core.config import get_settings
-from app.core.database import dispose_engine
-from app.core.errors import (
-    AppError,
-    app_error_handler,
-    unhandled_error_handler,
-    validation_error_handler,
-)
-from app.core.redis_client import close_redis
-from app.services.commands import close_publisher
+from app.api.v1 import api_v1, ws_router
+from app.config import settings
+from app.core.errors import ApiError
+from app.database import dispose_engine
+from app.redis_client import close_redis
+from app.services.storage import ensure_bucket
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
-log = logging.getLogger("parkvision")
+
+def _envelope(code: str, message: str, details: dict, request_id: str, status_code: int) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "error": {"code": code, "message": message, "details": details},
+            "requestId": request_id,
+        },
+    )
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    settings = get_settings()
-    await _bootstrap_admin(settings)
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Startup: best-effort bucket creation (S3 may still be starting; the
+    # worker/health check will retry on demand).
+    with contextlib.suppress(Exception):
+        ensure_bucket()
     yield
-    await close_publisher()
     await close_redis()
     await dispose_engine()
 
 
-async def _bootstrap_admin(settings) -> None:
-    """Create the initial platform admin when none exists (local bootstrap only)."""
-    if not settings.bootstrap_platform_admin_email or not settings.bootstrap_platform_admin_password:
-        return
-    from sqlalchemy import select
-
-    from app.core.database import get_session_factory
-    from app.core.security import hash_password
-    from app.models import PlatformAdmin
-
-    async with get_session_factory()() as session:
-        exists = (
-            await session.execute(select(PlatformAdmin).limit(1))
-        ).scalar_one_or_none()
-        if exists is not None:
-            return
-        session.add(
-            PlatformAdmin(
-                email=settings.bootstrap_platform_admin_email.lower(),
-                full_name="Platform Administrator",
-                password_hash=hash_password(settings.bootstrap_platform_admin_password),
-                role="super_admin",
-            )
-        )
-        await session.commit()
-        log.info("bootstrapped platform admin %s", settings.bootstrap_platform_admin_email)
-
-
 def create_app() -> FastAPI:
-    settings = get_settings()
     app = FastAPI(
-        title="ParkVision API",
+        title="Vehicle Management API",
         version="0.1.0",
+        default_response_class=ORJSONResponse,
         lifespan=lifespan,
-        docs_url="/docs" if settings.app_env != "production" else None,
-        openapi_url="/openapi.json" if settings.app_env != "production" else None,
+        openapi_tags=[
+            {"name": "public", "description": "Plans, legal docs, tenant registration"},
+            {"name": "auth", "description": "Login, MFA, sessions"},
+            {"name": "platform", "description": "Platform administration"},
+            {"name": "sites", "description": "Tenant sites and lanes"},
+            {"name": "gates", "description": "Barrier gates, commands, telemetry"},
+            {"name": "devices", "description": "Edge devices"},
+            {"name": "vehicles", "description": "Registered vehicles + bulk import"},
+            {"name": "users", "description": "Tenant users"},
+            {"name": "rules", "description": "Access rules"},
+            {"name": "events", "description": "Access events"},
+            {"name": "incidents", "description": "Barrier incidents"},
+            {"name": "audit", "description": "Audit logs + export"},
+            {"name": "websocket", "description": "Barrier telemetry stream"},
+        ],
     )
 
     app.add_middleware(
@@ -77,24 +68,62 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["X-Request-Id"],
     )
 
-    app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
-    app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
-    app.add_exception_handler(Exception, unhandled_error_handler)
+    @app.middleware("http")
+    async def request_context(request: Request, call_next):
+        request_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:16]
+        request.state.request_id = request_id
+        response = await call_next(request)
+        response.headers["X-Request-Id"] = request_id
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        return response
 
-    app.include_router(api_router)
+    @app.exception_handler(ApiError)
+    async def api_error_handler(request: Request, exc: ApiError) -> JSONResponse:
+        return _envelope(
+            exc.code, exc.message, exc.details, getattr(request.state, "request_id", "-"), exc.status_code
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+        return _envelope(
+            "validation_error",
+            "Request validation failed",
+            {"errors": exc.errors()},
+            getattr(request.state, "request_id", "-"),
+            422,
+        )
+
+    @app.exception_handler(Exception)
+    async def unhandled_handler(request: Request, exc: Exception) -> JSONResponse:
+        return _envelope(
+            "internal_error",
+            "Internal server error",
+            {},
+            getattr(request.state, "request_id", "-"),
+            500,
+        )
+
+    @app.get("/healthz", tags=["health"])
+    async def healthz() -> dict:
+        return {"status": "ok"}
+
+    @app.get("/readyz", tags=["health"])
+    async def readyz() -> dict:
+        from app.services.infra_service import check_database, check_redis
+
+        db = await check_database()
+        redis = await check_redis()
+        ok = db["status"] == "up" and redis["status"] == "up"
+        return {"status": "ok" if ok else "degraded", "checks": {"postgres": db, "redis": redis}}
+
+    app.include_router(api_v1, prefix=settings.api_v1_prefix)
+    app.include_router(ws_router)
     return app
 
 
 app = create_app()
-
-
-def run() -> None:
-    import uvicorn
-
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=False)  # noqa: S104 — container bind
-
-
-if __name__ == "__main__":
-    run()

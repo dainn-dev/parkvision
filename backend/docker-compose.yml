@@ -1,21 +1,20 @@
-name: parkvision
+name: vehicle-management
 
 services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: parkvision
-      POSTGRES_PASSWORD: parkvision
-      POSTGRES_DB: parkvision
+      POSTGRES_DB: vehicle_mgmt
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./docker/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U parkvision"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d vehicle_mgmt"]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 10
 
   redis:
@@ -29,131 +28,95 @@ services:
       retries: 10
 
   emqx:
-    image: emqx/emqx:5.8
+    image: emqx/emqx:5.8.1
+    environment:
+      EMQX_DASHBOARD__DEFAULT_USERNAME: admin
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: public
+      EMQX_ALLOW_ANONYMOUS: "true"
     ports:
       - "1883:1883"   # MQTT
-      - "8083:8083"   # MQTT/WebSocket
-      - "18083:18083" # Dashboard
+      - "18083:18083" # dashboard
     healthcheck:
-      test: ["CMD", "emqx", "ctl", "status"]
+      test: ["CMD", "/opt/emqx/bin/emqx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  s3:
+    image: localstack/localstack:3.8
+    environment:
+      SERVICES: s3
+    ports:
+      - "9000:4566"
+    volumes:
+      - s3data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4566/_localstack/health"]
       interval: 10s
       timeout: 5s
       retries: 10
 
-  # minio/minio is no longer publicly pullable on Docker Hub; bitnamilegacy
-  # ships the same server with the same MINIO_ROOT_* contract.
-  minio:
-    image: bitnamilegacy/minio:latest
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-      MINIO_CONSOLE_PORT_NUMBER: "9001"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - miniodata:/bitnami/minio/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  minio-init:
-    image: bitnamilegacy/minio-client:latest
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 minioadmin minioadmin &&
-      mc mb --ignore-existing local/parkvision-snapshots"
-    restart: "no"
-
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.21.3
     ports:
       - "1025:1025" # SMTP
-      - "8025:8025" # Web UI
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8025/api/v1/healthz || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+      - "8025:8025" # web UI
 
   migrate:
     build: .
-    command: alembic upgrade head
-    environment:
-      # Migrations run as the table owner; runtime services use parkvision_app
-      # (a non-superuser, created by docker/init.sql) so RLS is enforced.
-      # Must override MIGRATION_DATABASE_URL too — the image bundles .env
-      # (from .env.example) which would otherwise point at localhost.
-      DATABASE_URL: postgresql+asyncpg://parkvision:parkvision@postgres:5432/parkvision
-      MIGRATION_DATABASE_URL: postgresql+asyncpg://parkvision:parkvision@postgres:5432/parkvision
+    command: ["alembic", "upgrade", "head"]
+    env_file: .env
     depends_on:
       postgres:
         condition: service_healthy
+    restart: "no"
 
   api:
     build: .
+    env_file: .env
+    ports:
+      - "8000:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
-    environment:
-      APP_ENV: docker
-      DATABASE_URL: postgresql+asyncpg://parkvision_app:parkvision_app@postgres:5432/parkvision
-      # api's CMD also runs `alembic upgrade head` (no-op once migrate ran) —
-      # it must use the owner role, not the bundled .env's localhost DSN.
-      MIGRATION_DATABASE_URL: postgresql+asyncpg://parkvision:parkvision@postgres:5432/parkvision
-      REDIS_URL: redis://redis:6379/0
-      MQTT_HOST: emqx
-      S3_ENDPOINT_URL: http://minio:9000
-      SMTP_HOST: mailpit
-      # Must be a deliverable-looking domain — .local is rejected by the
-      # email-validator used in the login schema.
-      BOOTSTRAP_PLATFORM_ADMIN_EMAIL: admin@parkvision.dev
-      BOOTSTRAP_PLATFORM_ADMIN_PASSWORD: change-me-admin-password
-      JWT_KEYS: '[{"kid":"local-1","key":"dev-only-change-me-please-use-a-long-random-secret"}]'
-      MFA_SECRET_KEY: dev-mfa-key-rotate-in-production
-      COOKIE_SECURE: "false"
-      CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000"]'
-    ports:
-      - "8000:8000"
+      emqx:
+        condition: service_started
+      s3:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
 
   worker:
     build: .
-    command: python -m arq app.workers.worker.WorkerSettings
+    command: ["arq", "app.workers.worker.WorkerSettings"]
+    env_file: .env
     depends_on:
-      migrate:
-        condition: service_completed_successfully
-      api:
-        condition: service_started
-    environment:
-      DATABASE_URL: postgresql+asyncpg://parkvision_app:parkvision_app@postgres:5432/parkvision
-      REDIS_URL: redis://redis:6379/0
-      SMTP_HOST: mailpit
-      S3_ENDPOINT_URL: http://minio:9000
-
-  mqtt-ingestor:
-    build: .
-    command: python -m app.mqtt_ingest
-    depends_on:
-      emqx:
-        condition: service_healthy
       migrate:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-    environment:
-      DATABASE_URL: postgresql+asyncpg://parkvision_app:parkvision_app@postgres:5432/parkvision
-      REDIS_URL: redis://redis:6379/0
-      MQTT_HOST: emqx
+      s3:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  mqtt-bridge:
+    build: .
+    command: ["python", "-m", "app.realtime.mqtt_bridge"]
+    env_file: .env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      emqx:
+        condition: service_healthy
 
 volumes:
   pgdata:
-  miniodata:
+  s3data:
