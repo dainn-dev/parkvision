@@ -1,148 +1,151 @@
-"""Test harness: real Postgres + Redis from docker compose.
+"""Integration test fixtures — run against compose Postgres + Redis on localhost.
 
-Requires the compose services running locally:
-    docker compose up -d postgres redis minio mailpit emqx minio-init
+Env expected (see README):
+  MIGRATION_DATABASE_URL, DATABASE_URL, REDIS_URL
 """
 
 import os
-import subprocess
-import sys
 import uuid
-from pathlib import Path
 
 import pytest
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-BACKEND_DIR = Path(__file__).resolve().parents[1]
-TEST_DB = "parkvision_test"
-PG_HOST = os.environ.get("TEST_PG_HOST", "localhost")
-
-os.environ.setdefault("DATABASE_URL", f"postgresql+asyncpg://app_user:app_password@{PG_HOST}:5432/{TEST_DB}")
 os.environ.setdefault(
-    "ALEMBIC_DATABASE_URL", f"postgresql+asyncpg://postgres:postgres@{PG_HOST}:5432/{TEST_DB}"
+    "DATABASE_URL",
+    "postgresql+asyncpg://vehicle_app:vehicle_app@localhost:5432/vehicle_mgmt",
 )
-os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
-os.environ.setdefault("JWT_SECRET", "test-secret-key-for-pytest-0123456789")
+os.environ.setdefault(
+    "MIGRATION_DATABASE_URL",
+    "postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt",
+)
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("JWT_SECRET", "test-secret-0123456789abcdef0123456789abcdef")
+os.environ.setdefault("FIELD_ENCRYPTION_KEY", "test-fernet-key")
 os.environ.setdefault("COOKIE_SECURE", "false")
-os.environ.setdefault("S3_ENDPOINT_URL", "http://localhost:9000")
-os.environ.setdefault("MQTT_HOST", "localhost")
 
-sys.path.insert(0, str(BACKEND_DIR / "src"))
-
-import asyncpg  # noqa: E402
-import pytest_asyncio  # noqa: E402
-from httpx import ASGITransport, AsyncClient  # noqa: E402
+from app.config import settings  # noqa: E402
 
 
-@pytest.fixture(scope="session", autouse=True)
-def _setup_database():
-    """Create the test DB and migrate it once per run."""
+@pytest.fixture(scope="session")
+def anyio_backend():
+    return "asyncio"
+
+
+@pytest_asyncio.fixture(scope="session")
+async def migrated():
+    """Run migrations once per test session (alembic CLI equivalent)."""
+    engine = create_async_engine(settings.migration_database_url)
+    async with engine.begin() as conn:
+        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
+    await engine.dispose()
+
+    from alembic import command
+    from alembic.config import Config
+
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    cfg = Config(os.path.join(backend_dir, "alembic.ini"))
+    cfg.set_main_option("script_location", os.path.join(backend_dir, "migrations"))
     import asyncio
 
-    async def _create():
-        conn = await asyncpg.connect(
-            host=PG_HOST, port=5432, user="postgres", password="postgres", database="postgres"
-        )
-        try:
-            await conn.execute(f"DROP DATABASE IF EXISTS {TEST_DB} WITH (FORCE)")
-            await conn.execute(f"CREATE DATABASE {TEST_DB}")
-            await conn.execute(f"GRANT ALL PRIVILEGES ON DATABASE {TEST_DB} TO app_user")
-        finally:
-            await conn.close()
-
-    asyncio.run(_create())
-
-    env = {**os.environ}
-    result = subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=BACKEND_DIR,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, f"alembic failed: {result.stdout}\n{result.stderr}"
-
-    # grants for objects created after the docker init script ran
-    async def _grant():
-        conn = await asyncpg.connect(
-            host=PG_HOST, port=5432, user="postgres", password="postgres", database=TEST_DB
-        )
-        try:
-            await conn.execute("GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO app_user")
-            await conn.execute("GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user")
-        finally:
-            await conn.close()
-
-    asyncio.run(_grant())
+    await asyncio.to_thread(command.upgrade, cfg, "head")
     yield
 
 
 @pytest_asyncio.fixture
-async def client():
-    from app.main import create_app
+async def admin_engine(migrated):
+    engine = create_async_engine(settings.migration_database_url)
+    yield engine
+    await engine.dispose()
 
-    app = create_app()
+
+@pytest_asyncio.fixture
+async def tenant(admin_engine):
+    """Fresh tenant + owner user per test."""
+    from app.models import Tenant, TenantUser
+    from app.security import hash_password
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    suffix = uuid.uuid4().hex[:8]
+    async with Session() as db:
+        t = Tenant(
+            name=f"T-{suffix}",
+            slug=f"t-{suffix}",
+            plan_code="pro",
+            status="active",
+            contact_email=f"ops-{suffix}@example.com",
+        )
+        db.add(t)
+        await db.flush()
+        u = TenantUser(
+            tenant_id=t.id,
+            email=f"owner-{suffix}@example.com",
+            password_hash=hash_password("Password!123"),
+            full_name="Owner",
+            role="owner",
+            status="active",
+        )
+        db.add(u)
+        await db.commit()
+    return {"tenant_id": t.id, "email": u.email, "password": "Password!123", "slug": t.slug}
+
+
+@pytest_asyncio.fixture
+async def other_tenant(admin_engine):
+    from app.models import Tenant, TenantUser
+    from app.security import hash_password
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    suffix = uuid.uuid4().hex[:8]
+    async with Session() as db:
+        t = Tenant(
+            name=f"X-{suffix}",
+            slug=f"x-{suffix}",
+            plan_code="starter",
+            status="active",
+            contact_email=f"ops-{suffix}@example.com",
+        )
+        db.add(t)
+        await db.flush()
+        u = TenantUser(
+            tenant_id=t.id,
+            email=f"owner-{suffix}@example.com",
+            password_hash=hash_password("Password!123"),
+            full_name="Owner X",
+            role="owner",
+            status="active",
+        )
+        db.add(u)
+        await db.commit()
+    return {"tenant_id": t.id, "email": u.email, "password": "Password!123"}
+
+
+@pytest_asyncio.fixture
+async def client(migrated):
+    from app.main import app
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
 
 
-@pytest_asyncio.fixture
-async def db():
-    """System-context session for fixture setup (bypasses RLS as workers do)."""
-    from app.db.session import SessionLocal, set_rls_context
+@pytest_asyncio.fixture(autouse=True)
+async def _clean_outbox(migrated):
+    from app.redis_client import get_redis
 
-    async with SessionLocal() as session:
-        await session.begin()
-        await set_rls_context(session, is_system=True)
-        yield session
-        await session.rollback()
-
-
-def uniq(prefix: str = "t") -> str:
-    return f"{prefix}-{uuid.uuid4().hex[:8]}"
-
-
-async def db_commit(db, tenant_id=None) -> None:
-    """Commit setup data and begin a fresh txn with system RLS context."""
-    from app.db.session import set_rls_context
-
-    await db.commit()
-    await db.begin()
-    await set_rls_context(db, tenant_id=tenant_id, is_system=True)
-
-
-async def make_tenant(db, *, name=None, slug=None) -> object:
-    from app.models.identity import Tenant
-
-    tenant = Tenant(name=name or uniq("tenant"), slug=slug or uniq("slug"), plan="growth", status="active")
-    db.add(tenant)
-    await db_commit(db)
-    return tenant
-
-
-async def make_user(db, tenant, *, email=None, password="Test1234!", role="owner", status="active") -> object:
-    from app.core import security
-    from app.models.identity import TenantUser
-
-    user = TenantUser(
-        tenant_id=tenant.id,
-        email=email or f"{uniq('user')}@example.com",
-        full_name="Test User",
-        password_hash=security.hash_password(password),
-        role=role,
-        status=status,
-    )
-    db.add(user)
-    await db_commit(db)
-    return user
+    await get_redis().delete("mqtt:outbox")
+    yield
 
 
 async def login(client: AsyncClient, email: str, password: str) -> dict:
-    resp = await client.post("/api/v1/auth/login", json={"email": email, "password": password})
-    assert resp.status_code == 200, resp.text
-    body = resp.json()
-    return {"csrf": body["csrfToken"], "cookies": dict(resp.cookies)}
+    res = await client.post("/api/v1/auth/login", json={"email": email, "password": password})
+    assert res.status_code == 200, res.text
+    return res.json()["data"]
 
 
-def csrf_headers(cookies_csrf: str) -> dict:
-    return {"X-CSRF-Token": cookies_csrf}
+def csrf(client: AsyncClient) -> dict:
+    token = client.cookies.get("vm_csrf")
+    return {"x-csrf-token": token} if token else {}

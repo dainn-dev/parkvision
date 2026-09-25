@@ -4,17 +4,20 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
-WORKDIR /app
+WORKDIR /srv/app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml ./
-COPY src ./src
-RUN pip install --upgrade pip && pip install "."
+RUN pip install .
 
-COPY . .
+COPY app ./app
+COPY migrations ./migrations
+COPY alembic.ini ./
+COPY scripts ./scripts
+
+RUN useradd --create-home --uid 10001 appuser && chown -R appuser /srv/app
+USER appuser
 
 EXPOSE 8000
 

@@ -1,176 +1,148 @@
-"""Seed demo data: `python scripts/seed.py` (uses ALEMBIC_DATABASE_URL? no —
-DATABASE_URL as app_user is fine since seeds run with system context).
+"""Seed script: platform admin + demo tenant/site/gate/vehicles.
 
-Creates:
-  - platform super admin  admin@parkvision.dev / Admin1234!
-  - tenant 'Demo Parking' (slug demo) with owner demo-owner@parkvision.dev / Demo1234!
-  - site HQ, lane In-1, edge gateway GW-01, barrier gate GATE-A
-  - 3 registered vehicles + 2 access rules
+Run: `python -m scripts.seed` (uses MIGRATION_DATABASE_URL — the owner role,
+which bypasses RLS by ownership).
 """
 
 import asyncio
 import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.core import security
-from app.db.session import SessionLocal, set_rls_context
-from app.models.access import RegisteredVehicle, TenantAccessRule
-from app.models.identity import PlatformAdmin, Tenant, TenantUser
-from app.models.sites import BarrierGate, EdgeDevice, SiteLane, TenantSite
+sys.path.insert(0, ".")
+
+from app.config import settings
+from app.models import (
+    BarrierGate,
+    EdgeDevice,
+    PlatformAdmin,
+    RegisteredVehicle,
+    Tenant,
+    TenantSite,
+    TenantUser,
+)
+from app.security import hash_password
+from app.services.event_service import normalize_plate
 
 
 async def main() -> None:
-    async with SessionLocal() as db:
-        await db.begin()
-        await set_rls_context(db, is_system=True)
+    engine = create_async_engine(settings.migration_database_url)
+    Session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-        if not (
-            await db.execute(select(PlatformAdmin.id).where(PlatformAdmin.email == "admin@parkvision.dev"))
-        ).scalar():
-            db.add(
-                PlatformAdmin(
-                    email="admin@parkvision.dev",
-                    full_name="Platform Admin",
-                    password_hash=security.hash_password("Admin1234!"),
-                    role="super_admin",
-                    status="active",
-                )
+    async with Session() as db:
+        admin = (
+            await db.execute(
+                select(PlatformAdmin).where(PlatformAdmin.email == settings.seed_platform_admin_email)
             )
-            print("created platform admin admin@parkvision.dev / Admin1234!")
+        ).scalar_one_or_none()
+        if admin is None:
+            admin = PlatformAdmin(
+                email=settings.seed_platform_admin_email,
+                password_hash=hash_password(settings.seed_platform_admin_password),
+                full_name="Platform Administrator",
+                role="super_admin",
+                status="active",
+            )
+            db.add(admin)
+            print(f"platform admin: {settings.seed_platform_admin_email}")
 
         tenant = (await db.execute(select(Tenant).where(Tenant.slug == "demo"))).scalar_one_or_none()
         if tenant is None:
             tenant = Tenant(
-                name="Demo Parking",
+                name="Demo Parking Co",
                 slug="demo",
-                plan="growth",
+                plan_code="pro",
                 status="active",
-                contact_email="demo-owner@parkvision.dev",
-                settings={"defaultAccessDecision": "deny"},
+                contact_email="ops@demo.example.com",
             )
             db.add(tenant)
             await db.flush()
-            print("created tenant demo")
 
-        if not (
-            await db.execute(select(TenantUser.id).where(TenantUser.email == "demo-owner@parkvision.dev"))
-        ).scalar():
-            db.add(
-                TenantUser(
-                    tenant_id=tenant.id,
-                    email="demo-owner@parkvision.dev",
-                    full_name="Demo Owner",
-                    password_hash=security.hash_password("Demo1234!"),
-                    role="owner",
-                    status="active",
-                )
+        owner = (
+            await db.execute(select(TenantUser).where(TenantUser.email == "owner@demo.example.com"))
+        ).scalar_one_or_none()
+        if owner is None:
+            owner = TenantUser(
+                tenant_id=tenant.id,
+                email="owner@demo.example.com",
+                password_hash=hash_password("DemoOwner!123"),
+                full_name="Demo Owner",
+                role="owner",
+                status="active",
             )
-            db.add(
-                TenantUser(
-                    tenant_id=tenant.id,
-                    email="demo-operator@parkvision.dev",
-                    full_name="Demo Operator",
-                    password_hash=security.hash_password("Demo1234!"),
-                    role="operator",
-                    status="active",
-                )
-            )
-            print("created tenant users / Demo1234!")
+            db.add(owner)
+            print("tenant user: owner@demo.example.com / DemoOwner!123")
 
         site = (
-            await db.execute(select(TenantSite).where(TenantSite.tenant_id == tenant.id))
+            await db.execute(
+                select(TenantSite).where(TenantSite.tenant_id == tenant.id, TenantSite.name == "HQ Garage")
+            )
         ).scalar_one_or_none()
         if site is None:
-            site = TenantSite(tenant_id=tenant.id, name="HQ Garage", code="hq", timezone="Asia/Saigon")
+            site = TenantSite(tenant_id=tenant.id, name="HQ Garage", address="1 Demo St", timezone="UTC")
             db.add(site)
             await db.flush()
-            lane = SiteLane(tenant_id=tenant.id, site_id=site.id, name="In-1", direction="in", kind="vehicle")
+
+        device = (
+            await db.execute(select(EdgeDevice).where(EdgeDevice.device_key == "edge-demo-01"))
+        ).scalar_one_or_none()
+        if device is None:
             device = EdgeDevice(
                 tenant_id=tenant.id,
                 site_id=site.id,
-                name="GW-01",
-                kind="gateway",
-                model="Jetson Orin Nano",
-                serial="JETSON-0001",
+                name="Edge Gateway 01",
+                device_key="edge-demo-01",
                 status="online",
             )
-            db.add_all([lane, device])
+            db.add(device)
             await db.flush()
-            db.add(
-                BarrierGate(
-                    tenant_id=tenant.id,
-                    site_id=site.id,
-                    lane_id=lane.id,
-                    edge_device_id=device.id,
-                    name="Main Barrier",
-                    controller_kind="barrier",
-                    state="closed",
-                    position=0,
-                    mqtt_gate_key="gate-a",
+
+        gate = (
+            await db.execute(
+                select(BarrierGate).where(
+                    BarrierGate.tenant_id == tenant.id, BarrierGate.name == "Main Entrance"
                 )
             )
-            print("created site HQ + lane + gateway + gate gate-a")
-
-        if not (
-            await db.execute(select(RegisteredVehicle.id).where(RegisteredVehicle.tenant_id == tenant.id))
-        ).scalar():
-            db.add_all(
-                [
-                    RegisteredVehicle(
-                        tenant_id=tenant.id,
-                        plate="29A12345",
-                        owner_name="Alice Nguyen",
-                        vehicle_kind="car",
-                        tags=["staff"],
-                    ),
-                    RegisteredVehicle(
-                        tenant_id=tenant.id,
-                        plate="51G67890",
-                        owner_name="Bob Tran",
-                        vehicle_kind="car",
-                        tags=["visitor"],
-                    ),
-                    RegisteredVehicle(
-                        tenant_id=tenant.id,
-                        plate="30X99999",
-                        owner_name="Eve Pham",
-                        vehicle_kind="motorbike",
-                        status="suspended",
-                    ),
-                ]
+        ).scalar_one_or_none()
+        if gate is None:
+            gate = BarrierGate(
+                tenant_id=tenant.id,
+                site_id=site.id,
+                edge_device_id=device.id,
+                name="Main Entrance",
+                status="closed",
             )
+            db.add(gate)
+            await db.flush()
 
-        if not (
-            await db.execute(select(TenantAccessRule.id).where(TenantAccessRule.tenant_id == tenant.id))
-        ).scalar():
-            db.add_all(
-                [
-                    TenantAccessRule(
+        for plate, owner_name, tag in [
+            ("30A-12345", "Alice Nguyen", "staff"),
+            ("51F-67890", "Bob Tran", "resident"),
+            ("99Z-00001", "Eve Blacklist", "blacklist"),
+        ]:
+            exists = (
+                await db.execute(
+                    select(RegisteredVehicle).where(
+                        RegisteredVehicle.tenant_id == tenant.id,
+                        RegisteredVehicle.plate_normalized == normalize_plate(plate),
+                    )
+                )
+            ).scalar_one_or_none()
+            if exists is None:
+                db.add(
+                    RegisteredVehicle(
                         tenant_id=tenant.id,
-                        name="Staff all-day",
-                        priority=10,
-                        effect="allow",
-                        match={"tags": ["staff"]},
-                        schedule={},
-                    ),
-                    TenantAccessRule(
-                        tenant_id=tenant.id,
-                        name="Visitors work hours",
-                        priority=20,
-                        effect="allow",
-                        match={"tags": ["visitor"]},
-                        schedule={"daysOfWeek": [1, 2, 3, 4, 5], "startTime": "08:00", "endTime": "18:00"},
-                    ),
-                ]
-            )
-            print("created vehicles + rules")
-
+                        plate_number=plate,
+                        plate_normalized=normalize_plate(plate),
+                        owner_name=owner_name,
+                        tag=tag,
+                    )
+                )
         await db.commit()
-        print("seed complete")
+
+    print(f"seeded tenant={tenant.slug} ({tenant.id}) site={site.id} " f"gate={gate.id} device={device.id}")
+    await engine.dispose()
 
 
 if __name__ == "__main__":

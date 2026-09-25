@@ -1,113 +1,132 @@
-"""Auth: login cookies, refresh rotation + reuse detection, CSRF, logout."""
+"""Auth flows: login cookies, refresh rotation/reuse, logout, register, MFA."""
+
+import uuid
 
 import pytest
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from conftest import csrf_headers, make_tenant, make_user
-
-pytestmark = pytest.mark.asyncio
+from tests.conftest import csrf, login
 
 
-async def test_login_sets_cookies_and_me(client, db):
-    tenant = await make_tenant(db)
-    await make_user(db, tenant, email="a@example.com")
-    r = await client.post("/api/v1/auth/login", json={"email": "a@example.com", "password": "Test1234!"})
-    assert r.status_code == 200, r.text
-    assert "pv_at" in r.cookies and "pv_rt" in r.cookies
-    body = r.json()
-    assert body["csrfToken"]
-    me = await client.get("/api/v1/auth/me", cookies=dict(r.cookies))
+@pytest.mark.asyncio
+async def test_login_sets_cookies_and_me(client: AsyncClient, tenant):
+    data = await login(client, tenant["email"], tenant["password"])
+    assert data["mfaRequired"] is False
+    assert client.cookies.get("vm_access")
+    assert client.cookies.get("vm_refresh")
+    assert client.cookies.get("vm_csrf")
+
+    me = await client.get("/api/v1/auth/me")
     assert me.status_code == 200
-    assert me.json()["email"] == "a@example.com"
-    assert me.json()["role"] == "owner"
+    body = me.json()
+    assert body["user"]["email"] == tenant["email"]
+    assert body["tenantId"] == str(tenant["tenant_id"])
 
 
-async def test_bad_login(client, db):
-    tenant = await make_tenant(db)
-    await make_user(db, tenant, email="b@example.com")
-    r = await client.post("/api/v1/auth/login", json={"email": "b@example.com", "password": "wrong"})
-    assert r.status_code == 401
-    assert r.json()["error"]["code"] == "unauthorized"
+@pytest.mark.asyncio
+async def test_refresh_rotates_and_reuse_revokes(client: AsyncClient, tenant):
+    await login(client, tenant["email"], tenant["password"])
+    old_refresh = client.cookies.get("vm_refresh")
+
+    res = await client.post("/api/v1/auth/refresh")
+    assert res.status_code == 200
+    new_refresh = client.cookies.get("vm_refresh")
+    assert new_refresh and new_refresh != old_refresh
+
+    # Replay of the rotated token OUTSIDE the grace window must revoke the family.
+    import app.services.auth_service as svc
+
+    svc.REUSE_GRACE_SECONDS = 0
+    try:
+        client.cookies.delete("vm_refresh")
+        client.cookies.set("vm_refresh", old_refresh)
+        res = await client.post("/api/v1/auth/refresh")
+        assert res.status_code == 401
+    finally:
+        svc.REUSE_GRACE_SECONDS = 60
+
+    # Whole family revoked: the newest token must also fail now.
+    client.cookies.delete("vm_refresh")
+    client.cookies.set("vm_refresh", new_refresh)
+    res = await client.post("/api/v1/auth/refresh")
+    assert res.status_code == 401
 
 
-async def test_refresh_rotation_and_reuse_detection(client, db):
-    tenant = await make_tenant(db)
-    await make_user(db, tenant, email="c@example.com")
-    login_r = await client.post(
-        "/api/v1/auth/login", json={"email": "c@example.com", "password": "Test1234!"}
-    )
-    cookies = dict(login_r.cookies)
-    old_rt = cookies["pv_rt"]
-
-    # rotate
-    r1 = await client.post("/api/v1/auth/refresh", cookies=cookies)
-    assert r1.status_code == 200, r1.text
-    new_cookies = dict(r1.cookies)
-    assert new_cookies["pv_rt"] != old_rt
-
-    # replay of the OLD refresh token => reuse detected => family revoked
-    r2 = await client.post("/api/v1/auth/refresh", cookies={"pv_rt": old_rt})
-    assert r2.status_code == 401
-
-    # the rotated token is now dead too
-    r3 = await client.post("/api/v1/auth/refresh", cookies=new_cookies)
-    assert r3.status_code == 401
-
-
-async def test_csrf_required_for_cookie_auth(client, db):
-    tenant = await make_tenant(db)
-    await make_user(db, tenant, email="d@example.com")
-    r = await client.post("/api/v1/auth/login", json={"email": "d@example.com", "password": "Test1234!"})
-    cookies = dict(r.cookies)
-
-    # mutating request without CSRF header -> 403
-    no_csrf = await client.patch(
-        f"/api/v1/tenants/{tenant.id}/settings",
-        json={"settings": {"foo": "bar"}},
-        cookies=cookies,
-    )
-    assert no_csrf.status_code == 403
-
-    ok = await client.patch(
-        f"/api/v1/tenants/{tenant.id}/settings",
-        json={"settings": {"foo": "bar"}},
-        cookies=cookies,
-        headers=csrf_headers(cookies["pv_csrf"]),
-    )
-    assert ok.status_code == 200
-
-    # bearer token skips CSRF entirely
-    import uuid
-
-    from app.core import security
-
-    token = security.mint_access_token(
-        uuid.uuid4(),
-        scope="tenant",
-        tenant_id=tenant.id,
-        role="owner",
-        session_id=uuid.uuid4(),
-        impersonating=False,
-    )
-    # bearer w/o session row still passes claim-level auth for this route check is 200/404, never 403-csrf
-    rb = await client.patch(
-        f"/api/v1/tenants/{tenant.id}/settings",
-        json={"settings": {"foo": "bar"}},
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    # bearer auth skips CSRF entirely -> not a 403 rejection
-    assert rb.status_code != 403
-
-
-async def test_logout_revokes_session(client, db):
-    tenant = await make_tenant(db)
-    await make_user(db, tenant, email="e@example.com")
-    r = await client.post("/api/v1/auth/login", json={"email": "e@example.com", "password": "Test1234!"})
-    cookies = dict(r.cookies)
-    out = await client.post(
-        "/api/v1/auth/logout",
-        cookies=cookies,
-        headers=csrf_headers(cookies["pv_csrf"]),
-    )
-    assert out.status_code == 200
-    me = await client.get("/api/v1/auth/me", cookies=cookies)
+@pytest.mark.asyncio
+async def test_logout_revokes_session(client: AsyncClient, tenant):
+    await login(client, tenant["email"], tenant["password"])
+    res = await client.post("/api/v1/auth/logout", headers=csrf(client))
+    assert res.status_code == 200
+    me = await client.get("/api/v1/auth/me")
     assert me.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_register_tenant_then_login(client: AsyncClient, migrated):
+    res = await client.post(
+        "/api/v1/register",
+        json={
+            "tenantName": "New Parking",
+            "slug": f"np-{uuid.uuid4().hex[:6]}",
+            "planCode": "starter",
+            "contactEmail": "ops@example.com",
+            "ownerEmail": "owner@example.com",
+            "ownerFullName": "New Owner",
+            "ownerPassword": "OwnerPass!123",
+        },
+    )
+    assert res.status_code == 201, res.text
+    data = await login(client, "owner@example.com", "OwnerPass!123")
+    assert data["mfaRequired"] is False
+
+
+@pytest.mark.asyncio
+async def test_bad_login_rejected(client: AsyncClient, tenant):
+    res = await client.post(
+        "/api/v1/auth/login", json={"email": tenant["email"], "password": "wrong-password"}
+    )
+    assert res.status_code == 401
+    assert res.json()["error"]["code"] == "unauthorized"
+
+
+@pytest.mark.asyncio
+async def test_mfa_full_flow(client: AsyncClient, tenant):
+    import pyotp
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from app.config import settings
+    from app.models import TenantUser
+    from app.security import encrypt_secret, new_totp_secret
+
+    # Seed an MFA secret directly.
+    secret = new_totp_secret()
+    engine = create_async_engine(settings.migration_database_url)
+    Session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        user = (await db.execute(select(TenantUser).where(TenantUser.email == tenant["email"]))).scalar_one()
+        user.mfa_secret = encrypt_secret(secret)
+        user.mfa_enabled = True
+        await db.commit()
+    await engine.dispose()
+
+    # Login → staged session requiring MFA.
+    res = await client.post(
+        "/api/v1/auth/login", json={"email": tenant["email"], "password": tenant["password"]}
+    )
+    assert res.status_code == 200
+    assert res.json()["data"]["mfaRequired"] is True
+
+    # /me must reject mfa_pending token.
+    me = await client.get("/api/v1/auth/me")
+    assert me.status_code == 401
+
+    code = pyotp.TOTP(secret).now()
+    res = await client.post("/api/v1/auth/mfa/verify", json={"code": code})
+    assert res.status_code == 200, res.text
+    assert client.cookies.get("vm_access")
+
+    me = await client.get("/api/v1/auth/me")
+    assert me.status_code == 200
+    assert me.json()["mfaVerified"] is True

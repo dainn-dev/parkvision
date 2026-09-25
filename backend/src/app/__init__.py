@@ -1,1 +1,0 @@
-"""ParkVision backend application package."""
