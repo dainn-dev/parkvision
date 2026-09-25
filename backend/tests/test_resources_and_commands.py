@@ -91,17 +91,38 @@ async def test_command_idempotency_and_outbox(client: AsyncClient, tenant, gate)
     )
     assert r3.status_code == 409
 
-    # Outbox message is queued on Redis for the mqtt-bridge.
+    # The command must reach EMQX via the Redis outbox + mqtt-bridge
+    # (the bridge drains mqtt:outbox, so we can't read the list itself).
+    import asyncio
     import json as _json
 
-    from app.redis_client import get_redis
+    import aiomqtt
 
-    item = await get_redis().brpop("mqtt:outbox", timeout=2)
-    assert item is not None
-    msg = _json.loads(item[1])
-    assert msg["payload"]["command"] == "open"
-    assert msg["payload"]["commandId"] == first["id"]
-    assert msg["topic"].endswith("/command")
+    delivered = asyncio.Event()
+
+    async def _listen() -> None:
+        async with aiomqtt.Client("localhost", 1883) as m:
+            await m.subscribe("tenants/+/sites/+/gates/+/command")
+            async for raw in m.messages:
+                delivered.payload = _json.loads(raw.payload)
+                delivered.set()
+                return
+
+    listener = asyncio.create_task(_listen())
+    await asyncio.sleep(0.5)
+    r4 = await client.post(
+        f"/api/v1/tenants/{tid}/gates/{gate_id}/commands",
+        json={"command": "open", "idempotencyKey": f"e2e-{uuid.uuid4().hex[:10]}"},
+        headers=csrf(client),
+    )
+    assert r4.status_code == 202
+    cmd_id = r4.json()["id"]
+    try:
+        await asyncio.wait_for(delivered.wait(), 10)
+        assert delivered.payload["command"] == "open"
+        assert delivered.payload["commandId"] == cmd_id
+    finally:
+        listener.cancel()
 
 
 @pytest.mark.asyncio
