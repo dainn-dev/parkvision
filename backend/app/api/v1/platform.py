@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, or_, select, update
 
 from app.api.deps import AuthContext, require_platform_admin
-from app.core.enums import ActorType, PlatformAdminRole
-from app.core.errors import conflict, not_found
+from app.core.enums import ActorType, PlatformAdminRole, TenantStatus
+from app.core.errors import bad_request, conflict, not_found
 from app.database import platform_session
 from app.models import (
     AuditLog,
@@ -31,6 +31,8 @@ from app.schemas.resources import (
     PlatformSettingOut,
     TenantCreateIn,
     TenantOut,
+    TenantStatusIn,
+    TenantStatusOut,
     TenantUpdateIn,
 )
 from app.security import hash_password
@@ -161,6 +163,63 @@ async def update_tenant(
         await db.flush()
         await db.refresh(row)
     return TenantOut.model_validate(row)
+
+
+@router.patch("/tenants/{tenant_id}/status", response_model=TenantStatusOut)
+async def update_tenant_status(
+    tenant_id: uuid.UUID,
+    body: TenantStatusIn,
+    request: Request,
+    auth: AuthContext = Depends(
+        require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))
+    ),
+) -> TenantStatusOut:
+    """Change tenant lifecycle status; suspending revokes all live sessions."""
+    try:
+        new_status = TenantStatus(body.status).value
+    except ValueError:
+        raise bad_request("Invalid status", {"allowed": [s.value for s in TenantStatus]}) from None
+    async with platform_session() as db:
+        row = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalar_one_or_none()
+        if row is None:
+            raise not_found("tenant", tenant_id) from None
+        old_status = row.status
+        row.status = new_status
+        revoked = 0
+        if new_status == TenantStatus.SUSPENDED:
+            res = await db.execute(
+                update(UserSession)
+                .where(
+                    UserSession.tenant_id == tenant_id,
+                    UserSession.revoked_at.is_(None),
+                )
+                .values(revoked_at=datetime.now(timezone.utc))
+            )
+            revoked = res.rowcount or 0
+        await write_audit(
+            db,
+            tenant_id=tenant_id,
+            actor_type=ActorType.PLATFORM_ADMIN,
+            actor_id=auth.user_id,
+            actor_email=None,
+            action="platform.tenant.status_changed",
+            resource_type="tenant",
+            resource_id=str(tenant_id),
+            details={
+                "from": old_status,
+                "to": new_status,
+                "reason": body.reason,
+                "revokedSessionsCount": revoked,
+            },
+            ip=request.client.host if request.client else None,
+        )
+        await db.flush()
+    return TenantStatusOut(
+        success=True,
+        tenant_id=tenant_id,
+        new_status=new_status,
+        revoked_sessions_count=revoked,
+    )
 
 
 @router.get("/tenants/{tenant_id}/users", response_model=list)

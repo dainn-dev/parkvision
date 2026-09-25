@@ -80,7 +80,22 @@ async def main() -> None:
             )
         ).scalar_one_or_none()
         if site is None:
-            site = TenantSite(tenant_id=tenant.id, name="HQ Garage", address="1 Demo St", timezone="UTC")
+            site = TenantSite(
+                tenant_id=tenant.id,
+                name="HQ Garage",
+                code="HQ-G01",
+                address="1 Demo St",
+                city="Ho Chi Minh City",
+                latitude=10.7769,
+                longitude=106.7009,
+                capacity=240,
+                current_occupancy=87,
+                operating_hours={"mon_fri": "06:00-22:00", "weekend": "08:00-20:00"},
+                overall_health="healthy",
+                contact_phone="+84 28 0000 0000",
+                manager_name="Minh Tran",
+                timezone="UTC",
+            )
             db.add(site)
             await db.flush()
 
@@ -93,6 +108,14 @@ async def main() -> None:
                 site_id=site.id,
                 name="Edge Gateway 01",
                 device_key="edge-demo-01",
+                device_serial="SN-DEMO-0001",
+                hardware_model="Pi-Barrier-X2",
+                ip_address="10.10.0.21",
+                mqtt_client_id="edge-demo-01",
+                cpu_usage_pct=23.5,
+                ram_usage_pct=41.0,
+                storage_usage_pct=35.2,
+                latency_ms=15,
                 status="online",
             )
             db.add(device)
@@ -111,15 +134,25 @@ async def main() -> None:
                 site_id=site.id,
                 edge_device_id=device.id,
                 name="Main Entrance",
+                code="GATE-01",
+                model_type="barrier-arm-4m",
                 status="closed",
+                health="healthy",
+                arm_angle_deg=0,
+                relay_state="normal",
+                loop_detector_active=False,
+                motor_temperature_c=38.5,
+                ups_battery_pct=100,
+                daily_cycles_count=412,
+                total_lifetime_cycles=10234,
             )
             db.add(gate)
             await db.flush()
 
-        for plate, owner_name, tag in [
-            ("30A-12345", "Alice Nguyen", "staff"),
-            ("51F-67890", "Bob Tran", "resident"),
-            ("99Z-00001", "Eve Blacklist", "blacklist"),
+        for plate, owner_name, tag, department in [
+            ("30A-12345", "Alice Nguyen", "staff", "Operations"),
+            ("51F-67890", "Bob Tran", "resident", "Tenants"),
+            ("99Z-00001", "Eve Blacklist", "blacklist", None),
         ]:
             exists = (
                 await db.execute(
@@ -136,6 +169,11 @@ async def main() -> None:
                         plate_number=plate,
                         plate_normalized=normalize_plate(plate),
                         owner_name=owner_name,
+                        owner_department=department,
+                        owner_category=tag,
+                        brand="Toyota",
+                        model="Vios",
+                        color="white",
                         tag=tag,
                     )
                 )
