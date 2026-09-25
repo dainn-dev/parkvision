@@ -1,303 +1,416 @@
-"""Login, refresh rotation (with reuse detection), logout, MFA, sessions."""
+"""Authentication flows: login, MFA challenge, rotating refresh sessions."""
 
-import uuid
+import secrets
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
-from sqlalchemy import select, update
+from fastapi import Request, Response
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.errors import ApiError, unauthorized
+from app.core.deps import ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE
+from app.core.errors import AppError, forbidden, unauthorized
 from app.core.security import (
+    PURPOSE_ACCESS,
+    PURPOSE_MFA_CHALLENGE,
+    create_jwt,
+    decode_jwt,
+    decrypt_totp_secret,
+    hash_opaque,
     hash_password,
-    issue_access_token,
-    issue_mfa_pending_token,
     new_backup_codes,
+    new_csrf_token,
     new_opaque_token,
-    new_totp_secret,
-    token_digest,
-    totp_uri,
+    verify_backup_code,
     verify_password,
     verify_totp,
 )
-from app.models import PlatformAdmin, Tenant, TenantUser, UserSession
+from app.models import PlatformAdmin, TenantUser, UserSession
+from app.models.enums import AccountStatus, ActorKind
+from app.services.audit import audit
+
+MAX_FAILED_ATTEMPTS = 5
+LOCK_MINUTES = 15
 
 
-async def _find_loginable(
-    session: AsyncSession, email: str, kind: str, tenant_slug: str | None
-):
-    """Return (user, kind). 'auto' tries tenant users first then platform.
-    Emails are unique per tenant but may repeat across tenants — in that case
-    the caller must disambiguate via ``tenant_slug``."""
-    if kind in ("auto", "tenant"):
-        stmt = (
-            select(TenantUser)
-            .join(Tenant, Tenant.id == TenantUser.tenant_id)
-            .where(TenantUser.email == email)
+def _set_auth_cookies(
+    response: Response,
+    *,
+    access_token: str,
+    refresh_token: str | None,
+    csrf: str,
+) -> None:
+    settings = get_settings()
+    common = dict(
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,  # type: ignore[arg-type]
+        domain=settings.cookie_domain or None,
+    )
+    response.set_cookie(
+        ACCESS_COOKIE,
+        access_token,
+        httponly=True,
+        max_age=settings.access_token_ttl_seconds,
+        path="/",
+        **common,
+    )
+    if refresh_token is not None:
+        response.set_cookie(
+            REFRESH_COOKIE,
+            refresh_token,
+            httponly=True,
+            max_age=settings.refresh_token_ttl_seconds,
+            path="/api/v1/auth",
+            **common,
         )
-        if tenant_slug:
-            stmt = stmt.where(Tenant.slug == tenant_slug)
-        rows = (await session.execute(stmt)).scalars().all()
-        if len(rows) > 1:
-            raise ApiError(
-                "ambiguous_login",
-                "Email exists in multiple tenants; pass tenantSlug",
-                409,
-            )
-        if rows:
-            return rows[0], "tenant"
-    if kind in ("auto", "platform"):
-        a = (
-            await session.execute(
-                select(PlatformAdmin).where(PlatformAdmin.email == email)
-            )
-        ).scalar_one_or_none()
-        if a is not None:
-            return a, "platform"
-    return None, None
+    # CSRF cookie is JS-readable (double-submit pattern)
+    response.set_cookie(
+        CSRF_COOKIE,
+        csrf,
+        httponly=False,
+        max_age=settings.refresh_token_ttl_seconds,
+        path="/",
+        **common,
+    )
+
+
+def clear_auth_cookies(response: Response) -> None:
+    settings = get_settings()
+    for name, path in (
+        (ACCESS_COOKIE, "/"),
+        (REFRESH_COOKIE, "/api/v1/auth"),
+        (CSRF_COOKIE, "/"),
+        ("pv_mfa", "/api/v1/auth"),
+    ):
+        response.delete_cookie(name, path=path, domain=settings.cookie_domain or None)
+
+
+async def _find_user(db: AsyncSession, email: str, kind: str):
+    if kind == "platform_admin":
+        result = await db.execute(select(PlatformAdmin).where(PlatformAdmin.email == email.lower()))
+    else:
+        result = await db.execute(select(TenantUser).where(TenantUser.email == email.lower()))
+    return result.scalar_one_or_none()
+
+
+def _user_email(user) -> str:
+    return user.email
+
+
+def _user_tenant_id(user, kind: str) -> UUID | None:
+    return user.tenant_id if kind == "tenant_user" else None
+
+
+def _user_mfa_enabled(user) -> bool:
+    return bool(user.mfa_enabled)
+
+
+async def _issue_session(
+    db: AsyncSession,
+    request: Request,
+    response: Response,
+    *,
+    user,
+    kind: str,
+    mfa_verified: bool,
+    acting_admin_id: UUID | None = None,
+) -> UserSession:
+    settings = get_settings()
+    raw_refresh, refresh_hash = new_opaque_token()
+    session = UserSession(
+        user_kind=kind,
+        user_id=user.id,
+        tenant_id=_user_tenant_id(user, kind),
+        refresh_token_hash=refresh_hash,
+        device_info={} if request is None else _device_info(request),
+        ip_address=request.client.host if request and request.client else None,
+        user_agent=request.headers.get("user-agent") if request else None,
+        mfa_verified=mfa_verified,
+        acting_admin_id=acting_admin_id,
+        expires_at=datetime.now(UTC) + timedelta(seconds=settings.refresh_token_ttl_seconds),
+        last_used_at=datetime.now(UTC),
+    )
+    db.add(session)
+    await db.flush()
+
+    csrf = new_csrf_token()
+    claims = {
+        "kind": kind,
+        "role": user.role,
+        "sid": str(session.id),
+        "tenant": str(_user_tenant_id(user, kind)) if _user_tenant_id(user, kind) else None,
+        "act": str(acting_admin_id) if acting_admin_id else None,
+        "mfa": mfa_verified,
+    }
+    access = create_jwt(
+        subject=str(user.id),
+        purpose=PURPOSE_ACCESS,
+        ttl_seconds=settings.access_token_ttl_seconds,
+        claims=claims,
+    )
+    _set_auth_cookies(response, access_token=access, refresh_token=raw_refresh, csrf=csrf)
+    return session
+
+
+def _device_info(request: Request) -> dict:
+    return {"user_agent": request.headers.get("user-agent", "")[:300]}
 
 
 async def login(
-    session: AsyncSession,
+    db: AsyncSession,
+    request: Request,
+    response: Response,
     *,
     email: str,
     password: str,
     kind: str,
-    tenant_slug: str | None,
-    ip: str | None,
-    user_agent: str,
-):
-    """Returns either ("mfa", pending_token) or ("ok", session, access_token)."""
-    user, user_kind = await _find_loginable(session, email, kind, tenant_slug)
-    if user is None or not verify_password(password, user.password_hash):
+    device_info: dict | None,
+) -> dict:
+    email = email.lower()
+    user = await _find_user(db, email, kind)
+    # uniform failure — do not reveal whether the account exists
+    if user is None or user.password_hash is None or not verify_password(password, user.password_hash):
+        await audit(
+            db,
+            action="auth.login_failed",
+            actor_kind=ActorKind.SYSTEM,
+            actor_id=None,
+            detail={"email": email, "kind": kind},
+            ip_address=request.client.host if request.client else None,
+        )
         raise unauthorized("Invalid credentials")
 
-    if user_kind == "tenant":
-        if user.status != "active":
-            raise unauthorized("Account is not active")
-        tenant_id = user.tenant_id
-        role = user.role
-    else:
-        if not user.is_active:
-            raise unauthorized("Account is not active")
-        tenant_id = None
-        role = user.role
+    if user.status != AccountStatus.ACTIVE:
+        raise forbidden(f"Account is {user.status}")
 
-    if user.mfa_enabled:
-        pending = issue_mfa_pending_token(
-            user_id=user.id, kind=user_kind, tenant_id=tenant_id
+    if _user_mfa_enabled(user):
+        settings = get_settings()
+        mfa_token = create_jwt(
+            subject=str(user.id),
+            purpose=PURPOSE_MFA_CHALLENGE,
+            ttl_seconds=settings.mfa_token_ttl_seconds,
+            claims={"kind": kind},
         )
-        return "mfa", pending
+        response.set_cookie(
+            "pv_mfa",
+            mfa_token,
+            httponly=True,
+            secure=settings.cookie_secure,
+            samesite=settings.cookie_samesite,  # type: ignore[arg-type]
+            max_age=settings.mfa_token_ttl_seconds,
+            path="/api/v1/auth",
+            domain=settings.cookie_domain or None,
+        )
+        return {"status": "mfa_required", "mfaRequired": True}
 
-    session_row, access = await _create_session(
-        session,
-        user=user,
-        kind=user_kind,
-        tenant_id=tenant_id,
-        role=role,
-        mfa_verified=False,
-        ip=ip,
-        user_agent=user_agent,
+    user.last_login_at = datetime.now(UTC)
+    await _issue_session(
+        db, request, response, user=user, kind=kind, mfa_verified=False
     )
-    return "ok", session_row, access, user
+    await audit(
+        db,
+        action="auth.login",
+        actor_kind=kind,
+        actor_id=user.id,
+        actor_email=user.email,
+        tenant_id=_user_tenant_id(user, kind),
+        ip_address=request.client.host if request.client else None,
+    )
+    return {"status": "authenticated", "user": user}
 
 
-async def complete_mfa_login(
-    session: AsyncSession,
+async def verify_mfa(
+    db: AsyncSession,
+    request: Request,
+    response: Response,
     *,
-    user_id: uuid.UUID,
-    kind: str,
-    tenant_id: uuid.UUID | None,
     code: str,
-    ip: str | None,
-    user_agent: str,
-):
-    user = await _load_user(session, user_id, kind)
-    if user is None or not user.mfa_enabled or not user.mfa_secret:
-        raise unauthorized("MFA not required")
+) -> dict:
+    token = request.cookies.get("pv_mfa")
+    if not token:
+        raise unauthorized("No MFA challenge in progress")
+    payload = decode_jwt(token, purpose=PURPOSE_MFA_CHALLENGE)
+    kind = payload.get("kind", "tenant_user")
+    user_id = UUID(payload["sub"])
 
-    ok = verify_totp(user.mfa_secret, code)
-    used_backup = False
+    if kind == "platform_admin":
+        user = await db.get(PlatformAdmin, user_id)
+    else:
+        user = await db.get(TenantUser, user_id)
+    if user is None or not user.mfa_enabled or not user.mfa_secret_enc:
+        raise unauthorized("MFA not configured")
+
+    ok = verify_totp(decrypt_totp_secret(user.mfa_secret_enc), code)
+    if not ok and user.mfa_backup_hashes:
+        idx = verify_backup_code(code, list(user.mfa_backup_hashes))
+        if idx is not None:
+            remaining = list(user.mfa_backup_hashes)
+            remaining.pop(idx)
+            user.mfa_backup_hashes = remaining
+            ok = True
     if not ok:
-        for h in list(user.mfa_backup_hashes or []):
-            if verify_password(code, h):
-                used_backup = True
-                user.mfa_backup_hashes = [x for x in user.mfa_backup_hashes if x != h]
-                break
-    if not ok and not used_backup:
         raise unauthorized("Invalid MFA code")
 
-    session_row, access = await _create_session(
-        session,
-        user=user,
-        kind=kind,
-        tenant_id=tenant_id,
-        role=user.role,
-        mfa_verified=True,
-        ip=ip,
-        user_agent=user_agent,
+    response.delete_cookie("pv_mfa", path="/api/v1/auth")
+    user.last_login_at = datetime.now(UTC)
+    await _issue_session(db, request, response, user=user, kind=kind, mfa_verified=True)
+    await audit(
+        db,
+        action="auth.mfa_verified",
+        actor_kind=kind,
+        actor_id=user.id,
+        actor_email=user.email,
+        tenant_id=_user_tenant_id(user, kind),
     )
-    return session_row, access, user
+    return {"status": "authenticated", "user": user}
 
 
-async def _load_user(session: AsyncSession, user_id: uuid.UUID, kind: str):
-    model = PlatformAdmin if kind == "platform" else TenantUser
-    return await session.get(model, user_id)
+async def refresh(
+    db: AsyncSession,
+    request: Request,
+    response: Response,
+) -> UserSession:
+    raw = request.cookies.get(REFRESH_COOKIE)
+    if not raw:
+        # bearer refresh: Authorization: Bearer <refresh JWT>? We use opaque tokens only.
+        raise unauthorized("No refresh token")
 
+    result = await db.execute(
+        select(UserSession).where(UserSession.refresh_token_hash == hash_opaque(raw))
+    )
+    session = result.scalar_one_or_none()
+    if session is None:
+        raise unauthorized("Unknown refresh token")
 
-async def _create_session(
-    session: AsyncSession,
-    *,
-    user,
-    kind: str,
-    tenant_id: uuid.UUID | None,
-    role: str,
-    mfa_verified: bool,
-    ip: str | None,
-    user_agent: str,
-):
-    settings = get_settings()
-    refresh = new_opaque_token()
     now = datetime.now(UTC)
-    row = UserSession(
-        user_kind=kind,
-        user_id=user.id,
-        tenant_id=tenant_id,
-        refresh_token_hash=token_digest(refresh),
-        mfa_verified=mfa_verified,
-        ip=ip,
-        user_agent=user_agent[:500],
-        expires_at=now + timedelta(seconds=settings.refresh_token_ttl_seconds),
-    )
-    session.add(row)
-    await session.flush()
-    user.last_login_at = now
-    access = issue_access_token(
-        user_id=user.id,
-        kind=kind,
-        tenant_id=tenant_id,
-        role=role,
-        session_id=row.id,
-        mfa_verified=mfa_verified,
-    )
-    return (row, refresh), access
-
-
-async def refresh_session(
-    session: AsyncSession,
-    *,
-    refresh_token: str,
-    ip: str | None,
-    user_agent: str,
-):
-    """Rotate the refresh token. Reuse of an old token revokes the family."""
-    digest = token_digest(refresh_token)
-    row = (
-        await session.execute(
-            select(UserSession).where(UserSession.refresh_token_hash == digest)
-        )
-    ).scalar_one_or_none()
-    if row is None:
-        raise unauthorized("Invalid refresh token")
-    now = datetime.now(UTC)
-    if row.revoked_at is not None or row.expires_at <= now:
+    if session.revoked_at is not None:
+        # Replay of a rotated token — revoke the whole forward chain.
+        await _revoke_chain(db, session, reason="refresh_reuse")
+        clear_auth_cookies(response)
+        raise unauthorized("Refresh token reuse detected — sessions revoked")
+    if session.expires_at <= now:
+        clear_auth_cookies(response)
         raise unauthorized("Session expired")
 
-    user = await _load_user(session, row.user_id, row.user_kind)
-    if user is None:
+    # Rotate: revoke this session and issue a successor.
+    if session.user_kind == "platform_admin":
+        user = await db.get(PlatformAdmin, session.user_id)
+    else:
+        user = await db.get(TenantUser, session.user_id)
+    if user is None or user.status != AccountStatus.ACTIVE:
+        clear_auth_cookies(response)
         raise unauthorized("Account unavailable")
-    if row.user_kind == "tenant" and user.status != "active":
-        raise unauthorized("Account is not active")
-    if row.user_kind == "platform" and not user.is_active:
-        raise unauthorized("Account is not active")
 
-    # rotate: revoke old, issue successor
-    new_refresh = new_opaque_token()
-    successor = UserSession(
-        user_kind=row.user_kind,
-        user_id=row.user_id,
-        tenant_id=row.tenant_id,
-        refresh_token_hash=token_digest(new_refresh),
-        mfa_verified=row.mfa_verified,
-        ip=ip,
-        user_agent=user_agent[:500],
-        expires_at=now + timedelta(seconds=get_settings().refresh_token_ttl_seconds),
+    new_session = await _issue_session(
+        db,
+        request,
+        response,
+        user=user,
+        kind=session.user_kind,
+        mfa_verified=session.mfa_verified,
+        acting_admin_id=session.acting_admin_id,
     )
-    session.add(successor)
-    await session.flush()
-    row.revoked_at = now
-    row.replaced_by = successor.id
+    session.revoked_at = now
+    session.revoked_reason = "rotated"
+    session.replaced_by_id = new_session.id
+    await db.flush()
+    return new_session
 
-    access = issue_access_token(
-        user_id=user.id,
-        kind=row.user_kind,
-        tenant_id=row.tenant_id,
-        role=user.role,
-        session_id=successor.id,
-        mfa_verified=row.mfa_verified,
+
+async def _revoke_chain(db: AsyncSession, session: UserSession, *, reason: str) -> None:
+    now = datetime.now(UTC)
+    current: UserSession | None = session
+    seen: set[UUID] = set()
+    while current is not None and current.id not in seen:
+        seen.add(current.id)
+        if current.revoked_reason != "rotated":
+            current.revoked_at = now
+            current.revoked_reason = reason
+        if current.replaced_by_id is None:
+            break
+        current = await db.get(UserSession, current.replaced_by_id)
+    await db.flush()
+
+
+async def logout(db: AsyncSession, request: Request, response: Response) -> None:
+    raw = request.cookies.get(REFRESH_COOKIE)
+    if raw:
+        result = await db.execute(
+            select(UserSession).where(UserSession.refresh_token_hash == hash_opaque(raw))
+        )
+        session = result.scalar_one_or_none()
+        if session and session.revoked_at is None:
+            session.revoked_at = datetime.now(UTC)
+            session.revoked_reason = "logout"
+    clear_auth_cookies(response)
+
+
+async def impersonate(
+    db: AsyncSession,
+    request: Request,
+    response: Response,
+    *,
+    admin: PlatformAdmin,
+    tenant_id: UUID,
+    user_id: UUID | None,
+) -> dict:
+    """Platform admin obtains a tenant-scoped session for support."""
+    if user_id is not None:
+        user = await db.get(TenantUser, user_id)
+        if user is None or user.tenant_id != tenant_id:
+            raise AppError(404, "NOT_FOUND", "Tenant user not found")
+    else:
+        result = await db.execute(
+            select(TenantUser)
+            .where(TenantUser.tenant_id == tenant_id, TenantUser.role == "owner")
+            .limit(1)
+        )
+        user = result.scalar_one_or_none()
+        if user is None:
+            result = await db.execute(
+                select(TenantUser).where(TenantUser.tenant_id == tenant_id).limit(1)
+            )
+            user = result.scalar_one_or_none()
+        if user is None:
+            raise AppError(404, "NOT_FOUND", "No users in tenant")
+
+    await _issue_session(
+        db,
+        request,
+        response,
+        user=user,
+        kind="tenant_user",
+        mfa_verified=True,
+        acting_admin_id=admin.id,
     )
-    return (successor, new_refresh), access, user
-
-
-async def detect_reuse(session: AsyncSession, presented_hash: str) -> None:
-    """If a presented token's hash is absent but a revoked session used it,
-    revoke the whole family (rotation-reuse detection is implicit via
-    replaced_by chain; here we simply ensure presented tokens exist)."""
-
-
-async def logout(session: AsyncSession, *, session_id: uuid.UUID) -> None:
-    await session.execute(
-        update(UserSession)
-        .where(UserSession.id == session_id, UserSession.revoked_at.is_(None))
-        .values(revoked_at=datetime.now(UTC))
+    await audit(
+        db,
+        action="platform.impersonate",
+        actor_kind=ActorKind.PLATFORM_ADMIN,
+        actor_id=admin.id,
+        actor_email=admin.email,
+        tenant_id=tenant_id,
+        target_type="tenant_user",
+        target_id=str(user.id),
     )
+    return {"status": "authenticated", "user": user, "impersonating": True}
 
 
-async def revoke_user_sessions(
-    session: AsyncSession, *, user_id: uuid.UUID
-) -> int:
-    res = await session.execute(
-        update(UserSession)
-        .where(UserSession.user_id == user_id, UserSession.revoked_at.is_(None))
-        .values(revoked_at=datetime.now(UTC))
-    )
-    return res.rowcount or 0
+def make_password_hash(password: str) -> str:
+    if len(password) < 12:
+        raise AppError(422, "WEAK_PASSWORD", "Password must be at least 12 characters")
+    return hash_password(password)
 
 
-# ---------- MFA enrollment ----------
-
-async def mfa_enroll_start(session: AsyncSession, *, user_id: uuid.UUID, kind: str):
-    user = await _load_user(session, user_id, kind)
-    if user is None:
-        raise ApiError("not_found", "User not found", 404)
-    if user.mfa_enabled:
-        raise ApiError("conflict", "MFA already enabled", 409)
-    secret = new_totp_secret()
-    user.mfa_secret = secret  # pending until confirmed
-    return secret, totp_uri(secret, user.email)
-
-
-async def mfa_enroll_confirm(
-    session: AsyncSession, *, user_id: uuid.UUID, kind: str, code: str
-) -> list[str]:
-    user = await _load_user(session, user_id, kind)
-    if user is None or not user.mfa_secret:
-        raise ApiError("conflict", "MFA enrollment not started", 409)
-    if not verify_totp(user.mfa_secret, code):
-        raise unauthorized("Invalid MFA code")
-    codes = new_backup_codes()
-    user.mfa_enabled = True
-    user.mfa_backup_hashes = [hash_password(c) for c in codes]
-    return codes
-
-
-async def mfa_disable(session: AsyncSession, *, user_id: uuid.UUID, kind: str, code: str) -> None:
-    user = await _load_user(session, user_id, kind)
-    if user is None or not user.mfa_enabled or not user.mfa_secret:
-        raise ApiError("conflict", "MFA not enabled", 409)
-    if not verify_totp(user.mfa_secret, code):
-        raise unauthorized("Invalid MFA code")
-    user.mfa_enabled = False
-    user.mfa_secret = None
-    user.mfa_backup_hashes = []
-    await revoke_user_sessions(session, user_id=user_id)
+__all__ = [
+    "clear_auth_cookies",
+    "impersonate",
+    "login",
+    "logout",
+    "make_password_hash",
+    "new_backup_codes",
+    "refresh",
+    "secrets",
+    "verify_mfa",
+]

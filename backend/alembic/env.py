@@ -1,30 +1,25 @@
+"""Alembic async environment — reads MIGRATION_DATABASE_URL (falls back to DATABASE_URL)."""
+
 import asyncio
-import os
 from logging.config import fileConfig
 
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
+from app.core.config import get_settings
+from app.models import Base
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Migrations run as the DBA role (schema owner) — never the app_user role,
-# which is deliberately non-BYPASSRLS.
-DSN = os.environ.get(
-    "PV_MIGRATION_DSN",
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt",
-)
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    import app.models  # noqa: F401  (register tables)
-    from app.db.base import Base
-
     context.configure(
-        url=DSN,
-        target_metadata=Base.metadata,
+        url=get_settings().migration_database_url or get_settings().database_url,
+        target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -33,16 +28,15 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:
-    import app.models  # noqa: F401
-    from app.db.base import Base
-
-    context.configure(connection=connection, target_metadata=Base.metadata)
+    context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
         context.run_migrations()
 
 
 async def run_migrations_online() -> None:
-    engine = create_async_engine(DSN)
+    engine = create_async_engine(
+        get_settings().migration_database_url or get_settings().database_url
+    )
     async with engine.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await engine.dispose()

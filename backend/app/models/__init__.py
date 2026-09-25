@@ -1,30 +1,52 @@
-from app.models.event import (
-    AccessEvent,
-    AuditLog,
-    BarrierCommand,
-    BarrierIncident,
-    GateTelemetryLog,
+"""SQLAlchemy models. Partitioned tables declare composite PKs to match DDL."""
+
+from app.models.base import Base
+from app.models.identity import (
+    FeatureFlag,
+    LegalDocument,
+    PasswordReset,
+    PlatformAdmin,
+    PlatformSetting,
+    SubscriptionPlan,
+    Tenant,
+    TenantRegistration,
+    TenantUser,
+    UserInvite,
+    UserSession,
 )
-from app.models.site import BarrierGate, EdgeDevice, SiteLane, TenantSite
-from app.models.tenant import PlatformAdmin, PlatformSetting, Tenant
-from app.models.user import TenantUser, UserSession
-from app.models.vehicle import RegisteredVehicle, TenantAccessRule
+from app.models.operations import (
+    AccessEvent,
+    AccessRule,
+    AuditLog,
+    BarrierIncident,
+    GateCommand,
+    GateTelemetryLog,
+    RegisteredVehicle,
+)
+from app.models.sites import BarrierGate, EdgeDevice, Site, SiteLane
 
 __all__ = [
     "AccessEvent",
+    "AccessRule",
     "AuditLog",
-    "BarrierCommand",
     "BarrierGate",
     "BarrierIncident",
+    "Base",
     "EdgeDevice",
+    "FeatureFlag",
+    "GateCommand",
     "GateTelemetryLog",
+    "LegalDocument",
+    "PasswordReset",
     "PlatformAdmin",
     "PlatformSetting",
     "RegisteredVehicle",
+    "Site",
     "SiteLane",
+    "SubscriptionPlan",
     "Tenant",
-    "TenantAccessRule",
-    "TenantSite",
+    "TenantRegistration",
     "TenantUser",
+    "UserInvite",
     "UserSession",
 ]

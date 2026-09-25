@@ -1,57 +1,60 @@
-# ParkVision backend
+# ParkVision Backend
 
-FastAPI backend for the multi-tenant vehicle-access / barrier-gate platform.
+FastAPI backend for the ParkVision multi-tenant ANPR vehicle-access platform (see `SYSTEM_ARCHITECTURE_AND_DATABASE_DESIGN.md`).
 
 ## Stack
 
-- FastAPI + SQLAlchemy 2.x (asyncpg) + Alembic
-- PostgreSQL 16 — partitioned `access_events` (quarterly) and `gate_telemetry_logs` (monthly), row-level security via `SET LOCAL app.current_tenant_id`
-- Redis (arq worker + realtime pub/sub fan-out)
-- EMQX (MQTT 5) — telemetry/incident/command topics `tenants/{t}/sites/{s}/gates/{g}/{leaf}`
-- MinIO (S3) for ANPR images + exports, Mailpit for email, arq worker for jobs/cron
+- **API:** FastAPI + Uvicorn, SQLAlchemy 2 (async, asyncpg), Alembic
+- **DB:** PostgreSQL 16 — RLS tenant isolation (`app.current_tenant_id`, `app.is_platform_admin` transaction-local GUCs), quarterly `access_events` partitions, monthly `gate_telemetry_logs` partitions
+- **Auth:** JWT access/refresh in Secure HttpOnly cookies (`pv_access`, `pv_refresh`), double-submit CSRF (`pv_csrf` + `x-csrf-token`), opaque refresh tokens with rotation + reuse detection, Argon2 passwords, TOTP MFA (Fernet-encrypted secrets, backup codes)
+- **Realtime:** Redis pub/sub fan-out → WebSocket `/ws/tenants/{tenantId}/barrier-telemetry`
+- **IoT:** EMQX MQTT 5 — topics `tenants/{t}/sites/{s}/gates/{g}/{telemetry|incident|command|command-ack|event}`; standalone ingest process `app.mqtt_ingest`
+- **Background:** arq worker (Redis) — invite/reset emails, CSV vehicle import, partition maintenance, command timeouts, edge-offline sweep
+- **Storage:** S3-compatible (MinIO locally) presigned URLs for ANPR snapshots
+- **Email:** SMTP → Mailpit locally
 
-## Run (Docker Compose, from repo root)
-
-```bash
-docker compose up -d          # db redis emqx minio mailpit migrate api worker mqtt-ingestor
-docker compose exec api python -m scripts.seed   # demo platform admin + tenant
-curl http://localhost:8000/healthz
-```
-
-- API: http://localhost:8000 (OpenAPI at `/docs`)
-- Seeded logins: platform `admin@parkvision.dev` (`PV_BOOTSTRAP_ADMIN_PASSWORD`, default `ChangeMe!234`), tenant `owner@demo.parkvision.dev` / `Owner!234` (slug `demo`)
-
-## Run locally
+## Local development
 
 ```bash
-cd backend
+python3.12 -m venv .venv && source .venv/bin/activate
 pip install -e '.[dev]'
-export PV_DATABASE_DSN=postgresql+asyncpg://app_user:app_password@localhost:5432/vehicle_mgmt
-export PV_MIGRATION_DSN=postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt
-alembic upgrade head
-uvicorn app.main:app --reload
+cp .env.example .env
+
+# Infrastructure (postgres/redis/emqx/minio/mailpit + api/worker/ingestor)
+docker compose up -d postgres redis emqx minio minio-init mailpit
+
+# Runtime uses `parkvision_app` (non-superuser, created by docker/init.sql)
+# so RLS is enforced; migrations run as the owner `parkvision`.
+alembic upgrade head   # uses MIGRATION_DATABASE_URL if set, else DATABASE_URL
+python -m app.main                 # API on :8000 (docs at /docs)
+python -m arq app.workers.worker.WorkerSettings   # worker
+python -m app.mqtt_ingest          # MQTT ingestor
 ```
 
-## Tests
+Or everything in Docker: `docker compose up --build`.
+
+Bootstrap admin: set `BOOTSTRAP_PLATFORM_ADMIN_EMAIL` / `BOOTSTRAP_PLATFORM_ADMIN_PASSWORD` before first API start to seed a `super_admin`.
+
+## Tests / lint
 
 ```bash
-# needs postgres (with app_user role, see docker/db/init.sql) + redis
-export PV_DATABASE_DSN=postgresql+asyncpg://app_user:app_password@localhost:5433/vehicle_mgmt_test
-export PV_MIGRATION_DSN=postgresql+asyncpg://postgres:postgres@localhost:5433/vehicle_mgmt_test
-export PV_REDIS_DSN=redis://localhost:6380/0
 pytest
+ruff check app alembic
 ```
 
-## Auth model
+## Layout
 
-- Access JWT (15 min) + opaque rotating refresh (30 d) in HttpOnly cookies
-  (`pv_access`, `pv_refresh`) or `Authorization: Bearer`.
-- `pv_csrf` cookie + `X-CSRF-Token` header required for cookie-auth mutations.
-- TOTP MFA with backup codes; pending-token second login step.
-- Roles: platform (`superadmin|support|readonly`), tenant (`owner|admin|operator|viewer`).
+- `app/core` — config, database (RLS-scoped sessions), security (JWT/cookies/CSRF/MFA), deps, errors
+- `app/models` — SQLAlchemy models mirroring the design doc DDL
+- `app/schemas` — camelCase Pydantic DTOs + `Page[T]` envelope
+- `app/services` — auth sessions/rotation, command idempotency + MQTT publish, partitions, CSV importer, audit
+- `app/api/v1` — public / auth / platform governance / tenant routers + WS
+- `app/workers` — arq tasks + cron jobs
+- `app/storage` — S3 presign helpers
+- `app/realtime` — Redis→WebSocket relay
+- `app/mqtt_ingest.py` — MQTT→DB/Redis ingest daemon
+- `alembic/versions/0001_initial.py` — full schema: 20+ tables, partitions, RLS policies, seeds
 
-## Gate commands
+## Error/pagination conventions
 
-`POST /tenants/{t}/gates/{g}/commands` → `202` accepted, row `pending→sent`,
-MQTT publish to `.../command`; edge replies on `.../command-ack` move it to
-`acknowledged/executed/failed`. `Idempotency-Key` dedups per gate.
+Errors return `{"error": {"code", "message", "details?"}}`; lists return `{"items": [...], "total", "page", "pageSize"}`. All JSON is camelCase; DB is snake_case (aliased by `CamelModel`).

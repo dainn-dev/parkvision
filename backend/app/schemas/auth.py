@@ -1,99 +1,90 @@
-import uuid
+"""Auth-related request/response schemas."""
+
 from datetime import datetime
-from typing import Literal
+from uuid import UUID
 
 from pydantic import EmailStr, Field, IPvAnyAddress
 
-from app.schemas.common import ApiModel
+from app.schemas.common import CamelModel
 
 
-class RegisterTenantIn(ApiModel):
-    tenant_name: str = Field(min_length=2, max_length=200)
-    slug: str = Field(min_length=2, max_length=80, pattern=r"^[a-z0-9][a-z0-9-]*$")
-    plan: str = "starter"
-    owner_email: EmailStr
-    owner_password: str = Field(min_length=8, max_length=128)
-    owner_name: str = Field(default="", max_length=200)
-
-
-class LoginIn(ApiModel):
+class LoginRequest(CamelModel):
     email: EmailStr
-    password: str = Field(min_length=1, max_length=128)
-    kind: Literal["auto", "platform", "tenant"] = "auto"
-    tenant_slug: str | None = None
+    password: str = Field(min_length=1, max_length=256)
+    kind: str = "tenant_user"  # tenant_user | platform_admin
+    device_info: dict | None = None
 
 
-class MfaVerifyIn(ApiModel):
-    pending_token: str
-    code: str = Field(min_length=6, max_length=10)
+class LoginResponse(CamelModel):
+    status: str  # "authenticated" | "mfa_required"
+    user: "UserProfile | None" = None
+    mfa_required: bool = False
+    expires_in: int | None = None
 
 
-class MfaEnrollConfirmIn(ApiModel):
-    code: str = Field(min_length=6, max_length=10)
+class MfaVerifyRequest(CamelModel):
+    code: str = Field(min_length=6, max_length=64)  # TOTP or backup code
 
 
-class MfaDisableIn(ApiModel):
-    code: str = Field(min_length=6, max_length=10)
-
-
-class PasswordChangeIn(ApiModel):
-    current_password: str
-    new_password: str = Field(min_length=8, max_length=128)
-
-
-class AcceptInviteIn(ApiModel):
-    invite_token: str
-    password: str = Field(min_length=8, max_length=128)
-    full_name: str = Field(default="", max_length=200)
-
-
-class AuthTokensOut(ApiModel):
-    access_token: str
-    token_type: str = "bearer"  # noqa: S105
-    expires_in: int
-
-
-class MfaRequiredOut(ApiModel):
-    mfa_required: Literal[True] = True
-    pending_token: str
-
-
-class MfaEnrollOut(ApiModel):
-    secret: str
+class MfaSetupResponse(CamelModel):
+    secret: str  # base32 — shown once for manual entry
     otpauth_uri: str
 
 
-class MfaConfirmedOut(ApiModel):
-    mfa_enabled: Literal[True] = True
+class MfaConfirmRequest(CamelModel):
+    code: str = Field(min_length=6, max_length=10)
+
+
+class MfaConfirmResponse(CamelModel):
     backup_codes: list[str]
 
 
-class PrincipalOut(ApiModel):
-    user_id: uuid.UUID
+class UserProfile(CamelModel):
+    id: UUID
     kind: str
-    tenant_id: uuid.UUID | None
-    role: str
     email: str
-    display_name: str
-    mfa_enabled: bool
+    full_name: str
+    role: str
+    tenant_id: UUID | None = None
+    mfa_enabled: bool = False
+    impersonating: bool = False
 
 
-class SessionOut(ApiModel):
-    session_id: uuid.UUID
-    ip: IPvAnyAddress | None
-    user_agent: str
+class RefreshResponse(CamelModel):
+    expires_in: int
+
+
+class PasswordForgotRequest(CamelModel):
+    email: EmailStr
+    kind: str = "tenant_user"
+
+
+class PasswordResetRequest(CamelModel):
+    token: str
+    new_password: str = Field(min_length=12, max_length=256)
+
+
+class InviteAcceptRequest(CamelModel):
+    token: str
+    password: str = Field(min_length=12, max_length=256)
+    full_name: str = Field(min_length=1, max_length=200)
+
+
+class SessionInfo(CamelModel):
+    id: UUID
+    user_kind: str
+    user_id: UUID
+    tenant_id: UUID | None = None
+    device_info: dict = {}
+    ip_address: IPvAnyAddress | None = None
+    user_agent: str | None = None
+    mfa_verified: bool = False
     created_at: datetime
     expires_at: datetime
-    current: bool
+    last_used_at: datetime | None = None
+    revoked_at: datetime | None = None
 
 
-class InviteUserIn(ApiModel):
-    email: EmailStr
-    role: Literal["owner", "admin", "operator", "viewer"] = "operator"
-    full_name: str = Field(default="", max_length=200)
-
-
-class UpdateUserIn(ApiModel):
-    role: Literal["owner", "admin", "operator", "viewer"] | None = None
-    full_name: str | None = None
-    status: Literal["invited", "active", "suspended"] | None = None
+class ChangePasswordRequest(CamelModel):
+    current_password: str
+    new_password: str = Field(min_length=12, max_length=256)

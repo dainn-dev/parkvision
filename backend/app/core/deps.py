@@ -1,119 +1,162 @@
-"""AuthN/authZ and tenant-scoped DB dependencies."""
+"""Auth principal extraction, CSRF, and RLS-scoped session dependencies."""
 
-import uuid
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from typing import Annotated, Literal
+from uuid import UUID
 
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
-from app.core.errors import forbidden, unauthorized
-from app.core.security import (
-    Principal,
-    decode_token,
-    principal_from_token,
-)
-from app.db.session import tenant_session
+from app.core.database import get_db, scoped_db
+from app.core.errors import AppError, forbidden, unauthorized
+from app.core.security import PURPOSE_ACCESS, decode_jwt
 
-_ROLE_RANK = {"viewer": 0, "operator": 1, "admin": 2, "owner": 3,
-              "readonly": 0, "support": 1, "superadmin": 3}
+ACCESS_COOKIE = "pv_access"
+REFRESH_COOKIE = "pv_refresh"
+CSRF_COOKIE = "pv_csrf"
+CSRF_HEADER = "x-csrf-token"
 
-
-def _extract_token(request: Request) -> str | None:
-    settings = get_settings()
-    auth = request.headers.get("authorization", "")
-    if auth.lower().startswith("bearer "):
-        return auth[7:].strip()
-    return request.cookies.get(settings.access_cookie)
+UserKind = Literal["tenant_user", "platform_admin"]
 
 
-async def current_principal(request: Request) -> Principal:
-    token = _extract_token(request)
-    if not token:
-        raise unauthorized()
-    return principal_from_token(decode_token(token, "access"))
+@dataclass(frozen=True)
+class Principal:
+    kind: UserKind
+    id: UUID
+    role: str
+    session_id: UUID | None
+    tenant_id: UUID | None
+    via_cookie: bool
+    acting_admin_id: UUID | None = None  # set when impersonating
+
+    @property
+    def is_platform_admin(self) -> bool:
+        return self.kind == "platform_admin"
 
 
-PrincipalDep = Annotated[Principal, Depends(current_principal)]
+def _extract_token(request: Request) -> tuple[str, bool]:
+    """Return (token, via_cookie). Bearer header wins over the cookie."""
+    auth = request.headers.get("authorization")
+    if auth and auth.lower().startswith("bearer "):
+        return auth[7:].strip(), False
+    cookie = request.cookies.get(ACCESS_COOKIE)
+    if cookie:
+        return cookie, True
+    raise unauthorized()
 
 
-def require_roles(min_role: str, *, kind: Literal["any", "platform", "tenant"] = "any"):
-    """Require a minimum role rank; 'kind' restricts the principal class."""
+async def get_principal(request: Request) -> Principal:
+    token, via_cookie = _extract_token(request)
+    payload = decode_jwt(token, purpose=PURPOSE_ACCESS)
+    try:
+        kind = payload["kind"]
+        if kind not in ("tenant_user", "platform_admin"):
+            raise ValueError
+        return Principal(
+            kind=kind,
+            id=UUID(payload["sub"]),
+            role=payload.get("role", ""),
+            session_id=UUID(payload["sid"]) if payload.get("sid") else None,
+            tenant_id=UUID(payload["tenant"]) if payload.get("tenant") else None,
+            via_cookie=via_cookie,
+            acting_admin_id=UUID(payload["act"]) if payload.get("act") else None,
+        )
+    except (KeyError, ValueError) as exc:
+        raise unauthorized("Invalid token claims") from exc
 
-    async def dep(principal: PrincipalDep) -> Principal:
-        if kind != "any" and principal.kind != kind:
-            raise forbidden("Wrong principal type for this endpoint")
-        if _ROLE_RANK.get(principal.role, -1) < _ROLE_RANK[min_role]:
-            raise forbidden("Insufficient role")
+
+async def csrf_protect(request: Request) -> None:
+    """Double-submit CSRF check for cookie-authenticated mutating requests."""
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return
+    if request.headers.get("authorization"):
+        return  # bearer auth is not CSRF-able
+    cookie = request.cookies.get(CSRF_COOKIE)
+    header = request.headers.get(CSRF_HEADER)
+    if not cookie or not header or cookie != header:
+        raise AppError(403, "CSRF_FAILED", "CSRF token missing or invalid")
+
+
+def require_platform_admin(*roles: str):
+    async def dep(principal: Annotated[Principal, Depends(get_principal)]) -> Principal:
+        if principal.kind != "platform_admin":
+            raise forbidden("Platform admin credentials required")
+        if roles and principal.role not in roles:
+            raise forbidden("Insufficient platform role")
         return principal
 
     return dep
 
 
-def assert_tenant_access(principal: Principal, tenant_id: uuid.UUID) -> None:
-    """Tenant users may only touch their own tenant; platform admins pass
-    through with the platform-bypass RLS flag (impersonation for support)."""
-    if principal.kind == "platform":
-        return
-    if principal.tenant_id != tenant_id:
-        raise forbidden("Cross-tenant access denied")
-
-
-def scoped_db(tenant_id: uuid.UUID | None = None):
-    """Yield a session whose transaction carries the RLS context.
-
-    For tenant principals the context is their own tenant (and ``tenant_id``
-    from the path must match); for platform principals the context is the
-    requested tenant plus the platform bypass flag.
-    """
-
-    async def dep(principal: PrincipalDep) -> AsyncIterator[AsyncSession]:
-        if principal.kind == "platform":
-            async with tenant_session(tenant_id, platform_admin=True) as s:
-                yield s
-        else:
-            if tenant_id is not None:
-                assert_tenant_access(principal, tenant_id)
-            async with tenant_session(principal.tenant_id) as s:
-                yield s
+def require_tenant_user(*roles: str):
+    async def dep(principal: Annotated[Principal, Depends(get_principal)]) -> Principal:
+        if principal.kind != "tenant_user":
+            raise forbidden("Tenant user credentials required")
+        if roles and principal.role not in roles:
+            raise forbidden("Insufficient tenant role")
+        if principal.tenant_id is None:
+            raise forbidden("Token has no tenant context")
+        return principal
 
     return dep
 
 
-async def tenant_scoped_session(
-    request: Request, principal: PrincipalDep
+def resolve_tenant_id(principal: Principal, path_tenant_id: UUID | None) -> UUID:
+    """Verify a path/{tenantId} against the authenticated principal.
+
+    Tenant users may only address their own tenant. Platform admins (and
+    impersonation tokens carrying `act`) may address any tenant — their
+    session is still scoped so RLS confines queries to that tenant.
+    """
+    if path_tenant_id is None:
+        if principal.tenant_id is None:
+            raise forbidden("No tenant context available")
+        return principal.tenant_id
+    if principal.kind == "tenant_user":
+        if principal.tenant_id != path_tenant_id:
+            raise forbidden("Cross-tenant access is not allowed")
+        return path_tenant_id
+    # platform admin or impersonation — any tenant, but session scopes to it
+    return path_tenant_id
+
+
+async def get_db_session(db: Annotated[AsyncSession, Depends(get_db)]) -> AsyncSession:
+    return db
+
+
+async def tenant_db(
+    request: Request,
+    principal: Annotated[Principal, Depends(get_principal)],
 ) -> AsyncIterator[AsyncSession]:
-    """Per-request variant of ``scoped_db`` that reads ``tenant_id`` from the
-    route's path params (Depends() cannot capture path values)."""
-    raw = request.path_params.get("tenant_id")
-    tid = uuid.UUID(str(raw)) if raw else principal.tenant_id
-    if principal.kind == "platform":
-        async with tenant_session(tid, platform_admin=True) as s:
-            yield s
-    else:
-        if tid is not None and tid != principal.tenant_id:
-            raise forbidden("Cross-tenant access denied")
-        async with tenant_session(principal.tenant_id) as s:
-            yield s
+    """Session whose transaction carries RLS context for the resolved tenant.
+
+    The tenant comes from the path (``{tenantId}`` or ``{tenant_id}``) when
+    present, else from the token claim. Tenant users may only address their
+    own tenant; platform admins may address any tenant but are still scoped
+    to it so every query stays single-tenant.
+    """
+    raw = request.path_params.get("tenantId") or request.path_params.get("tenant_id")
+    path_tid = UUID(str(raw)) if raw else None
+    tenant_id = resolve_tenant_id(principal, path_tid)
+    async with scoped_db(tenant_id=tenant_id, is_platform_admin=False) as session:
+        yield session
 
 
 async def platform_db(
-    principal: PrincipalDep,
+    principal: Annotated[Principal, Depends(require_platform_admin())],
 ) -> AsyncIterator[AsyncSession]:
-    if principal.kind != "platform":
-        raise forbidden("Platform admin only")
-    async with tenant_session(None, platform_admin=True) as s:
-        yield s
+    """Cross-tenant session for platform-governance routes only."""
+    async with scoped_db(tenant_id=None, is_platform_admin=True) as session:
+        yield session
 
 
-async def unscoped_db() -> AsyncIterator[AsyncSession]:
-    async with tenant_session(None) as s:
-        yield s
+async def system_db() -> AsyncIterator[AsyncSession]:
+    """Privileged session for pre-auth flows (login, registration, refresh).
 
-
-def client_ip(request: Request) -> str | None:
-    fwd = request.headers.get("x-forwarded-for")
-    if fwd:
-        return fwd.split(",")[0].strip()
-    return request.client.host if request.client else None
+    Credential lookup and session writes happen before a tenant context
+    exists; platform sessions legitimately carry ``tenant_id`` NULL, which the
+    tenant policies would reject.
+    """
+    async with scoped_db(tenant_id=None, is_platform_admin=True) as session:
+        yield session

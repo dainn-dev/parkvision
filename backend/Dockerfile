@@ -1,18 +1,24 @@
 FROM python:3.12-slim AS base
 
-ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl && rm -rf /var/lib/apt/lists/*
-
+# Dependencies layer — invalidated only when pyproject changes.
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir --only-binary=:all: \
+    "fastapi==0.141.1" "uvicorn[standard]==0.53.0" "sqlalchemy[asyncio]==2.1.0" \
+    "asyncpg==0.31.0" "alembic==1.20.0" "pydantic==2.13.5" "pydantic-settings==2.15.0" \
+    "pyjwt==2.15.0" "cryptography==50.0.1" "argon2-cffi==25.1.0" "pyotp==2.10.0" \
+    "redis==5.3.1" "arq==0.28.0" "aiomqtt==2.5.1" "aioboto3==15.5.0" "aiosmtplib==5.1.3" \
+    "python-multipart==0.0.32" "email-validator==2.3.0"
 
-COPY . .
-
-RUN useradd -r -u 10001 app && chown -R app /app
-USER app
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini ./
+COPY .env.example ./.env
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+CMD ["sh", "-c", "alembic upgrade head && python -m app.main"]

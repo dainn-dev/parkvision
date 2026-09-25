@@ -1,34 +1,39 @@
+"""Audit trail writes — one row per significant action."""
+
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import Principal
 from app.models import AuditLog
 
 
-async def write_audit(
-    session: AsyncSession,
+async def audit(
+    db: AsyncSession,
     *,
-    principal: Principal | None,
     action: str,
+    actor_kind: str,
+    actor_id: UUID | None,
+    actor_email: str | None = None,
     tenant_id: UUID | None = None,
-    target_type: str = "",
-    target_id: str = "",
+    target_type: str | None = None,
+    target_id: str | None = None,
     detail: dict[str, Any] | None = None,
-    ip: str | None = None,
-    actor_label: str = "",
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> None:
-    session.add(
+    db.add(
         AuditLog(
-            tenant_id=tenant_id or (principal.tenant_id if principal else None),
-            actor_kind=principal.kind if principal else "system",
-            actor_id=principal.user_id if principal else None,
-            actor_label=actor_label or (str(principal.user_id) if principal else "system"),
+            tenant_id=tenant_id,
+            actor_kind=actor_kind,
+            actor_id=actor_id,
+            actor_email=actor_email,
             action=action,
             target_type=target_type,
             target_id=target_id,
-            ip=ip,
             detail=detail or {},
+            ip_address=ip_address,
+            user_agent=user_agent,
         )
     )
+    await db.flush()

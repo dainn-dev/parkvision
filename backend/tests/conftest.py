@@ -1,153 +1,177 @@
-"""Test fixtures — run against the docker-compose Postgres (and Redis if up).
+"""Test fixtures: real local Postgres (exercises RLS + partitions), ASGI client.
 
-Set PV_MIGRATION_DSN / PV_DATABASE_DSN to point at a test database. The suite
-creates the schema via alembic on first use and truncates between modules.
+Requires the dev services from docker-compose (or a local install). Tests connect
+as `parkvision_app` — the non-superuser runtime role — so RLS actually applies.
+postgresql+asyncpg://parkvision_app:parkvision_app@localhost:5432/parkvision
 """
 
-import asyncio
 import os
 from collections.abc import AsyncIterator
+from uuid import uuid4
 
-import pytest
-import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+# Env must be set before app modules are imported (get_settings is cached).
+os.environ.setdefault(
+    "DATABASE_URL", "postgresql+asyncpg://parkvision_app:parkvision_app@localhost:5432/parkvision"
+)
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
+os.environ.setdefault("MQTT_HOST", "localhost")
+os.environ.setdefault("S3_ENDPOINT_URL", "http://localhost:9000")
 
-os.environ.setdefault("PV_DATABASE_DSN", "postgresql+asyncpg://app_user:app_password@localhost:5433/vehicle_mgmt_test")
-os.environ.setdefault("PV_MIGRATION_DSN", "postgresql+asyncpg://postgres:postgres@localhost:5433/vehicle_mgmt_test")
-os.environ.setdefault("PV_REDIS_DSN", "redis://localhost:6380/0")
-os.environ.setdefault("PV_COOKIE_SECURE", "false")
-os.environ.setdefault("PV_JWT_SECRET", "test-secret")
+import pytest  # noqa: E402
+from httpx import ASGITransport, AsyncClient  # noqa: E402
+from sqlalchemy import delete  # noqa: E402
 
-MIGRATION_DSN = os.environ["PV_MIGRATION_DSN"]
-APP_DSN = os.environ["PV_DATABASE_DSN"]
+from app.core.database import scoped_db  # noqa: E402
+from app.core.deps import ACCESS_COOKIE, CSRF_COOKIE, CSRF_HEADER  # noqa: E402
+from app.core.security import hash_password  # noqa: E402
+from app.main import create_app  # noqa: E402
+from app.models import (  # noqa: E402
+    AccessEvent,
+    AccessRule,
+    AuditLog,
+    BarrierGate,
+    BarrierIncident,
+    EdgeDevice,
+    GateCommand,
+    GateTelemetryLog,
+    PasswordReset,
+    PlatformAdmin,
+    RegisteredVehicle,
+    Site,
+    SiteLane,
+    Tenant,
+    TenantRegistration,
+    TenantUser,
+    UserInvite,
+    UserSession,
+)
 
-PLATFORM = {"email": "admin@test.dev", "password": "Admin!234"}
-TENANT_A = {"slug": "alpha", "email": "a@test.dev", "password": "Alpha!234"}
-TENANT_B = {"slug": "beta", "email": "b@test.dev", "password": "Beta!234"}
+TENANT_TABLES = [
+    AuditLog,
+    BarrierIncident,
+    GateTelemetryLog,
+    AccessEvent,
+    GateCommand,
+    AccessRule,
+    RegisteredVehicle,
+    BarrierGate,
+    SiteLane,
+    EdgeDevice,
+    Site,
+    UserInvite,
+    PasswordReset,
+    UserSession,
+    TenantUser,
+    Tenant,
+    TenantRegistration,
+    PlatformAdmin,
+]
+
+DEFAULT_PASSWORD = "correct-horse-battery-12"  # noqa: S105 — test fixture credential
 
 
-async def _db_available() -> bool:
-    try:
-        eng = create_async_engine(MIGRATION_DSN)
-        async with eng.connect() as c:
-            await c.execute(text("SELECT 1"))
-        await eng.dispose()
-        return True
-    except Exception:
-        return False
+@pytest.fixture
+async def db():
+    """Platform-admin scoped session (sees every tenant's rows)."""
+    async with scoped_db(tenant_id=None, is_platform_admin=True) as session:
+        yield session
 
 
-@pytest.fixture(scope="session")
-def anyio_backend():
-    return "asyncio"
-
-
-@pytest_asyncio.fixture(scope="session")
-async def migrated() -> AsyncIterator[None]:
-    if not await _db_available():
-        pytest.skip("test Postgres unavailable (start docker compose test services)")
-    from alembic.config import Config
-
-    from alembic import command
-
-    cfg = Config("alembic.ini")
-    await asyncio.to_thread(command.upgrade, cfg, "head")
+@pytest.fixture(autouse=True)
+async def clean_db(db):
+    for model in TENANT_TABLES:
+        await db.execute(delete(model))
+    await db.commit()
     yield
 
 
-@pytest_asyncio.fixture(scope="session")
-async def seeded(migrated) -> dict:
-    """Platform admin + two tenants with owner users, sites, gates."""
-    from sqlalchemy.ext.asyncio import async_sessionmaker
-
-    from app.core.security import hash_password
-    from app.models import (
-        BarrierGate,
-        EdgeDevice,
-        PlatformAdmin,
-        SiteLane,
-        Tenant,
-        TenantSite,
-        TenantUser,
-    )
-
-    eng = create_async_engine(MIGRATION_DSN)  # superuser for seeding
-    factory = async_sessionmaker(eng, expire_on_commit=False)
-    ids: dict = {}
-    async with factory() as s:
-        # wipe
-        for t in ("access_events", "gate_telemetry_logs", "audit_logs",
-                  "barrier_incidents", "barrier_commands", "tenant_access_rules",
-                  "registered_vehicles", "barrier_gates", "site_lanes",
-                  "edge_devices", "tenant_sites", "user_sessions", "tenant_users",
-                  "platform_admins", "platform_settings", "tenants"):
-            await s.execute(text(f'DELETE FROM "{t}"'))  # noqa: S608
-
-        s.add(PlatformAdmin(
-            email=PLATFORM["email"],
-            password_hash=hash_password(PLATFORM["password"]),
-            display_name="Test Admin", role="superadmin",
-        ))
-        for key, tdata in (("a", TENANT_A), ("b", TENANT_B)):
-            tenant = Tenant(name=f"Tenant {key.upper()}", slug=tdata["slug"],
-                            status="active", plan="growth",
-                            contact_email=tdata["email"])
-            s.add(tenant)
-            await s.flush()
-            user = TenantUser(
-                tenant_id=tenant.id, email=tdata["email"],
-                password_hash=hash_password(tdata["password"]),
-                full_name=f"Owner {key}", role="owner", status="active",
-            )
-            site = TenantSite(tenant_id=tenant.id, name=f"Site {key}")
-            s.add_all([user, site])
-            await s.flush()
-            device = EdgeDevice(tenant_id=tenant.id, site_id=site.id,
-                                name=f"Edge {key}", device_key=f"edge-{key}",
-                                status="online")
-            lane = SiteLane(tenant_id=tenant.id, site_id=site.id,
-                            name="Lane 1", direction="entry")
-            s.add_all([device, lane])
-            await s.flush()
-            gate = BarrierGate(tenant_id=tenant.id, site_id=site.id,
-                               lane_id=lane.id, edge_device_id=device.id,
-                               name=f"Gate {key}", state="closed")
-            s.add(gate)
-            await s.flush()
-            ids[key] = {
-                "tenant_id": tenant.id, "user_id": user.id,
-                "site_id": site.id, "gate_id": gate.id, "lane_id": lane.id,
-                "device_id": device.id,
-            }
-        await s.commit()
-    await eng.dispose()
-    return ids
-
-
-@pytest_asyncio.fixture
-async def client(seeded) -> AsyncIterator[AsyncClient]:
-    from app.main import create_app
-
-    transport = ASGITransport(app=create_app())
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
+@pytest.fixture
+async def client() -> AsyncIterator[AsyncClient]:
+    app = create_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
 
 
-async def login(client: AsyncClient, email: str, password: str,
-                tenant_slug: str | None = None, kind: str = "auto") -> dict:
-    """Full login → dict of cookies/headers for authed requests."""
-    body = {"email": email, "password": password, "kind": kind}
-    if tenant_slug:
-        body["tenantSlug"] = tenant_slug
-    r = await client.post("/api/v1/auth/login", json=body)
-    assert r.status_code == 200, r.text
-    data = r.json()
-    token = data["accessToken"]
-    csrf = r.cookies.get("pv_csrf")
+async def make_tenant(db, name="Acme Parking", slug=None, status="active") -> Tenant:
+    tenant = Tenant(name=name, slug=slug or f"t-{uuid4().hex[:8]}", status=status)
+    db.add(tenant)
+    await db.flush()
+    return tenant
+
+
+async def make_tenant_user(
+    db,
+    tenant: Tenant,
+    email: str | None = None,
+    role: str = "owner",
+    password: str = DEFAULT_PASSWORD,
+    status: str = "active",
+) -> TenantUser:
+    user = TenantUser(
+        tenant_id=tenant.id,
+        email=email or f"u-{uuid4().hex[:8]}@acme.example.com",
+        full_name="Test User",
+        role=role,
+        status=status,
+        password_hash=hash_password(password),
+    )
+    db.add(user)
+    await db.flush()
+    return user
+
+
+async def make_admin(
+    db,
+    email: str | None = None,
+    role: str = "super_admin",
+    password: str = DEFAULT_PASSWORD,
+) -> PlatformAdmin:
+    admin = PlatformAdmin(
+        email=email or f"a-{uuid4().hex[:8]}@platform.example.com",
+        full_name="Platform Admin",
+        role=role,
+        status="active",
+        password_hash=hash_password(password),
+    )
+    db.add(admin)
+    await db.flush()
+    return admin
+
+
+async def make_site(db, tenant: Tenant, name="HQ", code=None) -> Site:
+    site = Site(tenant_id=tenant.id, name=name, code=code or f"s-{uuid4().hex[:6]}")
+    db.add(site)
+    await db.flush()
+    return site
+
+
+async def make_gate(db, tenant: Tenant, site: Site, name="Gate A") -> BarrierGate:
+    gate = BarrierGate(tenant_id=tenant.id, site_id=site.id, name=name, state="closed")
+    db.add(gate)
+    await db.flush()
+    return gate
+
+
+async def login(client: AsyncClient, email: str, password: str, kind: str) -> dict:
+    """Log in, returning {cookies, csrf, body}."""
+    resp = await client.post(
+        "/api/v1/auth/login", json={"email": email, "password": password, "kind": kind}
+    )
+    assert resp.status_code == 200, resp.text
     return {
-        "headers": {"Authorization": f"Bearer {token}", "X-CSRF-Token": csrf or ""},
-        "cookies": dict(r.cookies),
-        "access_token": token,
+        "cookies": dict(resp.cookies),
+        "csrf": resp.cookies.get(CSRF_COOKIE),
+        "body": resp.json(),
     }
+
+
+def auth_headers(session: dict) -> dict:
+    return {CSRF_HEADER: session["csrf"]}
+
+
+def auth_cookies(session: dict) -> dict:
+    return session["cookies"]
+
+
+def access_cookie(session: dict) -> str:
+    return session["cookies"][ACCESS_COOKIE]

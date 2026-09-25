@@ -1,74 +1,74 @@
-"""Uniform error envelope: ``{"error": {"code", "message", "details?"}}``."""
+"""Uniform error envelope: {"error": {"code", "message", "details?"}}."""
 
 from typing import Any
 
-from fastapi import FastAPI, Request, status
+from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
-class ApiError(Exception):
+class AppError(Exception):
     def __init__(
         self,
+        status_code: int,
         code: str,
         message: str,
-        http_status: int = status.HTTP_400_BAD_REQUEST,
         details: Any = None,
     ) -> None:
-        super().__init__(message)
+        self.status_code = status_code
         self.code = code
         self.message = message
-        self.http_status = http_status
         self.details = details
+        super().__init__(message)
 
 
-def envelope(code: str, message: str, details: Any = None) -> dict[str, Any]:
+def error_body(code: str, message: str, details: Any = None) -> dict[str, Any]:
     body: dict[str, Any] = {"error": {"code": code, "message": message}}
     if details is not None:
         body["error"]["details"] = details
     return body
 
 
-def not_found(resource: str) -> ApiError:
-    return ApiError("not_found", f"{resource} not found", status.HTTP_404_NOT_FOUND)
+async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_body(exc.code, exc.message, exc.details),
+    )
 
 
-def forbidden(message: str = "Forbidden") -> ApiError:
-    return ApiError("forbidden", message, status.HTTP_403_FORBIDDEN)
+async def validation_error_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=error_body("VALIDATION_ERROR", "Request validation failed", exc.errors()),
+    )
 
 
-def unauthorized(message: str = "Authentication required") -> ApiError:
-    return ApiError("unauthorized", message, status.HTTP_401_UNAUTHORIZED)
+async def unhandled_error_handler(_: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content=error_body("INTERNAL_ERROR", "Unexpected server error"),
+    )
 
 
-def conflict(message: str) -> ApiError:
-    return ApiError("conflict", message, status.HTTP_409_CONFLICT)
+def not_found(message: str = "Resource not found") -> AppError:
+    return AppError(status.HTTP_404_NOT_FOUND, "NOT_FOUND", message)
 
 
-def register_error_handlers(app: FastAPI) -> None:
-    @app.exception_handler(ApiError)
-    async def api_error_handler(_: Request, exc: ApiError) -> JSONResponse:
-        return JSONResponse(
-            status_code=exc.http_status,
-            content=envelope(exc.code, exc.message, exc.details),
-        )
+def conflict(message: str, details: Any = None) -> AppError:
+    return AppError(status.HTTP_409_CONFLICT, "CONFLICT", message, details)
 
-    @app.exception_handler(StarletteHTTPException)
-    async def http_error_handler(_: Request, exc: StarletteHTTPException) -> JSONResponse:
-        code = "http_error"
-        if exc.status_code == status.HTTP_404_NOT_FOUND:
-            code = "not_found"
-        elif exc.status_code == status.HTTP_405_METHOD_NOT_ALLOWED:
-            code = "method_not_allowed"
-        detail = exc.detail if isinstance(exc.detail, str) else "Request failed"
-        return JSONResponse(status_code=exc.status_code, content=envelope(code, detail))
 
-    @app.exception_handler(RequestValidationError)
-    async def validation_error_handler(
-        _: Request, exc: RequestValidationError
-    ) -> JSONResponse:
-        return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content=envelope("validation_error", "Invalid request", exc.errors()),
-        )
+def forbidden(message: str = "Insufficient permissions") -> AppError:
+    return AppError(status.HTTP_403_FORBIDDEN, "FORBIDDEN", message)
+
+
+def unauthorized(message: str = "Authentication required") -> AppError:
+    return AppError(status.HTTP_401_UNAUTHORIZED, "UNAUTHORIZED", message)
+
+
+def bad_request(message: str, details: Any = None) -> AppError:
+    return AppError(status.HTTP_400_BAD_REQUEST, "BAD_REQUEST", message, details)
+
+
+def unprocessable(message: str, details: Any = None) -> AppError:
+    return AppError(status.HTTP_422_UNPROCESSABLE_ENTITY, "UNPROCESSABLE", message, details)
