@@ -182,6 +182,7 @@ export interface EdgeDeviceHealth {
   deviceName: string;
   tenantId: string;
   tenantName: string;
+  siteId?: string;
   status: 'ONLINE' | 'OFFLINE' | 'DEGRADED';
   cpuPercent: number;
   memoryPercent: number;
@@ -206,6 +207,13 @@ export interface CameraHealth {
   lastFrameTime: string;
 }
 
+export interface GateTelemetrySnapshot {
+  id?: string;
+  recordedAt: string;
+  state?: string | null;
+  payload: Record<string, unknown>;
+}
+
 export interface GateHealth {
   id: string;
   gateName: string;
@@ -220,6 +228,7 @@ export interface GateHealth {
   siteId?: string;
   edgeDeviceId?: string;
   rawStatus?: string;
+  lastTelemetry?: GateTelemetrySnapshot;
 }
 
 export type IncidentSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';

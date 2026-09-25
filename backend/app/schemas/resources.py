@@ -102,16 +102,25 @@ class PlatformSettingOut(CamelModel):
 # ---------- sites / lanes / devices / gates ----------
 class SiteIn(CamelModel):
     name: str = Field(min_length=2, max_length=200)
+    code: str | None = Field(None, max_length=50)
     address: str | None = None
     timezone: str = "UTC"
+    latitude: float | None = Field(None, ge=-90, le=90)
+    longitude: float | None = Field(None, ge=-180, le=180)
+    capacity: int | None = Field(None, ge=0)
     status: str | None = None
 
 
 class SiteOut(CamelModel):
     id: uuid.UUID
     name: str
+    code: str | None
     address: str | None
     timezone: str
+    latitude: float | None
+    longitude: float | None
+    capacity: int
+    current_occupancy: int
     status: str
     created_at: datetime
 
@@ -169,6 +178,7 @@ class GateOut(CamelModel):
     status: str
     last_state_change_at: datetime | None
     created_at: datetime
+    last_telemetry: "TelemetryOut | None" = None
 
 
 class CommandIn(CamelModel):
@@ -197,6 +207,9 @@ class TelemetryOut(CamelModel):
     recorded_at: datetime
     state: str | None
     payload: dict[str, Any]
+
+
+GateOut.model_rebuild()
 
 
 # ---------- tenant users ----------

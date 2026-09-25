@@ -305,7 +305,7 @@ async def expire_stale_commands(ctx) -> int:
         return await _expire(db)
 
 
-async def mark_offline_devices(ctx, stale_seconds: int = 120) -> int:
+async def mark_offline_devices(ctx, stale_seconds: int = 30) -> int:
     from sqlalchemy import update
 
     from app.database import platform_session

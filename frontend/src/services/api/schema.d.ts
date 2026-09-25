@@ -1262,6 +1262,8 @@ export interface components {
              * Format: date-time
              */
             createdAt: string;
+            /** Lasttelemetry */
+            lastTelemetry?: components["schemas"]["TelemetryOut"] | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1823,12 +1825,22 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Code */
+            code: string | null;
             /** Name */
             name: string;
             /** Address */
             address: string | null;
             /** Timezone */
             timezone: string;
+            /** Latitude */
+            latitude: number | null;
+            /** Longitude */
+            longitude: number | null;
+            /** Capacity */
+            capacity: number;
+            /** Currentoccupancy */
+            currentOccupancy: number;
             /** Status */
             status: string;
             /**

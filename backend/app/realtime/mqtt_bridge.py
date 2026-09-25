@@ -20,7 +20,7 @@ import uuid
 from datetime import datetime, timezone
 
 import aiomqtt
-from sqlalchemy import update
+from sqlalchemy import select, update
 
 from app.config import settings
 from app.core.enums import EventSource
@@ -88,8 +88,9 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
                 .values(last_heartbeat_at=now, status="online")
             )
         # ANPR event piggy-backed on telemetry: record an access event too.
+        access_event = None
         if payload.get("plateNumber"):
-            await record_access_event(
+            access_event = await record_access_event(
                 db,
                 tenant_id=tid,
                 site_id=uuid.UUID(site_id),
@@ -104,23 +105,59 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
                 occurred_at=now,
             )
     await publish_ws(tenant_id, {"type": "telemetry", "siteId": site_id, "gateId": gate_id, **payload})
+    if access_event is not None:
+        await publish_ws(
+            tenant_id,
+            {
+                "type": "access",
+                "event": {
+                    "id": str(access_event.id),
+                    "siteId": str(access_event.site_id),
+                    "gateId": str(access_event.gate_id),
+                    "laneId": str(access_event.lane_id) if access_event.lane_id else None,
+                    "plateNumber": access_event.plate_number,
+                    "direction": access_event.direction,
+                    "decision": access_event.decision,
+                    "source": access_event.source,
+                    "confidence": access_event.confidence,
+                    "occurredAt": access_event.occurred_at.isoformat(),
+                },
+            },
+        )
 
 
 async def handle_incident(tenant_id: str, site_id: str, gate_id: str, payload: dict) -> None:
     tid = uuid.UUID(tenant_id)
+    gid = uuid.UUID(gate_id)
+    incident_type = payload.get("type", "fault")
     async with platform_session() as db:
-        db.add(
-            BarrierIncident(
-                tenant_id=tid,
-                site_id=uuid.UUID(site_id),
-                gate_id=uuid.UUID(gate_id),
-                edge_device_id=uuid.UUID(payload["deviceId"]) if payload.get("deviceId") else None,
-                type=payload.get("type", "fault"),
-                severity=payload.get("severity", "medium"),
-                description=payload.get("description"),
-                snapshot_urls=payload.get("snapshotUrls", []),
+        # Dedup: don't stack a new open incident while one of the same
+        # gate+type is still open/acknowledged — still forward the WS frame.
+        existing = (
+            await db.execute(
+                select(BarrierIncident.id)
+                .where(
+                    BarrierIncident.tenant_id == tid,
+                    BarrierIncident.gate_id == gid,
+                    BarrierIncident.type == incident_type,
+                    BarrierIncident.status.in_(["open", "acknowledged"]),
+                )
+                .limit(1)
             )
-        )
+        ).scalar_one_or_none()
+        if existing is None:
+            db.add(
+                BarrierIncident(
+                    tenant_id=tid,
+                    site_id=uuid.UUID(site_id),
+                    gate_id=gid,
+                    edge_device_id=uuid.UUID(payload["deviceId"]) if payload.get("deviceId") else None,
+                    type=incident_type,
+                    severity=payload.get("severity", "medium"),
+                    description=payload.get("description"),
+                    snapshot_urls=payload.get("snapshotUrls", []),
+                )
+            )
     await publish_ws(tenant_id, {"type": "incident", "siteId": site_id, "gateId": gate_id, **payload})
 
 

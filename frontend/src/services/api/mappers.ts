@@ -184,7 +184,7 @@ export const mapAuditLog = (a: AuditLogOut): AuditLogItem => ({
 export const mapSite = (s: SiteOut, tenantId: string, tenantName = ''): TenantSite => ({
   id: s.id,
   name: s.name,
-  code: s.name.slice(0, 8).toUpperCase().replace(/\s+/g, '-'),
+  code: s.code ?? s.name.slice(0, 8).toUpperCase().replace(/\s+/g, '-'),
   tenantId,
   tenantName,
   address: s.address ?? '',
@@ -199,6 +199,12 @@ export const mapSite = (s: SiteOut, tenantId: string, tenantName = ''): TenantSi
   todayAccessCount: 0,
   lanesCount: 0,
   operatingHours: s.timezone,
+  capacity: s.capacity ?? undefined,
+  currentOccupancy: s.currentOccupancy ?? undefined,
+  coordinates:
+    s.latitude != null && s.longitude != null
+      ? { lat: s.latitude, lng: s.longitude }
+      : undefined,
   createdAt: s.createdAt,
   description: '',
 });
@@ -217,6 +223,7 @@ export const mapGate = (g: GateOut, tenantId: string, tenantName = ''): GateHeal
   siteId: g.siteId ?? undefined,
   edgeDeviceId: g.edgeDeviceId ?? undefined,
   rawStatus: g.status ?? 'closed',
+  lastTelemetry: g.lastTelemetry ?? undefined,
 });
 
 export const mapDevice = (d: DeviceOut, tenantId: string, tenantName = ''): EdgeDeviceHealth => ({
@@ -224,6 +231,7 @@ export const mapDevice = (d: DeviceOut, tenantId: string, tenantName = ''): Edge
   deviceName: d.name,
   tenantId,
   tenantName,
+  siteId: d.siteId ?? undefined,
   status: upper(d.status, 'OFFLINE') as EdgeDeviceHealth['status'],
   cpuPercent: 0,
   memoryPercent: 0,

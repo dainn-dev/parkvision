@@ -12,6 +12,7 @@ from app.api.v1.tenant import TenantCtx, get_tenant_db, tenant_ctx
 from app.core.enums import EventSource
 from app.core.errors import not_found
 from app.models import AccessEvent, BarrierIncident
+from app.realtime.mqtt_bridge import publish_ws
 from app.schemas.common import Page, paginate
 from app.schemas.resources import (
     AccessEventIn,
@@ -205,7 +206,9 @@ async def create_incident(
         resource_id=str(row.id),
         ip=request.client.host if request.client else None,
     )
-    return IncidentOut.model_validate(row)
+    out = IncidentOut.model_validate(row)
+    await publish_ws(str(ctx.tenant_id), {"type": "incident", "incident": out.model_dump(mode="json")})
+    return out
 
 
 @router.post("/incidents/{incident_id}/acknowledge", response_model=IncidentOut)
@@ -242,7 +245,9 @@ async def acknowledge_incident(
         resource_id=str(incident_id),
         ip=request.client.host if request.client else None,
     )
-    return IncidentOut.model_validate(row)
+    out = IncidentOut.model_validate(row)
+    await publish_ws(str(ctx.tenant_id), {"type": "incident_update", "incident": out.model_dump(mode="json")})
+    return out
 
 
 @router.post("/incidents/{incident_id}/resolve", response_model=IncidentOut)
@@ -281,4 +286,6 @@ async def resolve_incident(
         resource_id=str(incident_id),
         ip=request.client.host if request.client else None,
     )
-    return IncidentOut.model_validate(row)
+    out = IncidentOut.model_validate(row)
+    await publish_ws(str(ctx.tenant_id), {"type": "incident_update", "incident": out.model_dump(mode="json")})
+    return out
