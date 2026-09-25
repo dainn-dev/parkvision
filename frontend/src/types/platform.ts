@@ -52,7 +52,7 @@ export interface Tenant {
 
 // Platform Administrator Types
 export type AdminStatus = 'ACTIVE' | 'DISABLED' | 'LOCKED' | 'PENDING';
-export type AdminRole = 'PLATFORM_ADMIN' | 'PLATFORM_SUPPORT' | 'PLATFORM_SECURITY';
+export type AdminRole = 'PLATFORM_ADMIN' | 'PLATFORM_SUPPORT' | 'PLATFORM_SECURITY' | 'super_admin' | 'ops' | 'support';
 
 export interface PlatformAdmin {
   id: string;

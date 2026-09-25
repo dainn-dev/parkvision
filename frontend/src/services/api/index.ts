@@ -109,6 +109,8 @@ export const platformApi = {
   putFlag: (key: string, body: { enabled: boolean; description?: string; tenantOverrides?: object }) =>
     api.put<FeatureFlagOut>(`/platform/feature-flags/${key}`, body),
   infraHealth: () => api.get<InfraHealth>('/platform/infra/health'),
+  auditLogs: (p: { page?: number; limit?: number; action?: string; actorId?: string; fromTs?: string; toTs?: string } = {}) =>
+    api.get<Page<AuditLogOut>>(`/platform/audit-logs${qs(p)}`),
 };
 
 // ---------- Tenant-scoped ----------

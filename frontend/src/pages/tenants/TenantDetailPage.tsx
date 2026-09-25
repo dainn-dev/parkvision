@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePlatform } from '../../context/PlatformContext';
+import { platformApi, UserOut } from '../../services/api';
 import {
   ArrowLeft,
   Building2,
@@ -38,6 +39,13 @@ export const TenantDetailPage: React.FC<{
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'usage' | 'activity'>('overview');
 
   const tenant = tenants.find((t) => t.id === tenantId) || tenants[0];
+
+  const [tenantUsers, setTenantUsers] = useState<UserOut[]>([]);
+  useEffect(() => {
+    if (!tenant?.id) return;
+    platformApi.listTenantUsers(tenant.id).then(setTenantUsers).catch(() => setTenantUsers([]));
+  }, [tenant?.id]);
+  const ownerUser = tenantUsers.find((u) => u.role === 'owner' || u.role === 'admin');
 
   const [statusReason, setStatusReason] = useState('');
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
@@ -205,14 +213,14 @@ export const TenantDetailPage: React.FC<{
               <CardContent className="space-y-3 text-xs">
                 <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
                   <div>
-                    <span className="font-bold text-white block text-sm">{tenant.administrator.name}</span>
-                    <span className="text-slate-400">{tenant.administrator.email}</span>
+                    <span className="font-bold text-white block text-sm">{ownerUser?.fullName || tenant.email || '—'}</span>
+                    <span className="text-slate-400">{ownerUser?.email || tenant.email || '—'}</span>
                   </div>
-                  <Badge variant="indigo">TENANT_ADMIN</Badge>
+                  <Badge variant="indigo">{ownerUser?.role?.toUpperCase() || 'OWNER'}</Badge>
                 </div>
                 <div className="text-slate-400 space-y-1 pt-1">
                   <div><strong>Phone:</strong> {tenant.administrator.phone || 'N/A'}</div>
-                  <div><strong>Admin User ID:</strong> {tenant.administrator.id}</div>
+                  <div><strong>Admin User ID:</strong> {ownerUser?.id || '—'}</div>
                 </div>
               </CardContent>
             </Card>
@@ -251,21 +259,18 @@ export const TenantDetailPage: React.FC<{
               Showing enrolled tenant users under <strong>{tenant.name}</strong>. Full CRUD rights belong to the designated Tenant Administrator.
             </div>
             <div className="mt-4 space-y-2 text-xs">
-              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-white block">{tenant.administrator.name}</span>
-                  <span className="text-slate-400">{tenant.administrator.email}</span>
+              {tenantUsers.length === 0 && (
+                <div className="p-3 text-slate-500">No users provisioned for this tenant yet.</div>
+              )}
+              {tenantUsers.map((u) => (
+                <div key={u.id} className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-white block">{u.fullName}</span>
+                    <span className="text-slate-400">{u.email}</span>
+                  </div>
+                  <Badge variant="indigo">{u.role.toUpperCase()}</Badge>
                 </div>
-                <Badge variant="indigo">TENANT_ADMIN</Badge>
-              </div>
-
-              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-white block">Security Operations Staff</span>
-                  <span className="text-slate-400">sec.ops@{tenant.code.toLowerCase()}.com</span>
-                </div>
-                <Badge variant="slate">SITE_MANAGER</Badge>
-              </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -300,7 +305,7 @@ export const TenantDetailPage: React.FC<{
                 <div>
                   <span className="text-slate-500 block">API Calls (30d)</span>
                   <span className="text-lg font-mono font-bold text-emerald-400 mt-1 block">
-                    4.2M
+                    —
                   </span>
                 </div>
                 <div>

@@ -138,8 +138,7 @@ export const DashboardPage: React.FC<{
           title="Active Platform Users"
           value={totalUsersCount.toLocaleString()}
           subtitle="Across all active enterprise tenant orgs"
-          change="+124 this month"
-          changeType="positive"
+          changeType="neutral"
           icon={Users}
           onClick={() => navigateTo('tenants')}
         />
@@ -148,17 +147,16 @@ export const DashboardPage: React.FC<{
           title="Recognition Events (24h)"
           value={`${(totalEventsCount / 1000000).toFixed(2)}M`}
           subtitle="Real-time gate OCR payload throughput"
-          change="+12.4% vs prev week"
-          changeType="positive"
+          changeType="neutral"
           icon={Activity}
           onClick={() => navigateTo('monitoring')}
         />
 
         <StatCard
           title="Platform Service Health"
-          value="99.98%"
-          subtitle="Patroni HA DB + Edge Cluster SLA"
-          change="● All Core Systems Operational"
+          value={services.length ? `${services.filter((s) => s.status === 'HEALTHY').length}/${services.length}` : '—'}
+          subtitle="Core infrastructure services online"
+          change="● Live infra health"
           changeType="positive"
           icon={ShieldCheck}
           badge={<Badge variant="emerald" dot>HEALTHY</Badge>}

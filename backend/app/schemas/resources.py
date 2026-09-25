@@ -52,6 +52,9 @@ class TenantCreateIn(CamelModel):
     plan_code: str = "starter"
     contact_email: EmailStr
     settings: dict[str, Any] = {}
+    owner_email: EmailStr | None = None
+    owner_full_name: str | None = Field(default=None, min_length=2, max_length=200)
+    owner_password: str | None = Field(default=None, min_length=10, max_length=200)
 
 
 # ---------- platform ----------

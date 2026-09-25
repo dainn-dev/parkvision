@@ -84,10 +84,6 @@ import {
 } from '../data/tenantMockData';
 import {
   INITIAL_SETTINGS,
-  INITIAL_CAMERAS,
-  INITIAL_SECURITY_ALERTS,
-  INITIAL_LOGIN_EVENTS,
-  INITIAL_CREDENTIALS,
 } from '../data/mockData';
 // UI role labels -> backend TenantUserRole enum
 const mapUiRoleToBackend = (role: string): string => {
@@ -107,6 +103,7 @@ interface ToastMessage {
 interface PlatformContextType {
   isAuthenticated: boolean;
   isSessionLoading: boolean;
+  userType: string;
   currentUser: {
     id: string;
     name: string;
@@ -170,12 +167,13 @@ interface PlatformContextType {
   updateTenant: (id: string, updateData: Partial<Tenant>) => Promise<void>;
   setTenantStatus: (id: string, status: TenantStatus, reason?: string) => Promise<void>;
 
-  createAdmin: (adminData: Partial<PlatformAdmin>) => Promise<void>;
+  createAdmin: (adminData: Partial<PlatformAdmin> & { password?: string }) => Promise<void>;
   updateAdmin: (id: string, updateData: Partial<PlatformAdmin>) => void;
   disableAdmin: (id: string, reason?: string) => void;
   resetAdminMfa: (id: string) => void;
 
   toggleFeatureFlag: (id: string) => void;
+  createFeatureFlag: (key: string, description: string) => void;
   updateSettings: (section: SettingsSection, newSettings: any) => void;
 
   acknowledgeIncident: (id: string, assignedTo?: string) => void;
@@ -447,12 +445,13 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [settings, setSettings] = useState<PlatformSettings>(INITIAL_SETTINGS);
   const [services, setServices] = useState<ServiceHealthItem[]>([]);
   const [edgeDevices, setEdgeDevices] = useState<EdgeDeviceHealth[]>([]);
-  const [cameras, setCameras] = useState<CameraHealth[]>(INITIAL_CAMERAS);
+  // No camera/security-activity/credential APIs exist yet — start honest-empty instead of mock.
+  const [cameras, setCameras] = useState<CameraHealth[]>([]);
   const [gates, setGates] = useState<GateHealth[]>([]);
   const [incidents, setIncidents] = useState<OperationalIncident[]>([]);
-  const [securityAlerts] = useState<SecurityAlert[]>(INITIAL_SECURITY_ALERTS);
-  const [loginEvents] = useState<LoginActivityEvent[]>(INITIAL_LOGIN_EVENTS);
-  const [credentials] = useState<ApiCredential[]>(INITIAL_CREDENTIALS);
+  const [securityAlerts] = useState<SecurityAlert[]>([]);
+  const [loginEvents] = useState<LoginActivityEvent[]>([]);
+  const [credentials] = useState<ApiCredential[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
 
   const [tenantLocation, setTenantLocation] = useState<TenantLocation>(INITIAL_TENANT_LOCATION);
@@ -485,6 +484,10 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         platformApi.getSettings().catch(() => []),
         platformApi.infraHealth().catch(() => null),
       ]);
+      platformApi
+        .auditLogs({ limit: 100 })
+        .then((auditPage) => setAuditLogs(auditPage.data.map(mapAuditLog)))
+        .catch(() => setAuditLogs([]));
       const mappedTenants = tenantsPage.data.map(mapTenant);
       setTenants(mappedTenants);
       const adminRows = adminsRows.map(mapPlatformAdmin);
@@ -671,6 +674,11 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, [isAuthenticated, userType, appWorkspace, selectedTenantId, tenants]);
 
+  // Tenant users can never enter the platform workspace.
+  useEffect(() => {
+    if (userType === 'tenant_user' && appWorkspace === 'platform') setAppWorkspace('tenant');
+  }, [userType, appWorkspace]);
+
   // Tenant data when the active tenant is known
   useEffect(() => {
     if (!isAuthenticated || !activeTenantId) return;
@@ -831,11 +839,18 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const createAdmin = async (adminData: Partial<PlatformAdmin> & { password?: string }) => {
     try {
+      const rawRole = (adminData.role ?? '').toLowerCase();
+      const uiRole = (adminData.role ?? '').toUpperCase();
+      const role = ['super_admin', 'ops', 'support'].includes(rawRole)
+        ? rawRole
+        : uiRole === 'PLATFORM_ADMIN' ? 'super_admin'
+          : uiRole === 'PLATFORM_SECURITY' ? 'ops'
+            : 'support';
       await platformApi.createAdmin({
         email: adminData.email ?? '',
-        password: adminData.password ?? `Temp-${Date.now().toString(36)}xZ!`,
+        password: adminData.password ?? '',
         fullName: adminData.name ?? '',
-        role: (adminData.role ?? 'platform_support').toLowerCase(),
+        role,
       });
       await loadPlatformData();
       addToast({ type: 'success', title: 'Admin Created', description: `${adminData.name} added.` });
@@ -851,6 +866,16 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     addToast({ type: 'info', title: 'Not supported', description: 'The backend does not expose disabling admins.' });
   const resetAdminMfa = (_id: string) =>
     addToast({ type: 'info', title: 'Not supported', description: 'The backend does not expose per-user MFA reset.' });
+
+  const createFeatureFlag = (key: string, description: string) => {
+    platformApi
+      .putFlag(key, { enabled: false, description })
+      .then(async () => {
+        await loadPlatformData();
+        addToast({ type: 'success', title: 'Feature Flag Created', description: key });
+      })
+      .catch(toastErr('Failed to create flag'));
+  };
 
   const toggleFeatureFlag = (id: string) => {
     const flag = featureFlags.find((f) => f.id === id);
@@ -1412,6 +1437,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       value={{
         isAuthenticated,
         isSessionLoading,
+        userType,
         currentUser,
         login,
         logout,
@@ -1464,6 +1490,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         updateAdmin,
         disableAdmin,
         resetAdminMfa,
+        createFeatureFlag,
         toggleFeatureFlag,
         updateSettings,
         acknowledgeIncident,

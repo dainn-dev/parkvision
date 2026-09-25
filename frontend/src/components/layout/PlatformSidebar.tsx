@@ -50,6 +50,7 @@ export const PlatformSidebar: React.FC = () => {
     tenantVehicles,
     tenantLocation,
     currentUser,
+    userType,
     setSelectedTenantId
   } = usePlatform();
 
@@ -70,10 +71,15 @@ export const PlatformSidebar: React.FC = () => {
         <div className="grid grid-cols-2 gap-1 bg-[#0d0e12] p-1 rounded-xl border border-[#30363d]">
           <button
             onClick={() => {
+              if (userType !== 'platform_admin') return;
               setAppWorkspace('platform');
               setSelectedTenantId(null);
             }}
-            className={`py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            disabled={userType !== 'platform_admin'}
+            title={userType !== 'platform_admin' ? 'Platform admin only' : undefined}
+            className={`py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+              userType !== 'platform_admin' ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+            } ${
               appWorkspace === 'platform'
                 ? 'bg-[#21262d] text-[#58a6ff] shadow-xs'
                 : 'text-[#8b949e] hover:text-[#c9d1d9]'
