@@ -224,7 +224,7 @@ export const DashboardPage: React.FC<{
                 </div>
               </div>
               <Badge variant={offlineCameras > 0 ? 'amber' : 'emerald'} size="sm">
-                {((onlineCameras / totalCameras) * 100).toFixed(1)}%
+                {totalCameras ? `${((onlineCameras / totalCameras) * 100).toFixed(1)}%` : '—'}
               </Badge>
             </div>
 
@@ -244,7 +244,7 @@ export const DashboardPage: React.FC<{
                   <p className="text-[11px] text-slate-400">{onlineGates} / {totalGates} Active · Xem Bản Đồ D3 →</p>
                 </div>
               </div>
-              <Badge variant="emerald" size="sm">99.4%</Badge>
+              <Badge variant="emerald" size="sm">{totalGates ? `${((onlineGates / totalGates) * 100).toFixed(1)}%` : '—'}</Badge>
             </div>
 
             <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
@@ -257,7 +257,7 @@ export const DashboardPage: React.FC<{
                   <p className="text-[11px] text-slate-400">{onlineEdge} / {totalEdge} Connected</p>
                 </div>
               </div>
-              <Badge variant="emerald" size="sm">95.7%</Badge>
+              <Badge variant="emerald" size="sm">{totalEdge ? `${((onlineEdge / totalEdge) * 100).toFixed(1)}%` : '—'}</Badge>
             </div>
           </CardContent>
         </Card>
