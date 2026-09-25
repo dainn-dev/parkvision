@@ -417,7 +417,7 @@ export const TenantRulesPage: React.FC = () => {
                   <div className="space-y-2 mt-3 text-xs">
                     <div className="flex items-center gap-2 text-[#8b949e]">
                       <Clock className="w-3.5 h-3.5 text-[#e3b341] shrink-0" />
-                      <span className="truncate">{rule.schedule?.summaryText || rule.schedule || '24/7 Always Active'}</span>
+                      <span className="truncate">{rule.schedule?.summaryText || '24/7 Always Active'}</span>
                     </div>
 
                     <div className="flex items-center gap-2 text-[#8b949e]">
@@ -568,7 +568,7 @@ export const TenantRulesPage: React.FC = () => {
                       </td>
 
                       <td className="py-3 px-4 text-[#c9d1d9] font-medium max-w-xs truncate">
-                        {rule.schedule?.summaryText || rule.schedule || '24/7 Always Active'}
+                        {rule.schedule?.summaryText || '24/7 Always Active'}
                       </td>
 
                       <td className="py-3 px-4">

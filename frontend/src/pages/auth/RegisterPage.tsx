@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Button, Badge } from '../../components/ui';
 import { usePlatform } from '../../context/PlatformContext';
+import { publicApi, ApiError } from '../../services/api';
 import { PublicViewType } from '../../components/layout/PublicNavbar';
 
 interface RegisterPageProps {
@@ -31,7 +32,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
   onNavigate,
   onRegistrationSuccess
 }) => {
-  const { createTenant, login, setAppWorkspace, setTenantNavTab, addToast } = usePlatform();
+  const { login, setAppWorkspace, setTenantNavTab, addToast } = usePlatform();
 
   // Wizard Steps: 1: Organization -> 2: Scale & Plan -> 3: Admin Credentials
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -83,14 +84,14 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
     setCurrentStep(3);
   };
 
-  const handleFinalSubmit = (e: React.FormEvent) => {
+  const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminName.trim() || !adminEmail.trim() || !password) {
       setErrorMessage('Vui lòng nhập đầy đủ họ tên, email và mật khẩu.');
       return;
     }
-    if (password.length < 6) {
-      setErrorMessage('Mật khẩu tối thiểu phải từ 6 ký tự trở lên.');
+    if (password.length < 10) {
+      setErrorMessage('Mật khẩu tối thiểu phải từ 10 ký tự trở lên.');
       return;
     }
     if (password !== confirmPassword) {
@@ -105,44 +106,43 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
     setErrorMessage(null);
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const planCode = { starter: 'starter', business: 'pro', enterprise: 'enterprise' }[selectedPlan] ?? selectedPlan;
+      await publicApi.register({
+        tenantName: orgName,
+        slug,
+        planCode,
+        contactEmail: adminEmail,
+        ownerEmail: adminEmail,
+        ownerFullName: adminName,
+        ownerPassword: password
+      });
 
-      // 1. Create Tenant in Platform Context
-      const tenantCode = (slug.slice(0, 8) || 'TENANT').toUpperCase();
-      createTenant(
-        {
-          name: orgName,
-          code: tenantCode,
-          email: adminEmail,
-          phone: adminPhone || '+84 28 8899 0000',
-          timezone: 'Asia/Ho_Chi_Minh',
-          status: 'ACTIVE'
-        },
-        {
-          name: adminName,
-          email: adminEmail,
-          phone: adminPhone
-        }
-      );
+      const res = await login(adminEmail, password);
+      if (res.requiresMfa || !res.success) {
+        setErrorMessage(res.message || 'Đăng ký thành công nhưng đăng nhập thất bại — vui lòng đăng nhập thủ công.');
+        onNavigate('login');
+        return;
+      }
 
-      // 2. Automatically Log in as this Tenant Admin
-      login(adminEmail, password);
-
-      // 3. Switch workspace directly to Tenant Portal
       setAppWorkspace('tenant');
       setTenantNavTab('dashboard');
 
       addToast({
         type: 'success',
         title: 'Khởi tạo Tenant thành công!',
-        description: `Chào mừng ${orgName}! Bạn đang sử dụng gói dùng thử 14 ngày của ${selectedPlan.toUpperCase()}.`
+        description: `Chào mừng ${orgName}! Tenant của bạn đã được đăng ký.`
       });
 
       if (onRegistrationSuccess) {
         onRegistrationSuccess();
       }
-    }, 1000);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Đăng ký thất bại. Vui lòng thử lại.';
+      setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -453,7 +453,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Tối thiểu 6 ký tự"
+                      placeholder="Tối thiểu 10 ký tự"
                       className="w-full pl-10 pr-4 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-xs sm:text-sm text-white placeholder-[#8b949e] focus:outline-none focus:border-[#58a6ff]"
                     />
                   </div>

@@ -38,11 +38,11 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
   const activeAdmins = tenantUsers.filter((u) => u.role === 'TENANT_ADMIN' && u.status === 'ACTIVE');
   const isOnlyActiveAdmin = user.role === 'TENANT_ADMIN' && user.status === 'ACTIVE' && activeAdmins.length <= 1;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    const res = changeTenantUserRole(user.id, selectedRole);
+    const res = await changeTenantUserRole(user.id, selectedRole);
     if (res.success) {
       onClose();
     } else {

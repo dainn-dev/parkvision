@@ -46,6 +46,8 @@ export const PlatformSidebar: React.FC = () => {
     securityAlerts,
     tenantAlerts,
     tenantSites,
+    tenants,
+    currentUser,
     setSelectedTenantId
   } = usePlatform();
 
@@ -309,7 +311,7 @@ export const PlatformSidebar: React.FC = () => {
                 <span>Tenants</span>
               </div>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#21262d] border border-[#30363d] text-[#8b949e] font-mono">
-                6
+                {tenants.length}
               </span>
             </button>
 
@@ -580,12 +582,12 @@ export const PlatformSidebar: React.FC = () => {
       <div className="p-4 border-t border-[#30363d] bg-[#161b22] shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-[#58a6ff]/20 border border-[#58a6ff]/40 flex items-center justify-center font-bold text-[#58a6ff] text-xs font-mono">
-            AN
+            {(currentUser.name || 'U').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="text-xs font-semibold text-white truncate">Anthony Nguyen</h4>
+            <h4 className="text-xs font-semibold text-white truncate">{currentUser.name}</h4>
             <p className="text-[10px] text-[#8b949e] truncate font-mono">
-              {appWorkspace === 'tenant' ? 'Tenant Admin (Acme)' : 'anh.nh@kyanon.digital'}
+              {appWorkspace === 'tenant' ? currentUser.role : currentUser.email}
             </p>
           </div>
           <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse shrink-0" title="Online & Connected" />

@@ -24,14 +24,14 @@ export const UpdatePlateModal: React.FC<UpdatePlateModalProps> = ({
 
   if (!isOpen || !vehicle) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
     const formatted = newPlateNumber.toUpperCase().trim();
     if (!formatted) return;
 
-    const res = registerVehicleLicensePlate(vehicle.id, {
+    const res = await registerVehicleLicensePlate(vehicle.id, {
       number: formatted,
       country,
       province

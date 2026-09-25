@@ -91,8 +91,6 @@ const PlatformAppContent: React.FC = () => {
           <PublicNavbar
             currentView={publicView}
             onNavigate={setPublicView}
-            onLogin={() => setPublicView('login')}
-            onRegister={() => setPublicView('register')}
           />
         )}
 
