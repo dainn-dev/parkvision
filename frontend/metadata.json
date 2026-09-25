@@ -1,0 +1,6 @@
+{
+  "name": "Platform Admin Governance",
+  "description": "Comprehensive B2B ANPR barrier access control SaaS platform with tenant governance, public landing page, interactive simulator, pricing, registration, terms, privacy, and SLA policies.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
