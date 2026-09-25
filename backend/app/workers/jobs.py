@@ -11,6 +11,7 @@ Jobs run in the `worker` container (`arq app.workers.jobs.WorkerSettings`):
 - incident_notify         : CRITICAL incidents -> tenant webhook + Telegram
 """
 
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -447,3 +448,126 @@ async def incident_notify(ctx) -> int:
                     inc.notify_error = None
                     delivered += 1
     return delivered
+
+
+_PARTITION_RE = re.compile(r"^(gate_telemetry_logs|access_events)_(\d{4})_(?:q(\d)|(\d{2}))$")
+
+
+def _partition_period_end(name: str) -> datetime | None:
+    """End-of-period (exclusive bound) for a named monthly/quarterly partition."""
+    m = _PARTITION_RE.match(name)
+    if not m:
+        return None
+    year = int(m.group(2))
+    if m.group(3):  # quarterly access_events_YYYY_Qq
+        q = int(m.group(3))
+        start_month = (q - 1) * 3 + 1
+        if q == 4:
+            return datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+        return datetime(year, start_month + 3, 1, tzinfo=timezone.utc)
+    month = int(m.group(4))
+    if not 1 <= month <= 12:
+        return None
+    if month == 12:
+        return datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    return datetime(year, month + 1, 1, tzinfo=timezone.utc)
+
+
+async def enforce_retention(ctx) -> dict:
+    """Drop partitions older than `retention_months`; purge event images older than
+    `image_retention_days` (keys read from platform_settings, defaults 12 / 90).
+
+    Named partitions only — the *_default partitions are never dropped (they hold
+    any out-of-range rows and are emptied by the partition-creation sweep).
+    """
+    from sqlalchemy import select, text, update
+
+    from app.database import engine, platform_session
+    from app.models import AccessEvent, PlatformSetting
+
+    dropped: list[str] = []
+    errors: list[str] = []
+    now = datetime.now(timezone.utc)
+
+    async with platform_session() as db:
+        retention_months = int(
+            (
+                await db.execute(
+                    select(PlatformSetting.value).where(PlatformSetting.key == "retention_months")
+                )
+            ).scalar_one_or_none()
+            or 12
+        )
+        image_retention_days = int(
+            (
+                await db.execute(
+                    select(PlatformSetting.value).where(PlatformSetting.key == "image_retention_days")
+                )
+            ).scalar_one_or_none()
+            or 90
+        )
+
+    # cutoff = first day of the month `retention_months` ago
+    back = now.month - 1 - retention_months
+    cutoff_year = now.year + back // 12
+    cutoff_month = back % 12 + 1
+    cutoff = datetime(cutoff_year, cutoff_month, 1, tzinfo=timezone.utc)
+
+    async with engine.begin() as conn:
+        partitions = (
+            await conn.execute(
+                text("""
+                SELECT parent.relname AS parent, child.relname AS name
+                FROM pg_inherits
+                JOIN pg_class child ON inhrelid = child.oid
+                JOIN pg_class parent ON inhparent = parent.oid
+                WHERE parent.relname IN ('gate_telemetry_logs', 'access_events')
+            """)
+            )
+        ).all()
+        for parent, name in partitions:
+            if name.endswith("_default"):
+                continue
+            period_end = _partition_period_end(name)
+            if period_end is None or period_end > cutoff:
+                continue
+            try:
+                await conn.execute(text(f"ALTER TABLE {parent} DETACH PARTITION {name}"))
+                await conn.execute(text(f"DROP TABLE {name}"))
+                dropped.append(name)
+            except Exception as exc:  # keep going — next run retries
+                errors.append(f"{name}: {exc.__class__.__name__}")
+
+    purged = 0
+    img_cutoff = now - timedelta(days=image_retention_days)
+    async with platform_session() as db:
+        rows = (
+            await db.execute(
+                select(
+                    AccessEvent.id,
+                    AccessEvent.occurred_at,
+                    AccessEvent.plate_image_url,
+                    AccessEvent.overview_image_url,
+                ).where(
+                    AccessEvent.occurred_at < img_cutoff,
+                    (AccessEvent.plate_image_url.is_not(None))
+                    | (AccessEvent.overview_image_url.is_not(None)),
+                )
+            )
+        ).all()[:500]
+        for ev_id, occurred_at, plate_key, overview_key in rows:
+            keys = [k for k in (plate_key, overview_key) if k]
+            try:
+                from app.services.storage import delete_objects
+
+                delete_objects(keys)
+                await db.execute(
+                    update(AccessEvent)
+                    .where(AccessEvent.id == ev_id, AccessEvent.occurred_at == occurred_at)
+                    .values(plate_image_url=None, overview_image_url=None)
+                )
+                purged += 1
+            except Exception as exc:
+                errors.append(f"image {ev_id}: {exc.__class__.__name__}")
+
+    return {"droppedPartitions": dropped, "purgedImages": purged, "errors": errors}
