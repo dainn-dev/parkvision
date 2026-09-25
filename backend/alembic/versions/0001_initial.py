@@ -1,617 +1,253 @@
-"""Initial schema: identity, sites, operations + RLS + partitions.
+"""Initial schema: 14 spec tables + operational tables, partitions, RLS.
 
 Revision ID: 0001_initial
 Revises:
 Create Date: 2026-09-25
 """
+from collections.abc import Sequence
 
-from datetime import date
-
+import sqlalchemy as sa
 from alembic import op
 
-revision = "0001_initial"
-down_revision = None
-branch_labels = None
-depends_on = None
+from app.db.base import Base
+import app.models  # noqa: F401 — registers all tables
 
-EXTENSIONS = ["CREATE EXTENSION IF NOT EXISTS pgcrypto"]
+revision: str = "0001_initial"
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
-FUNCTIONS = [
-    """
-CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger
-LANGUAGE plpgsql AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END $$
-""",
-]
+# Tables created manually as partitioned parents; skipped by create_all.
+PARTITIONED = {"access_events", "gate_telemetry_logs"}
 
-TABLES = [
-    # ---------- platform-level (no tenant column; access gated at API layer) ----------
-    """
-CREATE TABLE subscription_plans (
-  code varchar(40) PRIMARY KEY,
-  name varchar(120) NOT NULL,
-  description text,
-  limits jsonb NOT NULL DEFAULT '{}'::jsonb,
-  pricing jsonb NOT NULL DEFAULT '{}'::jsonb,
-  active boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    """
-CREATE TABLE legal_documents (
-  slug varchar(60) PRIMARY KEY,
-  title varchar(200) NOT NULL,
-  content_md text NOT NULL,
-  version varchar(40) NOT NULL,
-  published_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    """
-CREATE TABLE platform_admins (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  email varchar(320) NOT NULL UNIQUE,
-  password_hash varchar(255) NOT NULL,
-  full_name varchar(200) NOT NULL,
-  role varchar(20) NOT NULL DEFAULT 'readonly'
-    CHECK (role IN ('super_admin','support','readonly')),
-  status varchar(20) NOT NULL DEFAULT 'active'
-    CHECK (status IN ('active','suspended','disabled')),
-  mfa_enabled boolean NOT NULL DEFAULT false,
-  mfa_secret_enc text,
-  mfa_backup_hashes jsonb,
-  last_login_at timestamptz,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    """
-CREATE TABLE platform_settings (
-  key varchar(120) PRIMARY KEY,
-  value jsonb NOT NULL DEFAULT '{}'::jsonb,
-  updated_by_id uuid,
-  updated_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    """
-CREATE TABLE feature_flags (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  key varchar(120) NOT NULL UNIQUE,
-  description text,
-  default_enabled boolean NOT NULL DEFAULT false,
-  tenant_overrides jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    """
-CREATE TABLE tenant_registrations (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_name varchar(200) NOT NULL,
-  contact_name varchar(200) NOT NULL,
-  contact_email varchar(320) NOT NULL,
-  plan_code varchar(40),
-  status varchar(20) NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending','approved','rejected')),
-  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-  reviewed_by_id uuid,
-  reviewed_at timestamptz,
-  review_note text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    # ---------- tenant-scoped ----------
-    """
-CREATE TABLE tenants (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name varchar(200) NOT NULL,
-  slug varchar(80) NOT NULL UNIQUE,
-  plan_code varchar(40) NOT NULL DEFAULT 'standard',
-  status varchar(20) NOT NULL DEFAULT 'active'
-    CHECK (status IN ('pending','active','suspended')),
-  settings jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    """
-CREATE TABLE tenant_users (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  email varchar(320) NOT NULL UNIQUE,
-  password_hash varchar(255),
-  full_name varchar(200) NOT NULL,
-  role varchar(20) NOT NULL DEFAULT 'viewer'
-    CHECK (role IN ('owner','admin','operator','viewer')),
-  status varchar(20) NOT NULL DEFAULT 'invited'
-    CHECK (status IN ('invited','active','suspended','disabled')),
-  mfa_enabled boolean NOT NULL DEFAULT false,
-  mfa_secret_enc text,
-  mfa_backup_hashes jsonb,
-  invited_at timestamptz,
-  activated_at timestamptz,
-  last_login_at timestamptz,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    # Polymorphic user_id (tenant_users or platform_admins) — validated in the app layer.
-    """
-CREATE TABLE user_sessions (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_kind varchar(20) NOT NULL CHECK (user_kind IN ('tenant_user','platform_admin')),
-  user_id uuid NOT NULL,
-  tenant_id uuid,
-  refresh_token_hash varchar(64) NOT NULL UNIQUE,
-  device_info jsonb NOT NULL DEFAULT '{}'::jsonb,
-  ip_address inet,
-  user_agent text,
-  mfa_verified boolean NOT NULL DEFAULT false,
-  acting_admin_id uuid,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  expires_at timestamptz NOT NULL,
-  last_used_at timestamptz,
-  revoked_at timestamptz,
-  revoked_reason varchar(60),
-  replaced_by_id uuid
-)
-""",
-    "CREATE INDEX ix_user_sessions_user ON user_sessions (user_id)",
-    "CREATE INDEX ix_user_sessions_tenant ON user_sessions (tenant_id)",
-    """
-CREATE TABLE user_invites (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  email varchar(320) NOT NULL,
-  role varchar(20) NOT NULL DEFAULT 'viewer'
-    CHECK (role IN ('owner','admin','operator','viewer')),
-  token_hash varchar(64) NOT NULL UNIQUE,
-  status varchar(20) NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending','accepted','expired','revoked')),
-  invited_by_id uuid,
-  expires_at timestamptz NOT NULL,
-  accepted_at timestamptz,
-  created_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    """
-CREATE UNIQUE INDEX uq_user_invites_pending
-  ON user_invites (tenant_id, email) WHERE status = 'pending'
-""",
-    """
-CREATE TABLE password_resets (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_kind varchar(20) NOT NULL CHECK (user_kind IN ('tenant_user','platform_admin')),
-  user_id uuid NOT NULL,
-  token_hash varchar(64) NOT NULL UNIQUE,
-  expires_at timestamptz NOT NULL,
-  used_at timestamptz,
-  created_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    "CREATE INDEX ix_password_resets_user ON password_resets (user_id)",
-    """
-CREATE TABLE failed_login_attempts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  email varchar(320) NOT NULL,
-  ip_address inet,
-  attempts integer NOT NULL DEFAULT 0,
-  locked_until timestamptz,
-  updated_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    "CREATE INDEX ix_failed_login_email ON failed_login_attempts (email)",
-    """
-CREATE TABLE tenant_sites (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  name varchar(200) NOT NULL,
-  code varchar(60) NOT NULL,
-  address text,
-  timezone varchar(60) NOT NULL DEFAULT 'UTC',
-  status varchar(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active','archived')),
-  settings jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT uq_tenant_sites_tenant_code UNIQUE (tenant_id, code)
-)
-""",
-    """
-CREATE TABLE edge_devices (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  site_id uuid NOT NULL REFERENCES tenant_sites(id) ON DELETE CASCADE,
-  name varchar(120) NOT NULL,
-  serial_number varchar(120),
-  mac_address macaddr,
-  firmware_version varchar(60),
-  ip_address inet,
-  status varchar(20) NOT NULL DEFAULT 'pairing'
-    CHECK (status IN ('pairing','online','offline','decommissioned')),
-  pairing_token_hash varchar(64),
-  last_seen_at timestamptz,
-  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    "CREATE UNIQUE INDEX uq_edge_devices_serial ON edge_devices (serial_number) WHERE serial_number IS NOT NULL",
-    """
-CREATE TABLE site_lanes (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  site_id uuid NOT NULL REFERENCES tenant_sites(id) ON DELETE CASCADE,
-  edge_device_id uuid REFERENCES edge_devices(id) ON DELETE SET NULL,
-  name varchar(120) NOT NULL,
-  direction varchar(20) NOT NULL DEFAULT 'entry'
-    CHECK (direction IN ('entry','exit','bidirectional')),
-  camera_uri text,
-  status varchar(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    "CREATE INDEX ix_site_lanes_tenant ON site_lanes (tenant_id)",
-    "CREATE INDEX ix_site_lanes_site ON site_lanes (site_id)",
-    """
-CREATE TABLE barrier_gates (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  site_id uuid NOT NULL REFERENCES tenant_sites(id) ON DELETE CASCADE,
-  lane_id uuid REFERENCES site_lanes(id) ON DELETE SET NULL,
-  edge_device_id uuid REFERENCES edge_devices(id) ON DELETE SET NULL,
-  name varchar(120) NOT NULL,
-  gate_type varchar(20) NOT NULL DEFAULT 'barrier'
-    CHECK (gate_type IN ('barrier','sliding','swing','bollard')),
-  state varchar(20) NOT NULL DEFAULT 'unknown'
-    CHECK (state IN ('open','opening','closed','closing','locked','fault','unknown')),
-  last_state_change_at timestamptz,
-  status varchar(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    "CREATE INDEX ix_barrier_gates_tenant ON barrier_gates (tenant_id)",
-    "CREATE INDEX ix_barrier_gates_site ON barrier_gates (site_id)",
-    """
-CREATE TABLE gate_commands (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  command_key varchar(80) NOT NULL UNIQUE,
-  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  site_id uuid NOT NULL REFERENCES tenant_sites(id) ON DELETE CASCADE,
-  gate_id uuid NOT NULL REFERENCES barrier_gates(id) ON DELETE CASCADE,
-  action varchar(20) NOT NULL CHECK (action IN ('open','close','lock','unlock')),
-  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-  status varchar(20) NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending','sent','acknowledged','executed','timeout','failed')),
-  requested_by_kind varchar(20) NOT NULL
-    CHECK (requested_by_kind IN ('tenant_user','platform_admin','system')),
-  requested_by_id uuid NOT NULL,
-  sent_at timestamptz,
-  acknowledged_at timestamptz,
-  executed_at timestamptz,
-  timeout_at timestamptz,
-  error text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    "CREATE INDEX ix_gate_commands_tenant ON gate_commands (tenant_id)",
-    "CREATE INDEX ix_gate_commands_gate ON gate_commands (gate_id)",
-    """
-CREATE TABLE registered_vehicles (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  site_id uuid REFERENCES tenant_sites(id) ON DELETE CASCADE,
-  plate_number varchar(20) NOT NULL,
-  plate_normalized varchar(20) NOT NULL,
-  owner_name varchar(200),
-  owner_contact jsonb NOT NULL DEFAULT '{}'::jsonb,
-  vehicle_type varchar(40),
-  status varchar(20) NOT NULL DEFAULT 'active'
-    CHECK (status IN ('active','suspended','expired')),
-  valid_from timestamptz,
-  valid_until timestamptz,
-  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    """
-CREATE UNIQUE INDEX uq_registered_vehicles_plate ON registered_vehicles
-  (tenant_id, COALESCE(site_id, '00000000-0000-0000-0000-000000000000'::uuid), plate_normalized)
-""",
-    "CREATE INDEX ix_registered_vehicles_plate ON registered_vehicles (plate_normalized)",
-    """
-CREATE TABLE tenant_access_rules (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  site_id uuid REFERENCES tenant_sites(id) ON DELETE CASCADE,
-  name varchar(200) NOT NULL,
-  priority integer NOT NULL DEFAULT 100,
-  effect varchar(10) NOT NULL DEFAULT 'allow' CHECK (effect IN ('allow','deny')),
-  subject jsonb NOT NULL DEFAULT '{}'::jsonb,
-  schedule jsonb NOT NULL DEFAULT '{}'::jsonb,
-  lane_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
-  status varchar(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
-  valid_from timestamptz,
-  valid_until timestamptz,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    "CREATE INDEX ix_access_rules_tenant ON tenant_access_rules (tenant_id)",
-    # ---------- partitioned: access_events (quarterly), gate_telemetry_logs (monthly) ----------
-    """
-CREATE TABLE access_events (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  occurred_at timestamptz NOT NULL,
-  tenant_id uuid NOT NULL,
-  site_id uuid NOT NULL,
-  gate_id uuid,
-  lane_id uuid,
-  edge_device_id uuid,
-  direction varchar(20) CHECK (direction IN ('entry','exit')),
-  plate_raw varchar(20),
-  plate_normalized varchar(20),
-  confidence numeric(5,4),
-  vehicle_id uuid,
-  decision varchar(10) NOT NULL DEFAULT 'review'
-    CHECK (decision IN ('allowed','denied','review')),
-  reason text,
-  plate_image_key text,
-  overview_image_key text,
-  processing_ms integer,
-  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
-  PRIMARY KEY (id, occurred_at)
-) PARTITION BY RANGE (occurred_at)
-""",
-    "CREATE INDEX ix_access_events_tenant_time ON access_events (tenant_id, occurred_at DESC)",
-    "CREATE INDEX ix_access_events_site_time ON access_events (site_id, occurred_at DESC)",
-    "CREATE INDEX ix_access_events_gate ON access_events (gate_id) WHERE gate_id IS NOT NULL",
-    "CREATE INDEX ix_access_events_plate ON access_events (plate_normalized) WHERE plate_normalized IS NOT NULL",
-    """
-CREATE TABLE gate_telemetry_logs (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  recorded_at timestamptz NOT NULL,
-  tenant_id uuid NOT NULL,
-  site_id uuid NOT NULL,
-  gate_id uuid NOT NULL,
-  edge_device_id uuid,
-  state varchar(20)
-    CHECK (state IN ('open','opening','closed','closing','locked','fault','unknown')),
-  metrics jsonb NOT NULL DEFAULT '{}'::jsonb,
-  PRIMARY KEY (id, recorded_at)
-) PARTITION BY RANGE (recorded_at)
-""",
-    "CREATE INDEX ix_gate_telemetry_gate_time ON gate_telemetry_logs (gate_id, recorded_at DESC)",
-    "CREATE INDEX ix_gate_telemetry_tenant_time ON gate_telemetry_logs (tenant_id, recorded_at DESC)",
-    """
-CREATE TABLE barrier_incidents (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  site_id uuid NOT NULL REFERENCES tenant_sites(id) ON DELETE CASCADE,
-  gate_id uuid REFERENCES barrier_gates(id) ON DELETE SET NULL,
-  lane_id uuid REFERENCES site_lanes(id) ON DELETE SET NULL,
-  kind varchar(40) NOT NULL
-    CHECK (kind IN ('forced_open','obstruction','fault','offline','unauthorized_plate','tailgating')),
-  severity varchar(10) NOT NULL DEFAULT 'warning' CHECK (severity IN ('info','warning','critical')),
-  status varchar(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open','acknowledged','resolved')),
-  title varchar(200) NOT NULL,
-  detail jsonb NOT NULL DEFAULT '{}'::jsonb,
-  opened_at timestamptz NOT NULL DEFAULT now(),
-  acknowledged_by_id uuid,
-  acknowledged_at timestamptz,
-  resolved_by_id uuid,
-  resolved_at timestamptz,
-  resolution_note text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    "CREATE INDEX ix_incidents_tenant ON barrier_incidents (tenant_id)",
-    "CREATE INDEX ix_incidents_gate ON barrier_incidents (gate_id)",
-    # Polymorphic actor_id — no FK by design.
-    """
-CREATE TABLE audit_logs (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid,
-  actor_kind varchar(20) NOT NULL
-    CHECK (actor_kind IN ('tenant_user','platform_admin','edge_device','system')),
-  actor_id uuid,
-  actor_email varchar(320),
-  action varchar(120) NOT NULL,
-  target_type varchar(60),
-  target_id varchar(80),
-  detail jsonb NOT NULL DEFAULT '{}'::jsonb,
-  ip_address inet,
-  user_agent text,
-  created_at timestamptz NOT NULL DEFAULT now()
-)
-""",
-    "CREATE INDEX ix_audit_logs_tenant_time ON audit_logs (tenant_id, created_at DESC)",
-    "CREATE INDEX ix_audit_logs_action ON audit_logs (action)",
-]
+# Enum CHECK constraints: table -> column -> allowed values.
+CHECKS: dict[str, dict[str, list[str]]] = {
+    "tenants": {"status": ["trial", "active", "suspended", "cancelled"]},
+    "tenant_users": {
+        "role": ["owner", "admin", "operator", "viewer"],
+        "status": ["invited", "active", "suspended", "locked"],
+    },
+    "platform_admins": {
+        "role": ["super_admin", "support", "read_only"],
+        "status": ["invited", "active", "suspended", "locked"],
+    },
+    "user_sessions": {"subject_type": ["tenant_user", "platform_admin"]},
+    "edge_devices": {
+        "kind": ["gateway", "camera", "controller"],
+        "status": ["provisioning", "online", "offline", "disabled"],
+    },
+    "site_lanes": {
+        "direction": ["in", "out", "bidirectional"],
+        "kind": ["vehicle", "pedestrian", "mixed"],
+    },
+    "barrier_gates": {
+        "controller_kind": ["barrier", "shutter", "bollard", "turnstile"],
+        "state": ["open", "closed", "opening", "closing", "stopped", "locked", "unknown"],
+    },
+    "barrier_incidents": {
+        "kind": ["obstruction", "forced_open", "tailgating", "sensor_fault", "offline", "other"],
+        "severity": ["info", "warning", "critical"],
+        "status": ["open", "acknowledged", "resolved"],
+    },
+    "registered_vehicles": {
+        "vehicle_kind": ["car", "truck", "motorbike", "van", "other"],
+        "status": ["active", "suspended", "revoked"],
+    },
+    "tenant_access_rules": {"effect": ["allow", "deny"]},
+    "access_events": {
+        "direction": ["in", "out"],
+        "decision": ["allowed", "denied", "review"],
+    },
+    "audit_logs": {"actor_type": ["tenant_user", "platform_admin", "system", "edge"]},
+    "gate_commands": {
+        "action": ["open", "close", "stop", "lock", "unlock"],
+        "status": ["accepted", "acknowledged", "failed", "timeout", "cancelled"],
+        "requested_by_type": ["tenant_user", "platform_admin", "system", "edge"],
+    },
+    "import_jobs": {
+        "kind": ["vehicle_import"],
+        "status": ["queued", "running", "succeeded", "partial", "failed"],
+    },
+    "export_jobs": {
+        "kind": ["audit_export"],
+        "status": ["queued", "running", "succeeded", "partial", "failed"],
+    },
+    "invitations": {
+        "scope": ["tenant_user", "platform_admin"],
+        "purpose": ["invite", "password_reset"],
+    },
+}
 
-UPDATED_AT_TABLES = [
-    "tenants",
-    "tenant_users",
-    "platform_admins",
-    "tenant_sites",
-    "edge_devices",
-    "site_lanes",
-    "barrier_gates",
-    "gate_commands",
-    "registered_vehicles",
-    "tenant_access_rules",
-    "barrier_incidents",
-    "tenant_registrations",
-    "feature_flags",
-    "platform_settings",
-    "failed_login_attempts",
-]
+RANGE_CHECKS = {
+    "barrier_gates": {"position": "(position IS NULL OR (position BETWEEN 0 AND 100))"},
+    "access_events": {"plate_confidence": "(plate_confidence IS NULL OR (plate_confidence >= 0 AND plate_confidence <= 1))"},
+}
 
-# Every tenant-bearing table gets RLS (ENABLE + FORCE) with a tenant-isolation
-# policy plus a platform-admin bypass. `tenants` matches on id instead.
-RLS_TENANT_TABLES = [
+# Tables carrying tenant_id and isolated per-tenant by RLS.
+TENANT_RLS_TABLES = [
     "tenant_users",
     "user_sessions",
-    "user_invites",
     "tenant_sites",
     "edge_devices",
     "site_lanes",
     "barrier_gates",
-    "gate_commands",
+    "gate_telemetry_logs",
+    "barrier_incidents",
     "registered_vehicles",
     "tenant_access_rules",
     "access_events",
-    "gate_telemetry_logs",
-    "barrier_incidents",
     "audit_logs",
+    "gate_commands",
+    "import_jobs",
+    "export_jobs",
+    "invitations",
 ]
 
-TENANT_PREDICATE = (
-    "(current_setting('app.is_platform_admin', true) = 'true'"
-    " OR tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)"
+# Tables only reachable by platform admins / system.
+PLATFORM_RLS_TABLES = ["platform_admins", "platform_settings"]
+
+_ISOLATION_EXPR = (
+    "current_setting('app.is_system', true) = 'on' "
+    "OR current_setting('app.is_platform_admin', true) = 'on' "
+    "OR tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid"
 )
-TENANTS_PREDICATE = (
-    "(current_setting('app.is_platform_admin', true) = 'true'"
-    " OR id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)"
-)
 
 
-def _quarter_starts(years: range) -> list[date]:
-    return [date(y, m, 1) for y in years for m in (1, 4, 7, 10)]
-
-
-def _month_starts(start: date, end: date) -> list[date]:
-    out: list[date] = []
-    y, m = start.year, start.month
-    while (y, m) <= (end.year, end.month):
-        out.append(date(y, m, 1))
-        m += 1
-        if m > 12:
-            y, m = y + 1, 1
-    return out
-
-
-def _add_month(d: date, months: int = 1) -> date:
-    y, m = d.year, d.month + months
-    while m > 12:
-        y, m = y + 1, m - 12
-    return date(y, m, 1)
+def _enable_rls(table: str, using: str, check: str | None = None) -> None:
+    check = check or using
+    op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
+    op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
+    op.execute(
+        f"CREATE POLICY {table}_isolation ON {table} "
+        f"USING ({using}) WITH CHECK ({check})"
+    )
 
 
 def upgrade() -> None:
-    for stmt in EXTENSIONS + FUNCTIONS + TABLES:
-        op.execute(stmt)
+    op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
 
-    # access_events: quarterly partitions 2025Q1..2027Q4 + DEFAULT
-    bounds = _quarter_starts(range(2025, 2028))
-    for start in bounds:
-        end = _add_month(start, 3)
-        op.execute(
-            f"CREATE TABLE access_events_{start.year}q{(start.month - 1) // 3 + 1} "
-            f"PARTITION OF access_events FOR VALUES FROM ('{start}') TO ('{end}')"
-        )
+    bind = op.get_bind()
+    tables = [t for t in Base.metadata.sorted_tables if t.name not in PARTITIONED]
+    Base.metadata.create_all(bind, tables=tables)
+
+    # --- Partitioned parents -------------------------------------------------
+    op.execute(
+        """
+        CREATE TABLE gate_telemetry_logs (
+            id UUID NOT NULL DEFAULT gen_random_uuid(),
+            recorded_at TIMESTAMPTZ NOT NULL,
+            tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            site_id UUID NOT NULL REFERENCES tenant_sites(id) ON DELETE CASCADE,
+            gate_id UUID NOT NULL REFERENCES barrier_gates(id) ON DELETE CASCADE,
+            edge_device_id UUID REFERENCES edge_devices(id) ON DELETE SET NULL,
+            metric VARCHAR(80) NOT NULL,
+            value_numeric DOUBLE PRECISION,
+            value_text TEXT,
+            unit VARCHAR(20),
+            snapshot JSONB,
+            CONSTRAINT gate_telemetry_logs_pkey PRIMARY KEY (recorded_at, id)
+        ) PARTITION BY RANGE (recorded_at)
+        """
+    )
+    op.execute(
+        """
+        CREATE TABLE access_events (
+            id UUID NOT NULL DEFAULT gen_random_uuid(),
+            occurred_at TIMESTAMPTZ NOT NULL,
+            tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            site_id UUID NOT NULL REFERENCES tenant_sites(id) ON DELETE CASCADE,
+            gate_id UUID REFERENCES barrier_gates(id) ON DELETE SET NULL,
+            lane_id UUID REFERENCES site_lanes(id) ON DELETE SET NULL,
+            edge_device_id UUID REFERENCES edge_devices(id) ON DELETE SET NULL,
+            direction VARCHAR(10) NOT NULL,
+            plate_text VARCHAR(20),
+            plate_confidence NUMERIC(4,3),
+            vehicle_id UUID REFERENCES registered_vehicles(id) ON DELETE SET NULL,
+            decision VARCHAR(10) NOT NULL,
+            rule_id UUID,
+            reason VARCHAR(300),
+            plate_image_key VARCHAR(500),
+            overview_image_key VARCHAR(500),
+            open_triggered BOOLEAN NOT NULL DEFAULT false,
+            snapshot JSONB,
+            command_id UUID,
+            CONSTRAINT access_events_pkey PRIMARY KEY (occurred_at, id)
+        ) PARTITION BY RANGE (occurred_at)
+        """
+    )
+
+    op.execute("CREATE INDEX ix_gtl_tenant_time ON gate_telemetry_logs (tenant_id, recorded_at DESC)")
+    op.execute("CREATE INDEX ix_gtl_gate_time ON gate_telemetry_logs (gate_id, recorded_at DESC)")
+    op.execute("CREATE INDEX ix_gtl_metric ON gate_telemetry_logs (metric)")
+    op.execute("CREATE INDEX ix_gtl_site_time ON gate_telemetry_logs (site_id, recorded_at DESC)")
+    op.execute("CREATE INDEX ix_ae_tenant_time ON access_events (tenant_id, occurred_at DESC)")
+    op.execute("CREATE INDEX ix_ae_site_time ON access_events (site_id, occurred_at DESC)")
+    op.execute("CREATE INDEX ix_ae_gate_time ON access_events (gate_id, occurred_at DESC)")
+    op.execute("CREATE INDEX ix_ae_plate ON access_events (plate_text)")
+    op.execute("CREATE INDEX ix_ae_decision ON access_events (decision)")
+
+    # Default partitions catch out-of-range writes; named ones cover the near
+    # term. A cron (create_future_partitions) keeps the horizon ahead.
     op.execute("CREATE TABLE access_events_default PARTITION OF access_events DEFAULT")
+    for year, q_lo, q_hi in (
+        (2026, 1, 4), (2027, 1, 1),
+    ):
+        for q in range(q_lo, q_hi + 1):
+            start_month = (q - 1) * 3 + 1
+            end_year, end_month = (year + 1, 1) if q == 4 else (year, start_month + 3)
+            op.execute(
+                f"CREATE TABLE access_events_{year}_q{q} PARTITION OF access_events "
+                f"FOR VALUES FROM ('{year}-{start_month:02d}-01') TO ('{end_year}-{end_month:02d}-01')"
+            )
 
-    # gate_telemetry_logs: monthly partitions 2025-09..2027-12 + DEFAULT
-    months = _month_starts(date(2025, 9, 1), date(2027, 12, 1))
-    for start in months:
-        end = _add_month(start, 1)
-        op.execute(
-            f"CREATE TABLE gate_telemetry_logs_{start.year}_{start.month:02d} "
-            f"PARTITION OF gate_telemetry_logs FOR VALUES FROM ('{start}') TO ('{end}')"
-        )
     op.execute("CREATE TABLE gate_telemetry_logs_default PARTITION OF gate_telemetry_logs DEFAULT")
-
-    for table in UPDATED_AT_TABLES:
+    for year, month in (
+        (2026, 9), (2026, 10), (2026, 11), (2026, 12), (2027, 1), (2027, 2),
+    ):
+        ny, nm = (year + 1, 1) if month == 12 else (year, month + 1)
         op.execute(
-            f"CREATE TRIGGER trg_{table}_updated_at BEFORE UPDATE ON {table} "
-            f"FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+            f"CREATE TABLE gate_telemetry_logs_{year}_{month:02d} PARTITION OF gate_telemetry_logs "
+            f"FOR VALUES FROM ('{year}-{month:02d}-01') TO ('{ny}-{nm:02d}-01')"
         )
 
-    op.execute("ALTER TABLE tenants ENABLE ROW LEVEL SECURITY")
-    op.execute("ALTER TABLE tenants FORCE ROW LEVEL SECURITY")
-    op.execute(
-        f"CREATE POLICY tenant_isolation ON tenants USING {TENANTS_PREDICATE} "
-        f"WITH CHECK {TENANTS_PREDICATE}"
+    # --- CHECK constraints ----------------------------------------------------
+    for table, columns in CHECKS.items():
+        for column, values in columns.items():
+            literal = ", ".join(f"'{v}'" for v in values)
+            op.execute(
+                f"ALTER TABLE {table} ADD CONSTRAINT ck_{table}_{column} "
+                f"CHECK ({column} IN ({literal}))"
+            )
+    for table, columns in RANGE_CHECKS.items():
+        for column, expr in columns.items():
+            op.execute(
+                f"ALTER TABLE {table} ADD CONSTRAINT ck_{table}_{column}_range CHECK ({expr})"
+            )
+
+    # --- Row-level security ---------------------------------------------------
+    for table in TENANT_RLS_TABLES:
+        _enable_rls(table, _ISOLATION_EXPR)
+
+    _enable_rls(
+        "tenants",
+        "current_setting('app.is_system', true) = 'on' "
+        "OR current_setting('app.is_platform_admin', true) = 'on' "
+        "OR id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid",
     )
-    for table in RLS_TENANT_TABLES:
-        op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
-        op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
-        op.execute(
-            f"CREATE POLICY tenant_isolation ON {table} USING {TENANT_PREDICATE} "
-            f"WITH CHECK {TENANT_PREDICATE}"
+    for table in PLATFORM_RLS_TABLES:
+        _enable_rls(
+            table,
+            "current_setting('app.is_system', true) = 'on' "
+            "OR current_setting('app.is_platform_admin', true) = 'on'",
         )
 
-    _seed()
-
-
-def _seed() -> None:
-    op.execute(
-        """
-INSERT INTO subscription_plans (code, name, description, limits, pricing) VALUES
-('basic', 'Basic', 'Single site, up to 2 gates', '{"sites": 1, "gates": 2, "vehicles": 500}', '{}'),
-('standard', 'Standard', 'Up to 5 sites and 10 gates', '{"sites": 5, "gates": 10, "vehicles": 5000}', '{}'),
-('enterprise', 'Enterprise', 'Unlimited sites and gates', '{"sites": -1, "gates": -1, "vehicles": -1}', '{}')
-ON CONFLICT (code) DO NOTHING
-"""
-    )
-    op.execute(
-        """
-INSERT INTO legal_documents (slug, title, content_md, version) VALUES
-('terms', 'Terms of Service', '# Terms of Service\n\nPlaceholder terms for the ParkVision platform.', '1.0'),
-('privacy', 'Privacy Policy', '# Privacy Policy\n\nPlaceholder privacy policy for the ParkVision platform.', '1.0')
-ON CONFLICT (slug) DO NOTHING
-"""
-    )
-    op.execute(
-        """
-INSERT INTO feature_flags (key, description, default_enabled) VALUES
-('anpr.edge_inference', 'Edge-side ANPR inference results accepted via MQTT', true),
-('tenant.bulk_import', 'CSV bulk vehicle import', true),
-('platform.impersonation', 'Platform admins may impersonate tenant users for support', true)
-ON CONFLICT (key) DO NOTHING
-"""
-    )
-    op.execute(
-        """
-INSERT INTO platform_settings (key, value) VALUES
-('security', '{"password_min_length": 12, "mfa_required_platform_admins": true, '
- '"session_absolute_lifetime_seconds": 2592000}'),
-('retention', '{"access_event_image_days": 365, "telemetry_days": 730}')
-ON CONFLICT (key) DO NOTHING
-"""
-    )
+    # --- Grants to the application role ---------------------------------------
+    op.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user")
+    op.execute("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user")
 
 
 def downgrade() -> None:
-    op.execute("DROP TABLE IF EXISTS audit_logs CASCADE")
-    op.execute("DROP TABLE IF EXISTS barrier_incidents CASCADE")
-    op.execute("DROP TABLE IF EXISTS gate_telemetry_logs CASCADE")
+    for table in reversed([t.name for t in Base.metadata.sorted_tables]):
+        op.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
     op.execute("DROP TABLE IF EXISTS access_events CASCADE")
-    op.execute("DROP TABLE IF EXISTS tenant_access_rules CASCADE")
-    op.execute("DROP TABLE IF EXISTS registered_vehicles CASCADE")
-    op.execute("DROP TABLE IF EXISTS gate_commands CASCADE")
-    op.execute("DROP TABLE IF EXISTS barrier_gates CASCADE")
-    op.execute("DROP TABLE IF EXISTS site_lanes CASCADE")
-    op.execute("DROP TABLE IF EXISTS edge_devices CASCADE")
-    op.execute("DROP TABLE IF EXISTS tenant_sites CASCADE")
-    op.execute("DROP TABLE IF EXISTS failed_login_attempts CASCADE")
-    op.execute("DROP TABLE IF EXISTS password_resets CASCADE")
-    op.execute("DROP TABLE IF EXISTS user_invites CASCADE")
-    op.execute("DROP TABLE IF EXISTS user_sessions CASCADE")
-    op.execute("DROP TABLE IF EXISTS tenant_users CASCADE")
-    op.execute("DROP TABLE IF EXISTS tenants CASCADE")
-    op.execute("DROP TABLE IF EXISTS tenant_registrations CASCADE")
-    op.execute("DROP TABLE IF EXISTS feature_flags CASCADE")
-    op.execute("DROP TABLE IF EXISTS platform_settings CASCADE")
-    op.execute("DROP TABLE IF EXISTS platform_admins CASCADE")
-    op.execute("DROP TABLE IF EXISTS legal_documents CASCADE")
-    op.execute("DROP TABLE IF EXISTS subscription_plans CASCADE")
-    op.execute("DROP FUNCTION IF EXISTS set_updated_at")
+    op.execute("DROP TABLE IF EXISTS gate_telemetry_logs CASCADE")

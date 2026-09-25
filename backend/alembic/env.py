@@ -1,24 +1,35 @@
-"""Alembic async environment — reads DATABASE_URL from app settings."""
-
 import asyncio
+import os
+import sys
 from logging.config import fileConfig
-
-from sqlalchemy.ext.asyncio import create_async_engine
+from pathlib import Path
 
 from alembic import context
-from app.core.config import get_settings
-from app.models import Base
+from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy import pool
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from app.config import get_settings  # noqa: E402
+from app.db.base import Base  # noqa: E402
+import app.models  # noqa: E402,F401  (register all tables on Base.metadata)
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+settings = get_settings()
+config.set_main_option(
+    "sqlalchemy.url",
+    os.environ.get("ALEMBIC_DATABASE_URL", settings.alembic_database_url),
+)
 
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=get_settings().database_url,
+        url=config.get_main_option("sqlalchemy.url"),
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -34,10 +45,14 @@ def do_run_migrations(connection) -> None:
 
 
 async def run_migrations_online() -> None:
-    engine = create_async_engine(get_settings().database_url)
-    async with engine.connect() as connection:
+    connectable = async_engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+    async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
-    await engine.dispose()
+    await connectable.dispose()
 
 
 if context.is_offline_mode():

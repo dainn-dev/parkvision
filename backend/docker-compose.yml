@@ -4,82 +4,116 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: parkvision
-      POSTGRES_PASSWORD: parkvision
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: parkvision
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U parkvision"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d parkvision"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
 
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
     ports:
       - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
 
   emqx:
-    image: emqx/emqx:5.8
+    image: emqx/emqx:5.8.4
+    environment:
+      EMQX_ALLOW_ANONYMOUS: "true"
+      EMQX_DASHBOARD__DEFAULT_USERNAME: admin
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: public
     ports:
-      - "1883:1883"   # MQTT
-      - "8083:8083"   # MQTT/WebSocket
+      - "1883:1883"   # MQTT TCP
+      - "8883:8883"   # MQTT TLS
+      - "8083:8083"   # MQTT over WS
       - "18083:18083" # Dashboard
     healthcheck:
-      test: ["CMD", "emqx", "ctl", "status"]
+      test: ["CMD", "/opt/emqx/bin/emqx", "ctl", "status"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 30
 
   minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
+    # MinIO pulled its images from Docker Hub/quay.io in 2025; coollabsio mirrors the official release.
+    image: coollabsio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: ["server", "/data", "--console-address", ":9001"]
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - miniodata:/data
     ports:
       - "9000:9000"
       - "9001:9001"
-    volumes:
-      - miniodata:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "/usr/bin/mc", "ready", "local"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
 
   minio-init:
-    image: minio/mc:latest
+    # mc is bundled inside the minio image
+    image: coollabsio/minio:RELEASE.2025-04-22T22-12-26Z
     depends_on:
       minio:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      mc alias set local http://minio:9000 minioadmin minioadmin &&
-      mc mb --ignore-existing local/parkvision-snapshots"
-    restart: "no"
+      /usr/bin/mc alias set local http://minio:9000 minioadmin minioadmin &&
+      /usr/bin/mc mb -p local/parkvision-media || true &&
+      /usr/bin/mc anonymous set none local/parkvision-media || true
+      "
 
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.21.8
     ports:
-      - "1025:1025" # SMTP
-      - "8025:8025" # Web UI
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8025/api/v1/healthz || exit 1"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/api/v1/messages?limit=1"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
 
   api:
     build: .
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://app_user:app_password@postgres:5432/parkvision
+      ALEMBIC_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/parkvision
+      REDIS_URL: redis://redis:6379/0
+      MQTT_HOST: emqx
+      MQTT_PORT: "1883"
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: parkvision-media
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      JWT_SECRET: dev-only-change-me-in-prod-0123456789abcdef
+      MFA_SECRET_KEY: NvTgnQnyFlkaCbyGBl1CZzU6aoFuXKZod8fxDL-3JYc=
+      COOKIE_SECURE: "false"
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+    ports:
+      - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,49 +121,49 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
-    environment:
-      APP_ENV: docker
-      DATABASE_URL: postgresql+asyncpg://parkvision:parkvision@postgres:5432/parkvision
-      REDIS_URL: redis://redis:6379/0
-      MQTT_HOST: emqx
-      S3_ENDPOINT_URL: http://minio:9000
-      SMTP_HOST: mailpit
-      BOOTSTRAP_PLATFORM_ADMIN_EMAIL: admin@parkvision.local
-      BOOTSTRAP_PLATFORM_ADMIN_PASSWORD: change-me-admin-password
-      JWT_KEYS: '[{"kid":"local-1","key":"dev-only-change-me-please-use-a-long-random-secret"}]'
-      MFA_SECRET_KEY: dev-mfa-key-rotate-in-production
-      COOKIE_SECURE: "false"
-      CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000"]'
-    ports:
-      - "8000:8000"
 
   worker:
     build: .
-    command: python -m arq app.workers.worker.WorkerSettings
-    depends_on:
-      api:
-        condition: service_started
+    command: ["arq", "app.workers.settings.WorkerSettings"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://parkvision:parkvision@postgres:5432/parkvision
+      DATABASE_URL: postgresql+asyncpg://app_user:app_password@postgres:5432/parkvision
+      ALEMBIC_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/parkvision
       REDIS_URL: redis://redis:6379/0
-      SMTP_HOST: mailpit
       S3_ENDPOINT_URL: http://minio:9000
-
-  mqtt-ingestor:
-    build: .
-    command: python -m app.mqtt_ingest
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: parkvision-media
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      JWT_SECRET: dev-only-change-me-in-prod-0123456789abcdef
+      MFA_SECRET_KEY: NvTgnQnyFlkaCbyGBl1CZzU6aoFuXKZod8fxDL-3JYc=
     depends_on:
-      emqx:
-        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+  mqtt-gateway:
+    build: .
+    command: ["python", "-m", "app.services.mqtt_gateway"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://parkvision:parkvision@postgres:5432/parkvision
+      DATABASE_URL: postgresql+asyncpg://app_user:app_password@postgres:5432/parkvision
+      ALEMBIC_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/parkvision
       REDIS_URL: redis://redis:6379/0
       MQTT_HOST: emqx
+      MQTT_PORT: "1883"
+      JWT_SECRET: dev-only-change-me-in-prod-0123456789abcdef
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      emqx:
+        condition: service_healthy
 
 volumes:
   pgdata:
+  redisdata:
   miniodata:
