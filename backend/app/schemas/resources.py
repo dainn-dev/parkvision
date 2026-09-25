@@ -434,6 +434,9 @@ class DashboardSummaryOut(CamelModel):
     vehicles: int = 0
     users: int = 0
     today_events: int = 0
+    today_allowed: int = 0
+    today_denied: int = 0
+    today_unknown: int = 0
     open_incidents: int = 0
     capacity: int = 0
     current_occupancy: int = 0

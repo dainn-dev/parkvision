@@ -457,17 +457,17 @@ async def dashboard_summary(
     devices_online = await count(EdgeDevice, EdgeDevice.status == "online")
     vehicles = await count(RegisteredVehicle)
     users = await count(TenantUser)
-    today_events = int(
-        (
-            await db.execute(
-                select(func.count())
-                .select_from(AccessEvent)
-                .where(
-                    AccessEvent.tenant_id == tid,
-                    AccessEvent.occurred_at >= now.replace(hour=0, minute=0, second=0, microsecond=0),
-                )
-            )
-        ).scalar_one()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_events = await count(AccessEvent, AccessEvent.occurred_at >= today_start)
+    today_allowed = await count(
+        AccessEvent,
+        AccessEvent.occurred_at >= today_start,
+        AccessEvent.decision == "allow",
+    )
+    today_denied = await count(
+        AccessEvent,
+        AccessEvent.occurred_at >= today_start,
+        AccessEvent.decision == "deny",
     )
     open_incidents = await count(BarrierIncident, BarrierIncident.status.in_(["open", "acknowledged"]))
     cap_row = (
@@ -488,6 +488,9 @@ async def dashboard_summary(
         vehicles=vehicles,
         users=users,
         today_events=today_events,
+        today_allowed=today_allowed,
+        today_denied=today_denied,
+        today_unknown=max(today_events - today_allowed - today_denied, 0),
         open_incidents=open_incidents,
         capacity=capacity,
         current_occupancy=occupancy,
