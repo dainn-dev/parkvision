@@ -54,15 +54,15 @@ export const DashboardPage: React.FC<{
   const totalUsersCount = tenants.reduce((acc, t) => acc + t.statistics.usersCount, 0);
   const totalEventsCount = tenants.reduce((acc, t) => acc + t.statistics.eventsCount, 0);
 
-  const totalCameras = 1842;
-  const onlineCameras = 1712;
+  const totalCameras = cameras.length;
+  const onlineCameras = cameras.filter((c) => c.status === 'ONLINE').length;
   const offlineCameras = totalCameras - onlineCameras;
 
-  const totalGates = 326;
-  const onlineGates = 324;
+  const totalGates = gates.length;
+  const onlineGates = gates.filter((g) => g.status === 'ONLINE').length;
 
-  const totalEdge = 1756;
-  const onlineEdge = 1680;
+  const totalEdge = edgeDevices.length;
+  const onlineEdge = edgeDevices.filter((d) => d.status === 'ONLINE').length;
 
   const openAlerts = securityAlerts.filter((a) => a.status === 'OPEN');
   const criticalAlertsCount = openAlerts.filter((a) => a.severity === 'CRITICAL').length;
@@ -128,8 +128,7 @@ export const DashboardPage: React.FC<{
           title="Total Platform Tenants"
           value={tenants.length}
           subtitle={`${activeTenants} Active • ${trialTenants} Trial • ${suspendedTenants} Suspended`}
-          change="+2 this month"
-          changeType="positive"
+          changeType="neutral"
           icon={Building2}
           onClick={() => navigateTo('tenants')}
         />
@@ -199,7 +198,7 @@ export const DashboardPage: React.FC<{
                     {srv.responseTimeMs} ms
                   </span>
                   <span className="text-[10px] text-emerald-400 font-medium">
-                    {srv.uptimePercent}% uptime
+                    {srv.uptimePercent != null ? `${srv.uptimePercent}% uptime` : 'uptime n/a'}
                   </span>
                 </div>
               </div>

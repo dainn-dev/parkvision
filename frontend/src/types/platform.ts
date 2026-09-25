@@ -171,7 +171,7 @@ export interface ServiceHealthItem {
   category: 'core' | 'database' | 'storage' | 'realtime' | 'queue';
   status: ServiceHealthStatus;
   responseTimeMs: number;
-  uptimePercent: number;
+  uptimePercent: number | null;
   errorRatePercent: number;
   details?: string;
   lastChecked: string;
