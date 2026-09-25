@@ -31,8 +31,12 @@
    - [7.1. Row-Level Security (RLS)](#71-row-level-security-rls)
    - [7.2. Partitioning Chiến lược cho Bảng Sự Kiện & Telemetry](#72-partitioning-chiến-lược-cho-bảng-sự-kiện--telemetry)
    - [7.3. Đánh Index Tối ưu Tốc độ Tra cứu Biển số ANPR](#73-đánh-index-tối-ưu-tốc-độ-tra-cứu-biển-số-anpr)
+8. [PHỤ LỤC: CONTRACT HIỆN TRẠNG ĐÃ TRIỂN KHAI (IMPLEMENTED CONVENTIONS)](#8-phụ-lục-contract-hiện-trạng-đã-triển-khai-implemented-conventions)
+9. [KẾT LUẬN & LỘ TRÌNH TRIỂN KHAI (IMPLEMENTATION ROADMAP)](#9-kết-luận--lộ-trình-triển-khai-implementation-roadmap)
 
 ---
+
+> **Ghi chú phiên bản (2026-09-25):** Tài liệu này là *design intent*. Backend đã triển khai bằng **FastAPI/Python** với một số quyết định cải tiến so với bản gốc (cookie+CSRF auth, command bất đồng bộ, RLS `platform_bypass`, DEFAULT partitions). Phần **Mục 8 (Phụ lục Contract)** ghi nhận contract thực tế đang chạy và là **nguồn chân lý** khi hai bên khác nhau — dùng nó làm chuẩn cho frontend và firmware edge.
 
 # 1. TỔNG QUAN KIẾN TRÚC HỆ THỐNG (SYSTEM ARCHITECTURE)
 
@@ -58,9 +62,9 @@ Hệ thống phân tách thành 3 phân hệ hoàn chỉnh:
              ▼                            ▼                              │ Telemetry / Toasts
 ┌────────────────────────────────────────────────────────────────────────┴───────────────┐
 │                        API GATEWAY / APPLICATION SERVER                                │
-│                     (Node.js / Express / Go Backend Service)                           │
+│                  (FastAPI / Python 3.12 Async Backend Service)                         │
 ├────────────────────────────────────────────────────────────────────────────────────────┤
-│ • Authentication & MFA Service (JWT + TOTP Otplib)                                     │
+│ • Authentication & MFA Service (JWT httpOnly-cookie + TOTP, CSRF)                      │
 │ • Tenant Context & Multi-Tenant RLS Injector                                           │
 │ • Deterministic Policy Rules Engine (Allow/Deny Evaluation)                            │
 │ • Hardware Command Actuator (Remote Open / Reset Relay / Emergency Lock)               │
@@ -480,9 +484,24 @@ Hệ thống phân tách thành 3 phân hệ hoàn chỉnh:
 | `access_events` | Nhật ký xe qua làn, ảnh ANPR OCR | `(id, timestamp)` | `site_id`, `gate_id`, `tenant_id` | **Partition by Range (timestamp)** |
 | `audit_logs` | Bằng chứng kiểm toán bất biến | `id (UUID)` | `tenant_id` -> `tenants.id` | B-tree trên `(tenant_id, created_at DESC)` |
 
+**Các bảng bổ sung đã triển khai (ngoài 14 bảng gốc):**
+
+| Tên Bảng | Mục Đích |
+| :--- | :--- |
+| `plans` | Gói cước STARTER/PRO/ENTERPRISE + hạn mức JSONB (màn Landing/Register) |
+| `legal_documents` | Nội dung Terms/Privacy/DPA versioning |
+| `feature_flags` | Feature toggles + tenant overrides (màn FeatureFlags) |
+| `platform_settings` | Cấu hình hệ thống key-value (màn PlatformSettings) |
+| `gate_commands` | Hàng đợi lệnh điều khiển phần cứng: idempotency key, correlation id, status pending→ack/timeout |
+| `background_jobs` | Job bất đồng bộ: import CSV xe, export audit CSV |
+
+*(Cột thực tế của một số bảng khác tên thiết kế ban đầu — xem Mục 8. VD: `access_events.timestamp` → `occurred_at`, `barrier_incidents.triggered_at` → `detected_at`, `tenants.code` → `slug`.)*
+
 ---
 
 ## 3.3. DDL Script (PostgreSQL 16 Production Ready)
+
+> **Lưu ý:** DDL bên dưới là bản thiết kế ban đầu. **Nguồn chân lý** là Alembic migration `backend/migrations/versions/0001_initial_schema.py` (đã bổ sung DEFAULT partitions, RLS `platform_bypass`, role `vehicle_app` non-superuser và các bảng phụ trợ ở trên).
 
 ```sql
 -- Kích hoạt extension sinh mã định danh UUID ngẫu nhiên
@@ -821,52 +840,27 @@ CREATE TABLE telemetry_logs_y2026_m10 PARTITION OF gate_telemetry_logs
   "password": "SuperSecretPassword123!"
 }
 ```
-* **Response (200 OK - Không bật MFA)**:
+* **Response (200 OK - Không bật MFA)**: Token **không trả trong body** — server set httpOnly cookies `vm_access` (JWT ~15 phút), `vm_refresh` (rotate mỗi lần dùng, reuse → revoke cả family) và `vm_csrf` (đọc được bởi JS). Mọi request mutation sau đó gửi header `X-CSRF-Token` khớp `vm_csrf`.
 ```json
 {
-  "success": true,
-  "requiresMfa": false,
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6...",
-  "expiresIn": 900,
-  "workspace": "tenant",
-  "user": {
-    "id": "u-001",
-    "email": "anh.nh@kyanon.digital",
-    "fullName": "Nguyen Hoang Anh",
-    "role": "TENANT_ADMIN",
-    "tenantId": "t-001"
+  "data": {
+    "user": { "id": "<uuid>", "email": "anh.nh@kyanon.digital", "fullName": "Nguyen Hoang Anh", "role": "admin", "tenantId": "<uuid>", "userType": "tenant_user" },
+    "csrfToken": "<csrf>",
+    "requiresMfa": false
   }
 }
 ```
-* **Response (200 OK - Yêu cầu nhập mã MFA)**:
-```json
-{
-  "success": true,
-  "requiresMfa": true,
-  "tempToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6..."
-}
-```
+* **Response (200 OK - Yêu cầu nhập mã MFA)**: access token tạm thời (claim `mfa_pending=true`, chỉ dùng được cho `/auth/mfa/verify`) vẫn đi qua cookie; body trả `{ "data": { "requiresMfa": true } }`.
+* **Refresh**: `POST /api/v1/auth/refresh` (cookie `vm_refresh`) → cấp access mới + rotate refresh + trả `csrfToken` mới.
 
 ---
 
 ### `POST /api/v1/auth/mfa/verify`
-* **Request Body**:
+* **Request Body** (dùng access cookie tạm có `mfa_pending`, không cần tempToken riêng):
 ```json
-{
-  "tempToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6...",
-  "otp": "481920"
-}
+{ "code": "481920" }
 ```
-* **Response (200 OK)**:
-```json
-{
-  "success": true,
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6...",
-  "expiresIn": 900,
-  "workspace": "tenant",
-  "user": { ... }
-}
-```
+* **Response (200 OK)**: cấp phiên đầy đủ (set lại cookies), `{ "data": { "user": { ... }, "csrfToken": "..." } }`.
 
 ---
 
@@ -962,49 +956,34 @@ CREATE TABLE telemetry_logs_y2026_m10 PARTITION OF gate_telemetry_logs
 
 ---
 
-### `POST /api/v1/gates/:gateId/control`
-* **Mô tả**: Điều khiển đóng/mở/khóa cần barrier từ xa.
-* **Quyền hạn**: `TENANT_ADMIN`, `SITE_MANAGER`, `SECURITY_GUARD`
+### `POST /api/v1/tenants/:tenantId/gates/:gateId/commands`
+* **Mô tả**: Điều khiển đóng/mở/khóa cần barrier từ xa — **bất đồng bộ** qua hàng đợi `gate_commands` + MQTT outbox (đúng cho phần cứng có độ trễ mạng; không chặn HTTP chờ relay).
+* **Quyền hạn**: vai trò tenant có quyền điều khiển (`owner`, `admin`, `operator`).
 * **Request Body**:
 ```json
 {
-  "action": "OPEN", // "OPEN" | "CLOSE" | "LOCK" | "UNLOCK"
-  "reason": "Mở cưỡng bức cho xe cấp cứu vào hiện trường"
+  "command": "open",          // "open" | "close" | "lock" | "unlock" | "reboot"
+  "reason": "Mở cưỡng bức cho xe cấp cứu",
+  "idempotencyKey": "ui-1737000000-g-001"
 }
 ```
-* **Response (200 OK)**:
+* **Response (202 Accepted)**:
 ```json
 {
-  "success": true,
-  "gateId": "g-001",
-  "newStatus": "OPEN",
-  "armAngleDeg": 90,
-  "executedAt": "2026-09-24T08:30:15.120Z",
-  "latencyMs": 42
+  "id": "<uuid>", "gateId": "<uuid>", "command": "open", "status": "pending",
+  "correlationId": "<id>", "requestedAt": "2026-09-24T08:30:15.120Z"
 }
 ```
+* **Vòng đời**: `pending → sent → acknowledged | timeout | failed`. Kết quả về qua WS `command_ack` hoặc poll `GET /api/v1/tenants/:tenantId/commands/:commandId`.
 
 ---
 
-### `POST /api/v1/gates/:gateId/remediate`
-* **Mô tả**: Xử lý và tự khắc phục sự cố kẹt cần hoặc mất kết nối.
-* **Request Body**:
-```json
-{
-  "incidentId": "inc-0091",
-  "strategy": "REBOOT_RELAY" // "REBOOT_RELAY" | "FORCE_OPEN" | "RE_LINK_HEARTBEAT"
-}
-```
-* **Response (200 OK)**:
-```json
-{
-  "success": true,
-  "incidentId": "inc-0091",
-  "gateId": "g-001",
-  "status": "RESOLVED",
-  "remediatedAt": "2026-09-24T08:30:18.410Z"
-}
-```
+### Khắc phục sự cố (thay thế `/gates/:id/remediate`)
+* Remediation được mô hình hoá bằng **command + resolve incident**:
+  - `REBOOT_RELAY` → `POST .../commands { "command": "reboot" }` rồi `POST /api/v1/tenants/:tenantId/incidents/:incidentId/resolve`.
+  - `FORCE_OPEN` → command `open`.
+  - `RE_LINK_HEARTBEAT` → command `relink` (enum `GateCommand`), yêu cầu edge re-handshake MQTT.
+* `POST /api/v1/tenants/:tenantId/incidents/:id/acknowledge` và `/resolve` ghi `acknowledged_by`/`resolved_by` + `resolution_method` vào `barrier_incidents`.
 
 ---
 
@@ -1097,8 +1076,10 @@ CREATE TABLE telemetry_logs_y2026_m10 PARTITION OF gate_telemetry_logs
 Mạng lưới thiết bị biên giao tiếp với Cloud qua giao thức **MQTT 5.0 (TLS Port 8883)** với broker tập trung **EMQX**:
 
 ```
-[Edge Camera & Sensor] ──MQTT Publish──► [EMQX Broker] ──Kafka/RabbitMQ──► [Backend Engine]
+[Edge Camera & Sensor] ──MQTT Publish──► [EMQX Broker] ──aiomqtt──► [mqtt-bridge] ──Redis pub/sub──► [API workers / WS]
 ```
+
+*(Triển khai thực tế: backend consume MQTT trực tiếp qua service `mqtt-bridge`; không có Kafka/RabbitMQ trung gian ở giai đoạn này.)*
 
 ### 1. Topic Telemetry Trạng thái Cần (`QoS 0` - Gửi mỗi 1 giây):
 * **Topic**: `tenants/{tenantId}/sites/{siteId}/gates/{gateId}/telemetry`
@@ -1116,8 +1097,9 @@ Mạng lưới thiết bị biên giao tiếp với Cloud qua giao thức **MQTT
 }
 ```
 
-### 2. Topic Cảnh báo Kẹt Cần Khẩn Cấp (`QoS 2` - Bắt buộc xác nhận nhận tin):
+### 2. Topic Cảnh báo Kẹt Cần Khẩn Cấp (`QoS 1` - Đảm bảo giao ít nhất 1 lần):
 * **Topic**: `tenants/{tenantId}/sites/{siteId}/gates/{gateId}/incident`
+* *(Thiết kế ban đầu dùng QoS 2; mqtt-bridge hiện subscribe QoS 1 nên QoS publish tối đa được giao là 1. Nâng lên QoS 2 yêu cầu subscribe qos=2 — chưa cần thiết ở quy mô hiện tại.)*
 * **Payload**:
 ```json
 {
@@ -1136,67 +1118,62 @@ Mạng lưới thiết bị biên giao tiếp với Cloud qua giao thức **MQTT
 * **Payload**:
 ```json
 {
-  "commandId": "cmd-8812",
-  "action": "FORCE_OPEN",
+  "commandId": "<uuid>",
+  "action": "open",
   "operator": "anh.nh@kyanon.digital",
+  "correlationId": "<id>",
   "timeoutMs": 3000
 }
 ```
+* **Ack bắt buộc** — Edge publish lại trên **telemetry topic** (không phải command topic):
+```json
+{ "type": "command_ack", "commandId": "<uuid>", "success": true, "error": null }
+```
+* **Heartbeat** (telemetry topic, định kỳ 5 giây): `{ "type": "heartbeat", "deviceId": "<uuid>" }`
+* **ANPR event piggy-back** (telemetry topic): thêm `plateNumber`, `direction` (`entry`/`exit`), `confidence`, `laneId`, `plateImageKey`, `overviewImageKey` → backend ghi `access_events` sau khi chạy rule engine.
 
 ---
 
 ## 5.2. WebSocket Stream tới Web Client Dashboard
 
-Backend Web Service duy trì kết nối WebSocket hai chiều bảo mật (`WSS`) với trình duyệt của Admin và Operator:
+Backend Web Service duy trì kết nối WebSocket bảo mật (`WSS`) tới trình duyệt của Admin và Operator — **một endpoint duy nhất**: `WS /ws/tenants/{tenantId}/barrier-telemetry` (auth bằng cookie `vm_access` hoặc `?token=`; `mfa_pending` bị từ chối 4401, sai tenant 4403).
 
 ```
-[Backend WebSocket Server] ──────WSS Frame Broadcast──────► [Browser React App]
+[mqtt-bridge] ──Redis publish ws:tenant:{tid}──► [API worker] ──WSS──► [Browser React App]
 ```
 
-### 1. Event: `INCIDENT_ALERT` (Kích hoạt Floating Toast & Chuông Âm Thanh):
+Frame là JSON có trường phân loại `type` (không phải `event` như bản nháp). Các loại frame thực tế:
+
+### 1. `{"type":"telemetry", ...}` — trạng thái cần + telemetry 1s (cập nhật góc quay trên bản đồ D3)
 ```json
 {
-  "event": "INCIDENT_ALERT",
-  "data": {
-    "id": "inc-0092",
-    "type": "STUCK",
-    "siteId": "s-001",
-    "siteName": "Trạm Landmark 81 Central",
-    "gateId": "g-001",
-    "gateName": "Làn Vào 01 (Cần Servo 0.6s)",
-    "armAngleDeg": 42,
-    "title": "CẢNH BÁO KẸT CẦN BARRIER (STUCK)",
-    "description": "Cần dừng tại 42°. Rơ-le ngắt quá dòng bảo vệ motor.",
-    "timestamp": "08:30:12"
-  }
+  "type": "telemetry",
+  "siteId": "<uuid>", "gateId": "<uuid>",
+  "state": "open", "armAngleDeg": 90, "motorTempC": 41.2,
+  "loopDetectorActive": false, "upsBattery": 100,
+  "plateNumber": "30E-892.41", "direction": "entry", "confidence": 0.985
+}
+```
+*(payload gốc của edge được giữ nguyên trong frame — FE đọc các key ở trên.)*
+
+### 2. `{"type":"incident", ...}` — sự cố mới (kích hoạt Floating Toast & chuông)
+```json
+{
+  "type": "incident", "siteId": "<uuid>", "gateId": "<uuid>",
+  "deviceId": "<uuid>", "incidentType": "stuck", "severity": "critical",
+  "armAngleDeg": 42, "relayCurrentA": 9.4,
+  "description": "Cần dừng bất thường tại 42°. Rơ-le quá tải tự ngắt."
 }
 ```
 
-### 2. Event: `GATE_STATE_CHANGE` (Cập nhật góc quay trên Bản đồ D3):
+### 3. `{"type":"command_ack", ...}` — kết quả lệnh điều khiển
 ```json
-{
-  "event": "GATE_STATE_CHANGE",
-  "data": {
-    "siteId": "s-001",
-    "gateId": "g-001",
-    "status": "OPEN",
-    "armAngleDeg": 90,
-    "lastPlate": "30E-892.41"
-  }
-}
+{ "type": "command_ack", "gateId": "<uuid>", "commandId": "<uuid>", "success": true, "error": null }
 ```
 
-### 3. Event: `INCIDENT_RESOLVED` (Xóa Toast và tắt chuông):
-```json
-{
-  "event": "INCIDENT_RESOLVED",
-  "data": {
-    "incidentId": "inc-0092",
-    "gateId": "g-001",
-    "resolvedAt": "08:30:25"
-  }
-}
-```
+### 4. `{"type":"ping"}` — keep-alive server→client mỗi 30s.
+
+Sự cố được khắc phục **không có frame riêng**: client tự refresh incidents khi nhận `incident`/`telemetry` hoặc sau khi gọi REST `resolve`.
 
 ---
 
@@ -1249,10 +1226,10 @@ Backend Web Service duy trì kết nối WebSocket hai chiều bảo mật (`WSS
 
 ### 3. Quy trình Khắc phục (Remediation Workflow):
 - Người dùng bấm **"Reset Rơ-le"** trên Toast hoặc Drawer:
-  1. Gửi `POST /api/v1/gates/:gateId/remediate` với `strategy: 'REBOOT_RELAY'`.
+  1. Gửi `POST /api/v1/tenants/:tenantId/gates/:gateId/commands` với `command: 'reboot'` (tương đương strategy `REBOOT_RELAY`), chờ `command_ack` trên WS.
   2. Edge Gateway ngắt nguồn phụ tải trong 2 giây rồi cấp lại để xả dòng rò.
   3. Motor servo tự động quay về vị trí Home (Zero-point calibration).
-  4. Trạng thái Gate đổi về `CLOSED` an toàn, Toast tự ẩn, nốt trên bản đồ D3 trở về màu xanh.
+  4. Trạng thái Gate đổi về `closed` an toàn → `POST .../incidents/:id/resolve`; Toast tự ẩn, nốt trên bản đồ D3 trở về màu xanh.
 
 ---
 
@@ -1332,6 +1309,10 @@ Mỗi khi nhận request từ người dùng, API Gateway giải mã JWT, lấy 
 SET LOCAL app.current_tenant_id = 'c8b21104-5821-4f11-9a72-78d10129a001';
 ```
 
+**Bổ sung khi triển khai:**
+- Policy thực tế có thêm điều kiện bypass cho platform admin: `... OR current_setting('app.platform_bypass', true) = 'true'` — nếu không, Super Admin sẽ bị RLS chặn luôn truy vấn liên-tenant.
+- App kết nối bằng role `vehicle_app` **không phải superuser** (RLS chỉ có hiệu lực với non-superuser / non-owner) — bắt buộc để cách ly có ý nghĩa. Migration dùng `MIGRATION_DATABASE_URL` (owner) riêng.
+
 ---
 
 ## 7.2. Partitioning Chiến lược cho Bảng Sự Kiện & Telemetry
@@ -1339,6 +1320,9 @@ SET LOCAL app.current_tenant_id = 'c8b21104-5821-4f11-9a72-78d10129a001';
 Bảng `access_events` và `gate_telemetry_logs` là các bảng sinh dữ liệu liên tục với tốc độ cao (hàng chục nghìn records mỗi ngày trên mỗi trạm).
 * **Bảng `access_events`**: Phân vùng theo **Quý (Quarterly Range Partitioning)**.
 * **Bảng `gate_telemetry_logs`**: Phân vùng theo **Tháng (Monthly Range Partitioning)**.
+* **Bổ sung khi triển khai**:
+  - Mỗi parent có **DEFAULT partition** (`access_events_default`, `gate_telemetry_logs_default`) — không có nó, insert ngoài range đã khai báo sẽ lỗi.
+  - Worker `create_future_partitions` (arq cron) tự tạo phân vùng kỳ tới trước hạn; retention worker sẽ DETACH/DROP phân vùng cũ.
 * **Lợi ích**:
   1. **Partition Pruning**: Các câu lệnh lọc theo ngày tháng chỉ quét đúng 1 phân vùng dữ liệu, tăng tốc độ truy vấn gấp 12 lần.
   2. **Zero-Lock Data Purging**: Dễ dàng dọn dẹp dữ liệu cũ quá 1 năm bằng lệnh `DROP TABLE access_events_y2025_q1` chỉ mất 5ms, không gây khóa bảng và không làm phân mảnh database.
@@ -1369,10 +1353,57 @@ ON access_events (tenant_id, site_id, decision, timestamp DESC);
 
 ---
 
-# 8. KẾT LUẬN & LỘ TRÌNH TRIỂN KHAI (IMPLEMENTATION ROADMAP)
+# 8. PHỤ LỤC: CONTRACT HIỆN TRẠNG ĐÃ TRIỂN KHAI (IMPLEMENTED CONVENTIONS)
+
+Phần này là **nguồn chân lý** về wire-format. Mọi khác biệt với các mục trên đều tuân theo phần này.
+
+## 8.1. Response & error envelope
+- List: `{ "data": [...], "meta": { "page", "limit", "total" } }` — không dùng `items`/`success`.
+- Đơn lẻ: `{ "data": { ... } }` hoặc trả object trực tiếp tuỳ route (xem OpenAPI `/openapi.json`).
+- Lỗi: `{ "error": { "code", "message", "details" }, "requestId" }`.
+- JSON camelCase; SQL snake_case — mapper ở FE `src/services/api/mappers.ts`, schema generated `schema.d.ts`.
+
+## 8.2. Enum values (wire format = lowercase)
+| Danh mục | Giá trị thực tế | Giá trị trong tài liệu gốc |
+| :--- | :--- | :--- |
+| Lane/Event direction | `entry`, `exit`, `bidirectional` | `IN`, `OUT`, `BIDIRECTIONAL` |
+| Access decision | `allow`, `deny` | `ALLOWED`, `DENIED` |
+| Gate state | `open`, `closed`, `opening`, `closing`, `locked`, `fault`, `unknown` | `OPEN`, `CLOSED`, `LOCKED`, `STUCK` (stuck = `fault` hoặc incident type `stuck`) |
+| Gate command | `open`, `close`, `lock`, `unlock`, `reboot`, `relink` | `OPEN`, `CLOSE`, `LOCK`, `UNLOCK`, `FORCE_OPEN`, `REBOOT_RELAY`, `RE_LINK_HEARTBEAT` |
+| Command status | `pending`, `sent`, `acknowledged`, `timeout`, `failed` | — |
+| Device status | `online`, `offline`, `provisioning`, `disabled` | `ONLINE`, `OFFLINE`, `DEGRADED` |
+| Incident type | `obstacle`, `forced_entry`, `fault`, `offline`, `unauthorized_access` | `STUCK`, `OFFLINE`, `RELAY_OVERHEAT`, `LOOP_FAULT`, `TAMPER` |
+| Incident severity | `low`, `medium`, `high`, `critical` | `INFO`, `WARNING`, `CRITICAL` |
+| Incident status | `open`, `acknowledged`, `resolving`, `resolved` | `ACTIVE`, `ACKNOWLEDGED`, `RESOLVED` |
+| Tenant status | `trial`, `active`, `suspended` | `TRIAL`, `ACTIVE`, `SUSPENDED`, `DISABLED` |
+| Tenant user role | `owner`, `admin`, `operator`, `viewer` | `TENANT_ADMIN`, `SITE_MANAGER`, `OPERATOR`, `SECURITY_GUARD`, `AUDITOR` |
+| Platform admin role | `super_admin`, `support`, `ops` | `PLATFORM_SUPERADMIN`, `SUPPORT`, `SECURITY` |
+| Vehicle tag | `standard`, `staff`, `resident`, `vip`, `blacklist` | `EMPLOYEE`, `RESIDENT`, `VISITOR`, `VIP`, `CONTRACTOR` |
+| Rule type | `allow_list`, `deny_list`, `schedule`, `quota` | `ALLOW_OPEN`, `DENY_KEEP_CLOSED`, `REQUIRE_MANUAL_REVIEW` |
+
+## 8.3. Đổi tên cột đáng chú ý
+`tenants.code` → `tenants.slug`; `access_events.timestamp` → `occurred_at`; `barrier_incidents.triggered_at` → `detected_at`; `edge_devices.device_serial` → `device_key`; các field runtime của gate/device (nhiệt độ, góc, UPS) được giữ trong `payload`/`snapshot` JSONB thay vì cột cứng trên bảng chính.
+
+## 8.4. Endpoint có mặt ngoài bản nháp
+- `POST /auth/activate` (invite flow), `POST /auth/password`, `/auth/mfa/setup|enable|disable`, `GET/DELETE /auth/sessions`.
+- `GET /platform/infra/health`, `GET/POST /platform/sessions` + `/revoke`, `GET /platform/audit-logs`.
+- `GET/POST /tenants/{id}/sites/{id}/lanes`, `PATCH/DELETE /tenants/{id}/lanes/{id}`.
+- `POST /tenants/{id}/vehicles/import` (CSV async → `background_jobs`), `GET /tenants/{id}/jobs/{id}`.
+- `POST /tenants/{id}/access-events/presign` (S3 presigned upload ảnh biển số), `POST /tenants/{id}/audit-logs/export`.
+- `POST /public/register`, `GET /public/plans`, `GET /public/legal/{terms|privacy|dpa}`.
+
+## 8.5. Endpoint trong bản nháp chưa có (đang triển khai)
+`GET /public/tenants/check-code`, `POST /tenants/{id}/rules/simulate`, `PATCH /tenants/{id}/access-events/{id}/correct-plate`, `POST /tenants/{id}/incidents/bulk-resolve`, `GET/PUT /tenants/{id}/settings`, `GET /platform/metrics/overview`, `GET /platform/metrics/throughput-chart`, `GET /tenants/{id}/dashboard/summary`, `GET .../hourly-flow`, `GET /platform/monitoring/telemetry-snapshot`, `POST /platform/edge-devices/{id}/reboot`, `POST /platform/tenants/{id}/impersonate`, `api_credentials` + `POST /security/credentials/{id}/rotate`.
+
+## 8.6. Heartbeat/offline
+Edge publish `{"type":"heartbeat","deviceId":...}` trên telemetry topic mỗi 5 giây; worker `mark_offline_devices` đánh dấu `offline` khi `last_heartbeat_at` cũ hơn ~15-30s (config, trước đây 120s). Gate health suy ra từ device cha.
+
+---
+
+# 9. KẾT LUẬN & LỘ TRÌNH TRIỂN KHAI (IMPLEMENTATION ROADMAP)
 
 Hệ thống Frontend đã hoàn thiện 100% giao diện, tích hợp đầy đủ các logic xử lý sự cố kẹt cần, mất kết nối, bản đồ D3.js vector, hệ thống toast và audio synthesizer. Khi phía Backend triển khai theo đúng tài liệu này:
-1. **Giai đoạn 1**: Khởi tạo Database PostgreSQL theo script DDL tại Mục 3 và kích hoạt RLS.
-2. **Giai đoạn 2**: Dựng API Gateway (REST API) theo đặc tả Mục 4 để phục vụ dữ liệu CRUD cho Frontend.
-3. **Giai đoạn 3**: Cấu hình EMQX Broker và cài đặt luồng WebSocket theo chuẩn Mục 5 để kết nối trực tiếp với giao diện giám sát `BarrierMapVisualization`.
-4. **Giai đoạn 4**: Đồng bộ firmware thiết bị biên Edge Gateway theo State Machine tại Mục 6 để hoàn tất hệ thống tự động hóa khép kín 100%.
+1. **Giai đoạn 1**: Khởi tạo Database PostgreSQL theo script DDL tại Mục 3 và kích hoạt RLS. *(Đã xong — xem migration `0001_initial_schema.py`.)*
+2. **Giai đoạn 2**: Dựng API Gateway (REST API) theo đặc tả Mục 4 để phục vụ dữ liệu CRUD cho Frontend. *(Đã xong phần lõi; các endpoint còn thiếu liệt kê tại Mục 8.5.)*
+3. **Giai đoạn 3**: Cấu hình EMQX Broker và cài đặt luồng WebSocket theo chuẩn Mục 5 để kết nối trực tiếp với giao diện giám sát `BarrierMapVisualization`. *(Bridge + WS đã có; còn việc nối màn hình map vào dữ liệu thật.)*
+4. **Giai đoạn 4**: Đồng bộ firmware thiết bị biên Edge Gateway theo State Machine tại Mục 6 để hoàn tất hệ thống tự động hóa khép kín 100%. *(Chưa có firmware repo — contract MQTT đã pin tại Mục 5.1/8.)*
