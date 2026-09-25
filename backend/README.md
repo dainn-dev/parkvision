@@ -70,11 +70,20 @@ python -m venv .venv && .venv/bin/pip install -e ".[dev]"
 ## Tests
 
 ```bash
-# with Postgres + Redis from compose running:
-DATABASE_URL=postgresql+asyncpg://vehicle_app:vehicle_app@localhost:5432/vehicle_mgmt \
-MIGRATION_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt \
+# with Postgres + Redis from compose running.
+# The suite refuses to run unless the DB name ends in _test and drops/migrates it fresh.
+DATABASE_URL=postgresql+asyncpg://vehicle_app:vehicle_app@localhost:5432/vehicle_mgmt_test \
+MIGRATION_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt_test \
 REDIS_URL=redis://localhost:6379/0 \
 .venv/bin/pytest
+```
+
+Black-box E2E harnesses (hit the running API + EMQX/WS over the network, require
+`docker compose up -d` + `python -m scripts.seed`):
+
+```bash
+.venv/bin/python tests/e2e/e2e_api.py       # HTTP: auth, CSRF, RLS, invites, audit
+.venv/bin/python tests/e2e/e2e_realtime.py  # commands→MQTT→ack, plate events, WS fan-out
 ```
 
 ## Layout

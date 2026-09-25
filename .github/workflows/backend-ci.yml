@@ -14,7 +14,7 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: vehicle_mgmt
+          POSTGRES_DB: vehicle_mgmt_test
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U postgres"
@@ -58,8 +58,8 @@ jobs:
       - name: Start mqtt-bridge (drains Redis outbox → EMQX)
         working-directory: backend
         env:
-          DATABASE_URL: postgresql+asyncpg://vehicle_app:vehicle_app@localhost:5432/vehicle_mgmt
-          MIGRATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt
+          DATABASE_URL: postgresql+asyncpg://vehicle_app:vehicle_app@localhost:5432/vehicle_mgmt_test
+          MIGRATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt_test
           REDIS_URL: redis://localhost:6379/0
           JWT_SECRET: ci-test-secret-0123456789abcdef0123456789ab
           FIELD_ENCRYPTION_KEY: ci-fernet-key
@@ -72,8 +72,8 @@ jobs:
       - name: Pytest
         working-directory: backend
         env:
-          DATABASE_URL: postgresql+asyncpg://vehicle_app:vehicle_app@localhost:5432/vehicle_mgmt
-          MIGRATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt
+          DATABASE_URL: postgresql+asyncpg://vehicle_app:vehicle_app@localhost:5432/vehicle_mgmt_test
+          MIGRATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt_test
           REDIS_URL: redis://localhost:6379/0
           JWT_SECRET: ci-test-secret-0123456789abcdef0123456789ab
           FIELD_ENCRYPTION_KEY: ci-fernet-key
