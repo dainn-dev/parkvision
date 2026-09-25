@@ -24,30 +24,9 @@ interface GateStatisticalBaseline {
   quietHoursEndHour: number;   // e.g. 5 (5 AM)
 }
 
-// Default statistical profiles derived from historical baseline telemetry
-const DEFAULT_GATE_BASELINES: Record<string, GateStatisticalBaseline> = {
-  // ABC Logistics - Heavy volume commercial park
-  'bg-001-01': { meanReqPerMin: 14.2, stdDevReqPerMin: 3.1, maxPhysicalCapacityPerMin: 30, quietHoursStartHour: 22, quietHoursEndHour: 5 },
-  'bg-001-02': { meanReqPerMin: 8.5, stdDevReqPerMin: 2.0, maxPhysicalCapacityPerMin: 18, quietHoursStartHour: 22, quietHoursEndHour: 5 },
-  'bg-001-03': { meanReqPerMin: 15.0, stdDevReqPerMin: 3.4, maxPhysicalCapacityPerMin: 32, quietHoursStartHour: 22, quietHoursEndHour: 5 },
-  'bg-001-04': { meanReqPerMin: 7.2, stdDevReqPerMin: 1.9, maxPhysicalCapacityPerMin: 18, quietHoursStartHour: 22, quietHoursEndHour: 5 },
-
-  // Viettel High-Tech Park Hanoi - Strict corporate access
-  'bg-002-01': { meanReqPerMin: 11.0, stdDevReqPerMin: 2.8, maxPhysicalCapacityPerMin: 25, quietHoursStartHour: 20, quietHoursEndHour: 6 },
-  'bg-002-02': { meanReqPerMin: 10.5, stdDevReqPerMin: 2.6, maxPhysicalCapacityPerMin: 25, quietHoursStartHour: 20, quietHoursEndHour: 6 },
-  'bg-002-03': { meanReqPerMin: 4.2, stdDevReqPerMin: 1.2, maxPhysicalCapacityPerMin: 12, quietHoursStartHour: 19, quietHoursEndHour: 7 },
-
-  // Da Nang Port Logistics - Round-the-clock shipping depot
-  'bg-003-01': { meanReqPerMin: 9.0, stdDevReqPerMin: 2.4, maxPhysicalCapacityPerMin: 20, quietHoursStartHour: 0, quietHoursEndHour: 4 },
-  'bg-003-02': { meanReqPerMin: 8.0, stdDevReqPerMin: 2.1, maxPhysicalCapacityPerMin: 20, quietHoursStartHour: 0, quietHoursEndHour: 4 },
-
-  // Tan Son Nhat Cargo Terminal - High security customs checkpoints
-  'bg-004-01': { meanReqPerMin: 12.0, stdDevReqPerMin: 3.0, maxPhysicalCapacityPerMin: 25, quietHoursStartHour: 23, quietHoursEndHour: 5 },
-  'bg-004-02': { meanReqPerMin: 11.5, stdDevReqPerMin: 2.9, maxPhysicalCapacityPerMin: 25, quietHoursStartHour: 23, quietHoursEndHour: 5 },
-  'bg-004-03': { meanReqPerMin: 5.0, stdDevReqPerMin: 1.4, maxPhysicalCapacityPerMin: 12, quietHoursStartHour: 22, quietHoursEndHour: 5 }
-};
-
-// Generic fallback baseline
+// Default statistical profile applied to every real gate. Per-gate baselines
+// require historical data that does not exist yet; when gate telemetry
+// accumulates, replace this with a learned baseline keyed by gate id.
 const FALLBACK_BASELINE: GateStatisticalBaseline = {
   meanReqPerMin: 10.0,
   stdDevReqPerMin: 2.5,
@@ -61,54 +40,6 @@ export class BarrierAnomalyDetector {
   private gateEWMA: Map<string, number> = new Map();
   private sensitivityMultiplier: number = 1.0; // 1.0 = standard 3-sigma, 0.7 = high sensitivity, 1.4 = conservative
   private listeners: Set<(anomalies: BarrierAnomalyResult[]) => void> = new Set();
-
-  constructor() {
-    this.seedInitialAnomalies();
-  }
-
-  /**
-   * Seed a realistic pre-existing anomaly to showcase the ML heuristic immediately on load
-   */
-  private seedInitialAnomalies() {
-    const initialAnomaly: BarrierAnomalyResult = {
-      id: 'ml-anom-abc-01',
-      gateId: 'bg-001-01',
-      gateCode: 'GATE-ABC-IN1',
-      gateName: 'Cổng Vào 01 (Làn Xe Máy & Ô tô)',
-      siteId: 'site-b-001',
-      siteName: 'Trung tâm Vận tải & Bãi xe ABC Logistics',
-      tenantId: 't-001',
-      tenantName: 'ABC Logistics & Parking',
-      detectedAt: '1 phút trước',
-      anomalyScore: 93,
-      severity: 'CRITICAL',
-      primaryType: 'UNUSUALLY_HIGH_FREQUENCY',
-      title: 'Tần suất yêu cầu truy cập vượt ngưỡng dị thường (48 req/phút)',
-      description: 'Phát hiện lưu lượng kích hoạt cảm biến vòng từ và yêu cầu OCR liên tục với chu kỳ < 1.25 giây, cao gấp 3.4x so với phân phối Poisson lịch sử.',
-      hypothesis: 'Hiện tượng bám đuôi sát xe (tailgating burst), vòng lặp cảm biến từ bị nhiễu do vật kim loại rung, hoặc hành vi spam thẻ RFID liên tục.',
-      recommendedAction: 'Kích hoạt bộ lọc Rate Limiting tại Edge Gateway (Tối đa 1 lệnh/2.5s) và kiểm tra tín hiệu cuộn từ số 2.',
-      features: {
-        currentReqPerMin: 48.2,
-        baselineReqPerMin: 14.2,
-        baselineStdDev: 3.1,
-        zScore: 10.97,
-        ewmaRate: 42.6,
-        burstRatio: 3.39,
-        interArrivalVariance: 0.14,
-        cyclesLast5Min: 86,
-        motorTempC: 44.8,
-        rejectionRatePercent: 8.5
-      },
-      mitigationStatus: 'ACTIVE',
-      historicalWindow: {
-        timestamps: ['-10m', '-8m', '-6m', '-4m', '-2m', 'Hiện tại'],
-        observedFreq: [14, 15, 16, 28, 44, 48],
-        baselineFreq: [14, 14, 14, 14, 14, 14]
-      }
-    };
-
-    this.activeAnomalies.set(initialAnomaly.gateId, initialAnomaly);
-  }
 
   /**
    * Register a listener for real-time anomaly state changes
@@ -173,8 +104,13 @@ export class BarrierAnomalyDetector {
    * Evaluates an individual barrier gate against statistical machine learning heuristics
    */
   public evaluateGate(gate: BarrierGateItem, observedReqPerMin?: number): BarrierAnomalyResult | null {
-    const baseline = DEFAULT_GATE_BASELINES[gate.id] || FALLBACK_BASELINE;
-    const currentReq = observedReqPerMin !== undefined ? observedReqPerMin : this.synthesizeObservedFrequency(gate, baseline);
+    const baseline = FALLBACK_BASELINE;
+    // Without a real observation there is nothing to score — clear any stale flag.
+    if (observedReqPerMin === undefined) {
+      if (this.activeAnomalies.delete(gate.id)) this.notify();
+      return null;
+    }
+    const currentReq = observedReqPerMin;
 
     // 1. EWMA smoothing (alpha = 0.35)
     const prevEwma = this.gateEWMA.get(gate.id) || baseline.meanReqPerMin;
@@ -290,65 +226,6 @@ export class BarrierAnomalyDetector {
     this.activeAnomalies.set(gate.id, anomalyResult);
     this.notify();
     return anomalyResult;
-  }
-
-  private synthesizeObservedFrequency(gate: BarrierGateItem, baseline: GateStatisticalBaseline): number {
-    // If gate is stuck or offline, synthesize appropriate rate
-    if (gate.status === 'STUCK') return baseline.meanReqPerMin * 2.2;
-    return baseline.meanReqPerMin + (Math.sin(Date.now() / 10000) * baseline.stdDevReqPerMin * 0.8);
-  }
-
-  /**
-   * Interactive Simulator: Injects a high-frequency access burst anomaly (Tailgating / Replay / DoS)
-   */
-  public triggerHighFrequencyBurst(targetSiteId: string = 'site-b-001', targetGateId?: string): BarrierAnomalyResult {
-    const gateId = targetGateId || (targetSiteId === 'site-b-004' ? 'bg-004-03' : 'bg-001-01');
-    const baseline = DEFAULT_GATE_BASELINES[gateId] || FALLBACK_BASELINE;
-
-    // Inject massive burst: 4x-5x baseline
-    const burstReqPerMin = baseline.meanReqPerMin * 3.8 + 8;
-    const zScore = (burstReqPerMin - baseline.meanReqPerMin) / baseline.stdDevReqPerMin;
-
-    const anomaly: BarrierAnomalyResult = {
-      id: `anom-sim-${Date.now()}`,
-      gateId,
-      gateCode: gateId === 'bg-004-03' ? 'GATE-TSN-CUSTOMS' : 'GATE-ABC-IN1',
-      gateName: gateId === 'bg-004-03' ? 'Cổng Kiểm Soát Hải Quan Đặc Biệt' : 'Cổng Vào 01 (Làn Xe Máy & Ô tô)',
-      siteId: targetSiteId,
-      siteName: targetSiteId === 'site-b-004' ? 'Ga Hàng Hóa Sân Bay Tân Sơn Nhất' : 'Trung tâm Vận tải & Bãi xe ABC Logistics',
-      tenantId: targetSiteId === 'site-b-004' ? 't-004' : 't-001',
-      tenantName: targetSiteId === 'site-b-004' ? 'Tan Son Nhat Air Cargo Terminal' : 'ABC Logistics & Parking',
-      detectedAt: 'Vừa phát hiện (Mô phỏng)',
-      anomalyScore: 96,
-      severity: 'CRITICAL',
-      primaryType: 'UNUSUALLY_HIGH_FREQUENCY',
-      title: `Tần suất yêu cầu bất thường: ${burstReqPerMin.toFixed(0)} req/phút (Z = +${zScore.toFixed(1)}σ)`,
-      description: `Phát hiện cụm yêu cầu liên tiếp (burst train) với thời gian giãn cách giữa các lần kích hoạt loop sensor chỉ 0.8s. Vượt 380% baseline lịch sử.`,
-      hypothesis: 'Có hiện tượng bám đuôi phương tiện sát nút (tailgating attack) hoặc vòng cảm biến từ bị kích hoạt liên tục do nhiễu rung.',
-      recommendedAction: 'Kích hoạt ngay chính sách Rate-Limiting tại Edge: Áp dụng giãn cách tối thiểu 2.5s giữa các lần nâng cần.',
-      features: {
-        currentReqPerMin: Number(burstReqPerMin.toFixed(1)),
-        baselineReqPerMin: baseline.meanReqPerMin,
-        baselineStdDev: baseline.stdDevReqPerMin,
-        zScore: Number(zScore.toFixed(2)),
-        ewmaRate: Number((burstReqPerMin * 0.85).toFixed(1)),
-        burstRatio: Number((burstReqPerMin / baseline.meanReqPerMin).toFixed(2)),
-        interArrivalVariance: 0.08,
-        cyclesLast5Min: 98,
-        motorTempC: 48.2,
-        rejectionRatePercent: 12.4
-      },
-      mitigationStatus: 'ACTIVE',
-      historicalWindow: {
-        timestamps: ['-10m', '-8m', '-6m', '-4m', '-2m', 'Hiện tại'],
-        observedFreq: [14, 15, 17, 32, 48, Math.round(burstReqPerMin)],
-        baselineFreq: [14, 14, 14, 14, 14, 14]
-      }
-    };
-
-    this.activeAnomalies.set(gateId, anomaly);
-    this.notify();
-    return anomaly;
   }
 
   /**

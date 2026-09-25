@@ -7,7 +7,13 @@ import {
   BarrierHealth,
   BarrierAlertEvent
 } from '../../types/barrier';
-import { INITIAL_TENANT_BARRIER_SITES, VIETNAM_MAP_GEO_OUTLINE } from '../../data/barrierMockData';
+import { VIETNAM_MAP_GEO_OUTLINE } from '../../data/barrierMockData';
+import {
+  buildBarrierLocations,
+  incidentToBarrierAlert,
+  observedReqPerMin,
+  relTime,
+} from '../../services/barrierMapData';
 import { usePlatform } from '../../context/PlatformContext';
 import { anomalyDetectorService } from '../../services/anomalyDetectionService';
 import { BarrierAnomalyResult } from '../../types/anomaly';
@@ -26,36 +32,23 @@ import {
   CheckCircle2,
   Lock,
   Unlock,
-  Radio,
   WifiOff,
-  Camera,
-  DoorOpen,
   ArrowUpRight,
   ArrowDownRight,
   Car,
   Zap,
-  Sliders,
-  Maximize2,
   ZoomIn,
   ZoomOut,
   RotateCcw,
   Eye,
   Info,
-  Layers,
   Activity,
   ShieldAlert,
   ChevronRight,
   X,
   Volume2,
   VolumeX,
-  Bell,
-  BellRing,
-  Wrench,
   Power,
-  Clock,
-  Flame,
-  ExternalLink,
-  ChevronDown,
   Sparkles
 } from 'lucide-react';
 import { Button, Badge, Card } from '../ui';
@@ -91,15 +84,68 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
   tenantFilterId = null,
   className = ''
 }) => {
-  const { addToast, pushAuditLog } = usePlatform();
+  const {
+    addToast,
+    pushAuditLog,
+    tenantSites,
+    gates,
+    edgeDevices,
+    incidents,
+    accessEvents,
+    tenantLanes,
+    liveGateFrames,
+    triggerGateCommand,
+    resolveTenantAlert,
+    simulateNewAccessEvent,
+    isTenantRefreshing,
+  } = usePlatform();
 
   // Active view: 'd3-map' | 'grid'
   const [viewMode, setViewMode] = useState<'d3-map' | 'grid'>('d3-map');
 
-  // Sites state
-  const [sites, setSites] = useState<TenantSiteBarrierLocation[]>(INITIAL_TENANT_BARRIER_SITES);
+  // Live stream pause toggle — when paused the map renders REST state only.
+  const [isLiveTelemetryActive, setIsLiveTelemetryActive] = useState<boolean>(true);
+  const [lastLiveEventText, setLastLiveEventText] = useState<string>('Hệ thống giám sát thời gian thực đang hoạt động');
+
+  // Commands awaiting backend ack — disables the button while pending.
+  const [pendingCommands, setPendingCommands] = useState<Record<string, { command: string; issuedAt: number }>>({});
+
+  // Sites are derived live from PlatformContext collections (+ WS deltas).
+  const sites: TenantSiteBarrierLocation[] = useMemo(
+    () => buildBarrierLocations({
+      tenantSites,
+      gates,
+      edgeDevices,
+      incidents,
+      accessEvents,
+      lanes: tenantLanes,
+      liveFrames: isLiveTelemetryActive ? liveGateFrames : {},
+      pendingCommands,
+    }),
+    [tenantSites, gates, edgeDevices, incidents, accessEvents, tenantLanes, liveGateFrames, pendingCommands, isLiveTelemetryActive]
+  );
+
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(initialSiteId);
-  const [selectedGate, setSelectedGate] = useState<BarrierGateItem | null>(null);
+  const [selectedGateId, setSelectedGateId] = useState<string | null>(null);
+
+  // Gate modal always renders the freshest derived copy of the gate.
+  const selectedGate = useMemo(
+    () => (selectedGateId ? sites.flatMap((s) => s.gates).find((g) => g.id === selectedGateId) ?? null : null),
+    [selectedGateId, sites]
+  );
+  const setSelectedGate = (gate: BarrierGateItem | null) => setSelectedGateId(gate?.id ?? null);
+
+  // Real operational incidents drive the alert queue.
+  const alerts = useMemo<BarrierAlertEvent[]>(() => {
+    const siteNameOf = (id?: string | null) => tenantSites.find((s) => s.id === id)?.name;
+    const gateNameOf = (id?: string | null) => gates.find((g) => g.id === id)?.gateName;
+    const gateSiteIdOf = (gateId?: string | null) => gates.find((g) => g.id === gateId)?.siteId;
+    const tenantName = tenantSites[0]?.tenantName ?? '';
+    const tenantId = tenantSites[0]?.tenantId ?? '';
+    return incidents
+      .filter((i) => i.status !== 'RESOLVED')
+      .map((i) => incidentToBarrierAlert(i, { siteNameOf, gateNameOf, gateSiteIdOf, tenantName, tenantId }));
+  }, [incidents, tenantSites, gates]);
 
   // =========================================================================
   // MACHINE LEARNING HEURISTIC ANOMALY STATE & OVERLAY CONFIG
@@ -117,26 +163,8 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     return () => unsubscribe();
   }, []);
 
-  // Real-time alerts state for STUCK and OFFLINE barriers
-  const [alerts, setAlerts] = useState<BarrierAlertEvent[]>([
-    {
-      id: 'alert-init-tsn',
-      type: 'OFFLINE',
-      severity: 'WARNING',
-      siteId: 'site-b-004',
-      siteName: 'Ga Hàng Hóa Sân Bay Tân Sơn Nhất',
-      gateId: 'bg-004-03',
-      gateCode: 'GATE-TSN-CUSTOMS',
-      gateName: 'Cổng Kiểm Soát Hải Quan Đặc Biệt',
-      tenantId: 't-004',
-      tenantName: 'Tan Son Nhat Air Cargo Terminal',
-      timestamp: '2 phút trước',
-      title: 'Mất tín hiệu camera RTSP & kết nối Edge',
-      message: 'Mất tín hiệu camera RTSP & kết nối Edge Gateway > 45s',
-      suggestedAction: 'Kiểm tra nguồn UPS và khởi động lại dịch vụ Edge Gateway',
-      resolved: false
-    }
-  ]);
+  // Track already-seen incidents so toasts/sounds fire once per incident.
+  const seenIncidentIdsRef = useRef<Set<string> | null>(null);
 
   // In-component active toasts
   const [inAppToasts, setInAppToasts] = useState<InAppBarrierToast[]>([]);
@@ -153,13 +181,97 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
   const [statusFilter, setStatusFilter] = useState<string>('ALL'); // 'ALL' | 'OPEN' | 'CLOSED' | 'WARNING' | 'LOCKED' | 'STUCK' | 'OFFLINE'
   const [regionFilter, setRegionFilter] = useState<string>('ALL'); // 'ALL' | 'NORTH' | 'CENTRAL' | 'SOUTH'
 
-  // Live real-time simulation toggle
-  const [isLiveTelemetryActive, setIsLiveTelemetryActive] = useState<boolean>(true);
-  const [lastLiveEventText, setLastLiveEventText] = useState<string>('Hệ thống giám sát thời gian thực đang hoạt động');
+  // Surface each newly-opened backend incident as a floating toast + chime.
+  useEffect(() => {
+    const seen = seenIncidentIdsRef.current;
+    if (seen === null) {
+      seenIncidentIdsRef.current = new Set(alerts.map((a) => a.id));
+      return;
+    }
+    alerts
+      .filter((a) => !a.resolved && !seen.has(a.id))
+      .forEach((alert) => {
+        seen.add(alert.id);
+        const toast: InAppBarrierToast = {
+          id: `toast-${alert.id}-${Date.now()}`,
+          alertId: alert.id,
+          type: alert.type,
+          severity: alert.severity,
+          title: alert.type === 'STUCK' ? 'BARRIER BỊ KẸT CẦN' : 'BARRIER MẤT TÍN HIỆU',
+          message: alert.message,
+          siteId: alert.siteId,
+          siteName: alert.siteName,
+          gateId: alert.gateId,
+          gateCode: alert.gateCode,
+          gateName: alert.gateName,
+          timestamp: alert.timestamp,
+          createdAt: Date.now(),
+          durationMs: alert.severity === 'CRITICAL' ? 12000 : 8000
+        };
+        setInAppToasts((prev) => [...prev, toast].slice(-6));
+        playAlertSound(alert.type);
+        setLastLiveEventText(`Sự cố mới: ${alert.gateName} — ${alert.message.slice(0, 90)}`);
+      });
+  }, [alerts]);
+
+  // Evaluate each real gate against its rolling observed access rate.
+  // Offline gates are excluded — a dead edge device is not a frequency anomaly.
+  useEffect(() => {
+    sites
+      .flatMap((s) => s.gates)
+      .forEach((gate) => {
+        const observed = gate.health === 'OFFLINE' ? undefined : observedReqPerMin(accessEvents, gate.id);
+        anomalyDetectorService.evaluateGate(gate, observed);
+      });
+  }, [sites, accessEvents]);
+
+  // Toast once per newly-detected ML anomaly.
+  const seenAnomalyIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    anomalies.forEach((anom) => {
+      if (seenAnomalyIdsRef.current.has(anom.id)) return;
+      seenAnomalyIdsRef.current.add(anom.id);
+      const toast: InAppBarrierToast = {
+        id: `toast-ml-${anom.id}`,
+        alertId: anom.id,
+        type: 'ML_ANOMALY',
+        severity: anom.severity === 'CRITICAL' || anom.severity === 'HIGH' ? 'CRITICAL' : 'WARNING',
+        title: 'PHÁT HIỆN BẤT THƯỜNG ML',
+        message: anom.title,
+        siteId: anom.siteId,
+        siteName: anom.siteName,
+        gateId: anom.gateId,
+        gateCode: anom.gateCode,
+        gateName: anom.gateName,
+        timestamp: 'Vừa xong',
+        createdAt: Date.now(),
+        durationMs: 15000,
+        anomalyScore: anom.anomalyScore,
+        anomalyZScore: anom.features.zScore,
+        observedReqPerMin: anom.features.currentReqPerMin
+      };
+      setInAppToasts((prev) => [...prev, toast].slice(-6));
+      playAlertSound('ML_ANOMALY');
+    });
+  }, [anomalies]);
+
+  // Keep the header ticker honest — shows the latest real access event.
+  const lastAccessEventIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const latest = accessEvents[0];
+    if (!latest || latest.id === lastAccessEventIdRef.current) return;
+    lastAccessEventIdRef.current = latest.id;
+    setLastLiveEventText(
+      `Lượt ${latest.direction === 'IN' ? 'vào' : 'ra'}: ${latest.plate || '—'} @ ${latest.gateName || latest.gateId} · ${relTime(latest.timestamp)}`
+    );
+  }, [accessEvents]);
+
 
   // D3 SVG references
   const svgRef = useRef<SVGSVGElement | null>(null);
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const zoomTransformRef = useRef<d3.ZoomTransform | null>(null);
+  const lastAutoPannedSiteRef = useRef<string | null>(null);
 
   // List of unique tenants for filter
   const tenantOptions = useMemo(() => {
@@ -265,99 +377,6 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     if (!selectedSiteId) return null;
     return sites.find(s => s.id === selectedSiteId) || null;
   }, [sites, selectedSiteId]);
-
-  // =========================================================================
-  // REAL-TIME SIMULATION ENGINE
-  // =========================================================================
-  useEffect(() => {
-    if (!isLiveTelemetryActive) return;
-
-    const samplePlates = [
-      '51K-912.83', '30E-445.62', '29A-883.19', '43B-019.45',
-      '60C-552.10', '59P-821.34', '51H-111.22', '15A-339.81'
-    ];
-
-    const timer = setInterval(() => {
-      // Pick random site and random gate
-      setSites(prevSites => {
-        const randomSiteIndex = Math.floor(Math.random() * prevSites.length);
-        const targetSite = prevSites[randomSiteIndex];
-        if (!targetSite || targetSite.gates.length === 0) return prevSites;
-
-        const randomGateIndex = Math.floor(Math.random() * targetSite.gates.length);
-        const targetGate = targetSite.gates[randomGateIndex];
-
-        // If gate is locked or in maintenance, do not auto-open
-        if (targetGate.status === 'LOCKED' || targetGate.status === 'MAINTENANCE') {
-          return prevSites;
-        }
-
-        const randomPlate = samplePlates[Math.floor(Math.random() * samplePlates.length)];
-        const confidence = parseFloat((0.985 + Math.random() * 0.014).toFixed(3));
-
-        // Create updated gate: Raise barrier (OPEN) and activate loop detector
-        const updatedGates = [...targetSite.gates];
-        updatedGates[randomGateIndex] = {
-          ...targetGate,
-          status: 'OPEN',
-          armAngleDeg: 90,
-          loopDetectorActive: true,
-          lastPlate: randomPlate,
-          lastConfidence: confidence,
-          lastPassageTime: 'Vừa xong (1s)',
-          dailyCycles: targetGate.dailyCycles + 1
-        };
-
-        const updatedSite: TenantSiteBarrierLocation = {
-          ...targetSite,
-          openGateCount: updatedGates.filter(g => g.status === 'OPEN').length,
-          currentOccupancy: Math.min(targetSite.capacity, targetSite.currentOccupancy + (targetGate.direction === 'IN' ? 1 : -1)),
-          gates: updatedGates
-        };
-
-        const newSites = [...prevSites];
-        newSites[randomSiteIndex] = updatedSite;
-
-        setLastLiveEventText(`[ANPR Edge] Xe ${randomPlate} qua ${targetGate.name} (${targetSite.name})`);
-
-        // Schedule auto-lowering of barrier after 2.5 seconds
-        setTimeout(() => {
-          setSites(currentSites => {
-            const siteIndex = currentSites.findIndex(s => s.id === targetSite.id);
-            if (siteIndex === -1) return currentSites;
-
-            const siteToUpdate = currentSites[siteIndex];
-            const gateIdx = siteToUpdate.gates.findIndex(g => g.id === targetGate.id);
-            if (gateIdx === -1) return currentSites;
-
-            const gatesList = [...siteToUpdate.gates];
-            if (gatesList[gateIdx].status === 'OPEN') {
-              gatesList[gateIdx] = {
-                ...gatesList[gateIdx],
-                status: 'CLOSED',
-                armAngleDeg: 0,
-                loopDetectorActive: false
-              };
-            }
-
-            const refreshedSite: TenantSiteBarrierLocation = {
-              ...siteToUpdate,
-              openGateCount: gatesList.filter(g => g.status === 'OPEN').length,
-              gates: gatesList
-            };
-
-            const result = [...currentSites];
-            result[siteIndex] = refreshedSite;
-            return result;
-          });
-        }, 2600);
-
-        return newSites;
-      });
-    }, 4200);
-
-    return () => clearInterval(timer);
-  }, [isLiveTelemetryActive]);
 
   // =========================================================================
   // D3.JS INTERACTIVE MAP INITIALIZATION & RENDERING
@@ -702,14 +721,22 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
       .scaleExtent([0.8, 4])
       .translateExtent([[-100, -100], [width + 200, height + 200]])
       .on('zoom', (event) => {
+        zoomTransformRef.current = event.transform;
         container.attr('transform', event.transform.toString());
       });
 
     svg.call(zoom);
     zoomBehaviorRef.current = zoom;
 
-    // If a site is pre-selected, smoothly pan to it
-    if (selectedSiteId) {
+    // Live telemetry frames redraw the map — restore the user's pan/zoom so
+    // the viewport does not jump on every update.
+    if (zoomTransformRef.current) {
+      svg.call(zoom.transform, zoomTransformRef.current);
+    }
+
+    // Auto-pan only when the site selection actually changed.
+    if (selectedSiteId && lastAutoPannedSiteRef.current !== selectedSiteId) {
+      lastAutoPannedSiteRef.current = selectedSiteId;
       const targetSite = sites.find(s => s.id === selectedSiteId);
       if (targetSite) {
         const x = targetSite.mapCoordinates.x;
@@ -719,6 +746,8 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
           d3.zoomIdentity.translate(width / 2 - x * 1.5, height / 2 - y * 1.5).scale(1.5)
         );
       }
+    } else if (!selectedSiteId) {
+      lastAutoPannedSiteRef.current = null;
     }
   }, [viewMode, filteredSites, selectedSiteId, anomalies, isMlAnomalyOverlayEnabled]);
 
@@ -766,36 +795,25 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
   // GATE INTERACTION HANDLERS
   // =========================================================================
   const handleToggleBarrierArm = (siteId: string, gateId: string, targetAction: 'OPEN' | 'CLOSE') => {
-    setSites(prev =>
-      prev.map(site => {
-        if (site.id !== siteId) return site;
-        const updatedGates = site.gates.map(gate => {
-          if (gate.id !== gateId) return gate;
-          const newStatus: BarrierStatus = targetAction === 'OPEN' ? 'OPEN' : 'CLOSED';
-          const newAngle = targetAction === 'OPEN' ? 90 : 0;
-          return {
-            ...gate,
-            status: newStatus,
-            armAngleDeg: newAngle,
-            dailyCycles: targetAction === 'OPEN' ? gate.dailyCycles + 1 : gate.dailyCycles
-          };
-        });
-        return {
-          ...site,
-          openGateCount: updatedGates.filter(g => g.status === 'OPEN').length,
-          gates: updatedGates
-        };
-      })
-    );
-
     const site = sites.find(s => s.id === siteId);
     const gate = site?.gates.find(g => g.id === gateId);
+    if (!gate || gate.health === 'OFFLINE') {
+      addToast({ type: 'warning', title: 'Cổng đang offline', description: 'Không thể gửi lệnh khi mất kết nối telemetry.' });
+      return;
+    }
 
-    addToast({
-      type: targetAction === 'OPEN' ? 'success' : 'info',
-      title: `Barrier ${targetAction === 'OPEN' ? 'Nâng cần' : 'Hạ cần'}: ${gate?.name}`,
-      description: `Lệnh rơ-le ${targetAction} đã gửi thành công tới Edge Controller.`
-    });
+    const command = targetAction === 'OPEN' ? 'open' : 'close';
+    setPendingCommands(prev => ({ ...prev, [gateId]: { command, issuedAt: Date.now() } }));
+    setTimeout(() => {
+      setPendingCommands(prev => {
+        if (!prev[gateId]) return prev;
+        const next = { ...prev };
+        delete next[gateId];
+        return next;
+      });
+    }, 12000);
+
+    triggerGateCommand(gateId, command);
 
     pushAuditLog(
       'MONITORING',
@@ -804,43 +822,28 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
       gateId,
       gate?.name,
       site?.tenantName,
-      [{ field: 'status', before: gate?.status, after: targetAction === 'OPEN' ? 'OPEN' : 'CLOSED' }]
+      [{ field: 'command', before: gate?.status, after: command }]
     );
   };
 
   const handleEmergencyLock = (siteId: string, gateId: string) => {
-    setSites(prev =>
-      prev.map(site => {
-        if (site.id !== siteId) return site;
-        const updatedGates = site.gates.map(gate => {
-          if (gate.id !== gateId) return gate;
-          const isCurrentlyLocked = gate.status === 'LOCKED';
-          const newStatus: BarrierStatus = isCurrentlyLocked ? 'CLOSED' : 'LOCKED';
-          const newHealth: BarrierHealth = isCurrentlyLocked ? 'HEALTHY' : 'CRITICAL';
-          return {
-            ...gate,
-            status: newStatus,
-            health: newHealth,
-            armAngleDeg: 0,
-            warningNote: isCurrentlyLocked ? undefined : 'Khóa khẩn cấp do quản trị viên kích hoạt từ giao diện giám sát'
-          };
-        });
-        return {
-          ...site,
-          gates: updatedGates
-        };
-      })
-    );
-
     const site = sites.find(s => s.id === siteId);
     const gate = site?.gates.find(g => g.id === gateId);
-    const isLocked = gate?.status === 'LOCKED';
+    if (!gate) return;
+    const isLocked = gate.status === 'LOCKED';
 
-    addToast({
-      type: isLocked ? 'info' : 'warning',
-      title: isLocked ? `Mở khóa Barrier: ${gate?.name}` : `Khóa Khẩn Cấp: ${gate?.name}`,
-      description: isLocked ? 'Đã gỡ lệnh khóa an toàn.' : 'Barrier đã khóa cứng relay, không tự động nâng cần.'
-    });
+    const command = isLocked ? 'unlock' : 'lock';
+    setPendingCommands(prev => ({ ...prev, [gateId]: { command, issuedAt: Date.now() } }));
+    setTimeout(() => {
+      setPendingCommands(prev => {
+        if (!prev[gateId]) return prev;
+        const next = { ...prev };
+        delete next[gateId];
+        return next;
+      });
+    }, 12000);
+
+    triggerGateCommand(gateId, command);
 
     pushAuditLog(
       'SECURITY',
@@ -852,27 +855,8 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     );
   };
 
-  const handleSimulatePassage = (siteId: string, gateId: string) => {
-    const site = sites.find(s => s.id === siteId);
-    const gate = site?.gates.find(g => g.id === gateId);
-    if (!site || !gate) return;
-
-    const plates = ['51K-882.19', '30F-990.11', '29B-452.33', '43A-667.22'];
-    const plate = plates[Math.floor(Math.random() * plates.length)];
-
-    // Raise barrier
-    handleToggleBarrierArm(siteId, gateId, 'OPEN');
-
-    // Auto lower barrier after 2.5s
-    setTimeout(() => {
-      handleToggleBarrierArm(siteId, gateId, 'CLOSE');
-    }, 2500);
-
-    addToast({
-      type: 'success',
-      title: `Mô phỏng xe qua: ${plate}`,
-      description: `Camera ANPR nhận diện xe thành công trên làn ${gate.code}.`
-    });
+  const handleRecordTestPassage = (siteId: string, gateId: string) => {
+    simulateNewAccessEvent({ siteId, gateId });
   };
 
   // =========================================================================
@@ -922,52 +906,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     }
   };
 
-  // ML Anomaly Triggers and Mitigation
-  const handleTriggerBurstAnomaly = (targetSiteId?: string, targetGateId?: string) => {
-    const siteId = targetSiteId || selectedSiteId || 'site-b-001';
-    const anom = anomalyDetectorService.triggerHighFrequencyBurst(siteId, targetGateId);
-    playAlertSound('ML_ANOMALY');
-
-    const toastId = `toast-ml-${Date.now()}`;
-    const newToast: InAppBarrierToast = {
-      id: toastId,
-      alertId: anom.id,
-      type: 'ML_ANOMALY',
-      severity: 'CRITICAL',
-      title: 'CẢNH BÁO ML: TẦN SUẤT DỊ THƯỜNG',
-      message: `${anom.title}. Tốc độ yêu cầu tăng vọt ${anom.features.currentReqPerMin} req/m (+${anom.features.zScore}σ so với baseline).`,
-      siteId: anom.siteId,
-      siteName: anom.siteName,
-      gateId: anom.gateId,
-      gateCode: anom.gateCode,
-      gateName: anom.gateName,
-      timestamp: new Date().toLocaleTimeString('vi-VN'),
-      createdAt: Date.now(),
-      durationMs: 14000,
-      anomalyScore: anom.anomalyScore,
-      anomalyZScore: anom.features.zScore,
-      observedReqPerMin: anom.features.currentReqPerMin
-    };
-
-    setInAppToasts(prev => [newToast, ...prev.slice(0, 2)]);
-
-    addToast({
-      type: 'warning',
-      title: `⚡ Bất Thường Heuristic ML: ${anom.gateName}`,
-      description: `${anom.features.currentReqPerMin} req/phút (Z = +${anom.features.zScore}σ, vượt ${(anom.features.burstRatio * 100).toFixed(0)}% baseline)`
-    });
-
-    pushAuditLog(
-      'MONITORING',
-      'ML_HEURISTIC_ANOMALY_FLAGGED',
-      'BARRIER_GATE',
-      anom.gateId,
-      anom.gateName,
-      anom.tenantName,
-      [{ field: 'anomalyScore', before: 0, after: anom.anomalyScore }]
-    );
-  };
-
+  // ML anomaly mitigation
   const handleMitigateAnomaly = (gateId: string, actionNote: string) => {
     const success = anomalyDetectorService.mitigateAnomaly(gateId, actionNote);
     if (success) {
@@ -1013,260 +952,22 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     }
   };
 
-  // Trigger STUCK barrier alert
-  const triggerStuckBarrierAlert = (targetSiteId?: string, targetGateId?: string, customReason?: string) => {
-    let foundSite: TenantSiteBarrierLocation | undefined;
-    let foundGate: BarrierGateItem | undefined;
-
-    if (targetSiteId && targetGateId) {
-      foundSite = sites.find(s => s.id === targetSiteId);
-      foundGate = foundSite?.gates.find(g => g.id === targetGateId);
-    } else if (selectedSiteId) {
-      foundSite = sites.find(s => s.id === selectedSiteId);
-      foundGate = foundSite?.gates.find(g => g.status !== 'STUCK') || foundSite?.gates[0];
-    } else {
-      foundSite = sites[0];
-      foundGate = foundSite?.gates[0];
-    }
-
-    if (!foundSite || !foundGate) return;
-
-    const stuckGateId = foundGate.id;
-    const stuckSiteId = foundSite.id;
-    const reason = customReason || 'Cần barrier kẹt cơ học ở góc 42° - Cảm biến dòng báo quá tải động cơ 54.8°C';
-    const timestampStr = new Date().toLocaleTimeString('vi-VN');
-
-    setSites(prev =>
-      prev.map(site => {
-        if (site.id !== stuckSiteId) return site;
-        const updatedGates = site.gates.map(gate => {
-          if (gate.id !== stuckGateId) return gate;
-          return {
-            ...gate,
-            status: 'STUCK' as BarrierStatus,
-            health: 'CRITICAL' as BarrierHealth,
-            armAngleDeg: 42,
-            motorTempC: 54.8,
-            warningNote: `KẸT CẦN CƠ HỌC: ${reason}`,
-            stuckSince: timestampStr,
-            stuckReason: reason
-          };
-        });
-        return {
-          ...site,
-          overallHealth: 'CRITICAL' as BarrierHealth,
-          gates: updatedGates
-        };
-      })
-    );
-
-    playAlertSound('STUCK');
-
-    const alertId = `alert-stuck-${Date.now()}`;
-    const newAlert: BarrierAlertEvent = {
-      id: alertId,
-      type: 'STUCK',
-      severity: 'CRITICAL',
-      siteId: stuckSiteId,
-      siteName: foundSite.name,
-      gateId: stuckGateId,
-      gateCode: foundGate.code,
-      gateName: foundGate.name,
-      tenantId: foundSite.tenantId,
-      tenantName: foundSite.tenantName,
-      timestamp: timestampStr,
-      title: 'Barrier Bị Kẹt Cần Cơ Học (Góc 42°)',
-      message: `${foundGate.name} (${foundSite.name}): ${reason}`,
-      armAngleDeg: 42,
-      motorTempC: 54.8,
-      suggestedAction: 'Gửi lệnh rơ-le khởi động lại hoặc nâng cần cưỡng bức',
-      resolved: false
-    };
-
-    setAlerts(prev => [newAlert, ...prev.filter(a => !(a.gateId === stuckGateId && a.type === 'STUCK'))]);
-
-    const newToast: InAppBarrierToast = {
-      id: `toast-${Date.now()}`,
-      alertId,
-      type: 'STUCK',
-      severity: 'CRITICAL',
-      title: 'CẢNH BÁO: BARRIER KẸT CẦN',
-      message: `${foundGate.name} tại ${foundSite.name} bị kẹt ở góc 42°. Động cơ servo quá dòng 54.8°C.`,
-      siteId: stuckSiteId,
-      siteName: foundSite.name,
-      gateId: stuckGateId,
-      gateCode: foundGate.code,
-      gateName: foundGate.name,
-      timestamp: timestampStr,
-      createdAt: Date.now(),
-      durationMs: 12000
-    };
-
-    setInAppToasts(prev => [newToast, ...prev.slice(0, 2)]);
-
-    addToast({
-      type: 'error',
-      title: `🚨 Sự Cố Kẹt Cần: ${foundGate.name}`,
-      description: `${foundSite.name} - ${reason}`
-    });
-
-    pushAuditLog(
-      'MONITORING',
-      'BARRIER_ARM_STUCK_DETECTED',
-      'BARRIER_GATE',
-      stuckGateId,
-      foundGate.name,
-      foundSite.tenantName,
-      [{ field: 'status', before: foundGate.status, after: 'STUCK' }]
-    );
-  };
-
-  // Trigger OFFLINE barrier alert
-  const triggerOfflineBarrierAlert = (targetSiteId?: string, targetGateId?: string, customReason?: string) => {
-    let foundSite: TenantSiteBarrierLocation | undefined;
-    let foundGate: BarrierGateItem | undefined;
-
-    if (targetSiteId && targetGateId) {
-      foundSite = sites.find(s => s.id === targetSiteId);
-      foundGate = foundSite?.gates.find(g => g.id === targetGateId);
-    } else if (selectedSiteId) {
-      foundSite = sites.find(s => s.id === selectedSiteId);
-      foundGate = foundSite?.gates.find(g => g.health !== 'OFFLINE') || foundSite?.gates[foundSite.gates.length - 1];
-    } else {
-      foundSite = sites[1] || sites[0];
-      foundGate = foundSite?.gates[foundSite.gates.length - 1];
-    }
-
-    if (!foundSite || !foundGate) return;
-
-    const offlineGateId = foundGate.id;
-    const offlineSiteId = foundSite.id;
-    const reason = customReason || 'Mất kết nối telemetry: Heartbeat timeout > 45s từ Edge Gateway';
-    const timestampStr = new Date().toLocaleTimeString('vi-VN');
-
-    setSites(prev =>
-      prev.map(site => {
-        if (site.id !== offlineSiteId) return site;
-        const updatedGates = site.gates.map(gate => {
-          if (gate.id !== offlineGateId) return gate;
-          return {
-            ...gate,
-            health: 'OFFLINE' as BarrierHealth,
-            cameraConnected: false,
-            averageLatencyMs: 0,
-            warningNote: `MẤT KẾT NỐI: ${reason}`,
-            offlineSince: timestampStr,
-            offlineReason: reason
-          };
-        });
-        return {
-          ...site,
-          overallHealth: 'WARNING' as BarrierHealth,
-          gates: updatedGates
-        };
-      })
-    );
-
-    playAlertSound('OFFLINE');
-
-    const alertId = `alert-offline-${Date.now()}`;
-    const newAlert: BarrierAlertEvent = {
-      id: alertId,
-      type: 'OFFLINE',
-      severity: 'WARNING',
-      siteId: offlineSiteId,
-      siteName: foundSite.name,
-      gateId: offlineGateId,
-      gateCode: foundGate.code,
-      gateName: foundGate.name,
-      tenantId: foundSite.tenantId,
-      tenantName: foundSite.tenantName,
-      timestamp: timestampStr,
-      title: 'Barrier Mất Tín Hiệu (Offline)',
-      message: `${foundGate.name} (${foundSite.name}): ${reason}`,
-      suggestedAction: 'Kiểm tra cáp RS-485 / Ethernet và kiểm tra trạng thái Edge Gateway',
-      resolved: false
-    };
-
-    setAlerts(prev => [newAlert, ...prev.filter(a => !(a.gateId === offlineGateId && a.type === 'OFFLINE'))]);
-
-    const newToast: InAppBarrierToast = {
-      id: `toast-${Date.now()}`,
-      alertId,
-      type: 'OFFLINE',
-      severity: 'WARNING',
-      title: 'CẢNH BÁO: BARRIER MẤT KẾT NỐI (OFFLINE)',
-      message: `${foundGate.name} tại ${foundSite.name} không phản hồi tín hiệu heartbeat > 45s.`,
-      siteId: offlineSiteId,
-      siteName: foundSite.name,
-      gateId: offlineGateId,
-      gateCode: foundGate.code,
-      gateName: foundGate.name,
-      timestamp: timestampStr,
-      createdAt: Date.now(),
-      durationMs: 12000
-    };
-
-    setInAppToasts(prev => [newToast, ...prev.slice(0, 2)]);
-
-    addToast({
-      type: 'warning',
-      title: `⚠️ Mất Kết Nối: ${foundGate.name}`,
-      description: `${foundSite.name} - ${reason}`
-    });
-
-    pushAuditLog(
-      'MONITORING',
-      'BARRIER_TELEMETRY_OFFLINE',
-      'BARRIER_GATE',
-      offlineGateId,
-      foundGate.name,
-      foundSite.tenantName,
-      [{ field: 'health', before: foundGate.health, after: 'OFFLINE' }]
-    );
-  };
-
-  // Resolve a single alert
+  // Resolve a single alert: close the backend incident and optionally send a
+  // relay command to recover the gate.
   const resolveBarrierIncident = (alertId: string, actionType: 'REBOOT' | 'FORCE_OPEN' | 'DISPATCH' = 'REBOOT') => {
     const alert = alerts.find(a => a.id === alertId);
     if (!alert) return;
 
-    setSites(prev =>
-      prev.map(site => {
-        if (site.id !== alert.siteId) return site;
-        const updatedGates = site.gates.map(gate => {
-          if (gate.id !== alert.gateId) return gate;
-          return {
-            ...gate,
-            status: (actionType === 'FORCE_OPEN' ? 'OPEN' : 'CLOSED') as BarrierStatus,
-            health: 'HEALTHY' as BarrierHealth,
-            armAngleDeg: actionType === 'FORCE_OPEN' ? 90 : 0,
-            motorTempC: 37.5,
-            cameraConnected: true,
-            averageLatencyMs: 40,
-            warningNote: undefined,
-            stuckSince: undefined,
-            stuckReason: undefined,
-            offlineSince: undefined,
-            offlineReason: undefined
-          };
-        });
-
-        const anyCritical = updatedGates.some(g => g.health === 'CRITICAL' || g.status === 'STUCK');
-        const anyWarning = updatedGates.some(g => g.health === 'WARNING' || g.health === 'OFFLINE');
-        const overall = anyCritical ? 'CRITICAL' : anyWarning ? 'WARNING' : 'HEALTHY';
-
-        return {
-          ...site,
-          overallHealth: overall as BarrierHealth,
-          openGateCount: updatedGates.filter(g => g.status === 'OPEN').length,
-          gates: updatedGates
-        };
-      })
-    );
-
-    setAlerts(prev => prev.filter(a => a.id !== alertId));
     setInAppToasts(prev => prev.filter(t => t.alertId !== alertId));
+    resolveTenantAlert(alertId);
+
+    if (alert.gateId) {
+      if (actionType === 'REBOOT') {
+        triggerGateCommand(alert.gateId, 'reboot');
+      } else if (actionType === 'FORCE_OPEN') {
+        triggerGateCommand(alert.gateId, 'open');
+      }
+    }
 
     const actionText = actionType === 'REBOOT'
       ? 'Khởi động lại rơ-le'
@@ -1276,8 +977,8 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
 
     addToast({
       type: 'success',
-      title: `Đã xử lý cảnh báo: ${alert.gateName}`,
-      description: `${actionText} thành công. Barrier đã trở về trạng thái danh định.`
+      title: `Đã ghi nhận xử lý: ${alert.gateName}`,
+      description: `${actionText}. Sự cố đã được đánh dấu resolved trên hệ thống.`
     });
 
     pushAuditLog(
@@ -1291,46 +992,28 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     );
   };
 
-  // Resolve all incidents
+  // Resolve all open alerts in one pass (per-incident API calls).
   const resolveAllIncidents = () => {
-    setSites(prev =>
-      prev.map(site => {
-        const updatedGates = site.gates.map(gate => {
-          if (gate.status === 'STUCK' || gate.health === 'OFFLINE' || gate.health === 'CRITICAL') {
-            return {
-              ...gate,
-              status: 'CLOSED' as BarrierStatus,
-              health: 'HEALTHY' as BarrierHealth,
-              armAngleDeg: 0,
-              motorTempC: 36.5,
-              cameraConnected: true,
-              averageLatencyMs: 38,
-              warningNote: undefined,
-              stuckSince: undefined,
-              stuckReason: undefined,
-              offlineSince: undefined,
-              offlineReason: undefined
-            };
-          }
-          return gate;
-        });
+    const openAlerts = alerts.filter(a => !a.resolved);
+    if (openAlerts.length === 0) {
+      setIsIncidentsDrawerOpen(false);
+      return;
+    }
 
-        return {
-          ...site,
-          overallHealth: 'HEALTHY' as BarrierHealth,
-          gates: updatedGates
-        };
-      })
-    );
+    openAlerts.forEach(alert => {
+      resolveTenantAlert(alert.id);
+      if (alert.type === 'STUCK' && alert.gateId) {
+        triggerGateCommand(alert.gateId, 'reboot');
+      }
+    });
 
-    setAlerts([]);
     setInAppToasts([]);
     setIsIncidentsDrawerOpen(false);
 
     addToast({
       type: 'success',
-      title: 'Đã khắc phục toàn bộ cảnh báo',
-      description: 'Tất cả các rơ-le barrier và kết nối telemetry đã được đưa về trạng thái bình thường.'
+      title: `Đã gửi yêu cầu khắc phục ${openAlerts.length} sự cố`,
+      description: 'Các lệnh reboot rơ-le đã được gửi tới Edge Controller tương ứng.'
     });
 
     pushAuditLog(
@@ -1536,20 +1219,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                       Không phát hiện barrier kẹt cần hay mất tín hiệu telemetry nào trên toàn bộ các cơ sở.
                     </p>
                   </div>
-                  <div className="pt-2 flex justify-center gap-2">
-                    <button
-                      onClick={() => triggerStuckBarrierAlert()}
-                      className="px-3 py-1.5 rounded-lg bg-[#f85149]/20 text-[#f85149] border border-[#f85149]/30 text-xs font-semibold cursor-pointer"
-                    >
-                      Mô Phỏng Thử Kẹt Cần
-                    </button>
-                    <button
-                      onClick={() => triggerOfflineBarrierAlert()}
-                      className="px-3 py-1.5 rounded-lg bg-[#e3b341]/20 text-[#e3b341] border border-[#e3b341]/30 text-xs font-semibold cursor-pointer"
-                    >
-                      Mô Phỏng Offline
-                    </button>
-                  </div>
+
                 </div>
               ) : (
                 alerts.map(alert => {
@@ -1727,8 +1397,6 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             if (anomalies.length > 0) {
               setSelectedAnomaly(anomalies[0]);
               setIsAnomalyInspectorOpen(true);
-            } else {
-              handleTriggerBurstAnomaly();
             }
           }}
           className={`rounded-xl p-3 border cursor-pointer transition-all ${
@@ -1874,43 +1542,25 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
               {isAudioMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </button>
 
-            {/* Incident & ML Simulation Buttons */}
-            <div className="flex items-center gap-1 bg-[#0d1117] p-1 rounded-xl border border-[#30363d]">
+            {/* Bulk resolve when incidents are open */}
+            {(metrics.stuckGates > 0 || metrics.offlineGates > 0 || alerts.length > 0) && (
               <button
-                onClick={() => triggerStuckBarrierAlert()}
-                title="Kích hoạt sự cố kẹt cần barrier để kiểm tra chuông và toast"
-                className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-[#f85149]/15 hover:bg-[#f85149]/25 text-[#f85149] border border-[#f85149]/30 transition-colors flex items-center gap-1 cursor-pointer"
+                onClick={() => resolveAllIncidents()}
+                title="Khắc phục tất cả sự cố kẹt cần và offline"
+                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-[#3fb950]/15 hover:bg-[#3fb950]/25 text-[#3fb950] border border-[#3fb950]/30 transition-colors flex items-center gap-1.5 cursor-pointer"
               >
-                <Flame className="w-3 h-3" />
-                <span>Test Kẹt</span>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Khắc Phục ({alerts.filter(a => !a.resolved).length})</span>
               </button>
-              <button
-                onClick={() => triggerOfflineBarrierAlert()}
-                title="Kích hoạt sự cố mất kết nối telemetry"
-                className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-[#e3b341]/15 hover:bg-[#e3b341]/25 text-[#e3b341] border border-[#e3b341]/30 transition-colors flex items-center gap-1 cursor-pointer"
-              >
-                <WifiOff className="w-3 h-3" />
-                <span>Test Off</span>
-              </button>
-              <button
-                onClick={() => handleTriggerBurstAnomaly()}
-                title="Kích hoạt mô phỏng tần suất truy cập bất thường ML (Burst flood / Tailgating / Replay attack)"
-                className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 transition-colors flex items-center gap-1 cursor-pointer"
-              >
-                <Zap className="w-3 h-3 text-purple-400" />
-                <span>Test ML Burst</span>
-              </button>
-              {(metrics.stuckGates > 0 || metrics.offlineGates > 0 || alerts.length > 0) && (
-                <button
-                  onClick={() => resolveAllIncidents()}
-                  title="Khắc phục tất cả sự cố kẹt cần và offline"
-                  className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-[#3fb950]/15 hover:bg-[#3fb950]/25 text-[#3fb950] border border-[#3fb950]/30 transition-colors flex items-center gap-1 cursor-pointer"
-                >
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>Khắc Phục</span>
-                </button>
-              )}
-            </div>
+            )}
+
+            {/* Sync indicator */}
+            {isTenantRefreshing && (
+              <span className="flex items-center gap-1.5 text-[11px] text-[#8b949e] font-mono">
+                <RefreshCw className="w-3 h-3 animate-spin" />
+                Đang đồng bộ…
+              </span>
+            )}
 
             {/* Live Telemetry Stream Toggle */}
             <Button
@@ -2264,25 +1914,28 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                           ) : gate.status === 'OPEN' ? (
                             <button
                               onClick={() => handleToggleBarrierArm(activeSelectedSite.id, gate.id, 'CLOSE')}
-                              className="py-1 px-2 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-white text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                              disabled={!!pendingCommands[gate.id]}
+                              className="py-1 px-2 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-white text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               <ArrowDownRight className="w-3.5 h-3.5 text-[#58a6ff]" />
-                              <span>Hạ Cần</span>
+                              <span>{pendingCommands[gate.id] ? 'Đang gửi…' : 'Hạ Cần'}</span>
                             </button>
                           ) : (
                             <button
                               onClick={() => handleToggleBarrierArm(activeSelectedSite.id, gate.id, 'OPEN')}
-                              className="py-1 px-2 rounded-lg bg-[#3fb950]/20 hover:bg-[#3fb950]/30 text-[#3fb950] border border-[#3fb950]/30 text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                              disabled={!!pendingCommands[gate.id]}
+                              className="py-1 px-2 rounded-lg bg-[#3fb950]/20 hover:bg-[#3fb950]/30 text-[#3fb950] border border-[#3fb950]/30 text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               <ArrowUpRight className="w-3.5 h-3.5" />
-                              <span>Nâng Cần</span>
+                              <span>{pendingCommands[gate.id] ? 'Đang gửi…' : 'Nâng Cần'}</span>
                             </button>
                           )}
 
                           {!isStuck && !isOffline && (
                             <button
                               onClick={() => handleEmergencyLock(activeSelectedSite.id, gate.id)}
-                              className={`py-1 px-2 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+                              disabled={!!pendingCommands[gate.id]}
+                              className={`py-1 px-2 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                                 gate.status === 'LOCKED'
                                   ? 'bg-[#3fb950]/20 hover:bg-[#3fb950]/30 text-[#3fb950] border border-[#3fb950]/30'
                                   : 'bg-[#f85149]/20 hover:bg-[#f85149]/30 text-[#f85149] border border-[#f85149]/30'
@@ -2496,18 +2149,20 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                               <>
                                 <button
                                   onClick={() => handleToggleBarrierArm(site.id, gate.id, gate.status === 'OPEN' ? 'CLOSE' : 'OPEN')}
-                                  className={`py-1 px-1.5 rounded-md text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+                                  disabled={!!pendingCommands[gate.id]}
+                                  className={`py-1 px-1.5 rounded-md text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                                     gate.status === 'OPEN'
                                       ? 'bg-[#21262d] text-white hover:bg-[#30363d]'
                                       : 'bg-[#3fb950]/20 text-[#3fb950] hover:bg-[#3fb950]/30 border border-[#3fb950]/30'
                                   }`}
                                 >
-                                  {gate.status === 'OPEN' ? 'Hạ cần' : 'Nâng cần'}
+                                  {pendingCommands[gate.id] ? 'Đang gửi…' : gate.status === 'OPEN' ? 'Hạ cần' : 'Nâng cần'}
                                 </button>
 
                                 <button
                                   onClick={() => handleEmergencyLock(site.id, gate.id)}
-                                  className={`py-1 px-1.5 rounded-md text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+                                  disabled={!!pendingCommands[gate.id]}
+                                  className={`py-1 px-1.5 rounded-md text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                                     gate.status === 'LOCKED'
                                       ? 'bg-[#3fb950]/20 text-[#3fb950] hover:bg-[#3fb950]/30 border border-[#3fb950]/30'
                                       : 'bg-[#f85149]/20 text-[#f85149] hover:bg-[#f85149]/30 border border-[#f85149]/30'
@@ -2517,11 +2172,11 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                 </button>
 
                                 <button
-                                  onClick={() => handleSimulatePassage(site.id, gate.id)}
+                                  onClick={() => handleRecordTestPassage(site.id, gate.id)}
                                   className="py-1 px-1.5 rounded-md bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-[10px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                                 >
                                   <Car className="w-3 h-3 text-[#58a6ff]" />
-                                  <span>Xe qua</span>
+                                  <span>Ghi Xe (Test)</span>
                                 </button>
                               </>
                             )}
@@ -2703,11 +2358,11 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                 variant="primary"
                 size="sm"
                 onClick={() => {
-                  handleSimulatePassage(selectedGate.siteId, selectedGate.id);
+                  handleRecordTestPassage(selectedGate.siteId, selectedGate.id);
                   setSelectedGate(null);
                 }}
               >
-                Mô Phỏng Xe Qua Làn Này
+                Ghi Lượt Xe Thử (Test)
               </Button>
             </div>
           </div>
