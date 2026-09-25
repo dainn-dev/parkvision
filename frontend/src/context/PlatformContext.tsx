@@ -543,6 +543,20 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       setGates(gatesMapped);
       setEdgeDevices(devicesPage.data.map((d) => mapDevice(d, tId, tName)));
 
+      const primarySite = sitesPage.data[0];
+      if (primarySite) {
+        setTenantLocation((prev) => ({
+          ...prev,
+          name: primarySite.name,
+          status: primarySite.status === 'active' ? 'ACTIVE' : 'INACTIVE',
+          timezone: primarySite.timezone || prev.timezone,
+          address: {
+            ...prev.address,
+            line1: primarySite.address ?? prev.address.line1
+          }
+        }));
+      }
+
       const vehicles = vehiclesPage.data;
       setTenantVehicles(vehicles.map((v) => mapVehicle(v, tId)));
       setRegisteredVehicles(vehicles.map(mapRegisteredVehicle));

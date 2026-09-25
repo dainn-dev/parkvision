@@ -304,8 +304,8 @@ export const TenantDashboardPage: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-[#8b949e] pt-2 border-t border-[#30363d]/60">
-            <span className="text-[#3fb950] font-medium">4/4 Lanes Live</span>
-            <span className="text-[#58a6ff]">24/7 Hours</span>
+            <span className="text-[#3fb950] font-medium">{lanes.length}/{tenantLanes.length} Lanes Live</span>
+            <span className="text-[#58a6ff]">{tenantSites.length} Site{tenantSites.length === 1 ? '' : 's'}</span>
           </div>
         </div>
 
@@ -334,7 +334,7 @@ export const TenantDashboardPage: React.FC = () => {
 
           <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#30363d]/60">
             <span className="text-[#58a6ff] font-medium">{occupancyPercent}% Filled</span>
-            <span className="text-[#3fb950] font-medium">{(site.capacity || 800) - (site.currentOccupancy || 0)} Free</span>
+            <span className="text-[#3fb950] font-medium">{(site.capacity || 0) - (site.currentOccupancy || 0)} Free</span>
           </div>
         </div>
 
@@ -423,7 +423,7 @@ export const TenantDashboardPage: React.FC = () => {
               <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
                 Facility Lanes & Barrier Gate Controllers
                 <span className="text-[10px] font-mono font-bold px-2 py-0.2 rounded-full bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
-                  4/4 Active
+                  {lanes.length} Active
                 </span>
               </h3>
               <p className="text-xs text-[#8b949e] mt-0.5">

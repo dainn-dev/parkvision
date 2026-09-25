@@ -29,24 +29,25 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
   location,
   onSave
 }) => {
+  const clean = (v: string | undefined) => (v === '—' || v === 'No site configured' ? '' : v) ?? '';
   const [formData, setFormData] = useState({
-    name: location.name,
-    code: location.code,
-    line1: location.address.line1,
-    line2: location.address.line2 || '',
-    city: location.address.city,
-    province: location.address.province || '',
-    postalCode: location.address.postalCode || '',
-    country: location.address.country,
-    timezone: location.timezone,
+    name: clean(location.name),
+    code: clean(location.code),
+    line1: clean(location.address.line1),
+    line2: clean(location.address.line2),
+    city: clean(location.address.city),
+    province: clean(location.address.province),
+    postalCode: clean(location.address.postalCode),
+    country: clean(location.address.country),
+    timezone: clean(location.timezone),
     latitude: location.latitude.toString(),
     longitude: location.longitude.toString(),
-    phone: location.phone,
-    email: location.email,
-    emergencyContact: location.emergencyContact || '',
-    contactPerson: location.contactPerson || '',
-    capacity: (location.capacity || 800).toString(),
-    description: location.description || ''
+    phone: clean(location.phone),
+    email: clean(location.email),
+    emergencyContact: clean(location.emergencyContact),
+    contactPerson: clean(location.contactPerson),
+    capacity: (location.capacity || 0).toString(),
+    description: location.description === 'Create a site to activate this location.' ? '' : location.description || ''
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -57,23 +58,23 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
   useEffect(() => {
     if (isOpen) {
       setFormData({
-        name: location.name,
-        code: location.code,
-        line1: location.address.line1,
-        line2: location.address.line2 || '',
-        city: location.address.city,
-        province: location.address.province || '',
-        postalCode: location.address.postalCode || '',
-        country: location.address.country,
-        timezone: location.timezone,
+        name: clean(location.name),
+        code: clean(location.code),
+        line1: clean(location.address.line1),
+        line2: clean(location.address.line2),
+        city: clean(location.address.city),
+        province: clean(location.address.province),
+        postalCode: clean(location.address.postalCode),
+        country: clean(location.address.country),
+        timezone: clean(location.timezone),
         latitude: location.latitude.toString(),
         longitude: location.longitude.toString(),
-        phone: location.phone,
-        email: location.email,
-        emergencyContact: location.emergencyContact || '',
-        contactPerson: location.contactPerson || '',
-        capacity: (location.capacity || 800).toString(),
-        description: location.description || ''
+        phone: clean(location.phone),
+        email: clean(location.email),
+        emergencyContact: clean(location.emergencyContact),
+        contactPerson: clean(location.contactPerson),
+        capacity: (location.capacity || 0).toString(),
+        description: location.description === 'Create a site to activate this location.' ? '' : location.description || ''
       });
       setErrors({});
       setIsDirty(false);
