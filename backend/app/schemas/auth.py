@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import EmailStr, Field
+from pydantic import EmailStr, Field, field_validator
 
 from app.schemas.common import CamelModel
 
@@ -85,6 +85,11 @@ class SessionOut(CamelModel):
     expires_at: datetime
     revoked_at: datetime | None
     current: bool = False
+
+    @field_validator("ip", mode="before")
+    @classmethod
+    def _ip_to_str(cls, v: object) -> object:
+        return None if v is None else str(v)
 
 
 class ChangePasswordIn(CamelModel):

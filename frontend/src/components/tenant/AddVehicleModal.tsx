@@ -31,7 +31,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -43,7 +43,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
 
     setIsLoading(true);
 
-    const result = createTenantVehicle({
+    const result = await createTenantVehicle({
       type: formData.type,
       make: formData.make.trim(),
       model: formData.model.trim(),

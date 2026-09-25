@@ -216,6 +216,10 @@ export interface GateHealth {
   averageLatencyMs: number;
   successRatePercent: number;
   lastHeartbeat: string;
+  laneId?: string;
+  siteId?: string;
+  edgeDeviceId?: string;
+  rawStatus?: string;
 }
 
 export type IncidentSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';

@@ -95,7 +95,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   };
 
   // Handle credentials submit (Step 1)
-  const handleCredentialsSubmit = (e: React.FormEvent) => {
+  const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
       setErrorMessage('Vui lòng nhập đầy đủ Email và Mật khẩu.');
@@ -104,30 +104,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
 
     setErrorMessage(null);
     setIsLoading(true);
+    const res = await login(email, password);
+    setIsLoading(false);
 
-    setTimeout(() => {
-      setIsLoading(false);
-
-      if (isMfaEnabledForAccount) {
-        // Requires MFA -> Advance to Step 2 MFA Challenge
-        setStep('mfa_challenge');
-        addToast({
-          type: 'warning',
-          title: 'MFA Required',
-          description: 'Mật khẩu hợp lệ. Vui lòng nhập mã TOTP từ ứng dụng Authenticator.'
-        });
-      } else {
-        // Direct login without MFA
-        const res = login(email, password);
-        if (res.success) {
-          addToast({
-            type: 'success',
-            title: 'Đăng nhập thành công',
-            description: `Chào mừng ${email} quay trở lại bảng điều khiển.`
-          });
-        }
-      }
-    }, 800);
+    if (!res.success) {
+      setErrorMessage(res.message ?? 'Email hoặc mật khẩu không chính xác.');
+      return;
+    }
+    if (res.requiresMfa) {
+      setIsMfaEnabledForAccount(true);
+      setStep('mfa_challenge');
+      addToast({
+        type: 'warning',
+        title: 'MFA Required',
+        description: 'Mật khẩu hợp lệ. Vui lòng nhập mã TOTP từ ứng dụng Authenticator.'
+      });
+      return;
+    }
+    addToast({
+      type: 'success',
+      title: 'Đăng nhập thành công',
+      description: `Chào mừng ${email} quay trở lại bảng điều khiển.`
+    });
   };
 
   // Handle OTP digit change
@@ -173,7 +171,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   };
 
   // Submit MFA Code (Step 2)
-  const handleMfaSubmit = (e?: React.FormEvent) => {
+  const handleMfaSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const code = otpDigits.join('');
 
@@ -185,23 +183,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     setIsLoading(true);
     setErrorMessage(null);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      if (code === '000000') {
-        setErrorMessage('Mã TOTP không chính xác hoặc đã hết hạn. Vui lòng thử lại.');
-      } else {
-        login(email, password, code);
-        addToast({
-          type: 'success',
-          title: 'Xác thực MFA thành công',
-          description: 'Mã TOTP hợp lệ. Đang khởi tạo phiên làm việc bảo mật...'
-        });
-      }
-    }, 900);
+    const res = await login(email, password, code);
+    setIsLoading(false);
+    if (!res.success) {
+      setErrorMessage(res.message ?? 'Mã TOTP không chính xác hoặc đã hết hạn. Vui lòng thử lại.');
+    } else {
+      addToast({
+        type: 'success',
+        title: 'Xác thực MFA thành công',
+        description: 'Mã TOTP hợp lệ. Đang khởi tạo phiên làm việc bảo mật...'
+      });
+    }
   };
 
   // Submit Backup Code
-  const handleBackupCodeSubmit = (e: React.FormEvent) => {
+  const handleBackupCodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!backupCode.trim()) {
       setErrorMessage('Vui lòng nhập mã khôi phục dự phòng.');
@@ -211,15 +207,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     setIsLoading(true);
     setErrorMessage(null);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      login(email, password, backupCode);
+    const res = await login(email, password, backupCode.trim());
+    setIsLoading(false);
+    if (res.success) {
       addToast({
         type: 'success',
         title: 'Đăng nhập bằng Mã khôi phục',
         description: 'Đã xác thực bằng mã sao lưu khẩn cấp.'
       });
-    }, 900);
+    } else {
+      setErrorMessage(res.message ?? 'Mã khôi phục không hợp lệ.');
+    }
   };
 
   return (
@@ -406,7 +404,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                   {otpDigits.map((digit, index) => (
                     <input
                       key={index}
-                      ref={(el) => (inputRefs.current[index] = el)}
+                      ref={(el) => { inputRefs.current[index] = el; }}
                       type="text"
                       inputMode="numeric"
                       maxLength={1}

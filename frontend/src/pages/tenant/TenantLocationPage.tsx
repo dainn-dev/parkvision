@@ -409,7 +409,7 @@ export const TenantLocationPage: React.FC = () => {
                 <span>System Health & Telemetry</span>
               </div>
               <Badge
-                variant={isHealthy ? 'healthy' : 'warning'}
+                variant={isHealthy ? 'emerald' : 'amber'}
                 className="text-[10px] uppercase font-mono tracking-wider"
               >
                 ● {tenantHealth.overall}
@@ -497,7 +497,7 @@ export const TenantLocationPage: React.FC = () => {
                 <div className="w-9 h-9 rounded-lg bg-[#58a6ff]/15 text-[#58a6ff] flex items-center justify-center">
                   <Camera className="w-4 h-4" />
                 </div>
-                <Badge variant="healthy" className="text-[10px]">
+                <Badge variant="emerald" className="text-[10px]">
                   All Operational
                 </Badge>
               </div>
@@ -535,7 +535,7 @@ export const TenantLocationPage: React.FC = () => {
                 <div className="w-9 h-9 rounded-lg bg-[#3fb950]/15 text-[#3fb950] flex items-center justify-center">
                   <DoorOpen className="w-4 h-4" />
                 </div>
-                <Badge variant="healthy" className="text-[10px]">
+                <Badge variant="emerald" className="text-[10px]">
                   4 Relays Synced
                 </Badge>
               </div>
@@ -573,7 +573,7 @@ export const TenantLocationPage: React.FC = () => {
                 <div className="w-9 h-9 rounded-lg bg-[#e3b341]/15 text-[#e3b341] flex items-center justify-center">
                   <Server className="w-4 h-4" />
                 </div>
-                <Badge variant="healthy" className="text-[10px]">
+                <Badge variant="emerald" className="text-[10px]">
                   3 Active Nodes
                 </Badge>
               </div>
@@ -926,7 +926,7 @@ export const TenantLocationPage: React.FC = () => {
                 <Car className="w-4 h-4 text-[#58a6ff]" />
                 <span>Registered Vehicles & Whitelist</span>
               </div>
-              <Badge variant="outline" className="text-[10px] font-mono">
+              <Badge variant="slate" className="text-[10px] font-mono">
                 {tenantSummary.vehicles.total} Enrolled
               </Badge>
             </div>
@@ -977,7 +977,7 @@ export const TenantLocationPage: React.FC = () => {
                 <ShieldCheck className="w-4 h-4 text-[#3fb950]" />
                 <span>Access Control Rules</span>
               </div>
-              <Badge variant="healthy" className="text-[10px]">
+              <Badge variant="emerald" className="text-[10px]">
                 {tenantAccessRules.filter((r) => r.status === 'ACTIVE').length} Active Rules
               </Badge>
             </div>
@@ -996,7 +996,7 @@ export const TenantLocationPage: React.FC = () => {
                         : rule.schedule?.summaryText || rule.schedule?.type || 'Always Active (24/7)'}
                     </span>
                   </div>
-                  <Badge variant={rule.status === 'ACTIVE' ? 'healthy' : 'outline'} className="text-[10px]">
+                  <Badge variant={rule.status === 'ACTIVE' ? 'emerald' : 'slate'} className="text-[10px]">
                     {rule.status}
                   </Badge>
                 </div>

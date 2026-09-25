@@ -28,7 +28,7 @@ Ford,Transit Delivery,VAN,51D-334.56,White,2021,Contractor Lead`;
 
   if (!isOpen) return null;
 
-  const handleParseAndImport = () => {
+  const handleParseAndImport = async () => {
     setIsProcessing(true);
     setResultSummary(null);
 
@@ -77,7 +77,7 @@ Ford,Transit Delivery,VAN,51D-334.56,White,2021,Contractor Lead`;
       }
     }
 
-    const result = importTenantVehicles(itemsToImport);
+    const result = await importTenantVehicles(itemsToImport);
     setResultSummary({ imported: result.importedCount, duplicates: result.duplicateCount });
     setIsProcessing(false);
 

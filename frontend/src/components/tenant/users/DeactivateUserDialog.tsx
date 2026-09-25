@@ -32,9 +32,9 @@ export const DeactivateUserDialog: React.FC<DeactivateUserDialogProps> = ({ isOp
   const activeAdmins = tenantUsers.filter((u) => u.role === 'TENANT_ADMIN' && u.status === 'ACTIVE');
   const isOnlyActiveAdmin = user.role === 'TENANT_ADMIN' && isCurrentlyActive && activeAdmins.length <= 1;
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     setErrorMessage(null);
-    const res = toggleTenantUserStatus(user.id, targetStatus);
+    const res = await toggleTenantUserStatus(user.id, targetStatus);
     if (res.success) {
       onClose();
     } else {

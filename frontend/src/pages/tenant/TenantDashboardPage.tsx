@@ -76,6 +76,9 @@ export const TenantDashboardPage: React.FC = () => {
     setTenantNavTab,
     triggerGateCommand,
     simulateNewAccessEvent,
+    tenantLanes,
+    gates,
+    edgeDevices,
     addToast
   } = usePlatform();
 
@@ -135,73 +138,29 @@ export const TenantDashboardPage: React.FC = () => {
     ? Math.round(((site.currentOccupancy || 0) / site.capacity) * 100)
     : 66;
 
-  // Mock physical lanes for this single site
-  const lanes = [
-    {
-      id: 'lane-01',
-      name: 'Lane 01 (Inbound Main)',
-      direction: 'IN',
-      gateId: 'gate-mc-01',
-      gateName: 'Entrance Gate 01',
-      barrierState: 'CLOSED',
-      cameraName: 'CAM-01 ANPR',
-      cameraStatus: 'ONLINE',
-      ocrAccuracy: '99.4%',
-      lastPlate: '29A-123.45',
-      lastVehicle: 'Toyota Camry 2024',
-      lastStatus: 'ALLOWED',
-      lastTime: '14:32:01',
-      edgeNode: 'Edge Node 01'
-    },
-    {
-      id: 'lane-02',
-      name: 'Lane 02 (VIP FastTrack)',
-      direction: 'IN',
-      gateId: 'gate-mc-02',
-      gateName: 'Entrance Gate 02 VIP',
-      barrierState: 'CLOSED',
-      cameraName: 'CAM-02 ANPR VIP',
-      cameraStatus: 'ONLINE',
-      ocrAccuracy: '99.1%',
-      lastPlate: '30H-222.22',
-      lastVehicle: 'Mercedes-Benz S450',
-      lastStatus: 'ALLOWED',
-      lastTime: '14:31:44',
-      edgeNode: 'Edge Node 01'
-    },
-    {
-      id: 'lane-03',
-      name: 'Lane 03 (Outbound FastPass)',
-      direction: 'OUT',
-      gateId: 'gate-mc-03',
-      gateName: 'Exit Gate 01',
-      barrierState: 'CLOSED',
-      cameraName: 'CAM-03 ANPR Exit',
-      cameraStatus: 'ONLINE',
-      ocrAccuracy: '98.8%',
-      lastPlate: '60A-445.12',
-      lastVehicle: 'Honda Civic RS',
-      lastStatus: 'ALLOWED',
-      lastTime: '14:29:55',
-      edgeNode: 'Edge Node 02'
-    },
-    {
-      id: 'lane-04',
-      name: 'Lane 04 (Outbound Cargo & Standard)',
-      direction: 'OUT',
-      gateId: 'gate-mc-04',
-      gateName: 'Exit Gate 02',
-      barrierState: 'CLOSED',
-      cameraName: 'CAM-04 ANPR Exit',
-      cameraStatus: 'ONLINE',
-      ocrAccuracy: '99.0%',
-      lastPlate: '50E-120.44',
-      lastVehicle: 'Hyundai Solati',
-      lastStatus: 'ALLOWED',
-      lastTime: '14:25:12',
-      edgeNode: 'Edge Node 02'
-    }
-  ];
+  // Real lanes: gates joined with lane + edge-device + latest access event
+  const lanes = gates.map((gate) => {
+    const lane = tenantLanes.find((l) => l.id === gate.laneId);
+    const edge = edgeDevices.find((d) => d.id === gate.edgeDeviceId);
+    const lastEvent = accessEvents.find((e) => e.gateId === gate.id);
+    return {
+      id: lane?.id ?? gate.id,
+      name: lane?.name ?? gate.gateName,
+      direction: (lane?.direction ?? 'IN').toUpperCase(),
+      gateId: gate.id,
+      gateName: gate.gateName,
+      barrierState: (gate.rawStatus ?? 'closed').toUpperCase(),
+      cameraName: lane?.cameraUrl ? 'ANPR Cam' : 'No camera',
+      cameraStatus: gate.status,
+      ocrAccuracy: lastEvent ? `${(lastEvent.plateConfidence * 100).toFixed(1)}%` : '-',
+      lastEvent,
+      lastPlate: lastEvent?.plate ?? '-',
+      lastVehicle: '',
+      lastStatus: lastEvent?.decision ?? '-',
+      lastTime: lastEvent?.timeFormatted ?? '-',
+      edgeNode: edge?.deviceName ?? '-'
+    };
+  });
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-300">
@@ -444,7 +403,7 @@ export const TenantDashboardPage: React.FC = () => {
 
           <div className="flex items-center justify-between text-[11px] pt-2 border-t border-[#30363d]/60">
             <span className="text-[#3fb950] font-bold">
-              ✓ {((tenantSummary.accessToday.allowed / tenantSummary.accessToday.total) * 100).toFixed(1)}%
+              ✓ {tenantSummary.accessToday.total ? ((tenantSummary.accessToday.allowed / tenantSummary.accessToday.total) * 100).toFixed(1) : '0.0'}%
             </span>
             <span className="text-[#f85149] font-bold">
               ✕ {((tenantSummary.accessToday.denied / tenantSummary.accessToday.total) * 100).toFixed(1)}%
