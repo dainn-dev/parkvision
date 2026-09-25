@@ -2,12 +2,13 @@
 
 import re
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.enums import AccountStatus, TenantStatus, TenantUserRole
 from app.core.errors import conflict, not_found
+from app.core.rate_limit import rate_limited
 from app.database import anonymous_session, platform_session
 from app.models import LegalDocument, Plan, Tenant, TenantUser
 from app.schemas.auth import RegisterTenantIn, RegisterTenantOut
@@ -47,7 +48,11 @@ async def latest_legal_doc(doc_type: str) -> LegalDocOut:
     return LegalDocOut.model_validate(row)
 
 
-@router.get("/tenants/check-code", response_model=CheckCodeOut)
+@router.get(
+    "/tenants/check-code",
+    response_model=CheckCodeOut,
+    dependencies=[Depends(rate_limited("check-code", 30, 60))],
+)
 async def check_tenant_code(slug: str = Query(min_length=2, max_length=120)) -> CheckCodeOut:
     """Realtime slug availability check for the registration form."""
     normalized = slug.strip().lower()
@@ -66,7 +71,12 @@ async def check_tenant_code(slug: str = Query(min_length=2, max_length=120)) -> 
     )
 
 
-@router.post("/register", response_model=RegisterTenantOut, status_code=201)
+@router.post(
+    "/register",
+    response_model=RegisterTenantOut,
+    status_code=201,
+    dependencies=[Depends(rate_limited("register", 5, 60))],
+)
 async def register_tenant(body: RegisterTenantIn) -> RegisterTenantOut:
     async with platform_session() as db:
         plan = (await db.execute(select(Plan).where(Plan.code == body.plan_code))).scalar_one_or_none()
