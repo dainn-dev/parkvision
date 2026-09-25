@@ -58,3 +58,13 @@ def check_health() -> bool:
         return True
     except ClientError:
         return False
+
+
+def delete_objects(keys: list[str]) -> int:
+    """Delete S3 objects by key; returns count deleted. Raises on client errors."""
+    client = s3_client()
+    deleted = 0
+    for key in keys:
+        client.delete_object(Bucket=settings.s3_bucket, Key=key)
+        deleted += 1
+    return deleted

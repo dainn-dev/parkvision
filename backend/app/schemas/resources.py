@@ -580,3 +580,28 @@ class ImpersonateOut(CamelModel):
     impersonated_user_id: uuid.UUID
     expires_in: int
     csrf_token: str
+
+
+class EdgeVehicleEntry(CamelModel):
+    plate_normalized: str
+    tag: str
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
+    status: str
+    updated_at: datetime
+
+
+class EdgeWhitelistOut(CamelModel):
+    items: list[EdgeVehicleEntry]
+    synced_at: datetime
+    truncated: bool
+
+
+class EdgeRuleEntry(CamelModel):
+    id: uuid.UUID
+    site_id: uuid.UUID | None = None
+    name: str
+    rule_type: str
+    priority: int
+    schedule: dict[str, Any] = {}
+    conditions: dict[str, Any] = {}
