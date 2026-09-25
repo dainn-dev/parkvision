@@ -8,6 +8,7 @@ Jobs run in the `worker` container (`arq app.workers.jobs.WorkerSettings`):
 - expire_stale_commands   : gate commands past timeout -> 'timeout'
 - mark_offline_devices    : heartbeat staleness sweep
 - cleanup_expired_sessions: hard-delete sessions expired > 30 days
+- incident_notify         : CRITICAL incidents -> tenant webhook + Telegram
 """
 
 import uuid
@@ -334,3 +335,115 @@ async def cleanup_expired_sessions(ctx) -> int:
     async with platform_session() as db:
         res = await db.execute(delete(UserSession).where(UserSession.expires_at < cutoff))
         return res.rowcount
+
+
+MAX_NOTIFY_ATTEMPTS = 5
+
+
+async def incident_notify(ctx) -> int:
+    """Deliver CRITICAL incident alerts to the tenant's webhook + Telegram.
+
+    `tenants.settings` keys (snake_case, set via PUT /tenants/{id}/settings):
+    webhook_url, telegram_chat_id, notify_on_critical. The Telegram bot token
+    comes from platform_settings key `telegram_bot_token`.
+    Retries up to MAX_NOTIFY_ATTEMPTS, then dead-letters via `notify_error`.
+    """
+    import httpx
+    from sqlalchemy import select
+
+    from app.database import platform_session
+    from app.models import BarrierIncident, PlatformSetting, Tenant
+
+    delivered = 0
+    async with platform_session() as db:
+        rows = (
+            (
+                await db.execute(
+                    select(BarrierIncident)
+                    .where(
+                        BarrierIncident.severity == "critical",
+                        BarrierIncident.status != "resolved",
+                        BarrierIncident.notified_at.is_(None),
+                        BarrierIncident.notify_attempts < MAX_NOTIFY_ATTEMPTS,
+                    )
+                    .limit(50)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not rows:
+            return 0
+
+        bot_token = (
+            await db.execute(select(PlatformSetting.value).where(PlatformSetting.key == "telegram_bot_token"))
+        ).scalar_one_or_none()
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            for inc in rows:
+                tenant = (
+                    await db.execute(select(Tenant).where(Tenant.id == inc.tenant_id))
+                ).scalar_one_or_none()
+                tcfg = (tenant.settings or {}) if tenant else {}
+                if tcfg.get("notify_on_critical") is False:
+                    inc.notified_at = datetime.now(timezone.utc)
+                    delivered += 1
+                    continue
+
+                payload = {
+                    "incidentId": str(inc.id),
+                    "tenantId": str(inc.tenant_id),
+                    "siteId": str(inc.site_id) if inc.site_id else None,
+                    "gateId": str(inc.gate_id) if inc.gate_id else None,
+                    "type": inc.type,
+                    "severity": inc.severity,
+                    "description": inc.description,
+                    "detectedAt": inc.detected_at.isoformat() if inc.detected_at else None,
+                }
+                errors: list[str] = []
+                attempted = False
+
+                webhook = tcfg.get("webhook_url")
+                if webhook:
+                    attempted = True
+                    try:
+                        resp = await client.post(webhook, json=payload)
+                        if resp.status_code >= 400:
+                            errors.append(f"webhook http {resp.status_code}")
+                    except Exception as exc:  # network/timeout -> retry later
+                        errors.append(f"webhook {exc.__class__.__name__}")
+
+                chat_id = tcfg.get("telegram_chat_id")
+                if chat_id and bot_token:
+                    attempted = True
+                    try:
+                        text = (
+                            f"[{inc.severity.upper()}] {inc.type}\n"
+                            f"{inc.description or ''}\n"
+                            f"incident={inc.id} gate={inc.gate_id}"
+                        )
+                        resp = await client.post(
+                            f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                            json={"chat_id": chat_id, "text": text},
+                        )
+                        if resp.status_code >= 400:
+                            errors.append(f"telegram http {resp.status_code}")
+                    except Exception as exc:
+                        errors.append(f"telegram {exc.__class__.__name__}")
+                elif chat_id and not bot_token:
+                    errors.append("telegram_bot_token not configured")
+
+                if not attempted:
+                    # No channel configured — mark done so the sweep skips it.
+                    inc.notified_at = datetime.now(timezone.utc)
+                    delivered += 1
+                elif errors:
+                    inc.notify_attempts = (inc.notify_attempts or 0) + 1
+                    inc.notify_error = "; ".join(errors)[:500]
+                    if inc.notify_attempts >= MAX_NOTIFY_ATTEMPTS:
+                        inc.notified_at = datetime.now(timezone.utc)  # dead-letter
+                else:
+                    inc.notified_at = datetime.now(timezone.utc)
+                    inc.notify_error = None
+                    delivered += 1
+    return delivered

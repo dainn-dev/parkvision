@@ -23,6 +23,11 @@ export type AccessEventOut = S['AccessEventOut'];
 export type IncidentOut = S['IncidentOut'];
 export type AuditLogOut = S['AuditLogOut'];
 export type JobOut = S['JobOut'];
+export type ApiCredentialOut = S['ApiCredentialOut'];
+export type ApiCredentialCreatedOut = S['ApiCredentialCreatedOut'];
+export type ApiCredentialCreateIn = S['ApiCredentialCreateIn'];
+export type ImpersonateOut = S['ImpersonateOut'];
+export type MessageOut = S['MessageOut'];
 export interface InfraCheck {
   status: string;
   latencyMs?: number;
@@ -116,6 +121,11 @@ export const platformApi = {
   throughputChart: (hours = 24) => api.get<S['ThroughputChartOut']>(`/platform/metrics/throughput-chart${qs({ hours })}`),
   telemetrySnapshot: () => api.get<S['TelemetrySnapshotOut']>('/platform/monitoring/telemetry-snapshot'),
   rebootEdgeDevice: (deviceId: string) => api.post<S['EdgeRebootOut']>(`/platform/edge-devices/${deviceId}/reboot`),
+  credentials: () => api.get<S['ApiCredentialOut'][]>('/platform/credentials'),
+  createCredential: (body: S['ApiCredentialCreateIn']) => api.post<S['ApiCredentialCreatedOut']>('/platform/credentials', body),
+  rotateCredential: (id: string) => api.post<S['ApiCredentialCreatedOut']>(`/platform/credentials/${id}/rotate`),
+  revokeCredential: (id: string) => api.post<S['MessageOut']>(`/platform/credentials/${id}/revoke`),
+  impersonateTenant: (tenantId: string) => api.post<S['ImpersonateOut']>(`/platform/tenants/${tenantId}/impersonate`),
 };
 
 // ---------- Tenant-scoped ----------
