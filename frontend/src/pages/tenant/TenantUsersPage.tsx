@@ -954,12 +954,12 @@ export const TenantUsersPage: React.FC = () => {
 
                       {/* Sent At */}
                       <td className="py-3 px-4 font-mono text-[#8b949e] text-[11px]">
-                        {new Date(inv.sentAt).toLocaleDateString()}
+                        {inv.sentAt ? new Date(inv.sentAt).toLocaleDateString() : '—'}
                       </td>
 
                       {/* Expires At */}
                       <td className="py-3 px-4 font-mono text-[#8b949e] text-[11px]">
-                        {new Date(inv.expiresAt).toLocaleDateString()}
+                        {inv.expiresAt ? new Date(inv.expiresAt).toLocaleDateString() : '—'}
                       </td>
 
                       {/* Actions */}

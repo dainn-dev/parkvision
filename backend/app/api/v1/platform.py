@@ -142,6 +142,7 @@ async def update_tenant(
             details={"changes": list(changes.keys())},
             ip=request.client.host if request.client else None,
         )
+        await db.flush()
         await db.refresh(row)
     return TenantOut.model_validate(row)
 

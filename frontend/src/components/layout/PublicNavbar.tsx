@@ -20,7 +20,7 @@ import {
 import { usePlatform } from '../../context/PlatformContext';
 import { Button, Badge } from '../ui';
 
-export type PublicViewType = 'landing' | 'login' | 'register' | 'privacy' | 'terms' | 'sla';
+export type PublicViewType = 'landing' | 'login' | 'register' | 'privacy' | 'terms' | 'sla' | 'activate';
 
 interface PublicNavbarProps {
   currentView: PublicViewType;

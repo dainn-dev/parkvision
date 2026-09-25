@@ -79,4 +79,5 @@ async def barrier_telemetry(ws: WebSocket, tenant_id: uuid.UUID) -> None:
         fwd.cancel()
         hb.cancel()
         await pubsub.unsubscribe(ws_channel(tenant_id))
-        await pubsub.aclose()
+        close = getattr(pubsub, 'aclose', None) or getattr(pubsub, 'close')
+        await close()

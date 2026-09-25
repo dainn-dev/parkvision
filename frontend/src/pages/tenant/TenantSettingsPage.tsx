@@ -30,9 +30,9 @@ export const TenantSettingsPage: React.FC = () => {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     addToast({
-      type: 'success',
-      title: 'Settings Saved',
-      description: 'Tenant organization settings and ANPR barrier policies updated successfully.'
+      type: 'info',
+      title: 'Not persisted',
+      description: 'These tenant settings are not editable via the API yet — a platform admin must apply them.'
     });
   };
 

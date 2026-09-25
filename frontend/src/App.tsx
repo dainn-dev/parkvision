@@ -15,6 +15,7 @@ import { TermsOfServicePage } from './pages/public/TermsOfServicePage';
 import { SlaPolicyPage } from './pages/public/SlaPolicyPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
+import { ActivatePage } from './pages/auth/ActivatePage';
 
 // Platform Governance Pages
 import { DashboardPage } from './pages/DashboardPage';
@@ -56,8 +57,12 @@ const PlatformAppContent: React.FC = () => {
     mfaTargetAdminName
   } = usePlatform();
 
-  // Public site view state: 'landing' | 'terms' | 'privacy' | 'sla' | 'login' | 'register'
-  const [publicView, setPublicView] = useState<PublicViewType>('landing');
+  // Public site view state: 'landing' | 'terms' | 'privacy' | 'sla' | 'login' | 'register' | 'activate'
+  const [publicView, setPublicView] = useState<PublicViewType>(() => {
+    const p = window.location.pathname.replace(/\/$/, '');
+    return p === '/activate' ? 'activate' : 'landing';
+  });
+  const [inviteToken] = useState<string>(() => new URLSearchParams(window.location.search).get('token') ?? '');
   const [selectedPricingPlan, setSelectedPricingPlan] = useState<string>('business');
 
   // Allow authenticated users to preview the public landing page if desired
@@ -87,7 +92,7 @@ const PlatformAppContent: React.FC = () => {
         )}
 
         {/* Public Navigation Bar (only on non-login/register standalone pages) */}
-        {publicView !== 'login' && publicView !== 'register' && (
+        {publicView !== 'login' && publicView !== 'register' && publicView !== 'activate' && (
           <PublicNavbar
             currentView={publicView}
             onNavigate={setPublicView}
@@ -119,6 +124,10 @@ const PlatformAppContent: React.FC = () => {
             <LoginPage onNavigate={setPublicView} />
           )}
 
+          {publicView === 'activate' && (
+            <ActivatePage onNavigate={setPublicView} token={inviteToken} />
+          )}
+
           {publicView === 'register' && (
             <RegisterPage
               initialPlan={selectedPricingPlan}
@@ -131,7 +140,7 @@ const PlatformAppContent: React.FC = () => {
         </main>
 
         {/* Public Footer (only on content pages) */}
-        {publicView !== 'login' && publicView !== 'register' && (
+        {publicView !== 'login' && publicView !== 'register' && publicView !== 'activate' && (
           <PublicFooter onNavigate={setPublicView} />
         )}
 

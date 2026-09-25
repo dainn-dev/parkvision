@@ -86,7 +86,7 @@ export const platformApi = {
     api.get<Page<TenantOut>>(`/platform/tenants${qs(p)}`),
   getTenant: (id: string) => api.get<TenantOut>(`/platform/tenants/${id}`),
   createTenant: (body: {
-    tenantName: string;
+    name: string;
     slug: string;
     planCode?: string;
     contactEmail: string;
@@ -121,7 +121,7 @@ export const tenantApi = {
   updateSite: (t: string, id: string, body: Partial<{ name: string; address: string; timezone: string; status: string }>) => api.patch<SiteOut>(T(t, `/sites/${id}`), body),
   deleteSite: (t: string, id: string) => api.del(T(t, `/sites/${id}`)),
 
-  lanes: (t: string, siteId: string) => api.get<Page<LaneOut>>(T(t, `/sites/${siteId}/lanes`)),
+  lanes: (t: string, siteId: string) => api.get<LaneOut[]>(T(t, `/sites/${siteId}/lanes`)),
   createLane: (t: string, siteId: string, body: { name: string; direction?: string; cameraUrl?: string; status?: string }) => api.post<LaneOut>(T(t, `/sites/${siteId}/lanes`), body),
   updateLane: (t: string, id: string, body: Partial<{ name: string; direction: string; cameraUrl: string; status: string }>) => api.patch<LaneOut>(T(t, `/lanes/${id}`), body),
   deleteLane: (t: string, id: string) => api.del(T(t, `/lanes/${id}`)),
@@ -151,7 +151,7 @@ export const tenantApi = {
   importVehicles: (t: string, csv: Blob) => {
     const form = new FormData();
     form.append('file', csv, 'vehicles.csv');
-    return api.postForm<JobOut>(T(t, '/vehicles/import'), form);
+    return api.postForm<{ jobId: string }>(T(t, '/vehicles/import'), form);
   },
 
   rules: (t: string, p: { page?: number; limit?: number } = {}) => api.get<Page<RuleOut>>(T(t, `/rules${qs(p)}`)),

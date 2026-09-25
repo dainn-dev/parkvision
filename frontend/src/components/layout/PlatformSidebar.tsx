@@ -47,6 +47,8 @@ export const PlatformSidebar: React.FC = () => {
     tenantAlerts,
     tenantSites,
     tenants,
+    tenantVehicles,
+    tenantLocation,
     currentUser,
     setSelectedTenantId
   } = usePlatform();
@@ -107,7 +109,7 @@ export const PlatformSidebar: React.FC = () => {
           </div>
           <div>
             <h1 className="text-xs font-bold tracking-tight text-white flex items-center gap-1 font-mono">
-              {appWorkspace === 'tenant' ? 'ACME PARKING' : 'PLATFORM'} <span className="text-[#58a6ff]">{appWorkspace === 'tenant' ? 'PORTAL' : 'GOV'}</span>
+              {appWorkspace === 'tenant' ? (tenantLocation.tenantName || tenantLocation.name || 'TENANT').toUpperCase() : 'PLATFORM'} <span className="text-[#58a6ff]">{appWorkspace === 'tenant' ? 'PORTAL' : 'GOV'}</span>
             </h1>
             <p className="text-[9px] text-[#8b949e] font-semibold uppercase tracking-wider">
               {appWorkspace === 'tenant' ? 'Tenant Site Management' : 'Superadmin Control'}
@@ -194,7 +196,7 @@ export const PlatformSidebar: React.FC = () => {
                   <span>Vehicles & Whitelist</span>
                 </div>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#21262d] text-[#8b949e] font-mono">
-                  620
+                  {tenantVehicles.length}
                 </span>
               </button>
 

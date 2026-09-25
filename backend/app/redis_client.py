@@ -22,5 +22,6 @@ def ws_channel(tenant_id) -> str:
 async def close_redis() -> None:
     global _redis
     if _redis is not None:
-        await _redis.aclose()
+        close = getattr(_redis, 'aclose', None) or getattr(_redis, 'close')
+        await close()
         _redis = None

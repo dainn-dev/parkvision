@@ -89,6 +89,14 @@ import {
   INITIAL_LOGIN_EVENTS,
   INITIAL_CREDENTIALS,
 } from '../data/mockData';
+// UI role labels -> backend TenantUserRole enum
+const mapUiRoleToBackend = (role: string): string => {
+  const r = (role ?? '').toUpperCase();
+  if (r === 'OWNER' || r === 'ADMIN' || r === 'TENANT_ADMIN') return 'admin';
+  if (r === 'OPERATOR' || r === 'SITE_MANAGER' || r === 'MANAGER') return 'operator';
+  return 'viewer';
+};
+
 interface ToastMessage {
   id: string;
   type: 'success' | 'error' | 'warning' | 'info';
@@ -324,6 +332,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [isSessionLoading, setIsSessionLoading] = useState<boolean>(true);
   const [currentUser, setCurrentUser] = useState({ id: '', name: '', email: '', role: '', mfaEnabled: false });
   const [tenantId, setTenantId] = useState<string | null>(null);
+  const [tenantSlug, setTenantSlug] = useState<string | null>(null);
   const [userType, setUserType] = useState<string>('');
 
   const applyMe = useCallback(
@@ -331,6 +340,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       setIsAuthenticated(true);
       setUserType(me.userType);
       setTenantId(me.tenantId ?? null);
+      setTenantSlug(me.tenantSlug ?? null);
       setCurrentUser({
         id: me.user.id,
         name: me.user.fullName,
@@ -518,10 +528,9 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       const gatesMapped = gatesPage.data.map((g) => mapGate(g, tId, tName));
       const gateNames = new Map(gatesPage.data.map((g) => [g.id, g.name]));
       const lanesNested = await Promise.all(
-        sitesPage.data.map((s) => tenantApi.lanes(tId, s.id).catch(() => ({ data: [] as LaneOut[], meta: { page: 1, limit: 100, total: 0 } })))
+        sitesPage.data.map((s) => tenantApi.lanes(tId, s.id).catch(() => [] as LaneOut[]))
       );
-      const allLanes = lanesNested.flatMap((p) => p.data);
-      setTenantLanes(allLanes);
+      setTenantLanes(lanesNested.flat());
 
       setTenantSites(sites.map((s) => ({
         ...s,
@@ -529,7 +538,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         onlineGateCount: gatesPage.data.filter((g) => g.siteId === s.id && (g.status === 'open' || g.status === 'closed')).length,
         edgeDeviceCount: devicesPage.data.filter((d) => d.siteId === s.id).length,
         onlineEdgeDeviceCount: devicesPage.data.filter((d) => d.siteId === s.id && d.status === 'online').length,
-        lanesCount: 0,
+        lanesCount: lanesNested[sitesPage.data.findIndex((pg) => pg.id === s.id)]?.length ?? 0,
       })));
       setGates(gatesMapped);
       setEdgeDevices(devicesPage.data.map((d) => mapDevice(d, tId, tName)));
@@ -657,15 +666,14 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     void loadTenantData(activeTenantId);
   }, [isAuthenticated, activeTenantId, loadTenantData, tenants]);
 
-  // Resolve tenant name for tenant_user sessions
+  // Resolve tenant name for tenant_user sessions — me() only exposes the slug,
+  // and tenant users may not call platform endpoints, so display the slug.
   useEffect(() => {
-    if (isAuthenticated && userType === 'tenant_user' && tenantId && !tenantNameRef.current) {
-      platformApi.getTenant(tenantId).then((t) => {
-        tenantNameRef.current = t.name;
-        setTenantLocation((prev) => ({ ...prev, tenantId: t.id, tenantName: t.name, name: t.name, email: t.contactEmail ?? prev.email, status: t.status === 'active' ? 'ACTIVE' : 'INACTIVE' }));
-      }).catch(() => undefined);
+    if (isAuthenticated && userType === 'tenant_user' && tenantId && tenantSlug) {
+      tenantNameRef.current = tenantSlug;
+      setTenantLocation((prev) => ({ ...prev, tenantId, tenantName: tenantSlug, name: tenantSlug }));
     }
-  }, [isAuthenticated, userType, tenantId]);
+  }, [isAuthenticated, userType, tenantId, tenantSlug]);
 
   // ---------- Realtime WebSocket ----------
   useEffect(() => {
@@ -768,7 +776,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const createTenant = async (tenantData: Partial<Tenant>, adminData: any) => {
     try {
       await platformApi.createTenant({
-        tenantName: tenantData.name ?? '',
+        name: tenantData.name ?? '',
         slug: (tenantData.code ?? tenantData.name ?? '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || `tenant-${Date.now()}`,
         planCode: 'starter',
         contactEmail: tenantData.email ?? adminData?.email ?? '',
@@ -892,8 +900,19 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const updateTenantLocation = (updatedData: Partial<TenantLocation>) => {
     setTenantLocation((prev) => ({ ...prev, ...updatedData }));
-    if (activeTenantId && updatedData.name) {
-      platformApi.updateTenant(activeTenantId, { name: updatedData.name }).catch(() => undefined);
+    const site = tenantSites[0];
+    if (activeTenantId && site && updatedData.name) {
+      tenantApi
+        .updateSite(activeTenantId, site.id, {
+          name: updatedData.name,
+          address: typeof updatedData.address === 'string'
+            ? updatedData.address
+            : [updatedData.address?.line1, updatedData.address?.city, updatedData.address?.country]
+                .filter(Boolean)
+                .join(', ') || undefined
+        })
+        .then(() => loadTenantData(activeTenantId))
+        .catch(toastErr('Failed to update site'));
     }
   };
 
@@ -903,8 +922,12 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const toggleLocationStatus = (status: 'ACTIVE' | 'INACTIVE') => {
     setTenantLocation((prev) => ({ ...prev, status }));
-    if (activeTenantId) {
-      platformApi.updateTenant(activeTenantId, { status: status === 'ACTIVE' ? 'active' : 'inactive' }).catch(() => undefined);
+    const site = tenantSites[0];
+    if (activeTenantId && site) {
+      tenantApi
+        .updateSite(activeTenantId, site.id, { status: status.toLowerCase() })
+        .then(() => loadTenantData(activeTenantId))
+        .catch(toastErr('Failed to update site status'));
     }
   };
 
@@ -1090,7 +1113,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         let tries = 0;
         const poll = setInterval(() => {
           tries += 1;
-          tenantApi.job(activeTenantId!, job.id).then((j) => {
+          tenantApi.job(activeTenantId!, job.jobId).then((j) => {
             if (j.status === 'done' || j.status === 'failed' || tries >= 20) {
               clearInterval(poll);
               resolve((j.result as { created?: number; skipped?: number; updated?: number }) ?? {});
@@ -1114,7 +1137,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const inviteTenantMember = (memberData: { name: string; email: string; role: string; siteAccess: string[] }) => {
     if (!activeTenantId) return;
     tenantApi
-      .inviteUser(activeTenantId, { email: memberData.email, fullName: memberData.name, role: memberData.role.toLowerCase() })
+      .inviteUser(activeTenantId, { email: memberData.email, fullName: memberData.name, role: mapUiRoleToBackend(memberData.role) })
       .then(() => loadTenantData(activeTenantId))
       .then(() => addToast({ type: 'success', title: 'Invitation sent', description: memberData.email }))
       .catch(toastErr('Failed to invite member'));
@@ -1152,15 +1175,20 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (!activeTenantId) return { success: false, message: 'No tenant selected' };
     const conflicts = detectRuleConflicts(ruleData);
     try {
+      const siteIds = (ruleData.scope?.siteIds ?? []).filter((s: string) => s && !s.startsWith('ALL_'));
+      const gateIds = (ruleData.scope?.gateIds ?? []).filter((g: string) => g && !g.startsWith('ALL_'));
       const r = await tenantApi.createRule(activeTenantId, {
-        siteId: ruleData.scope?.siteIds?.[0] ?? ruleData.siteId,
+        siteId: siteIds[0] ?? undefined,
         name: ruleData.name ?? '',
-        ruleType: (ruleData.type ?? ruleData.code ?? 'custom').toLowerCase(),
+        ruleType: (ruleData.action ?? 'custom').toLowerCase(),
         priority: ruleData.priority ?? 100,
         schedule: ruleData.schedule ?? {},
         conditions: {
           plateNumber: ruleData.target?.licensePlate,
-          gateIds: ruleData.scope?.gateIds,
+          gateIds: gateIds.length ? gateIds : undefined,
+          allSites: ruleData.scope?.allSites || undefined,
+          allGates: ruleData.scope?.allGates || undefined,
+          targetType: ruleData.target?.type,
           notes: ruleData.target?.notes ?? ruleData.description,
         },
         active: true,
@@ -1175,20 +1203,25 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const updateTenantAccessRule = async (ruleId: string, ruleData: Partial<TenantAccessRule>) => {
     if (!activeTenantId) return { success: false, message: 'No tenant selected' };
     try {
+      const siteIds = (ruleData.scope?.siteIds ?? []).filter((s: string) => s && !s.startsWith('ALL_'));
+      const gateIds = (ruleData.scope?.gateIds ?? []).filter((g: string) => g && !g.startsWith('ALL_'));
       const r = await tenantApi.updateRule(activeTenantId, ruleId, {
         name: ruleData.name,
-        ruleType: ruleData.type?.toLowerCase() ?? ruleData.code?.toLowerCase(),
+        ruleType: ruleData.action?.toLowerCase(),
         priority: ruleData.priority,
         schedule: ruleData.schedule as object | undefined,
         conditions: ruleData.target
           ? {
               plateNumber: ruleData.target.licensePlate,
-              gateIds: ruleData.scope?.gateIds,
+              gateIds: gateIds.length ? gateIds : undefined,
+              allSites: ruleData.scope?.allSites || undefined,
+              allGates: ruleData.scope?.allGates || undefined,
+              targetType: ruleData.target.type,
               notes: ruleData.target.notes ?? ruleData.description,
             }
           : undefined,
         active: ruleData.status ? ruleData.status === 'ACTIVE' : undefined,
-        siteId: ruleData.scope?.siteIds?.[0],
+        siteId: siteIds[0] ?? undefined,
       });
       await loadTenantData(activeTenantId);
       return { success: true, rule: mapRule(r) };
@@ -1298,7 +1331,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       await tenantApi.inviteUser(activeTenantId, {
         email: data.email,
         fullName: data.fullName ?? data.email,
-        role: data.role.toLowerCase(),
+        role: mapUiRoleToBackend(data.role),
       });
       await loadTenantData(activeTenantId);
       return { success: true };
