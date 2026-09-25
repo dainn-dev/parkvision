@@ -33,9 +33,7 @@ async def main() -> None:
     async with Session() as db:
         admin = (
             await db.execute(
-                select(PlatformAdmin).where(
-                    PlatformAdmin.email == settings.seed_platform_admin_email
-                )
+                select(PlatformAdmin).where(PlatformAdmin.email == settings.seed_platform_admin_email)
             )
         ).scalar_one_or_none()
         if admin is None:
@@ -49,9 +47,7 @@ async def main() -> None:
             db.add(admin)
             print(f"platform admin: {settings.seed_platform_admin_email}")
 
-        tenant = (
-            await db.execute(select(Tenant).where(Tenant.slug == "demo"))
-        ).scalar_one_or_none()
+        tenant = (await db.execute(select(Tenant).where(Tenant.slug == "demo"))).scalar_one_or_none()
         if tenant is None:
             tenant = Tenant(
                 name="Demo Parking Co",
@@ -64,9 +60,7 @@ async def main() -> None:
             await db.flush()
 
         owner = (
-            await db.execute(
-                select(TenantUser).where(TenantUser.email == "owner@demo.example.com")
-            )
+            await db.execute(select(TenantUser).where(TenantUser.email == "owner@demo.example.com"))
         ).scalar_one_or_none()
         if owner is None:
             owner = TenantUser(
@@ -82,22 +76,16 @@ async def main() -> None:
 
         site = (
             await db.execute(
-                select(TenantSite).where(
-                    TenantSite.tenant_id == tenant.id, TenantSite.name == "HQ Garage"
-                )
+                select(TenantSite).where(TenantSite.tenant_id == tenant.id, TenantSite.name == "HQ Garage")
             )
         ).scalar_one_or_none()
         if site is None:
-            site = TenantSite(
-                tenant_id=tenant.id, name="HQ Garage", address="1 Demo St", timezone="UTC"
-            )
+            site = TenantSite(tenant_id=tenant.id, name="HQ Garage", address="1 Demo St", timezone="UTC")
             db.add(site)
             await db.flush()
 
         device = (
-            await db.execute(
-                select(EdgeDevice).where(EdgeDevice.device_key == "edge-demo-01")
-            )
+            await db.execute(select(EdgeDevice).where(EdgeDevice.device_key == "edge-demo-01"))
         ).scalar_one_or_none()
         if device is None:
             device = EdgeDevice(
@@ -153,10 +141,7 @@ async def main() -> None:
                 )
         await db.commit()
 
-    print(
-        f"seeded tenant={tenant.slug} ({tenant.id}) site={site.id} "
-        f"gate={gate.id} device={device.id}"
-    )
+    print(f"seeded tenant={tenant.slug} ({tenant.id}) site={site.id} " f"gate={gate.id} device={device.id}")
     await engine.dispose()
 
 

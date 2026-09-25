@@ -69,17 +69,13 @@ async def test_command_idempotency_and_outbox(client: AsyncClient, tenant, gate)
     tid = tenant["tenant_id"]
 
     body = {"command": "open", "idempotencyKey": f"idem-{uuid.uuid4().hex[:10]}"}
-    r1 = await client.post(
-        f"/api/v1/tenants/{tid}/gates/{gate_id}/commands", json=body, headers=csrf(client)
-    )
+    r1 = await client.post(f"/api/v1/tenants/{tid}/gates/{gate_id}/commands", json=body, headers=csrf(client))
     assert r1.status_code == 202, r1.text
     first = r1.json()
     assert first["status"] == "sent"
 
     # Same key + same command → returns original row (no duplicate work).
-    r2 = await client.post(
-        f"/api/v1/tenants/{tid}/gates/{gate_id}/commands", json=body, headers=csrf(client)
-    )
+    r2 = await client.post(f"/api/v1/tenants/{tid}/gates/{gate_id}/commands", json=body, headers=csrf(client))
     assert r2.status_code == 202
     assert r2.json()["id"] == first["id"]
 

@@ -29,18 +29,20 @@ async def list_rules(
     db: AsyncSession = Depends(get_tenant_db),
 ) -> Page[RuleOut]:
     cond = [TenantAccessRule.tenant_id == ctx.tenant_id]
-    total = (
-        await db.execute(select(func.count()).select_from(TenantAccessRule).where(*cond))
-    ).scalar_one()
+    total = (await db.execute(select(func.count()).select_from(TenantAccessRule).where(*cond))).scalar_one()
     rows = (
-        await db.execute(
-            select(TenantAccessRule)
-            .where(*cond)
-            .order_by(TenantAccessRule.priority)
-            .offset((page - 1) * limit)
-            .limit(limit)
+        (
+            await db.execute(
+                select(TenantAccessRule)
+                .where(*cond)
+                .order_by(TenantAccessRule.priority)
+                .offset((page - 1) * limit)
+                .limit(limit)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return paginate([RuleOut.model_validate(r) for r in rows], total, page, limit)
 
 
@@ -56,9 +58,14 @@ async def create_rule(
     db.add(row)
     await db.flush()
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="rule.created",
-        resource_type="tenant_access_rule", resource_id=str(row.id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="rule.created",
+        resource_type="tenant_access_rule",
+        resource_id=str(row.id),
         ip=request.client.host if request.client else None,
     )
     return RuleOut.model_validate(row)
@@ -86,9 +93,14 @@ async def update_rule(
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(row, k, v)
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="rule.updated",
-        resource_type="tenant_access_rule", resource_id=str(rule_id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="rule.updated",
+        resource_type="tenant_access_rule",
+        resource_id=str(rule_id),
         ip=request.client.host if request.client else None,
     )
     return RuleOut.model_validate(row)
@@ -114,9 +126,14 @@ async def delete_rule(
         raise not_found("rule", rule_id)
     await db.delete(row)
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="rule.deleted",
-        resource_type="tenant_access_rule", resource_id=str(rule_id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="rule.deleted",
+        resource_type="tenant_access_rule",
+        resource_id=str(rule_id),
         ip=request.client.host if request.client else None,
     )
     return {"data": {"message": "Rule deleted"}}

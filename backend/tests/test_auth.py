@@ -37,6 +37,7 @@ async def test_refresh_rotates_and_reuse_revokes(client: AsyncClient, tenant):
 
     # Replay of the rotated token OUTSIDE the grace window must revoke the family.
     import app.services.auth_service as svc
+
     svc.REUSE_GRACE_SECONDS = 0
     try:
         client.cookies.delete("vm_refresh")
@@ -104,9 +105,7 @@ async def test_mfa_full_flow(client: AsyncClient, tenant):
     engine = create_async_engine(settings.migration_database_url)
     Session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with Session() as db:
-        user = (
-            await db.execute(select(TenantUser).where(TenantUser.email == tenant["email"]))
-        ).scalar_one()
+        user = (await db.execute(select(TenantUser).where(TenantUser.email == tenant["email"]))).scalar_one()
         user.mfa_secret = encrypt_secret(secret)
         user.mfa_enabled = True
         await db.commit()

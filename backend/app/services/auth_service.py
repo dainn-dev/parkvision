@@ -111,9 +111,7 @@ async def login(email: str, password: str, ip: str | None, user_agent: str | Non
             user_type = ActorType.TENANT_USER
             tenant_id = user.tenant_id
         else:
-            res = await db.execute(
-                select(PlatformAdmin).where(PlatformAdmin.email == email.lower())
-            )
+            res = await db.execute(select(PlatformAdmin).where(PlatformAdmin.email == email.lower()))
             user = res.scalar_one_or_none()
             user_type = ActorType.PLATFORM_ADMIN if user else None
 
@@ -180,9 +178,7 @@ async def complete_mfa(user_id: uuid.UUID, session_id: uuid.UUID, code: str) -> 
 
         user: TenantUser | PlatformAdmin | None = None
         if sess.user_type == ActorType.TENANT_USER:
-            user = (
-                await db.execute(select(TenantUser).where(TenantUser.id == user_id))
-            ).scalar_one_or_none()
+            user = (await db.execute(select(TenantUser).where(TenantUser.id == user_id))).scalar_one_or_none()
         else:
             user = (
                 await db.execute(select(PlatformAdmin).where(PlatformAdmin.id == user_id))
@@ -245,9 +241,7 @@ async def refresh_session(raw_refresh_token: str) -> TokenBundle:
                 # Reuse of a rotated token outside the retry window: treat as
                 # theft and revoke the whole session family.
                 await db.execute(
-                    update(UserSession)
-                    .where(UserSession.family_id == sess.family_id)
-                    .values(revoked_at=now)
+                    update(UserSession).where(UserSession.family_id == sess.family_id).values(revoked_at=now)
                 )
                 # Commit the revocation before raising — raising inside
                 # session.begin() would roll it back.
@@ -266,9 +260,7 @@ async def refresh_session(raw_refresh_token: str) -> TokenBundle:
             ).scalar_one_or_none()
         else:
             user = (
-                await db.execute(
-                    select(PlatformAdmin).where(PlatformAdmin.id == sess.user_id)
-                )
+                await db.execute(select(PlatformAdmin).where(PlatformAdmin.id == sess.user_id))
             ).scalar_one_or_none()
         if user is None or user.status != AccountStatus.ACTIVE:
             raise unauthorized("Account is not active")
@@ -279,9 +271,7 @@ async def refresh_session(raw_refresh_token: str) -> TokenBundle:
             sess.last_seen_at = now
             sess.refresh_token_plain = raw_refresh_token
             await db.flush()
-            return _bundle(
-                sess, user.id, sess.user_type, sess.tenant_id, user.role, sess.mfa_verified
-            )
+            return _bundle(sess, user.id, sess.user_type, sess.tenant_id, user.role, sess.mfa_verified)
 
         new_plain = new_refresh_token()
         sess.prev_refresh_token_hash = sess.refresh_token_hash
@@ -300,9 +290,7 @@ async def flag_family_compromised(session_id: uuid.UUID) -> None:
             update(UserSession)
             .where(
                 UserSession.family_id
-                == select(UserSession.family_id)
-                .where(UserSession.id == session_id)
-                .scalar_subquery()
+                == select(UserSession.family_id).where(UserSession.id == session_id).scalar_subquery()
             )
             .values(revoked_at=datetime.now(timezone.utc))
         )
@@ -321,9 +309,7 @@ async def validate_session_state(session_id: uuid.UUID) -> bool:
     async with platform_session() as db:
         sess = (
             await db.execute(
-                select(UserSession.revoked_at, UserSession.expires_at).where(
-                    UserSession.id == session_id
-                )
+                select(UserSession.revoked_at, UserSession.expires_at).where(UserSession.id == session_id)
             )
         ).one_or_none()
         if sess is None:
@@ -337,13 +323,9 @@ async def mfa_setup(user: TenantUser | PlatformAdmin) -> tuple[str, str]:
     secret = new_totp_secret()
     async with platform_session() as db:
         if isinstance(user, TenantUser):
-            row = (
-                await db.execute(select(TenantUser).where(TenantUser.id == user.id))
-            ).scalar_one()
+            row = (await db.execute(select(TenantUser).where(TenantUser.id == user.id))).scalar_one()
         else:
-            row = (
-                await db.execute(select(PlatformAdmin).where(PlatformAdmin.id == user.id))
-            ).scalar_one()
+            row = (await db.execute(select(PlatformAdmin).where(PlatformAdmin.id == user.id))).scalar_one()
         row.mfa_secret = encrypt_secret(secret)
     return secret, totp_uri(secret, user.email)
 
@@ -375,9 +357,7 @@ async def mfa_disable(user_id: uuid.UUID, user_type: str, code: str) -> None:
         row.mfa_backup_hashes = None
 
 
-async def change_password(
-    user_id: uuid.UUID, user_type: str, current: str, new: str
-) -> None:
+async def change_password(user_id: uuid.UUID, user_type: str, current: str, new: str) -> None:
     async with platform_session() as db:
         model = TenantUser if user_type == ActorType.TENANT_USER else PlatformAdmin
         row = (await db.execute(select(model).where(model.id == user_id))).scalar_one_or_none()
@@ -396,6 +376,4 @@ async def change_password(
 
 async def resolve_tenant_for_user(tenant_id: uuid.UUID) -> Tenant | None:
     async with platform_session() as db:
-        return (
-            await db.execute(select(Tenant).where(Tenant.id == tenant_id))
-        ).scalar_one_or_none()
+        return (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalar_one_or_none()

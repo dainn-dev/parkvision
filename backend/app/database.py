@@ -43,9 +43,7 @@ async def tenant_session(tenant_id: str) -> AsyncIterator[AsyncSession]:
 async def platform_session() -> AsyncIterator[AsyncSession]:
     """Session bypassing tenant RLS — for login lookup and platform admin paths only."""
     async with AsyncSessionLocal() as session, session.begin():
-        await session.execute(
-            text("SELECT set_config('app.platform_bypass', 'true', true)")
-        )
+        await session.execute(text("SELECT set_config('app.platform_bypass', 'true', true)"))
         yield session
 
 

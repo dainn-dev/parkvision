@@ -28,8 +28,13 @@ router = APIRouter(
 
 def _out(u: TenantUser) -> UserOut:
     return UserOut(
-        id=u.id, email=u.email, full_name=u.full_name, role=str(u.role),
-        status=str(u.status), mfa_enabled=u.mfa_enabled, tenant_id=u.tenant_id,
+        id=u.id,
+        email=u.email,
+        full_name=u.full_name,
+        role=str(u.role),
+        status=str(u.status),
+        mfa_enabled=u.mfa_enabled,
+        tenant_id=u.tenant_id,
         last_login_at=u.last_login_at,
     )
 
@@ -42,18 +47,20 @@ async def list_users(
     db: AsyncSession = Depends(get_tenant_db),
 ) -> Page[UserOut]:
     cond = [TenantUser.tenant_id == ctx.tenant_id]
-    total = (
-        await db.execute(select(func.count()).select_from(TenantUser).where(*cond))
-    ).scalar_one()
+    total = (await db.execute(select(func.count()).select_from(TenantUser).where(*cond))).scalar_one()
     rows = (
-        await db.execute(
-            select(TenantUser)
-            .where(*cond)
-            .order_by(TenantUser.created_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
+        (
+            await db.execute(
+                select(TenantUser)
+                .where(*cond)
+                .order_by(TenantUser.created_at.desc())
+                .offset((page - 1) * limit)
+                .limit(limit)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return paginate([_out(r) for r in rows], total, page, limit)
 
 
@@ -93,9 +100,14 @@ async def invite_user(
         expires=(datetime.now(timezone.utc) + timedelta(hours=72)).isoformat(),
     )
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="user.invited",
-        resource_type="tenant_user", resource_id=str(row.id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="user.invited",
+        resource_type="tenant_user",
+        resource_id=str(row.id),
         details={"email": row.email, "role": row.role},
         ip=request.client.host if request.client else None,
     )
@@ -113,9 +125,7 @@ async def update_user(
 ) -> UserOut:
     row = (
         await db.execute(
-            select(TenantUser).where(
-                TenantUser.id == user_id, TenantUser.tenant_id == ctx.tenant_id
-            )
+            select(TenantUser).where(TenantUser.id == user_id, TenantUser.tenant_id == ctx.tenant_id)
         )
     ).scalar_one_or_none()
     if row is None:
@@ -126,9 +136,14 @@ async def update_user(
         if v is not None:
             setattr(row, k, v)
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="user.updated",
-        resource_type="tenant_user", resource_id=str(user_id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="user.updated",
+        resource_type="tenant_user",
+        resource_id=str(user_id),
         details={"changes": list(body.model_dump(exclude_unset=True).keys())},
         ip=request.client.host if request.client else None,
     )
@@ -145,9 +160,7 @@ async def deactivate_user(
 ) -> MessageOut:
     row = (
         await db.execute(
-            select(TenantUser).where(
-                TenantUser.id == user_id, TenantUser.tenant_id == ctx.tenant_id
-            )
+            select(TenantUser).where(TenantUser.id == user_id, TenantUser.tenant_id == ctx.tenant_id)
         )
     ).scalar_one_or_none()
     if row is None:
@@ -156,9 +169,14 @@ async def deactivate_user(
         raise conflict("You cannot remove your own account") from None
     row.status = str(AccountStatus.DISABLED)
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="user.deactivated",
-        resource_type="tenant_user", resource_id=str(user_id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="user.deactivated",
+        resource_type="tenant_user",
+        resource_id=str(user_id),
         ip=request.client.host if request.client else None,
     )
     return MessageOut(message="User deactivated")

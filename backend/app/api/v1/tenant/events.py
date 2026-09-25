@@ -60,18 +60,20 @@ async def list_access_events(
         cond.append(AccessEvent.occurred_at >= from_ts)
     if to_ts:
         cond.append(AccessEvent.occurred_at <= to_ts)
-    total = (
-        await db.execute(select(func.count()).select_from(AccessEvent).where(*cond))
-    ).scalar_one()
+    total = (await db.execute(select(func.count()).select_from(AccessEvent).where(*cond))).scalar_one()
     rows = (
-        await db.execute(
-            select(AccessEvent)
-            .where(*cond)
-            .order_by(AccessEvent.occurred_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
+        (
+            await db.execute(
+                select(AccessEvent)
+                .where(*cond)
+                .order_by(AccessEvent.occurred_at.desc())
+                .offset((page - 1) * limit)
+                .limit(limit)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return paginate([AccessEventOut.model_validate(r) for r in rows], total, page, limit)
 
 
@@ -97,9 +99,14 @@ async def create_access_event(
         force_reason=body.reason,
     )
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="access_event.manual",
-        resource_type="access_event", resource_id=str(event.id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="access_event.manual",
+        resource_type="access_event",
+        resource_id=str(event.id),
         ip=request.client.host if request.client else None,
     )
     return AccessEventOut.model_validate(event)
@@ -113,9 +120,7 @@ async def get_access_event(
 ) -> AccessEventOut:
     row = (
         await db.execute(
-            select(AccessEvent).where(
-                AccessEvent.id == event_id, AccessEvent.tenant_id == ctx.tenant_id
-            )
+            select(AccessEvent).where(AccessEvent.id == event_id, AccessEvent.tenant_id == ctx.tenant_id)
         )
     ).scalar_one_or_none()
     if row is None:
@@ -154,18 +159,20 @@ async def list_incidents(
         cond.append(BarrierIncident.status == status)
     if gate_id:
         cond.append(BarrierIncident.gate_id == gate_id)
-    total = (
-        await db.execute(select(func.count()).select_from(BarrierIncident).where(*cond))
-    ).scalar_one()
+    total = (await db.execute(select(func.count()).select_from(BarrierIncident).where(*cond))).scalar_one()
     rows = (
-        await db.execute(
-            select(BarrierIncident)
-            .where(*cond)
-            .order_by(BarrierIncident.detected_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
+        (
+            await db.execute(
+                select(BarrierIncident)
+                .where(*cond)
+                .order_by(BarrierIncident.detected_at.desc())
+                .offset((page - 1) * limit)
+                .limit(limit)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return paginate([IncidentOut.model_validate(r) for r in rows], total, page, limit)
 
 
@@ -188,9 +195,14 @@ async def create_incident(
     db.add(row)
     await db.flush()
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="incident.created",
-        resource_type="barrier_incident", resource_id=str(row.id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="incident.created",
+        resource_type="barrier_incident",
+        resource_id=str(row.id),
         ip=request.client.host if request.client else None,
     )
     return IncidentOut.model_validate(row)
@@ -220,9 +232,14 @@ async def acknowledge_incident(
     row.acknowledged_by = ctx.auth.user_id
     row.acknowledged_at = datetime.now(timezone.utc)
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="incident.acknowledged",
-        resource_type="barrier_incident", resource_id=str(incident_id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="incident.acknowledged",
+        resource_type="barrier_incident",
+        resource_id=str(incident_id),
         ip=request.client.host if request.client else None,
     )
     return IncidentOut.model_validate(row)
@@ -254,9 +271,14 @@ async def resolve_incident(
     row.resolved_at = datetime.now(timezone.utc)
     row.resolution_notes = body.resolution_notes
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="incident.resolved",
-        resource_type="barrier_incident", resource_id=str(incident_id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="incident.resolved",
+        resource_type="barrier_incident",
+        resource_id=str(incident_id),
         ip=request.client.host if request.client else None,
     )
     return IncidentOut.model_validate(row)

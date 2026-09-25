@@ -26,6 +26,7 @@ _hasher = PasswordHasher()
 
 # ---------- passwords ----------
 
+
 def hash_password(password: str) -> str:
     return _hasher.hash(password)
 
@@ -40,6 +41,7 @@ def verify_password(password: str, password_hash: str | None) -> bool:
 
 
 # ---------- field encryption (TOTP secrets) ----------
+
 
 def _fernet() -> Fernet:
     key = settings.field_encryption_key
@@ -64,6 +66,7 @@ def decrypt_secret(ciphertext: str) -> str:
 
 # ---------- TOTP ----------
 
+
 def new_totp_secret() -> str:
     return pyotp.random_base32()
 
@@ -85,6 +88,7 @@ def hash_backup_code(code: str) -> str:
 
 
 # ---------- access tokens (JWT) ----------
+
 
 def create_access_token(
     *,
@@ -126,6 +130,7 @@ def decode_access_token(token: str) -> dict:
 
 # ---------- refresh tokens (opaque) ----------
 
+
 def new_refresh_token() -> str:
     return secrets.token_urlsafe(48)
 
@@ -135,6 +140,7 @@ def hash_refresh_token(token: str) -> str:
 
 
 # ---------- CSRF (double-submit) ----------
+
 
 def new_csrf_token() -> str:
     return secrets.token_urlsafe(32)

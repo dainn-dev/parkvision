@@ -128,9 +128,7 @@ async def mfa_verify(body: MfaVerifyIn, request: Request, response: Response) ->
     if not claims.get("mfa_pending"):
         raise unauthorized("Not an MFA-pending session") from None
 
-    bundle = await auth_service.complete_mfa(
-        uuid.UUID(claims["sub"]), uuid.UUID(claims["sid"]), body.code
-    )
+    bundle = await auth_service.complete_mfa(uuid.UUID(claims["sub"]), uuid.UUID(claims["sid"]), body.code)
     csrf = set_auth_cookies(response, bundle)
     return {"data": {"mfaRequired": False, "csrfToken": csrf}}
 
@@ -144,9 +142,7 @@ async def activate_account(body: ActivateIn, request: Request) -> MessageOut:
     token_hash = hashlib.sha256(body.token.encode()).hexdigest()
     async with platform_session() as db:
         user = (
-            await db.execute(
-                select(TenantUser).where(TenantUser.invite_token_hash == token_hash)
-            )
+            await db.execute(select(TenantUser).where(TenantUser.invite_token_hash == token_hash))
         ).scalar_one_or_none()
         if user is None or user.invite_expires_at is None:
             raise unauthorized("Invalid invite token") from None
@@ -201,18 +197,14 @@ async def logout(request: Request, response: Response) -> MessageOut:
 async def me(request: Request, auth: AuthContext = Depends(get_auth_context)) -> MeOut:
     async with platform_session() as db:
         if auth.user_type == ActorType.TENANT_USER:
-            user = (
-                await db.execute(select(TenantUser).where(TenantUser.id == auth.user_id))
-            ).scalar_one()
+            user = (await db.execute(select(TenantUser).where(TenantUser.id == auth.user_id))).scalar_one()
             tenant = (
                 await db.execute(select(Tenant).where(Tenant.id == auth.tenant_id))
             ).scalar_one_or_none()
             slug = tenant.slug if tenant else None
         else:
             user = (
-                await db.execute(
-                    select(PlatformAdmin).where(PlatformAdmin.id == auth.user_id)
-                )
+                await db.execute(select(PlatformAdmin).where(PlatformAdmin.id == auth.user_id))
             ).scalar_one()
             slug = None
     csrf = request.cookies.get(settings.csrf_cookie_name) or new_csrf_token()
@@ -231,9 +223,7 @@ async def me(request: Request, auth: AuthContext = Depends(get_auth_context)) ->
 async def change_password(
     body: ChangePasswordIn, response: Response, auth: AuthContext = Depends(get_auth_context)
 ) -> MessageOut:
-    await auth_service.change_password(
-        auth.user_id, auth.user_type, body.current_password, body.new_password
-    )
+    await auth_service.change_password(auth.user_id, auth.user_type, body.current_password, body.new_password)
     clear_auth_cookies(response)
     return MessageOut(message="Password changed; please log in again")
 
@@ -248,17 +238,13 @@ async def mfa_setup(auth: AuthContext = Depends(get_auth_context)) -> MfaSetupOu
 
 
 @router.post("/mfa/enable", response_model=MfaEnableOut)
-async def mfa_enable(
-    body: MfaEnableIn, auth: AuthContext = Depends(get_auth_context)
-) -> MfaEnableOut:
+async def mfa_enable(body: MfaEnableIn, auth: AuthContext = Depends(get_auth_context)) -> MfaEnableOut:
     codes = await auth_service.mfa_enable(auth.user_id, auth.user_type, body.code)
     return MfaEnableOut(backup_codes=codes)
 
 
 @router.post("/mfa/disable", response_model=MessageOut)
-async def mfa_disable(
-    body: MfaEnableIn, auth: AuthContext = Depends(get_auth_context)
-) -> MessageOut:
+async def mfa_disable(body: MfaEnableIn, auth: AuthContext = Depends(get_auth_context)) -> MessageOut:
     await auth_service.mfa_disable(auth.user_id, auth.user_type, body.code)
     return MessageOut(message="MFA disabled")
 
@@ -267,16 +253,20 @@ async def mfa_disable(
 async def list_sessions(auth: AuthContext = Depends(get_auth_context)) -> list[SessionOut]:
     async with platform_session() as db:
         rows = (
-            await db.execute(
-                select(UserSession)
-                .where(
-                    UserSession.user_id == auth.user_id,
-                    UserSession.user_type == str(auth.user_type),
-                    UserSession.revoked_at.is_(None),
+            (
+                await db.execute(
+                    select(UserSession)
+                    .where(
+                        UserSession.user_id == auth.user_id,
+                        UserSession.user_type == str(auth.user_type),
+                        UserSession.revoked_at.is_(None),
+                    )
+                    .order_by(UserSession.created_at.desc())
                 )
-                .order_by(UserSession.created_at.desc())
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     return [
         SessionOut(
             id=r.id,
@@ -297,13 +287,9 @@ async def list_sessions(auth: AuthContext = Depends(get_auth_context)) -> list[S
 
 
 @router.delete("/sessions/{session_id}", response_model=MessageOut)
-async def revoke_session(
-    session_id: uuid.UUID, auth: AuthContext = Depends(get_auth_context)
-) -> MessageOut:
+async def revoke_session(session_id: uuid.UUID, auth: AuthContext = Depends(get_auth_context)) -> MessageOut:
     async with platform_session() as db:
-        row = (
-            await db.execute(select(UserSession).where(UserSession.id == session_id))
-        ).scalar_one_or_none()
+        row = (await db.execute(select(UserSession).where(UserSession.id == session_id))).scalar_one_or_none()
         if row is None or row.user_id != auth.user_id:
             raise unauthorized("Session not found") from None
         await auth_service.logout(session_id)

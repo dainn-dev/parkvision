@@ -13,9 +13,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     database_url: str = "postgresql+asyncpg://vehicle_app:vehicle_app@localhost:5432/vehicle_mgmt"
-    migration_database_url: str = (
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt"
-    )
+    migration_database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt"
     db_pool_size: int = 10
     db_max_overflow: int = 20
 

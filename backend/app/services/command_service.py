@@ -43,18 +43,14 @@ async def issue_command(
 
     gate = (
         await db.execute(
-            select(BarrierGate).where(
-                BarrierGate.id == gate_id, BarrierGate.tenant_id == tenant_id
-            )
+            select(BarrierGate).where(BarrierGate.id == gate_id, BarrierGate.tenant_id == tenant_id)
         )
     ).scalar_one_or_none()
     if gate is None:
         raise not_found("gate", gate_id)
 
     existing = (
-        await db.execute(
-            select(GateCommandRow).where(GateCommandRow.idempotency_key == idempotency_key)
-        )
+        await db.execute(select(GateCommandRow).where(GateCommandRow.idempotency_key == idempotency_key))
     ).scalar_one_or_none()
     if existing is not None:
         if existing.command != command or existing.gate_id != gate_id:

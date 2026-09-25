@@ -38,9 +38,7 @@ async def test_rls_hides_other_tenants_rows(client: AsyncClient, tenant, other_t
     assert lst.status_code == 200
     assert all(s["name"] != "Secret Garage" for s in lst.json()["data"])
 
-    res = await client.get(
-        f"/api/v1/tenants/{other_tenant['tenant_id']}/sites/{site_id}"
-    )
+    res = await client.get(f"/api/v1/tenants/{other_tenant['tenant_id']}/sites/{site_id}")
     assert res.status_code == 404  # row is invisible, not merely refused
 
 
@@ -48,9 +46,7 @@ async def test_rls_hides_other_tenants_rows(client: AsyncClient, tenant, other_t
 async def test_csrf_required_on_mutations(client: AsyncClient, tenant):
     await login(client, tenant["email"], tenant["password"])
     client.cookies.delete("vm_csrf")
-    res = await client.post(
-        f"/api/v1/tenants/{tenant['tenant_id']}/sites", json={"name": "CSRF Garage"}
-    )
+    res = await client.post(f"/api/v1/tenants/{tenant['tenant_id']}/sites", json={"name": "CSRF Garage"})
     assert res.status_code == 403
 
 
@@ -70,8 +66,11 @@ async def test_platform_admin_scoped_to_target_tenant(client: AsyncClient, admin
     async with Session() as db:
         db.add(
             PlatformAdmin(
-                email=email, password_hash=hash_password("Admin!12345"),
-                full_name="Support", role="support", status="active",
+                email=email,
+                password_hash=hash_password("Admin!12345"),
+                full_name="Support",
+                role="support",
+                status="active",
             )
         )
         await db.commit()

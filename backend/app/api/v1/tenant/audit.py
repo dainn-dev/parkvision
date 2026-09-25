@@ -43,18 +43,20 @@ async def list_audit_logs(
         cond.append(AuditLog.created_at >= from_ts)
     if to_ts:
         cond.append(AuditLog.created_at <= to_ts)
-    total = (
-        await db.execute(select(func.count()).select_from(AuditLog).where(*cond))
-    ).scalar_one()
+    total = (await db.execute(select(func.count()).select_from(AuditLog).where(*cond))).scalar_one()
     rows = (
-        await db.execute(
-            select(AuditLog)
-            .where(*cond)
-            .order_by(AuditLog.created_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
+        (
+            await db.execute(
+                select(AuditLog)
+                .where(*cond)
+                .order_by(AuditLog.created_at.desc())
+                .offset((page - 1) * limit)
+                .limit(limit)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return paginate([AuditLogOut.model_validate(r) for r in rows], total, page, limit)
 
 
@@ -86,9 +88,14 @@ async def export_audit_logs(
         action=body.action,
     )
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="audit.export.queued",
-        resource_type="background_job", resource_id=str(job.id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="audit.export.queued",
+        resource_type="background_job",
+        resource_id=str(job.id),
         ip=request.client.host if request.client else None,
     )
     return JobOut.model_validate(job)

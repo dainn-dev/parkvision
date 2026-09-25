@@ -72,15 +72,21 @@ async def tenant(admin_engine):
     suffix = uuid.uuid4().hex[:8]
     async with Session() as db:
         t = Tenant(
-            name=f"T-{suffix}", slug=f"t-{suffix}", plan_code="pro",
-            status="active", contact_email=f"ops-{suffix}@example.com",
+            name=f"T-{suffix}",
+            slug=f"t-{suffix}",
+            plan_code="pro",
+            status="active",
+            contact_email=f"ops-{suffix}@example.com",
         )
         db.add(t)
         await db.flush()
         u = TenantUser(
-            tenant_id=t.id, email=f"owner-{suffix}@example.com",
-            password_hash=hash_password("Password!123"), full_name="Owner",
-            role="owner", status="active",
+            tenant_id=t.id,
+            email=f"owner-{suffix}@example.com",
+            password_hash=hash_password("Password!123"),
+            full_name="Owner",
+            role="owner",
+            status="active",
         )
         db.add(u)
         await db.commit()
@@ -96,15 +102,21 @@ async def other_tenant(admin_engine):
     suffix = uuid.uuid4().hex[:8]
     async with Session() as db:
         t = Tenant(
-            name=f"X-{suffix}", slug=f"x-{suffix}", plan_code="starter",
-            status="active", contact_email=f"ops-{suffix}@example.com",
+            name=f"X-{suffix}",
+            slug=f"x-{suffix}",
+            plan_code="starter",
+            status="active",
+            contact_email=f"ops-{suffix}@example.com",
         )
         db.add(t)
         await db.flush()
         u = TenantUser(
-            tenant_id=t.id, email=f"owner-{suffix}@example.com",
-            password_hash=hash_password("Password!123"), full_name="Owner X",
-            role="owner", status="active",
+            tenant_id=t.id,
+            email=f"owner-{suffix}@example.com",
+            password_hash=hash_password("Password!123"),
+            full_name="Owner X",
+            role="owner",
+            status="active",
         )
         db.add(u)
         await db.commit()

@@ -84,8 +84,9 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(ApiError)
     async def api_error_handler(request: Request, exc: ApiError) -> JSONResponse:
-        return _envelope(exc.code, exc.message, exc.details,
-                         getattr(request.state, "request_id", "-"), exc.status_code)
+        return _envelope(
+            exc.code, exc.message, exc.details, getattr(request.state, "request_id", "-"), exc.status_code
+        )
 
     @app.exception_handler(RequestValidationError)
     async def validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:

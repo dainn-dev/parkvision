@@ -49,18 +49,20 @@ async def list_vehicles(
         cond.append(RegisteredVehicle.status == status)
     if search:
         cond.append(RegisteredVehicle.plate_normalized.ilike(f"%{normalize_plate(search)}%"))
-    total = (
-        await db.execute(select(func.count()).select_from(RegisteredVehicle).where(*cond))
-    ).scalar_one()
+    total = (await db.execute(select(func.count()).select_from(RegisteredVehicle).where(*cond))).scalar_one()
     rows = (
-        await db.execute(
-            select(RegisteredVehicle)
-            .where(*cond)
-            .order_by(RegisteredVehicle.created_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
+        (
+            await db.execute(
+                select(RegisteredVehicle)
+                .where(*cond)
+                .order_by(RegisteredVehicle.created_at.desc())
+                .offset((page - 1) * limit)
+                .limit(limit)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return paginate([VehicleOut.model_validate(r) for r in rows], total, page, limit)
 
 
@@ -90,9 +92,14 @@ async def create_vehicle(
     except IntegrityError:
         raise conflict("This plate is already registered") from None
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="vehicle.created",
-        resource_type="registered_vehicle", resource_id=str(row.id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="vehicle.created",
+        resource_type="registered_vehicle",
+        resource_id=str(row.id),
         ip=request.client.host if request.client else None,
     )
     return VehicleOut.model_validate(row)
@@ -147,9 +154,14 @@ async def update_vehicle(
     except IntegrityError:
         raise conflict("This plate is already registered") from None
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="vehicle.updated",
-        resource_type="registered_vehicle", resource_id=str(vehicle_id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="vehicle.updated",
+        resource_type="registered_vehicle",
+        resource_id=str(vehicle_id),
         ip=request.client.host if request.client else None,
     )
     return VehicleOut.model_validate(row)
@@ -175,9 +187,14 @@ async def delete_vehicle(
         raise not_found("vehicle", vehicle_id) from None
     await db.delete(row)
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="vehicle.deleted",
-        resource_type="registered_vehicle", resource_id=str(vehicle_id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="vehicle.deleted",
+        resource_type="registered_vehicle",
+        resource_id=str(vehicle_id),
         ip=request.client.host if request.client else None,
     )
     return MessageOut(message="Vehicle deleted")
@@ -208,16 +225,23 @@ async def import_vehicles(
         raise bad_request("CSV must contain a plate_number column")
 
     job = BackgroundJob(
-        tenant_id=ctx.tenant_id, job_type="vehicle_import", created_by=ctx.auth.user_id,
+        tenant_id=ctx.tenant_id,
+        job_type="vehicle_import",
+        created_by=ctx.auth.user_id,
         result={"filename": file.filename},
     )
     db.add(job)
     await db.flush()
     await enqueue_import_vehicles(job_id=str(job.id), tenant_id=str(ctx.tenant_id), rows=rows)
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="vehicle.import.queued",
-        resource_type="background_job", resource_id=str(job.id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="vehicle.import.queued",
+        resource_type="background_job",
+        resource_id=str(job.id),
         details={"rows": len(rows)},
         ip=request.client.host if request.client else None,
     )
@@ -232,9 +256,7 @@ async def get_job(
 ) -> JobOut:
     row = (
         await db.execute(
-            select(BackgroundJob).where(
-                BackgroundJob.id == job_id, BackgroundJob.tenant_id == ctx.tenant_id
-            )
+            select(BackgroundJob).where(BackgroundJob.id == job_id, BackgroundJob.tenant_id == ctx.tenant_id)
         )
     ).scalar_one_or_none()
     if row is None:

@@ -57,7 +57,8 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
         if command_id:
             async with platform_session() as db:
                 await mark_command_ack(
-                    db, uuid.UUID(command_id),
+                    db,
+                    uuid.UUID(command_id),
                     success=bool(payload.get("success", True)),
                     error=payload.get("error"),
                 )
@@ -179,9 +180,7 @@ async def run() -> None:
                 log.info("subscribed to %d topic patterns", len(SUBSCRIPTIONS))
                 consumer = asyncio.create_task(mqtt_consumer(client))
                 publisher = asyncio.create_task(outbox_publisher(client))
-                done, pending = await asyncio.wait(
-                    {consumer, publisher}, return_when=asyncio.FIRST_EXCEPTION
-                )
+                done, pending = await asyncio.wait({consumer, publisher}, return_when=asyncio.FIRST_EXCEPTION)
                 for task in pending:
                     task.cancel()
                 for task in done:

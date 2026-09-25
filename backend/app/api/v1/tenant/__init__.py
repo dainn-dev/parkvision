@@ -16,9 +16,7 @@ class TenantCtx:
     auth: AuthContext
 
 
-async def tenant_ctx(
-    tenant_id: uuid.UUID, auth: AuthContext = Depends(get_auth_context)
-) -> TenantCtx:
+async def tenant_ctx(tenant_id: uuid.UUID, auth: AuthContext = Depends(get_auth_context)) -> TenantCtx:
     tid = await tenant_match(tenant_id, auth)
     return TenantCtx(tenant_id=tid, auth=auth)
 

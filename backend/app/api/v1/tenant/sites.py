@@ -35,14 +35,18 @@ async def list_sites(
         )
     ).scalar_one()
     rows = (
-        await db.execute(
-            select(TenantSite)
-            .where(TenantSite.tenant_id == ctx.tenant_id)
-            .order_by(TenantSite.created_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
+        (
+            await db.execute(
+                select(TenantSite)
+                .where(TenantSite.tenant_id == ctx.tenant_id)
+                .order_by(TenantSite.created_at.desc())
+                .offset((page - 1) * limit)
+                .limit(limit)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return paginate([SiteOut.model_validate(r) for r in rows], total, page, limit)
 
 
@@ -88,9 +92,7 @@ async def get_site(
 ) -> SiteOut:
     row = (
         await db.execute(
-            select(TenantSite).where(
-                TenantSite.id == site_id, TenantSite.tenant_id == ctx.tenant_id
-            )
+            select(TenantSite).where(TenantSite.id == site_id, TenantSite.tenant_id == ctx.tenant_id)
         )
     ).scalar_one_or_none()
     if row is None:
@@ -109,9 +111,7 @@ async def update_site(
 ) -> SiteOut:
     row = (
         await db.execute(
-            select(TenantSite).where(
-                TenantSite.id == site_id, TenantSite.tenant_id == ctx.tenant_id
-            )
+            select(TenantSite).where(TenantSite.id == site_id, TenantSite.tenant_id == ctx.tenant_id)
         )
     ).scalar_one_or_none()
     if row is None:
@@ -143,9 +143,7 @@ async def delete_site(
 ) -> MessageOut:
     row = (
         await db.execute(
-            select(TenantSite).where(
-                TenantSite.id == site_id, TenantSite.tenant_id == ctx.tenant_id
-            )
+            select(TenantSite).where(TenantSite.id == site_id, TenantSite.tenant_id == ctx.tenant_id)
         )
     ).scalar_one_or_none()
     if row is None:
@@ -173,12 +171,14 @@ async def list_lanes(
     db: AsyncSession = Depends(get_tenant_db),
 ) -> list[LaneOut]:
     rows = (
-        await db.execute(
-            select(SiteLane).where(
-                SiteLane.site_id == site_id, SiteLane.tenant_id == ctx.tenant_id
+        (
+            await db.execute(
+                select(SiteLane).where(SiteLane.site_id == site_id, SiteLane.tenant_id == ctx.tenant_id)
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return [LaneOut.model_validate(r) for r in rows]
 
 
@@ -193,9 +193,7 @@ async def create_lane(
 ) -> LaneOut:
     site = (
         await db.execute(
-            select(TenantSite).where(
-                TenantSite.id == site_id, TenantSite.tenant_id == ctx.tenant_id
-            )
+            select(TenantSite).where(TenantSite.id == site_id, TenantSite.tenant_id == ctx.tenant_id)
         )
     ).scalar_one_or_none()
     if site is None:
@@ -234,9 +232,7 @@ async def update_lane(
     _: None = Depends(require_roles(*WRITE_ROLES)),
 ) -> LaneOut:
     row = (
-        await db.execute(
-            select(SiteLane).where(SiteLane.id == lane_id, SiteLane.tenant_id == ctx.tenant_id)
-        )
+        await db.execute(select(SiteLane).where(SiteLane.id == lane_id, SiteLane.tenant_id == ctx.tenant_id))
     ).scalar_one_or_none()
     if row is None:
         raise not_found("lane", lane_id) from None
@@ -266,9 +262,7 @@ async def delete_lane(
     _: None = Depends(require_roles(*WRITE_ROLES)),
 ) -> MessageOut:
     row = (
-        await db.execute(
-            select(SiteLane).where(SiteLane.id == lane_id, SiteLane.tenant_id == ctx.tenant_id)
-        )
+        await db.execute(select(SiteLane).where(SiteLane.id == lane_id, SiteLane.tenant_id == ctx.tenant_id))
     ).scalar_one_or_none()
     if row is None:
         raise not_found("lane", lane_id) from None

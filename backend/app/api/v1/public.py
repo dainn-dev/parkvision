@@ -20,10 +20,10 @@ router = APIRouter(tags=["public"])
 async def list_plans() -> Page[PlanOut]:
     async with anonymous_session() as db:
         rows = (
-            await db.execute(
-                select(Plan).where(Plan.public.is_(True)).order_by(Plan.price_monthly_cents)
-            )
-        ).scalars().all()
+            (await db.execute(select(Plan).where(Plan.public.is_(True)).order_by(Plan.price_monthly_cents)))
+            .scalars()
+            .all()
+        )
     return paginate([PlanOut.model_validate(r) for r in rows], len(rows), 1, len(rows) or 1)
 
 
@@ -46,9 +46,7 @@ async def latest_legal_doc(doc_type: str) -> LegalDocOut:
 @router.post("/register", response_model=RegisterTenantOut, status_code=201)
 async def register_tenant(body: RegisterTenantIn) -> RegisterTenantOut:
     async with platform_session() as db:
-        plan = (
-            await db.execute(select(Plan).where(Plan.code == body.plan_code))
-        ).scalar_one_or_none()
+        plan = (await db.execute(select(Plan).where(Plan.code == body.plan_code))).scalar_one_or_none()
         if plan is None:
             raise not_found("plan", body.plan_code) from None
 

@@ -34,13 +34,17 @@ async def decide_access(
 
     # Rules can override the vehicle-list outcome (deny_list wins by priority).
     rules = (
-        await db.execute(
-            select(TenantAccessRule).where(
-                TenantAccessRule.tenant_id == tenant_id,
-                TenantAccessRule.active.is_(True),
+        (
+            await db.execute(
+                select(TenantAccessRule).where(
+                    TenantAccessRule.tenant_id == tenant_id,
+                    TenantAccessRule.active.is_(True),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     now = datetime.now(timezone.utc)
 

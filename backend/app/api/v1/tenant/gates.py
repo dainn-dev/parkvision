@@ -47,10 +47,10 @@ async def list_gates(
         cq = cq.where(BarrierGate.site_id == site_id)
     total = (await db.execute(cq)).scalar_one()
     rows = (
-        await db.execute(
-            q.order_by(BarrierGate.created_at.desc()).offset((page - 1) * limit).limit(limit)
-        )
-    ).scalars().all()
+        (await db.execute(q.order_by(BarrierGate.created_at.desc()).offset((page - 1) * limit).limit(limit)))
+        .scalars()
+        .all()
+    )
     return paginate([GateOut.model_validate(r) for r in rows], total, page, limit)
 
 
@@ -66,9 +66,14 @@ async def create_gate(
     db.add(row)
     await db.flush()
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="gate.created",
-        resource_type="barrier_gate", resource_id=str(row.id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="gate.created",
+        resource_type="barrier_gate",
+        resource_id=str(row.id),
         ip=request.client.host if request.client else None,
     )
     return GateOut.model_validate(row)
@@ -82,9 +87,7 @@ async def get_gate(
 ) -> GateOut:
     row = (
         await db.execute(
-            select(BarrierGate).where(
-                BarrierGate.id == gate_id, BarrierGate.tenant_id == ctx.tenant_id
-            )
+            select(BarrierGate).where(BarrierGate.id == gate_id, BarrierGate.tenant_id == ctx.tenant_id)
         )
     ).scalar_one_or_none()
     if row is None:
@@ -103,9 +106,7 @@ async def update_gate(
 ) -> GateOut:
     row = (
         await db.execute(
-            select(BarrierGate).where(
-                BarrierGate.id == gate_id, BarrierGate.tenant_id == ctx.tenant_id
-            )
+            select(BarrierGate).where(BarrierGate.id == gate_id, BarrierGate.tenant_id == ctx.tenant_id)
         )
     ).scalar_one_or_none()
     if row is None:
@@ -113,9 +114,14 @@ async def update_gate(
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(row, k, v)
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="gate.updated",
-        resource_type="barrier_gate", resource_id=str(gate_id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="gate.updated",
+        resource_type="barrier_gate",
+        resource_id=str(gate_id),
         ip=request.client.host if request.client else None,
     )
     return GateOut.model_validate(row)
@@ -143,9 +149,14 @@ async def send_command(
         payload=body.payload,
     )
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="gate.command.issued",
-        resource_type="barrier_gate", resource_id=str(gate_id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="gate.command.issued",
+        resource_type="barrier_gate",
+        resource_id=str(gate_id),
         details={"command": body.command, "commandId": str(row.id)},
         ip=request.client.host if request.client else None,
     )
@@ -165,16 +176,16 @@ async def list_commands(
         GateCommandRow.tenant_id == ctx.tenant_id,
     ]
     q = select(GateCommandRow).where(*cond)
-    total = (
-        await db.execute(select(func.count()).select_from(GateCommandRow).where(*cond))
-    ).scalar_one()
+    total = (await db.execute(select(func.count()).select_from(GateCommandRow).where(*cond))).scalar_one()
     rows = (
-        await db.execute(
-            q.order_by(GateCommandRow.requested_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
+        (
+            await db.execute(
+                q.order_by(GateCommandRow.requested_at.desc()).offset((page - 1) * limit).limit(limit)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return paginate([CommandOut.model_validate(r) for r in rows], total, page, limit)
 
 
@@ -210,18 +221,16 @@ async def gate_telemetry(
         GateTelemetryLog.tenant_id == ctx.tenant_id,
     ]
     q = select(GateTelemetryLog).where(*cond)
-    total = (
-        await db.execute(
-            select(func.count()).select_from(GateTelemetryLog).where(*cond)
-        )
-    ).scalar_one()
+    total = (await db.execute(select(func.count()).select_from(GateTelemetryLog).where(*cond))).scalar_one()
     rows = (
-        await db.execute(
-            q.order_by(GateTelemetryLog.recorded_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
+        (
+            await db.execute(
+                q.order_by(GateTelemetryLog.recorded_at.desc()).offset((page - 1) * limit).limit(limit)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return paginate([TelemetryOut.model_validate(r) for r in rows], total, page, limit)
 
 
@@ -241,10 +250,10 @@ async def list_devices(
         cq = cq.where(EdgeDevice.site_id == site_id)
     total = (await db.execute(cq)).scalar_one()
     rows = (
-        await db.execute(
-            q.order_by(EdgeDevice.created_at.desc()).offset((page - 1) * limit).limit(limit)
-        )
-    ).scalars().all()
+        (await db.execute(q.order_by(EdgeDevice.created_at.desc()).offset((page - 1) * limit).limit(limit)))
+        .scalars()
+        .all()
+    )
     return paginate([DeviceOut.model_validate(r) for r in rows], total, page, limit)
 
 
@@ -269,9 +278,14 @@ async def register_device(
     db.add(row)
     await db.flush()
     await write_audit(
-        db, tenant_id=ctx.tenant_id, actor_type=ctx.auth.user_type,
-        actor_id=ctx.auth.user_id, actor_email=None, action="device.registered",
-        resource_type="edge_device", resource_id=str(row.id),
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="device.registered",
+        resource_type="edge_device",
+        resource_id=str(row.id),
         ip=request.client.host if request.client else None,
     )
     return DeviceOut.model_validate(row)
@@ -285,9 +299,7 @@ async def get_device(
 ) -> DeviceOut:
     row = (
         await db.execute(
-            select(EdgeDevice).where(
-                EdgeDevice.id == device_id, EdgeDevice.tenant_id == ctx.tenant_id
-            )
+            select(EdgeDevice).where(EdgeDevice.id == device_id, EdgeDevice.tenant_id == ctx.tenant_id)
         )
     ).scalar_one_or_none()
     if row is None:

@@ -63,10 +63,10 @@ async def list_tenants(
             count_q = count_q.where(cond)
         total = (await db.execute(count_q)).scalar_one()
         rows = (
-            await db.execute(
-                q.order_by(Tenant.created_at.desc()).offset((page - 1) * limit).limit(limit)
-            )
-        ).scalars().all()
+            (await db.execute(q.order_by(Tenant.created_at.desc()).offset((page - 1) * limit).limit(limit)))
+            .scalars()
+            .all()
+        )
     return paginate([TenantOut.model_validate(r) for r in rows], total, page, limit)
 
 
@@ -74,7 +74,9 @@ async def list_tenants(
 async def create_tenant(
     body: TenantCreateIn,
     request: Request,
-    auth: AuthContext = Depends(require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))),
+    auth: AuthContext = Depends(
+        require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))
+    ),
 ) -> TenantOut:
     async with platform_session() as db:
         tenant = Tenant(
@@ -106,9 +108,7 @@ async def create_tenant(
 @router.get("/tenants/{tenant_id}", response_model=TenantOut)
 async def get_tenant(tenant_id: uuid.UUID) -> TenantOut:
     async with platform_session() as db:
-        row = (
-            await db.execute(select(Tenant).where(Tenant.id == tenant_id))
-        ).scalar_one_or_none()
+        row = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalar_one_or_none()
     if row is None:
         raise not_found("tenant", tenant_id) from None
     return TenantOut.model_validate(row)
@@ -119,12 +119,12 @@ async def update_tenant(
     tenant_id: uuid.UUID,
     body: TenantUpdateIn,
     request: Request,
-    auth: AuthContext = Depends(require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))),
+    auth: AuthContext = Depends(
+        require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))
+    ),
 ) -> TenantOut:
     async with platform_session() as db:
-        row = (
-            await db.execute(select(Tenant).where(Tenant.id == tenant_id))
-        ).scalar_one_or_none()
+        row = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalar_one_or_none()
         if row is None:
             raise not_found("tenant", tenant_id) from None
         changes = body.model_dump(exclude_unset=True)
@@ -148,11 +148,7 @@ async def update_tenant(
 @router.get("/tenants/{tenant_id}/users", response_model=list)
 async def list_tenant_users(tenant_id: uuid.UUID) -> list:
     async with platform_session() as db:
-        rows = (
-            await db.execute(
-                select(TenantUser).where(TenantUser.tenant_id == tenant_id)
-            )
-        ).scalars().all()
+        rows = (await db.execute(select(TenantUser).where(TenantUser.tenant_id == tenant_id))).scalars().all()
     return [
         {
             "id": str(r.id),
@@ -216,7 +212,9 @@ async def list_settings() -> list[PlatformSettingOut]:
 async def put_setting(
     key: str,
     body: PlatformSettingIn,
-    auth: AuthContext = Depends(require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))),
+    auth: AuthContext = Depends(
+        require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))
+    ),
 ) -> PlatformSettingOut:
     async with platform_session() as db:
         row = (
@@ -251,12 +249,12 @@ async def list_flags() -> list[FeatureFlagOut]:
 async def put_flag(
     key: str,
     body: FeatureFlagIn,
-    auth: AuthContext = Depends(require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))),
+    auth: AuthContext = Depends(
+        require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))
+    ),
 ) -> FeatureFlagOut:
     async with platform_session() as db:
-        row = (
-            await db.execute(select(FeatureFlag).where(FeatureFlag.key == key))
-        ).scalar_one_or_none()
+        row = (await db.execute(select(FeatureFlag).where(FeatureFlag.key == key))).scalar_one_or_none()
         if row is None:
             row = FeatureFlag(
                 key=key,
@@ -302,9 +300,7 @@ async def list_all_sessions(
         if tenant_id:
             q = q.where(UserSession.tenant_id == tenant_id)
         if active_only:
-            q = q.where(
-                UserSession.revoked_at.is_(None), UserSession.expires_at > datetime.now(timezone.utc)
-            )
+            q = q.where(UserSession.revoked_at.is_(None), UserSession.expires_at > datetime.now(timezone.utc))
         rows = (await db.execute(q)).scalars().all()
     return [SessionOut.model_validate(r) for r in rows]
 
@@ -312,7 +308,9 @@ async def list_all_sessions(
 @router.post("/sessions/{session_id}/revoke", response_model=MessageOut)
 async def revoke_any_session(
     session_id: uuid.UUID,
-    auth: AuthContext = Depends(require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.SUPPORT))),
+    auth: AuthContext = Depends(
+        require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.SUPPORT))
+    ),
 ) -> MessageOut:
     async with platform_session() as db:
         await db.execute(

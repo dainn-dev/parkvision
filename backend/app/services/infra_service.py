@@ -34,9 +34,7 @@ async def check_redis() -> dict[str, Any]:
 async def check_mqtt() -> dict[str, Any]:
     t0 = time.monotonic()
     try:
-        reader, writer = await asyncio.open_connection(
-            settings.mqtt_host, settings.mqtt_port
-        )
+        reader, writer = await asyncio.open_connection(settings.mqtt_host, settings.mqtt_port)
         writer.close()
         await writer.wait_closed()
         _ = reader
