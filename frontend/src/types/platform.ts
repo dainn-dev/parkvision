@@ -220,6 +220,26 @@ export interface GateHealth {
   siteId?: string;
   edgeDeviceId?: string;
   rawStatus?: string;
+  rawType?: string;
+}
+
+// Latest WS telemetry frame per gate (drives the barrier map's live overlay).
+export interface LiveGateFrame {
+  gateId?: string;
+  siteId?: string;
+  state?: string;
+  plateNumber?: string;
+  direction?: string;
+  confidence?: number;
+  armAngleDeg?: number;
+  motorTempC?: number;
+  loopDetectorActive?: boolean;
+  upsBatteryPercent?: number;
+  powerSource?: string;
+  averageLatencyMs?: number;
+  deviceId?: string;
+  receivedAt: number;
+  [key: string]: unknown;
 }
 
 export type IncidentSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
