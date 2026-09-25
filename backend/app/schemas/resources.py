@@ -444,6 +444,8 @@ class HourlyFlowPoint(CamelModel):
     hour: str  # ISO hour bucket start, e.g. "2026-09-25T07:00:00+00:00"
     entries: int = 0
     exits: int = 0
+    allowed: int = 0
+    denied: int = 0
 
 
 class HourlyFlowOut(CamelModel):

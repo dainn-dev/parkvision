@@ -505,18 +505,26 @@ async def dashboard_hourly_flow(
     bucket = func.date_trunc("hour", AccessEvent.occurred_at)
     rows = (
         await db.execute(
-            select(bucket.label("hr"), AccessEvent.direction, func.count().label("n"))
+            select(
+                bucket.label("hr"),
+                AccessEvent.direction,
+                AccessEvent.decision,
+                func.count().label("n"),
+            )
             .where(
                 AccessEvent.tenant_id == ctx.tenant_id,
                 AccessEvent.occurred_at >= since,
             )
-            .group_by("hr", AccessEvent.direction)
+            .group_by("hr", AccessEvent.direction, AccessEvent.decision)
             .order_by("hr")
         )
     ).all()
     points: dict[datetime, dict[str, int]] = {}
-    for hr, direction, n in rows:
-        slot = points.setdefault(hr, {"entries": 0, "exits": 0})
-        key = "entries" if direction == "entry" else "exits"
-        slot[key] += int(n)
+    for hr, direction, decision, n in rows:
+        slot = points.setdefault(hr, {"entries": 0, "exits": 0, "allowed": 0, "denied": 0})
+        slot["entries" if direction == "entry" else "exits"] += int(n)
+        if decision == "allow":
+            slot["allowed"] += int(n)
+        elif decision == "deny":
+            slot["denied"] += int(n)
     return HourlyFlowOut(points=[HourlyFlowPoint(hour=hr.isoformat(), **slot) for hr, slot in points.items()])
