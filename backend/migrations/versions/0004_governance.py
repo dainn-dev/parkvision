@@ -79,7 +79,9 @@ def upgrade() -> None:
     op.execute("ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS device_fingerprint varchar(64)")
 
     op.execute("ALTER TABLE barrier_incidents ADD COLUMN IF NOT EXISTS notified_at timestamptz")
-    op.execute("ALTER TABLE barrier_incidents ADD COLUMN IF NOT EXISTS notify_attempts integer NOT NULL DEFAULT 0")
+    op.execute(
+        "ALTER TABLE barrier_incidents ADD COLUMN IF NOT EXISTS notify_attempts integer NOT NULL DEFAULT 0"
+    )
     op.execute("ALTER TABLE barrier_incidents ADD COLUMN IF NOT EXISTS notify_error text")
     op.execute(
         "CREATE INDEX IF NOT EXISTS ix_incidents_pending_notify ON barrier_incidents (severity, status) "
