@@ -2,6 +2,7 @@ pub mod commands;
 pub mod config;
 pub mod fsm;
 pub mod hal;
+pub mod incidents;
 pub mod mqtt;
 pub mod payloads;
 pub mod telemetry;
