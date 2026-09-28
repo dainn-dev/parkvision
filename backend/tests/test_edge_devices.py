@@ -1,5 +1,7 @@
 """Tenant edge-device management: register/update/lifecycle/reboot."""
 
+import uuid
+
 import pytest
 from httpx import AsyncClient
 
@@ -122,3 +124,76 @@ async def test_patch_device_conflicts_duplicate_serial(client: AsyncClient, tena
         headers=csrf(client),
     )
     assert res.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_decommission_unbinds_gates_and_blocks_delete_of_active(
+    client: AsyncClient, tenant, site, device
+):
+    tid, did = tenant["tenant_id"], device["id"]
+    gate = await client.post(
+        f"/api/v1/tenants/{tid}/gates",
+        json={"name": "Gate A", "siteId": site, "edgeDeviceId": did},
+        headers=csrf(client),
+    )
+    gate_id = gate.json()["id"]
+
+    # Active device cannot be deleted.
+    res = await client.delete(f"/api/v1/tenants/{tid}/devices/{did}", headers=csrf(client))
+    assert res.status_code == 409
+
+    res = await client.post(f"/api/v1/tenants/{tid}/devices/{did}/decommission", headers=csrf(client))
+    assert res.status_code == 200, res.text
+    assert res.json()["status"] == "decommissioned"
+
+    # Bound gate was detached.
+    g = await client.get(f"/api/v1/tenants/{tid}/gates/{gate_id}")
+    assert g.json()["edgeDeviceId"] is None
+
+    # Double-decommission is a conflict.
+    res = await client.post(f"/api/v1/tenants/{tid}/devices/{did}/decommission", headers=csrf(client))
+    assert res.status_code == 409
+
+    # Now delete succeeds and the row is gone.
+    res = await client.delete(f"/api/v1/tenants/{tid}/devices/{did}", headers=csrf(client))
+    assert res.status_code == 200
+    assert (await client.get(f"/api/v1/tenants/{tid}/devices/{did}")).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_reactivate_returns_to_provisioning(client: AsyncClient, tenant, device):
+    tid, did = tenant["tenant_id"], device["id"]
+    await client.post(f"/api/v1/tenants/{tid}/devices/{did}/decommission", headers=csrf(client))
+    res = await client.post(f"/api/v1/tenants/{tid}/devices/{did}/reactivate", headers=csrf(client))
+    assert res.status_code == 200
+    assert res.json()["status"] == "provisioning"
+    # Reactivating a live device is a conflict.
+    res = await client.post(f"/api/v1/tenants/{tid}/devices/{did}/reactivate", headers=csrf(client))
+    assert res.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_does_not_resurrect_decommissioned(client: AsyncClient, tenant, site, device):
+    tid, did = tenant["tenant_id"], device["id"]
+    gate = await client.post(
+        f"/api/v1/tenants/{tid}/gates",
+        json={"name": "Gate B", "siteId": site, "edgeDeviceId": did},
+        headers=csrf(client),
+    )
+    await client.post(f"/api/v1/tenants/{tid}/devices/{did}/decommission", headers=csrf(client))
+
+    from sqlalchemy import select
+
+    from app.database import platform_session
+    from app.models import EdgeDevice
+    from app.realtime.mqtt_bridge import handle_telemetry
+
+    await handle_telemetry(
+        str(tid),
+        site,
+        gate.json()["id"],
+        {"type": "heartbeat", "deviceId": did, "cpuUsagePct": 42},
+    )
+    async with platform_session() as db:
+        row = (await db.execute(select(EdgeDevice).where(EdgeDevice.id == uuid.UUID(did)))).scalar_one()
+    assert row.status == "decommissioned"

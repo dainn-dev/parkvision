@@ -3,7 +3,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,7 +12,7 @@ from app.api.v1.tenant import TenantCtx, get_tenant_db, tenant_ctx
 from app.core.errors import bad_request, conflict, not_found
 from app.models import BarrierGate, EdgeDevice, GateTelemetryLog, TenantSite
 from app.models import GateCommand as GateCommandRow
-from app.schemas.common import Page, paginate
+from app.schemas.common import MessageOut, Page, paginate
 from app.schemas.resources import (
     CommandIn,
     CommandOut,
@@ -390,3 +390,97 @@ async def update_device(
         ip=request.client.host if request.client else None,
     )
     return DeviceOut.model_validate(row)
+
+
+# ---------- device lifecycle ----------
+@router.post("/devices/{device_id}/decommission", response_model=DeviceOut)
+async def decommission_device(
+    device_id: uuid.UUID,
+    request: Request,
+    ctx: TenantCtx = Depends(tenant_ctx),
+    db: AsyncSession = Depends(get_tenant_db),
+    _: None = Depends(require_roles(*WRITE_ROLES)),
+) -> DeviceOut:
+    """Retire a device: mark decommissioned and detach all bound gates."""
+    row = await _get_device_or_404(db, ctx.tenant_id, device_id)
+    if row.status == "decommissioned":
+        raise conflict("Device is already decommissioned")
+    row.status = "decommissioned"
+    await db.execute(
+        update(BarrierGate)
+        .where(BarrierGate.edge_device_id == device_id, BarrierGate.tenant_id == ctx.tenant_id)
+        .values(edge_device_id=None)
+    )
+    await write_audit(
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="device.decommissioned",
+        resource_type="edge_device",
+        resource_id=str(device_id),
+        ip=request.client.host if request.client else None,
+    )
+    return DeviceOut.model_validate(row)
+
+
+@router.post("/devices/{device_id}/reactivate", response_model=DeviceOut)
+async def reactivate_device(
+    device_id: uuid.UUID,
+    request: Request,
+    ctx: TenantCtx = Depends(tenant_ctx),
+    db: AsyncSession = Depends(get_tenant_db),
+    _: None = Depends(require_roles(*WRITE_ROLES)),
+) -> DeviceOut:
+    """Return a decommissioned device to provisioning; the next heartbeat flips it online."""
+    row = await _get_device_or_404(db, ctx.tenant_id, device_id)
+    if row.status != "decommissioned":
+        raise conflict("Only decommissioned devices can be reactivated")
+    row.status = "provisioning"
+    await write_audit(
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="device.reactivated",
+        resource_type="edge_device",
+        resource_id=str(device_id),
+        ip=request.client.host if request.client else None,
+    )
+    return DeviceOut.model_validate(row)
+
+
+@router.delete("/devices/{device_id}", response_model=MessageOut)
+async def delete_device(
+    device_id: uuid.UUID,
+    request: Request,
+    ctx: TenantCtx = Depends(tenant_ctx),
+    db: AsyncSession = Depends(get_tenant_db),
+    _: None = Depends(require_roles(*WRITE_ROLES)),
+) -> MessageOut:
+    """Hard delete; only allowed once decommissioned and no gates are bound."""
+    row = await _get_device_or_404(db, ctx.tenant_id, device_id)
+    if row.status != "decommissioned":
+        raise conflict("Device must be decommissioned before deletion")
+    bound = (
+        await db.execute(
+            select(func.count()).select_from(BarrierGate).where(BarrierGate.edge_device_id == device_id)
+        )
+    ).scalar_one()
+    if bound:
+        raise conflict("Device still has bound gates")
+    await write_audit(
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="device.deleted",
+        resource_type="edge_device",
+        resource_id=str(device_id),
+        ip=request.client.host if request.client else None,
+    )
+    await db.delete(row)
+    return MessageOut(message="Device deleted")

@@ -120,7 +120,10 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
                     device_updates[column] = payload[payload_key]
             await db.execute(
                 update(EdgeDevice)
-                .where(EdgeDevice.id == _uuid_or_none(payload["deviceId"]))
+                .where(
+                    EdgeDevice.id == _uuid_or_none(payload["deviceId"]),
+                    EdgeDevice.status != "decommissioned",
+                )
                 .values(**device_updates)
             )
         # ANPR event piggy-backed on telemetry: record an access event too.
