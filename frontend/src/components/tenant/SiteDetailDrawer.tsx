@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { TenantSite } from '../../types/tenant';
+import { CameraHealth } from '../../types/platform';
 import { usePlatform } from '../../context/PlatformContext';
+import { CameraFormModal } from './CameraFormModal';
 import {
   X,
   Building2,
@@ -22,7 +24,10 @@ import {
   Phone,
   UserCheck,
   ShieldCheck,
-  Zap
+  Zap,
+  Plus,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import { Button, Badge } from '../ui';
 
@@ -32,12 +37,22 @@ interface SiteDetailDrawerProps {
   onClose: () => void;
 }
 
+/** Strip embedded userinfo (rtsp://user:pass@host) before display. */
+const maskStreamUrl = (u?: string): string =>
+  (u ?? '').replace(/^(\w+:\/\/)[^@/]*@/, '$1•••@');
+
 export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen, onClose }) => {
-  const { triggerGateCommand, addToast } = usePlatform();
+  const { triggerGateCommand, addToast, cameras, tenantLanes, deleteTenantCamera } = usePlatform();
   const [activeTab, setActiveTab] = useState<'overview' | 'lanes_gates' | 'cameras' | 'edge_nodes'>('overview');
   const [gateActionStatus, setGateActionStatus] = useState<{ [key: string]: boolean }>({});
+  const [cameraModal, setCameraModal] = useState<{ open: boolean; camera: CameraHealth | null }>({
+    open: false,
+    camera: null,
+  });
 
   if (!isOpen || !site) return null;
+
+  const siteCams = cameras.filter((c) => c.siteId === site.id);
 
   const handleGateOverride = (gateName: string, action: 'OPEN' | 'CLOSE' | 'LOCK') => {
     setGateActionStatus((prev) => ({ ...prev, [gateName]: true }));
@@ -125,7 +140,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
             }`}
           >
             <Camera className="w-3.5 h-3.5" />
-            ANPR Cameras ({site.cameraCount})
+            ANPR Cameras ({siteCams.length})
           </button>
           <button
             onClick={() => setActiveTab('edge_nodes')}
@@ -330,42 +345,97 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-white font-semibold text-xs">ANPR Video Feeds & OCR Sensors</h4>
-                <span className="text-[11px] text-[#3fb950] font-mono">4K UHD · 30 FPS · H.265</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCameraModal({ open: true, camera: null })}
+                  className="text-xs gap-1 text-[#58a6ff] border-[#58a6ff]/40 hover:bg-[#58a6ff]/10"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Camera
+                </Button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {Array.from({ length: Math.min(site.cameraCount, 6) }).map((_, idx) => {
-                  const camId = `${site.code}-CAM-0${idx + 1}`;
-                  const isCamOffline = site.name.includes('Main') && camId.includes('CAM-03');
+              {siteCams.length === 0 ? (
+                <div className="p-6 rounded-xl bg-[#161b22] border border-dashed border-[#30363d] text-center space-y-2">
+                  <Camera className="w-6 h-6 mx-auto text-[#8b949e] opacity-60" />
+                  <p className="text-[#8b949e] text-xs">
+                    No cameras registered — use <span className="text-[#58a6ff]">Add Camera</span> to register the first ANPR feed.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {siteCams.map((cam) => {
+                    const laneName = cam.laneId
+                      ? tenantLanes.find((l) => l.id === cam.laneId)?.name
+                      : undefined;
+                    const tileLabel =
+                      cam.status === 'ONLINE'
+                        ? 'STREAM REGISTERED'
+                        : cam.status === 'DEGRADED'
+                          ? 'AWAITING EDGE'
+                          : 'DISABLED';
+                    const tileCls =
+                      cam.status === 'ONLINE'
+                        ? 'text-[#3fb950]'
+                        : cam.status === 'DEGRADED'
+                          ? 'text-[#e3b341]'
+                          : 'text-[#f85149]';
 
-                  return (
-                    <div key={idx} className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] space-y-2">
-                      <div className="relative rounded-lg bg-[#0d0e12] border border-[#30363d] h-24 flex items-center justify-center overflow-hidden">
-                        {isCamOffline ? (
-                          <div className="text-center text-[#f85149] space-y-1">
-                            <AlertTriangle className="w-5 h-5 mx-auto" />
-                            <span className="text-[10px] font-mono block">RTSP SIGNAL LOST</span>
+                    return (
+                      <div key={cam.id} className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] space-y-2">
+                        <div className="relative rounded-lg bg-[#0d0e12] border border-[#30363d] h-24 flex items-center justify-center overflow-hidden">
+                          <div className={`text-center space-y-1 ${tileCls}`}>
+                            {cam.status === 'OFFLINE' ? (
+                              <AlertTriangle className="w-5 h-5 mx-auto" />
+                            ) : (
+                              <Camera className="w-6 h-6 mx-auto text-[#58a6ff] opacity-70" />
+                            )}
+                            <span className="text-[9px] font-mono block">{tileLabel}</span>
                           </div>
-                        ) : (
-                          <div className="text-center text-[#8b949e] space-y-1">
-                            <Camera className="w-6 h-6 mx-auto text-[#58a6ff] opacity-70" />
-                            <span className="text-[9px] font-mono block text-[#3fb950]">LIVE STREAMING</span>
-                          </div>
-                        )}
 
-                        <div className="absolute top-1.5 left-2 text-[9px] font-mono text-white bg-black/60 px-1.5 py-0.5 rounded">
-                          {camId}
+                          <div className="absolute top-1.5 left-2 text-[9px] font-mono text-white bg-black/60 px-1.5 py-0.5 rounded">
+                            {cam.code ?? cam.cameraName}
+                          </div>
+                          <div className="absolute top-1.5 right-2 text-[9px] font-mono text-[#8b949e] bg-black/60 px-1.5 py-0.5 rounded">
+                            {cam.purpose === 'overview' ? 'OVERVIEW' : 'PLATE'}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] gap-2">
+                          <div className="min-w-0">
+                            <span className="text-white font-medium block truncate">{cam.cameraName}</span>
+                            <span className="text-[#8b949e] font-mono text-[10px] block truncate">
+                              {maskStreamUrl(cam.streamUrl) || '—'}
+                              {laneName ? ` · ${laneName}` : ''}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => setCameraModal({ open: true, camera: cam })}
+                              className="w-6 h-6 rounded-md bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white flex items-center justify-center cursor-pointer"
+                              title="Edit camera"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Delete camera ${cam.cameraName}?`)) {
+                                  deleteTenantCamera(cam.id);
+                                }
+                              }}
+                              className="w-6 h-6 rounded-md bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-[#f85149] flex items-center justify-center cursor-pointer"
+                              title="Delete camera"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-[#8b949e]">OCR Model: v4.2 Turbo</span>
-                        <span className="text-white font-mono font-bold">98.5% Acc</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -443,6 +513,14 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
           </Button>
         </div>
       </div>
+
+      {/* Camera create/edit modal */}
+      <CameraFormModal
+        site={site}
+        camera={cameraModal.camera}
+        isOpen={cameraModal.open}
+        onClose={() => setCameraModal({ open: false, camera: null })}
+      />
     </div>
   );
 };
