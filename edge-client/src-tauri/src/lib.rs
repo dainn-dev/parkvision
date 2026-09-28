@@ -4,6 +4,7 @@ pub mod fsm;
 pub mod hal;
 pub mod mqtt;
 pub mod payloads;
+pub mod telemetry;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
