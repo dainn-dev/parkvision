@@ -279,6 +279,81 @@ class TelemetryOut(CamelModel):
 GateOut.model_rebuild()
 
 
+# ---------- cameras ----------
+_CAMERA_SCHEMES = {"rtsp", "rtsps", "http", "https"}
+_CAMERA_PURPOSES = {"plate", "overview"}
+_CAMERA_STATUSES = {"provisioning", "active", "disabled"}
+
+
+def _valid_stream_url(v: str | None) -> str | None:
+    if v is None:
+        return None
+    from urllib.parse import urlparse
+
+    parsed = urlparse(v)
+    if parsed.scheme not in _CAMERA_SCHEMES or not parsed.hostname:
+        raise ValueError("stream_url must be an rtsp/http(s) URL")
+    return v
+
+
+def _valid_camera_purpose(v: str | None) -> str | None:
+    if v is not None and v not in _CAMERA_PURPOSES:
+        raise ValueError(f"purpose must be one of {sorted(_CAMERA_PURPOSES)}")
+    return v
+
+
+def _valid_camera_status(v: str | None) -> str | None:
+    if v is not None and v not in _CAMERA_STATUSES:
+        raise ValueError(f"status must be one of {sorted(_CAMERA_STATUSES)}")
+    return v
+
+
+class CameraIn(CamelModel):
+    site_id: uuid.UUID
+    lane_id: uuid.UUID | None = None
+    edge_device_id: uuid.UUID | None = None
+    name: str = Field(min_length=2, max_length=200)
+    code: str | None = Field(default=None, max_length=50)
+    stream_url: str = Field(min_length=8, max_length=500)
+    purpose: str = "plate"
+    status: str | None = None
+    notes: str | None = None
+
+    _stream_ok = field_validator("stream_url")(_valid_stream_url)
+    _purpose_ok = field_validator("purpose")(_valid_camera_purpose)
+    _status_ok = field_validator("status")(_valid_camera_status)
+
+
+class CameraUpdateIn(CamelModel):
+    lane_id: uuid.UUID | None = None
+    edge_device_id: uuid.UUID | None = None
+    name: str | None = Field(default=None, min_length=2, max_length=200)
+    code: str | None = Field(default=None, max_length=50)
+    stream_url: str | None = Field(default=None, min_length=8, max_length=500)
+    purpose: str | None = None
+    status: str | None = None
+    notes: str | None = None
+
+    _stream_ok = field_validator("stream_url")(_valid_stream_url)
+    _purpose_ok = field_validator("purpose")(_valid_camera_purpose)
+    _status_ok = field_validator("status")(_valid_camera_status)
+
+
+class CameraOut(CamelModel):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    site_id: uuid.UUID
+    lane_id: uuid.UUID | None
+    edge_device_id: uuid.UUID | None
+    name: str
+    code: str | None
+    stream_url: str
+    purpose: str
+    status: str
+    notes: str | None
+    created_at: datetime
+
+
 # ---------- tenant users ----------
 class UserInviteIn(CamelModel):
     email: EmailStr
