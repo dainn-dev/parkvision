@@ -596,7 +596,7 @@ export const TenantLocationPage: React.FC = () => {
             </div>
 
             <button
-              onClick={() => setTenantNavTab('edge-devices' as any)}
+              onClick={() => setTenantNavTab('edge-devices')}
               className="mt-4 pt-3 border-t border-[#21262d] flex items-center justify-between text-xs text-[#e3b341] hover:text-white font-medium group transition-colors"
             >
               <span>Manage Edge Devices</span>

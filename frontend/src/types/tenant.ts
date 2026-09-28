@@ -165,6 +165,17 @@ export interface TenantDashboardSummary {
   };
 }
 
+export interface TenantEdgeDeviceInput {
+  siteId: string;
+  name: string;
+  deviceSerial?: string;
+  hardwareModel?: string;
+  mac?: string;
+  ipAddress?: string;
+  mqttClientId?: string;
+  firmwareVersion?: string;
+}
+
 export interface TenantEdgeDevice {
   id: string;
   siteId: string;

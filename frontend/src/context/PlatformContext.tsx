@@ -44,6 +44,7 @@ import {
   MembershipType,
   TenantMemberProfile,
   TenantEdgeDevice,
+  TenantEdgeDeviceInput,
 } from '../types/tenant';
 import {
   authApi,
@@ -294,6 +295,13 @@ interface PlatformContextType {
   deleteTenantAccessRule: (id: string) => void;
   reorderRulePriorities: (ruleIdsInOrder: string[]) => void;
   detectRuleConflicts: (rule: Partial<TenantAccessRule>, excludeRuleId?: string) => string[];
+
+  createTenantDevice: (data: TenantEdgeDeviceInput) => Promise<{ success: boolean; message?: string }>;
+  updateTenantDevice: (deviceId: string, data: Partial<TenantEdgeDeviceInput>) => Promise<{ success: boolean; message?: string }>;
+  decommissionTenantDevice: (deviceId: string) => Promise<{ success: boolean; message?: string }>;
+  reactivateTenantDevice: (deviceId: string) => Promise<{ success: boolean; message?: string }>;
+  deleteTenantDevice: (deviceId: string) => Promise<{ success: boolean; message?: string }>;
+  rebootTenantDevice: (deviceId: string) => Promise<{ success: boolean; commandIds?: string[]; message?: string }>;
 
   inviteTenantUser: (data: {
     email: string;
@@ -1585,6 +1593,72 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     addToast({ type: 'info', title: 'Not supported', description: 'The API has no resend-invite endpoint.' });
   const cancelTenantInvitation = (invitationId: string) => deleteTenantMember(invitationId);
 
+  const createTenantDevice = async (data: TenantEdgeDeviceInput) => {
+    if (!activeTenantId) return { success: false, message: 'No tenant selected' };
+    try {
+      await tenantApi.createDevice(activeTenantId, data);
+      await loadTenantData(activeTenantId);
+      return { success: true };
+    } catch (e) {
+      return { success: false, message: errText(e) };
+    }
+  };
+
+  const updateTenantDevice = async (deviceId: string, data: Partial<TenantEdgeDeviceInput>) => {
+    if (!activeTenantId) return { success: false, message: 'No tenant selected' };
+    try {
+      await tenantApi.updateDevice(activeTenantId, deviceId, data);
+      await loadTenantData(activeTenantId);
+      return { success: true };
+    } catch (e) {
+      return { success: false, message: errText(e) };
+    }
+  };
+
+  const decommissionTenantDevice = async (deviceId: string) => {
+    if (!activeTenantId) return { success: false, message: 'No tenant selected' };
+    try {
+      await tenantApi.decommissionDevice(activeTenantId, deviceId);
+      await loadTenantData(activeTenantId);
+      return { success: true };
+    } catch (e) {
+      return { success: false, message: errText(e) };
+    }
+  };
+
+  const reactivateTenantDevice = async (deviceId: string) => {
+    if (!activeTenantId) return { success: false, message: 'No tenant selected' };
+    try {
+      await tenantApi.reactivateDevice(activeTenantId, deviceId);
+      await loadTenantData(activeTenantId);
+      return { success: true };
+    } catch (e) {
+      return { success: false, message: errText(e) };
+    }
+  };
+
+  const deleteTenantDevice = async (deviceId: string) => {
+    if (!activeTenantId) return { success: false, message: 'No tenant selected' };
+    try {
+      await tenantApi.deleteDevice(activeTenantId, deviceId);
+      await loadTenantData(activeTenantId);
+      return { success: true };
+    } catch (e) {
+      return { success: false, message: errText(e) };
+    }
+  };
+
+  const rebootTenantDevice = async (deviceId: string) => {
+    if (!activeTenantId) return { success: false, message: 'No tenant selected' };
+    try {
+      const r = await tenantApi.rebootDevice(activeTenantId, deviceId);
+      await loadTenantData(activeTenantId);
+      return { success: true, commandIds: r.commandIds };
+    } catch (e) {
+      return { success: false, message: errText(e) };
+    }
+  };
+
   return (
     <PlatformContext.Provider
       value={{
@@ -1722,6 +1796,12 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         deleteTenantAccessRule,
         reorderRulePriorities,
         detectRuleConflicts,
+        createTenantDevice,
+        updateTenantDevice,
+        decommissionTenantDevice,
+        reactivateTenantDevice,
+        deleteTenantDevice,
+        rebootTenantDevice,
         inviteTenantUser,
         createTenantUserManually,
         changeTenantUserRole,

@@ -34,6 +34,7 @@ import { TenantLocationPage } from './pages/tenant/TenantLocationPage';
 import { TenantSitesPage } from './pages/tenant/TenantSitesPage';
 import { TenantEventsPage } from './pages/tenant/TenantEventsPage';
 import { TenantVehiclesPage } from './pages/tenant/TenantVehiclesPage';
+import { TenantEdgeDevicesPage } from './pages/tenant/TenantEdgeDevicesPage';
 import { TenantRulesPage } from './pages/tenant/TenantRulesPage';
 import { TenantUsersPage } from './pages/tenant/TenantUsersPage';
 import { TenantSettingsPage } from './pages/tenant/TenantSettingsPage';
@@ -223,6 +224,7 @@ const PlatformAppContent: React.FC = () => {
               )}
               {(tenantNavTab === 'access_events' || tenantNavTab === 'access-events') && <TenantEventsPage />}
               {tenantNavTab === 'vehicles' && <TenantVehiclesPage />}
+              {tenantNavTab === 'edge-devices' && <TenantEdgeDevicesPage />}
               {(tenantNavTab === 'access_rules' || tenantNavTab === 'access-rules') && <TenantRulesPage />}
               {(tenantNavTab === 'team' || tenantNavTab === 'users') && <TenantUsersPage />}
               {tenantNavTab === 'settings' && <TenantSettingsPage />}

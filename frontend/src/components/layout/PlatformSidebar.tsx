@@ -47,6 +47,7 @@ export const PlatformSidebar: React.FC = () => {
     tenantSites,
     tenants,
     tenantVehicles,
+    tenantDevices,
     tenantLocation,
     currentUser,
     setSelectedTenantId
@@ -199,6 +200,24 @@ export const PlatformSidebar: React.FC = () => {
                 </div>
                 <span className="text-[10px] px-1.5 py-0.2 bg-[#3fb950]/20 text-[#3fb950] rounded-full font-bold">
                   Live
+                </span>
+              </button>
+
+              {/* Edge Devices */}
+              <button
+                onClick={() => setTenantNavTab('edge-devices')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all cursor-pointer ${
+                  tenantNavTab === 'edge-devices'
+                    ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
+                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Server className={`w-4 h-4 shrink-0 ${tenantNavTab === 'edge-devices' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+                  <span>Edge Devices</span>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#21262d] text-[#8b949e] font-mono">
+                  {tenantDevices.length}
                 </span>
               </button>
 
