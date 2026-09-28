@@ -13,3 +13,7 @@ build/
 .coverage
 htmlcov/
 .claude/
+edge-client/node_modules/
+edge-client/dist/
+edge-client/src-tauri/target/
+edge-client/src-tauri/gen/schemas/
