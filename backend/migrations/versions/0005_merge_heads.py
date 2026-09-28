@@ -9,8 +9,6 @@ two 0002 heads. This merge revision unifies them; 0004's DDL is written
 idempotently so either ordering of the 0002 branches converges.
 """
 
-from alembic import op
-
 revision = "0005_merge_heads"
 down_revision = ("0002_schema_alignment", "0004_governance")
 branch_labels = None
