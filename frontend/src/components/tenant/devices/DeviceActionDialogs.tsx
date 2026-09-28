@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePlatform } from '../../../context/PlatformContext';
 import { AlertTriangle, PowerOff, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import { Button, Modal } from '../../ui';
@@ -10,9 +10,15 @@ interface DialogProps {
   onClose: () => void;
 }
 
-const useAction = () => {
+const useAction = (isOpen: boolean) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (isOpen) {
+      setError(null);
+      setIsLoading(false);
+    }
+  }, [isOpen]);
   const run = async <T extends { success: boolean; message?: string }>(fn: () => Promise<T>, onClose: () => void): Promise<T> => {
     setIsLoading(true);
     setError(null);
@@ -32,8 +38,11 @@ const ErrorBanner: React.FC<{ error: string | null }> = ({ error }) =>
 
 export const RebootDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onClose }) => {
   const { rebootTenantDevice } = usePlatform();
-  const { isLoading, error, run } = useAction();
+  const { isLoading, error, run } = useAction(isOpen);
   const [sentCount, setSentCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (isOpen) setSentCount(null);
+  }, [isOpen]);
 
   return (
     <Modal
@@ -88,7 +97,7 @@ export const RebootDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onCl
 
 export const DecommissionDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onClose }) => {
   const { decommissionTenantDevice } = usePlatform();
-  const { isLoading, error, run } = useAction();
+  const { isLoading, error, run } = useAction(isOpen);
 
   return (
     <Modal
@@ -130,7 +139,7 @@ export const DecommissionDeviceDialog: React.FC<DialogProps> = ({ device, isOpen
 
 export const ReactivateDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onClose }) => {
   const { reactivateTenantDevice } = usePlatform();
-  const { isLoading, error, run } = useAction();
+  const { isLoading, error, run } = useAction(isOpen);
 
   return (
     <Modal
@@ -169,7 +178,7 @@ export const ReactivateDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, 
 
 export const DeleteDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onClose }) => {
   const { deleteTenantDevice } = usePlatform();
-  const { isLoading, error, run } = useAction();
+  const { isLoading, error, run } = useAction(isOpen);
 
   return (
     <Modal
