@@ -11,6 +11,7 @@ Jobs run in the `worker` container (`arq app.workers.jobs.WorkerSettings`):
 - incident_notify         : CRITICAL incidents -> tenant webhook + Telegram
 """
 
+import asyncio
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -359,8 +360,7 @@ def _webhook_target_safe(url: str) -> bool:
         if parsed.scheme not in ("http", "https") or not parsed.hostname:
             return False
         return all(
-            ipaddress.ip_address(info[4][0]).is_global
-            for info in socket.getaddrinfo(parsed.hostname, None)
+            ipaddress.ip_address(info[4][0]).is_global for info in socket.getaddrinfo(parsed.hostname, None)
         )
     except Exception:
         return False
@@ -403,7 +403,9 @@ async def incident_notify(ctx) -> int:
 
         bot_token = _setting_scalar(
             (
-                await db.execute(select(PlatformSetting.value).where(PlatformSetting.key == "telegram_bot_token"))
+                await db.execute(
+                    select(PlatformSetting.value).where(PlatformSetting.key == "telegram_bot_token")
+                )
             ).scalar_one_or_none()
         )
 
