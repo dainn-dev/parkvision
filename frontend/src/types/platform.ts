@@ -198,7 +198,12 @@ export interface CameraHealth {
   cameraName: string;
   tenantId: string;
   tenantName: string;
+  siteId?: string;
+  laneId?: string | null;
   edgeDeviceId: string;
+  streamUrl?: string;
+  purpose?: 'plate' | 'overview';
+  // ONLINE = administratively 'active' until edge stream telemetry exists.
   status: 'ONLINE' | 'OFFLINE' | 'DEGRADED';
   fps: number;
   frameDropPercent: number;

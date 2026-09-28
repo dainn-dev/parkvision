@@ -7,6 +7,7 @@ import type {
   AccessEventOut,
   ApiCredentialOut,
   AuditLogOut,
+  CameraOut,
   DeviceOut,
   FeatureFlagOut,
   GateOut,
@@ -26,6 +27,7 @@ import type {
   ActiveSession,
   ApiCredential,
   AuditLogItem,
+  CameraHealth,
   EdgeDeviceHealth,
   FeatureFlag,
   GateHealth,
@@ -243,6 +245,25 @@ export const mapDevice = (d: DeviceOut, tenantId: string, tenantName = ''): Edge
   connectedCameras: 0,
   eventsPerMin: 0,
   lastHeartbeat: d.lastHeartbeatAt ?? d.createdAt,
+});
+
+export const mapCamera = (c: CameraOut, tenantId: string, tenantName = ''): CameraHealth => ({
+  id: c.id,
+  cameraName: c.code ?? c.name,
+  tenantId,
+  tenantName,
+  siteId: c.siteId,
+  laneId: c.laneId,
+  edgeDeviceId: c.edgeDeviceId ?? '',
+  streamUrl: c.streamUrl,
+  purpose: (c.purpose === 'overview' ? 'overview' : 'plate') as CameraHealth['purpose'],
+  // 'active' → ONLINE is administrative state only; real stream health needs edge telemetry.
+  status: c.status === 'active' ? 'ONLINE' : c.status === 'disabled' ? 'OFFLINE' : 'DEGRADED',
+  fps: 0,
+  frameDropPercent: 0,
+  recognitionRatePerMin: 0,
+  errorRatePercent: 0,
+  lastFrameTime: '—',
 });
 
 const plateOf = (v: VehicleOut): TenantVehicle['currentPlate'] => ({

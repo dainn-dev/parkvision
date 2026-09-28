@@ -43,6 +43,34 @@ export interface Page<T> {
   meta: { page: number; limit: number; total: number };
 }
 
+// Cameras: schema.d.ts has no regen script — hand-written to match CameraOut.
+export interface CameraOut {
+  id: string;
+  tenantId: string;
+  siteId: string;
+  laneId: string | null;
+  edgeDeviceId: string | null;
+  name: string;
+  code: string | null;
+  streamUrl: string;
+  purpose: string;
+  status: string;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface CameraIn {
+  siteId: string;
+  laneId?: string | null;
+  edgeDeviceId?: string | null;
+  name: string;
+  code?: string | null;
+  streamUrl: string;
+  purpose?: string;
+  status?: string | null;
+  notes?: string | null;
+}
+
 const qs = (params: Record<string, string | number | boolean | undefined | null>) => {
   const q = Object.entries(params)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
@@ -156,6 +184,13 @@ export const tenantApi = {
   devices: (t: string, p: { page?: number; limit?: number; siteId?: string } = {}) => api.get<Page<DeviceOut>>(T(t, `/devices${qs(p)}`)),
   device: (t: string, id: string) => api.get<DeviceOut>(T(t, `/devices/${id}`)),
   createDevice: (t: string, body: { siteId: string; name: string; mac?: string; firmwareVersion?: string }) => api.post<DeviceOut>(T(t, '/devices'), body),
+
+  cameras: (t: string, p: { page?: number; limit?: number; siteId?: string; laneId?: string; status?: string } = {}) =>
+    api.get<Page<CameraOut>>(T(t, `/cameras${qs(p)}`)),
+  camera: (t: string, id: string) => api.get<CameraOut>(T(t, `/cameras/${id}`)),
+  createCamera: (t: string, body: CameraIn) => api.post<CameraOut>(T(t, '/cameras'), body),
+  updateCamera: (t: string, id: string, body: Partial<Omit<CameraIn, 'siteId'>>) => api.patch<CameraOut>(T(t, `/cameras/${id}`), body),
+  deleteCamera: (t: string, id: string) => api.del(T(t, `/cameras/${id}`)),
 
   vehicles: (t: string, p: { page?: number; limit?: number; tag?: string; status?: string; search?: string } = {}) =>
     api.get<Page<VehicleOut>>(T(t, `/vehicles${qs(p)}`)),
