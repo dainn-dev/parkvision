@@ -225,6 +225,32 @@ class SiteLane(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
 
 
+class Camera(TimestampMixin, Base):
+    __tablename__ = "cameras"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    site_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenant_sites.id", ondelete="CASCADE"), nullable=False
+    )
+    lane_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("site_lanes.id", ondelete="SET NULL")
+    )
+    edge_device_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("edge_devices.id", ondelete="SET NULL")
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    code: Mapped[str | None] = mapped_column(String(50))
+    stream_url: Mapped[str] = mapped_column(Text, nullable=False)
+    purpose: Mapped[str] = mapped_column(String(20), nullable=False, default="plate")
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="provisioning")
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    __table_args__ = (Index("ix_cameras_tenant", "tenant_id", "site_id"),)
+
+
 class BarrierGate(TimestampMixin, Base):
     __tablename__ = "barrier_gates"
 
