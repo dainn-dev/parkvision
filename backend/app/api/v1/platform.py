@@ -654,14 +654,13 @@ async def reboot_edge_device(
                 tenant_id=device.tenant_id,
                 gate_id=gate_id,
                 command="reboot",
-                idempotency_key=f"edge-reboot-{device_id}-{gate_id}-{uuid.uuid4().hex[:8]}",
+                idempotency_key=f"edge-reboot-{device_id}-{gate_id}",
                 issued_by=auth.user_id,
                 issued_by_type=auth.user_type,
                 payload={"target": "edge_device", "deviceId": str(device_id)},
             )
             command_ids.append(row.id)
-        if gates:
-            await write_audit(
+        await write_audit(
                 db,
                 tenant_id=device.tenant_id,
                 actor_type=auth.user_type,

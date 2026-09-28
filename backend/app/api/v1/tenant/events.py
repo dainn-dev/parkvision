@@ -329,7 +329,7 @@ async def correct_plate(
     if row is None:
         raise not_found("access_event", event_id)
     row.corrected_plate = normalize_plate(body.plate_number)
-    row.verified_by = str(ctx.auth.user_id)
+    row.verified_by_user_id = ctx.auth.user_id
     row.corrected_at = datetime.now(timezone.utc)
     await write_audit(
         db,
@@ -398,6 +398,9 @@ async def bulk_resolve_incidents(
 
 
 # ---------- tenant settings ----------
+_SENSITIVE_SETTING_KEYS = ("webhook_url", "telegram_chat_id")
+
+
 @router.get("/settings", response_model=TenantSettingsOut)
 async def get_tenant_settings(
     ctx: TenantCtx = Depends(tenant_ctx),
@@ -406,7 +409,13 @@ async def get_tenant_settings(
     tenant = (await db.execute(select(Tenant).where(Tenant.id == ctx.tenant_id))).scalar_one_or_none()
     if tenant is None:
         raise not_found("tenant", ctx.tenant_id)
-    return TenantSettingsOut.model_validate(tenant.settings or {})
+    settings = dict(tenant.settings or {})
+    # notification destinations are write-only config — mask them for viewers
+    if ctx.auth.role not in [str(r) for r in WRITE_ROLES]:
+        for key in _SENSITIVE_SETTING_KEYS:
+            if settings.get(key):
+                settings[key] = "•••"
+    return TenantSettingsOut.model_validate(settings)
 
 
 @router.put("/settings", response_model=TenantSettingsOut)

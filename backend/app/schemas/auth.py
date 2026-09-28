@@ -58,7 +58,7 @@ class MeOut(CamelModel):
 
 class RegisterTenantIn(CamelModel):
     tenant_name: str = Field(min_length=2, max_length=200)
-    slug: str = Field(min_length=2, max_length=120, pattern=r"^[a-z0-9-]+$")
+    slug: str = Field(min_length=2, max_length=120, pattern=r"^[a-z0-9][a-z0-9-]{1,119}$")
     plan_code: str = "starter"
     contact_email: EmailStr
     owner_email: EmailStr

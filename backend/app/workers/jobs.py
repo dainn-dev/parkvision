@@ -582,19 +582,21 @@ async def enforce_retention(ctx) -> dict:
                     AccessEvent.occurred_at,
                     AccessEvent.plate_image_url,
                     AccessEvent.overview_image_url,
-                ).where(
+                )
+                .where(
                     AccessEvent.occurred_at < img_cutoff,
                     (AccessEvent.plate_image_url.is_not(None))
                     | (AccessEvent.overview_image_url.is_not(None)),
                 )
+                .limit(500)
             )
-        ).all()[:500]
+        ).all()
         for ev_id, occurred_at, plate_key, overview_key in rows:
             keys = [k for k in (plate_key, overview_key) if k]
             try:
                 from app.services.storage import delete_objects
 
-                delete_objects(keys)
+                await asyncio.to_thread(delete_objects, keys)
                 await db.execute(
                     update(AccessEvent)
                     .where(AccessEvent.id == ev_id, AccessEvent.occurred_at == occurred_at)

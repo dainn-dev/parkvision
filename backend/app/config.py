@@ -19,6 +19,9 @@ class Settings(BaseSettings):
 
     redis_url: str = "redis://localhost:6379/0"
     rate_limit_enabled: bool = True
+    # honor X-Forwarded-For for rate limiting / audit IPs — only set true
+    # when a trusted reverse proxy terminates TLS in front of the API
+    trust_proxy_headers: bool = False
 
     jwt_secret: str = "change-me-32-byte-minimum-secret"
     jwt_previous_secrets: list[str] = []

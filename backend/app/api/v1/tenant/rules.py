@@ -148,7 +148,9 @@ async def simulate_rule(
     _: None = Depends(require_roles(*WRITE_ROLES)),
 ) -> RuleSimulateOut:
     """Dry-run the access decision engine for a plate — reuses decide_access."""
-    decision, reason, vehicle_id = await decide_access(db, ctx.tenant_id, body.plate_number)
+    decision, reason, vehicle_id = await decide_access(
+        db, ctx.tenant_id, body.plate_number, direction=body.direction
+    )
     return RuleSimulateOut(
         decision=decision,
         reason=reason,

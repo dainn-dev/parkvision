@@ -44,7 +44,12 @@ SUBSCRIPTIONS = [
 
 
 async def publish_ws(tenant_id: str, message: dict) -> None:
-    await get_redis().publish(ws_channel(tenant_id), json.dumps(message))
+    """Best-effort WS fan-out — a Redis hiccup must not fail the caller
+    (rows are already persisted by the time this runs)."""
+    try:
+        await get_redis().publish(ws_channel(tenant_id), json.dumps(message))
+    except Exception as exc:
+        log.warning("publish_ws failed for tenant %s: %s", tenant_id, exc)
 
 
 async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: dict) -> None:

@@ -409,7 +409,8 @@ class AccessEventOut(CamelModel):
     lane_id: uuid.UUID | None
     vehicle_id: uuid.UUID | None
     plate_number: str | None
-    verified_by: str | None = None
+    # unified on verified_by_user_id (FK); kept under the legacy wire name
+    verified_by: uuid.UUID | None = Field(default=None, validation_alias="verified_by_user_id")
     direction: str
     decision: str
     reason: str | None
@@ -420,7 +421,6 @@ class AccessEventOut(CamelModel):
     vehicle_detected_type: str | None
     matching_rule_id: uuid.UUID | None
     processing_time_ms: int | None
-    verified_by_user_id: uuid.UUID | None
     corrected_plate: str | None
     corrected_at: datetime | None
     occurred_at: datetime
@@ -536,6 +536,7 @@ class TenantSettingsOut(TenantSettingsIn):
 # ---------- rules / simulate ----------
 class RuleSimulateIn(CamelModel):
     plate_number: str | None = Field(default=None, max_length=20)
+    direction: str | None = Field(default=None, max_length=10)
 
 
 class RuleSimulateOut(CamelModel):

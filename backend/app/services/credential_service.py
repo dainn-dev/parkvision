@@ -44,7 +44,3 @@ async def authenticate_api_key(db: AsyncSession, plaintext: str) -> ApiCredentia
         return None
     cred.last_used_at = now
     return cred
-
-
-def hash_lookup_prefix(plaintext: str) -> str:
-    return plaintext[:10]

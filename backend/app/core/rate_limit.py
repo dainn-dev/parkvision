@@ -32,6 +32,11 @@ def rate_limited(name: str, limit: int, window_seconds: int = 60):
         if not settings.rate_limit_enabled:
             return
         identity = request.client.host if request.client else "unknown"
+        if settings.trust_proxy_headers:
+            # only enable behind a reverse proxy that overwrites XFF
+            xff = request.headers.get("x-forwarded-for")
+            if xff:
+                identity = xff.split(",", 1)[0].strip() or identity
         try:
             allowed = await hit(name, identity, limit, window_seconds)
         except Exception as exc:
