@@ -397,7 +397,8 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     return saved === 'light' ? 'light' : 'dark';
   });
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
+    document.documentElement.classList.remove('dark', 'light');
+    document.documentElement.classList.add(theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
