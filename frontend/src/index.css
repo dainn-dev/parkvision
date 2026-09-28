@@ -65,7 +65,10 @@ html.light body,
 
 .light .bg-slate-900\/30,
 .light .bg-slate-800\/40,
-.light .bg-slate-800\/30 {
+.light .bg-slate-800\/30,
+.light .bg-\[\#161b22\]\/30,
+.light .bg-\[\#161b22\]\/40,
+.light .bg-\[\#161b22\]\/50 {
   background-color: #f3f4f6 !important;
 }
 
@@ -89,6 +92,7 @@ html.light body,
 }
 
 .light .hover\:bg-\[\#21262d\]:hover,
+.light .hover\:bg-\[\#21262d\]\/50:hover,
 .light .hover\:bg-slate-800:hover,
 .light .hover\:bg-slate-800\/60:hover,
 .light .hover\:bg-slate-800\/50:hover,
