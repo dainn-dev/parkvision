@@ -51,6 +51,7 @@ def create_app() -> FastAPI:
             {"name": "platform", "description": "Platform administration"},
             {"name": "sites", "description": "Tenant sites and lanes"},
             {"name": "gates", "description": "Barrier gates, commands, telemetry"},
+            {"name": "cameras", "description": "ANPR cameras"},
             {"name": "devices", "description": "Edge devices"},
             {"name": "vehicles", "description": "Registered vehicles + bulk import"},
             {"name": "users", "description": "Tenant users"},
