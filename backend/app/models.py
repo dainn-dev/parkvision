@@ -450,32 +450,6 @@ class GateCommand(Base):
     timeout_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
-class ApiCredential(Base):
-    __tablename__ = "api_credentials"
-
-    id: Mapped[uuid.UUID] = uuid_pk()
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
-    )
-    name: Mapped[str] = mapped_column(String(120), nullable=False)
-    key_prefix: Mapped[str] = mapped_column(String(20), nullable=False)
-    secret_hash: Mapped[str] = mapped_column(String(128), nullable=False)
-    scopes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
-    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    rotated_from_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("api_credentials.id", ondelete="SET NULL")
-    )
-    grace_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-    __table_args__ = (Index("ix_api_credentials_tenant", "tenant_id", "status"),)
-
-
 class FeatureFlag(TimestampMixin, Base):
     __tablename__ = "feature_flags"
 

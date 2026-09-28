@@ -23,7 +23,7 @@ depends_on = None
 def upgrade() -> None:
     op.execute(
         """
-        CREATE TABLE api_credentials (
+        CREATE TABLE IF NOT EXISTS api_credentials (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             tenant_id uuid REFERENCES tenants(id) ON DELETE CASCADE,
             name varchar(120) NOT NULL,
@@ -43,26 +43,26 @@ def upgrade() -> None:
         )
         """
     )
-    op.execute("CREATE UNIQUE INDEX ux_api_credentials_key_hash ON api_credentials (key_hash)")
-    op.execute("CREATE INDEX ix_api_credentials_tenant ON api_credentials (tenant_id)")
+    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_api_credentials_key_hash ON api_credentials (key_hash)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_api_credentials_tenant ON api_credentials (tenant_id)")
 
-    op.execute("ALTER TABLE user_sessions ADD COLUMN risk_level varchar(20) DEFAULT 'normal'")
-    op.execute("ALTER TABLE user_sessions ADD COLUMN device_fingerprint varchar(64)")
+    op.execute("ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS risk_level varchar(20) DEFAULT 'normal'")
+    op.execute("ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS device_fingerprint varchar(64)")
 
-    op.execute("ALTER TABLE barrier_incidents ADD COLUMN notified_at timestamptz")
-    op.execute("ALTER TABLE barrier_incidents ADD COLUMN notify_attempts integer NOT NULL DEFAULT 0")
-    op.execute("ALTER TABLE barrier_incidents ADD COLUMN notify_error text")
+    op.execute("ALTER TABLE barrier_incidents ADD COLUMN IF NOT EXISTS notified_at timestamptz")
+    op.execute("ALTER TABLE barrier_incidents ADD COLUMN IF NOT EXISTS notify_attempts integer NOT NULL DEFAULT 0")
+    op.execute("ALTER TABLE barrier_incidents ADD COLUMN IF NOT EXISTS notify_error text")
     op.execute(
-        "CREATE INDEX ix_incidents_pending_notify ON barrier_incidents (severity, status) "
+        "CREATE INDEX IF NOT EXISTS ix_incidents_pending_notify ON barrier_incidents (severity, status) "
         "WHERE notified_at IS NULL"
     )
 
 
 def downgrade() -> None:
     op.execute("DROP INDEX IF EXISTS ix_incidents_pending_notify")
-    op.execute("ALTER TABLE barrier_incidents DROP COLUMN notify_error")
-    op.execute("ALTER TABLE barrier_incidents DROP COLUMN notify_attempts")
-    op.execute("ALTER TABLE barrier_incidents DROP COLUMN notified_at")
-    op.execute("ALTER TABLE user_sessions DROP COLUMN device_fingerprint")
-    op.execute("ALTER TABLE user_sessions DROP COLUMN risk_level")
-    op.execute("DROP TABLE api_credentials")
+    op.execute("ALTER TABLE barrier_incidents DROP COLUMN IF EXISTS notify_error")
+    op.execute("ALTER TABLE barrier_incidents DROP COLUMN IF EXISTS notify_attempts")
+    op.execute("ALTER TABLE barrier_incidents DROP COLUMN IF EXISTS notified_at")
+    op.execute("ALTER TABLE user_sessions DROP COLUMN IF EXISTS device_fingerprint")
+    op.execute("ALTER TABLE user_sessions DROP COLUMN IF EXISTS risk_level")
+    op.execute("DROP TABLE IF EXISTS api_credentials")
