@@ -51,11 +51,12 @@ import {
   barrierTelemetryWsUrl,
   ApiError,
 } from '../services/api';
-import type { IncidentOut, LaneOut } from '../services/api';
+import type { CameraIn, IncidentOut, LaneOut } from '../services/api';
 import {
   mapAccessEvent,
   mapApiCredential,
   mapAuditLog,
+  mapCamera,
   mapDevice,
   mapFeatureFlag,
   mapGate,
@@ -241,6 +242,9 @@ interface PlatformContextType {
   addTenantSite: (siteData: Partial<TenantSite>) => void;
   updateTenantSite: (siteId: string, siteData: Partial<TenantSite>) => void;
   deleteTenantSite: (siteId: string) => void;
+  createTenantCamera: (siteId: string, data: Omit<CameraIn, 'siteId'>) => void;
+  updateTenantCamera: (id: string, data: Partial<Omit<CameraIn, 'siteId'>>) => void;
+  deleteTenantCamera: (id: string) => void;
   resolveTenantAlert: (alertId: string) => void;
   triggerGateCommand: (gateId: string, command: 'OPEN' | 'CLOSE' | 'LOCK' | 'UNLOCK' | 'RESET' | 'REBOOT' | 'RELINK' | 'open' | 'close' | 'lock' | 'unlock' | 'reboot' | 'relink') => void;
   simulateNewAccessEvent: (customEvent?: Partial<AccessEvent>) => void;
@@ -531,11 +535,12 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const loadTenantData = useCallback(async (tId: string) => {
     setIsTenantRefreshing(true);
     try {
-      const [sitesPage, gatesPage, devicesPage, vehiclesPage, rulesPage, usersPage, eventsPage, incidentsPage, auditPage, dashSummary, hourlyFlow] =
+      const [sitesPage, gatesPage, devicesPage, camerasPage, vehiclesPage, rulesPage, usersPage, eventsPage, incidentsPage, auditPage, dashSummary, hourlyFlow] =
         await Promise.all([
           tenantApi.sites(tId, { limit: 200 }),
           tenantApi.gates(tId, { limit: 200 }),
           tenantApi.devices(tId, { limit: 200 }),
+          tenantApi.cameras(tId, { limit: 200 }),
           tenantApi.vehicles(tId, { limit: 200 }),
           tenantApi.rules(tId, { limit: 200 }),
           tenantApi.users(tId, { limit: 200 }),
@@ -558,6 +563,8 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
       setTenantSites(sites.map((s) => ({
         ...s,
+        cameraCount: camerasPage.data.filter((c) => c.siteId === s.id).length,
+        onlineCameraCount: camerasPage.data.filter((c) => c.siteId === s.id && c.status === 'active').length,
         gateCount: gatesPage.data.filter((g) => g.siteId === s.id).length,
         onlineGateCount: gatesPage.data.filter((g) => g.siteId === s.id && (g.status === 'open' || g.status === 'closed')).length,
         edgeDeviceCount: devicesPage.data.filter((d) => d.siteId === s.id).length,
@@ -566,6 +573,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       })));
       setGates(gatesMapped);
       setEdgeDevices(devicesPage.data.map((d) => mapDevice(d, tId, tName)));
+      setCameras(camerasPage.data.map((c) => mapCamera(c, tId, tName)));
 
       const primarySite = sitesPage.data[0];
       if (primarySite) {
@@ -620,7 +628,11 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       const todayEvents = eventsPage.data.filter((e) => new Date(e.occurredAt).toDateString() === today);
       setTenantSummary({
         sites: { total: dashSummary?.sites ?? sites.length, active: sites.filter((s) => s.status !== 'INACTIVE').length, inactive: sites.filter((s) => s.status === 'INACTIVE').length },
-        cameras: { total: 0, online: 0, offline: 0 },
+        cameras: {
+          total: camerasPage.data.length,
+          online: camerasPage.data.filter((c) => c.status === 'active').length,
+          offline: camerasPage.data.filter((c) => c.status !== 'active').length,
+        },
         gates: {
           total: dashSummary?.gates ?? gatesMapped.length,
           online: dashSummary?.gatesOnline ?? gatesMapped.filter((g) => g.status === 'ONLINE').length,
@@ -642,7 +654,11 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       });
       setTenantHealth({
         overall: devicesPage.data.every((d) => d.status === 'online') ? 'HEALTHY' : 'WARNING',
-        cameras: { total: 0, online: 0, offline: 0 },
+        cameras: {
+          total: camerasPage.data.length,
+          online: camerasPage.data.filter((c) => c.status === 'active').length,
+          offline: camerasPage.data.filter((c) => c.status !== 'active').length,
+        },
         gates: {
           total: dashSummary?.gates ?? gatesMapped.length,
           online: dashSummary?.gatesOnline ?? gatesMapped.filter((g) => g.status === 'ONLINE').length,
@@ -1175,6 +1191,33 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       .catch(toastErr('Failed to delete site'));
   };
 
+  const createTenantCamera = (siteId: string, data: Omit<CameraIn, 'siteId'>) => {
+    if (!activeTenantId) return;
+    tenantApi
+      .createCamera(activeTenantId, { ...data, siteId })
+      .then(() => loadTenantData(activeTenantId))
+      .then(() => addToast({ type: 'success', title: 'Camera registered', description: data.name }))
+      .catch(toastErr('Failed to create camera'));
+  };
+
+  const updateTenantCamera = (id: string, data: Partial<Omit<CameraIn, 'siteId'>>) => {
+    if (!activeTenantId) return;
+    tenantApi
+      .updateCamera(activeTenantId, id, data)
+      .then(() => loadTenantData(activeTenantId))
+      .then(() => addToast({ type: 'success', title: 'Camera updated' }))
+      .catch(toastErr('Failed to update camera'));
+  };
+
+  const deleteTenantCamera = (id: string) => {
+    if (!activeTenantId) return;
+    tenantApi
+      .deleteCamera(activeTenantId, id)
+      .then(() => loadTenantData(activeTenantId))
+      .then(() => addToast({ type: 'success', title: 'Camera deleted' }))
+      .catch(toastErr('Failed to delete camera'));
+  };
+
   const resolveTenantAlert = (alertId: string) => {
     if (!activeTenantId) return;
     tenantApi
@@ -1686,6 +1729,9 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         addTenantSite,
         updateTenantSite,
         deleteTenantSite,
+        createTenantCamera,
+        updateTenantCamera,
+        deleteTenantCamera,
         resolveTenantAlert,
         triggerGateCommand,
         simulateNewAccessEvent,
