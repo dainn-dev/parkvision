@@ -19,6 +19,7 @@ from app.schemas.resources import (
     DeviceIn,
     DeviceOut,
     DeviceUpdateIn,
+    EdgeRebootOut,
     GateIn,
     GateOut,
     TelemetryOut,
@@ -484,3 +485,55 @@ async def delete_device(
     )
     await db.delete(row)
     return MessageOut(message="Device deleted")
+
+
+@router.post("/devices/{device_id}/reboot", response_model=EdgeRebootOut)
+async def reboot_device(
+    device_id: uuid.UUID,
+    request: Request,
+    ctx: TenantCtx = Depends(tenant_ctx),
+    db: AsyncSession = Depends(get_tenant_db),
+    _: None = Depends(require_roles(*WRITE_ROLES)),
+) -> EdgeRebootOut:
+    """Reboot an edge device by fanning `reboot` commands to every bound gate."""
+    row = await _get_device_or_404(db, ctx.tenant_id, device_id)
+    if row.status == "decommissioned":
+        raise conflict("Cannot reboot a decommissioned device")
+    gates = (
+        (
+            await db.execute(
+                select(BarrierGate.id).where(
+                    BarrierGate.edge_device_id == device_id,
+                    BarrierGate.tenant_id == ctx.tenant_id,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    command_ids: list[uuid.UUID] = []
+    for gate_id in gates:
+        cmd = await issue_command(
+            db,
+            tenant_id=ctx.tenant_id,
+            gate_id=gate_id,
+            command="reboot",
+            idempotency_key=f"edge-reboot-{device_id}-{gate_id}-{uuid.uuid4().hex[:8]}",
+            issued_by=ctx.auth.user_id,
+            issued_by_type=ctx.auth.user_type,
+            payload={"target": "edge_device", "deviceId": str(device_id)},
+        )
+        command_ids.append(cmd.id)
+    await write_audit(
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="device.reboot",
+        resource_type="edge_device",
+        resource_id=str(device_id),
+        details={"gateCount": len(gates)},
+        ip=request.client.host if request.client else None,
+    )
+    return EdgeRebootOut(command_ids=command_ids)

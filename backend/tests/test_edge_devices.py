@@ -197,3 +197,38 @@ async def test_heartbeat_does_not_resurrect_decommissioned(client: AsyncClient, 
     async with platform_session() as db:
         row = (await db.execute(select(EdgeDevice).where(EdgeDevice.id == uuid.UUID(did)))).scalar_one()
     assert row.status == "decommissioned"
+
+
+@pytest.mark.asyncio
+async def test_reboot_fans_out_to_bound_gates(client: AsyncClient, tenant, site, device):
+    tid, did = tenant["tenant_id"], device["id"]
+    for name in ("Gate R1", "Gate R2"):
+        res = await client.post(
+            f"/api/v1/tenants/{tid}/gates",
+            json={"name": name, "siteId": site, "edgeDeviceId": did},
+            headers=csrf(client),
+        )
+        assert res.status_code == 201, res.text
+    res = await client.post(f"/api/v1/tenants/{tid}/devices/{did}/reboot", headers=csrf(client))
+    assert res.status_code == 200, res.text
+    ids = res.json()["commandIds"]
+    assert len(ids) == 2
+    # Each command is a real, pollable reboot row.
+    got = await client.get(f"/api/v1/tenants/{tid}/commands/{ids[0]}")
+    assert got.json()["command"] == "reboot"
+
+    # A second reboot issues NEW commands (idempotency key must not collide).
+    res2 = await client.post(f"/api/v1/tenants/{tid}/devices/{did}/reboot", headers=csrf(client))
+    assert set(res2.json()["commandIds"]).isdisjoint(ids)
+
+
+@pytest.mark.asyncio
+async def test_reboot_guards(client: AsyncClient, tenant, site, device):
+    tid = tenant["tenant_id"]
+    # No gates bound -> empty list, still 200.
+    res = await client.post(f"/api/v1/tenants/{tid}/devices/{device['id']}/reboot", headers=csrf(client))
+    assert res.status_code == 200 and res.json()["commandIds"] == []
+    # Decommissioned -> 409.
+    await client.post(f"/api/v1/tenants/{tid}/devices/{device['id']}/decommission", headers=csrf(client))
+    res = await client.post(f"/api/v1/tenants/{tid}/devices/{device['id']}/reboot", headers=csrf(client))
+    assert res.status_code == 409
