@@ -5,6 +5,7 @@ pub mod hal;
 pub mod incidents;
 pub mod mqtt;
 pub mod payloads;
+pub mod store;
 pub mod telemetry;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

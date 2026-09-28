@@ -25,6 +25,7 @@ rumqttc = { version = "0.24", features = ["use-rustls"] }
 async-trait = "0.1"
 futures = "0.3"
 sysinfo = "0.33"
+rusqlite = { version = "0.32", features = ["bundled"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
