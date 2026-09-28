@@ -4,12 +4,13 @@ import uuid
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import WRITE_ROLES, csrf_protect, require_roles
 from app.api.v1.tenant import TenantCtx, get_tenant_db, tenant_ctx
-from app.core.errors import not_found
-from app.models import BarrierGate, EdgeDevice, GateTelemetryLog
+from app.core.errors import conflict, not_found
+from app.models import BarrierGate, EdgeDevice, GateTelemetryLog, TenantSite
 from app.models import GateCommand as GateCommandRow
 from app.schemas.common import Page, paginate
 from app.schemas.resources import (
@@ -59,6 +60,17 @@ def _gate_out(row: BarrierGate, tele: TelemetryOut | None = None) -> GateOut:
     out = GateOut.model_validate(row)
     out.last_telemetry = tele
     return out
+
+
+async def _require_site(db: AsyncSession, tenant_id: uuid.UUID, site_id: uuid.UUID) -> None:
+    """404 when `site_id` doesn't belong to this tenant (FK alone allows cross-tenant links)."""
+    exists = (
+        await db.execute(
+            select(TenantSite.id).where(TenantSite.id == site_id, TenantSite.tenant_id == tenant_id)
+        )
+    ).scalar_one_or_none()
+    if exists is None:
+        raise not_found("site", site_id)
 
 
 # ---------- gates ----------
@@ -299,16 +311,17 @@ async def register_device(
 ) -> DeviceOut:
     import secrets
 
+    await _require_site(db, ctx.tenant_id, body.site_id)
     row = EdgeDevice(
         tenant_id=ctx.tenant_id,
-        site_id=body.site_id,
-        name=body.name,
         device_key=f"edge-{secrets.token_hex(12)}",
-        mac=body.mac,
-        firmware_version=body.firmware_version,
+        **body.model_dump(),
     )
     db.add(row)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        raise conflict("device_serial or mqtt_client_id already in use") from None
     await write_audit(
         db,
         tenant_id=ctx.tenant_id,
