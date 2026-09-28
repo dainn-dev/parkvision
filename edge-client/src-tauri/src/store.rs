@@ -261,8 +261,8 @@ impl Store {
     /// `decide_access` while offline.
     pub fn record_local_event(&self, plate: &str, direction: &str, decision: &str) -> Result<()> {
         self.conn.lock().unwrap().execute(
-            "INSERT INTO local_events (plate_normalized, direction, decision) VALUES (?1, ?2, ?3)",
-            params![plate, direction, decision],
+            "INSERT INTO local_events (plate_normalized, direction, decision, occurred_at) VALUES (?1, ?2, ?3, ?4)",
+            params![plate, direction, decision, dt_s(&Utc::now())],
         )?;
         Ok(())
     }
@@ -273,13 +273,23 @@ impl Store {
         &self,
         plate: &str,
         _direction: &str,
-    ) -> Result<Option<(String, String)>> {
+    ) -> Result<Option<(String, String, DateTime<Utc>)>> {
         let conn = self.conn.lock().unwrap();
         match conn.query_row(
-            "SELECT direction, decision FROM local_events
+            "SELECT direction, decision, occurred_at FROM local_events
              WHERE plate_normalized = ?1 ORDER BY id DESC LIMIT 1",
             params![plate],
-            |r| Ok((r.get(0)?, r.get(1)?)),
+            |r| {
+                let raw: String = r.get(2)?;
+                let ts = parse_dt(&raw)
+                    .or_else(|| {
+                        chrono::NaiveDateTime::parse_from_str(&raw, "%Y-%m-%d %H:%M:%S")
+                            .ok()
+                            .map(|n| n.and_utc())
+                    })
+                    .unwrap_or_else(Utc::now);
+                Ok((r.get(0)?, r.get(1)?, ts))
+            },
         ) {
             Ok(v) => Ok(Some(v)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),

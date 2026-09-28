@@ -1,3 +1,4 @@
+pub mod access;
 pub mod commands;
 pub mod config;
 pub mod fsm;
