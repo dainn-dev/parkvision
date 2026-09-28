@@ -1,4 +1,5 @@
 pub mod config;
+pub mod fsm;
 pub mod hal;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
