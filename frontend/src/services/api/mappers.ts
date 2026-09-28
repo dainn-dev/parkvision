@@ -249,14 +249,16 @@ export const mapDevice = (d: DeviceOut, tenantId: string, tenantName = ''): Edge
 
 export const mapCamera = (c: CameraOut, tenantId: string, tenantName = ''): CameraHealth => ({
   id: c.id,
-  cameraName: c.code ?? c.name,
+  cameraName: c.name,
   tenantId,
   tenantName,
   siteId: c.siteId,
   laneId: c.laneId,
   edgeDeviceId: c.edgeDeviceId ?? '',
+  code: c.code,
   streamUrl: c.streamUrl,
   purpose: (c.purpose === 'overview' ? 'overview' : 'plate') as CameraHealth['purpose'],
+  notes: c.notes,
   // 'active' → ONLINE is administrative state only; real stream health needs edge telemetry.
   status: c.status === 'active' ? 'ONLINE' : c.status === 'disabled' ? 'OFFLINE' : 'DEGRADED',
   fps: 0,
