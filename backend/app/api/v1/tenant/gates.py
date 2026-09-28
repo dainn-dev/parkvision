@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import WRITE_ROLES, csrf_protect, require_roles
 from app.api.v1.tenant import TenantCtx, get_tenant_db, tenant_ctx
-from app.core.errors import conflict, not_found
+from app.core.errors import bad_request, conflict, not_found
 from app.models import BarrierGate, EdgeDevice, GateTelemetryLog, TenantSite
 from app.models import GateCommand as GateCommandRow
 from app.schemas.common import Page, paginate
@@ -18,6 +18,7 @@ from app.schemas.resources import (
     CommandOut,
     DeviceIn,
     DeviceOut,
+    DeviceUpdateIn,
     GateIn,
     GateOut,
     TelemetryOut,
@@ -336,17 +337,56 @@ async def register_device(
     return DeviceOut.model_validate(row)
 
 
+async def _get_device_or_404(db: AsyncSession, tenant_id: uuid.UUID, device_id: uuid.UUID) -> EdgeDevice:
+    row = (
+        await db.execute(
+            select(EdgeDevice).where(EdgeDevice.id == device_id, EdgeDevice.tenant_id == tenant_id)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise not_found("device", device_id)
+    return row
+
+
 @router.get("/devices/{device_id}", response_model=DeviceOut)
 async def get_device(
     device_id: uuid.UUID,
     ctx: TenantCtx = Depends(tenant_ctx),
     db: AsyncSession = Depends(get_tenant_db),
 ) -> DeviceOut:
-    row = (
-        await db.execute(
-            select(EdgeDevice).where(EdgeDevice.id == device_id, EdgeDevice.tenant_id == ctx.tenant_id)
-        )
-    ).scalar_one_or_none()
-    if row is None:
-        raise not_found("device", device_id)
+    return DeviceOut.model_validate(await _get_device_or_404(db, ctx.tenant_id, device_id))
+
+
+@router.patch("/devices/{device_id}", response_model=DeviceOut)
+async def update_device(
+    device_id: uuid.UUID,
+    body: DeviceUpdateIn,
+    request: Request,
+    ctx: TenantCtx = Depends(tenant_ctx),
+    db: AsyncSession = Depends(get_tenant_db),
+    _: None = Depends(require_roles(*WRITE_ROLES)),
+) -> DeviceOut:
+    row = await _get_device_or_404(db, ctx.tenant_id, device_id)
+    updates = body.model_dump(exclude_unset=True)
+    if "site_id" in updates:
+        if updates["site_id"] is None:
+            raise bad_request("site_id cannot be null")
+        await _require_site(db, ctx.tenant_id, updates["site_id"])
+    for k, v in updates.items():
+        setattr(row, k, v)
+    try:
+        await db.flush()
+    except IntegrityError:
+        raise conflict("device_serial or mqtt_client_id already in use") from None
+    await write_audit(
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="device.updated",
+        resource_type="edge_device",
+        resource_id=str(device_id),
+        ip=request.client.host if request.client else None,
+    )
     return DeviceOut.model_validate(row)

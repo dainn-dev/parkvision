@@ -212,6 +212,17 @@ class DeviceOut(CamelModel):
         return None if v is None else str(v)
 
 
+class DeviceUpdateIn(CamelModel):
+    site_id: uuid.UUID | None = None
+    name: str | None = Field(default=None, min_length=2, max_length=200)
+    device_serial: str | None = None
+    hardware_model: str | None = None
+    mac: str | None = None
+    ip_address: str | None = None
+    mqtt_client_id: str | None = None
+    firmware_version: str | None = None
+
+
 class GateIn(CamelModel):
     site_id: uuid.UUID
     lane_id: uuid.UUID | None = None
