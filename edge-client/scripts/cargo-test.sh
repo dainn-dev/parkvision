@@ -3,7 +3,8 @@
 # (host Smart App Control blocks unsigned build-script/test binaries).
 # Usage: scripts/cargo-test.sh [cargo args...]   e.g. scripts/cargo-test.sh test
 set -euo pipefail
-SRC_TAURI="$(cd "$(dirname "$0")/../src-tauri" && pwd -W 2>/dev/null || cd "$(dirname "$0")/../src-tauri" && pwd)"
+SRC_TAURI="$(cd "$(dirname "$0")/../src-tauri" && pwd)"
+command -v cygpath >/dev/null 2>&1 && SRC_TAURI="$(cygpath -m "$SRC_TAURI")"
 MSYS_NO_PATHCONV=1 docker run --rm \
   -v "$SRC_TAURI:/app" \
   -v edge-cargo-registry:/usr/local/cargo/registry \
