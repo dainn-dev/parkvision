@@ -23,6 +23,11 @@ export type AccessEventOut = S['AccessEventOut'];
 export type IncidentOut = S['IncidentOut'];
 export type AuditLogOut = S['AuditLogOut'];
 export type JobOut = S['JobOut'];
+export type ApiCredentialOut = S['ApiCredentialOut'];
+export type ApiCredentialCreatedOut = S['ApiCredentialCreatedOut'];
+export type ApiCredentialCreateIn = S['ApiCredentialCreateIn'];
+export type ImpersonateOut = S['ImpersonateOut'];
+export type MessageOut = S['MessageOut'];
 export interface InfraCheck {
   status: string;
   latencyMs?: number;
@@ -69,6 +74,7 @@ export const authApi = {
 export const publicApi = {
   plans: () => api.get<PlanOut[]>('/plans'),
   legal: (doc: 'terms' | 'privacy' | 'dpa' | 'sla') => api.get<LegalDocOut>(`/legal/${doc}`),
+  checkCode: (slug: string) => api.get<S['CheckCodeOut']>(`/tenants/check-code${qs({ slug })}`),
   register: (body: {
     tenantName: string;
     slug: string;
@@ -111,6 +117,15 @@ export const platformApi = {
   infraHealth: () => api.get<InfraHealth>('/platform/infra/health'),
   auditLogs: (p: { page?: number; limit?: number; action?: string; actorId?: string; fromTs?: string; toTs?: string } = {}) =>
     api.get<Page<AuditLogOut>>(`/platform/audit-logs${qs(p)}`),
+  metricsOverview: () => api.get<S['MetricsOverviewOut']>('/platform/metrics/overview'),
+  throughputChart: (hours = 24) => api.get<S['ThroughputChartOut']>(`/platform/metrics/throughput-chart${qs({ hours })}`),
+  telemetrySnapshot: () => api.get<S['TelemetrySnapshotOut']>('/platform/monitoring/telemetry-snapshot'),
+  rebootEdgeDevice: (deviceId: string) => api.post<S['EdgeRebootOut']>(`/platform/edge-devices/${deviceId}/reboot`),
+  credentials: () => api.get<S['ApiCredentialOut'][]>('/platform/credentials'),
+  createCredential: (body: S['ApiCredentialCreateIn']) => api.post<S['ApiCredentialCreatedOut']>('/platform/credentials', body),
+  rotateCredential: (id: string) => api.post<S['ApiCredentialCreatedOut']>(`/platform/credentials/${id}/rotate`),
+  revokeCredential: (id: string) => api.post<S['MessageOut']>(`/platform/credentials/${id}/revoke`),
+  impersonateTenant: (tenantId: string) => api.post<S['ImpersonateOut']>(`/platform/tenants/${tenantId}/impersonate`),
 };
 
 // ---------- Tenant-scoped ----------
@@ -185,6 +200,20 @@ export const tenantApi = {
   exportAudit: (t: string, body: { fromTs?: string; toTs?: string; action?: string }) => api.post<JobOut>(T(t, '/audit-logs/export'), body),
 
   job: (t: string, id: string) => api.get<JobOut>(T(t, `/jobs/${id}`)),
+
+  simulateRule: (t: string, plateNumber?: string) =>
+    api.post<S['RuleSimulateOut']>(T(t, '/rules/simulate'), { plateNumber }),
+  correctPlate: (t: string, id: string, plateNumber: string) =>
+    api.patch<S['AccessEventOut']>(T(t, `/access-events/${id}/correct-plate`), { plateNumber }),
+  bulkResolveIncidents: (t: string, incidentIds: string[], resolutionNotes?: string) =>
+    api.post<S['BulkResolveOut']>(T(t, '/incidents/bulk-resolve'), { incidentIds, resolutionNotes }),
+
+  settings: (t: string) => api.get<S['TenantSettingsOut']>(T(t, '/settings')),
+  updateSettings: (t: string, body: S['TenantSettingsIn']) =>
+    api.put<S['TenantSettingsOut']>(T(t, '/settings'), body),
+
+  dashboardSummary: (t: string) => api.get<S['DashboardSummaryOut']>(T(t, '/dashboard/summary')),
+  hourlyFlow: (t: string, hours = 24) => api.get<S['HourlyFlowOut']>(T(t, `/dashboard/hourly-flow${qs({ hours })}`)),
 };
 
 // ---------- WebSocket ----------

@@ -182,6 +182,7 @@ export interface EdgeDeviceHealth {
   deviceName: string;
   tenantId: string;
   tenantName: string;
+  siteId?: string;
   status: 'ONLINE' | 'OFFLINE' | 'DEGRADED';
   cpuPercent: number;
   memoryPercent: number;
@@ -206,6 +207,13 @@ export interface CameraHealth {
   lastFrameTime: string;
 }
 
+export interface GateTelemetrySnapshot {
+  id?: string;
+  recordedAt: string;
+  state?: string | null;
+  payload: Record<string, unknown>;
+}
+
 export interface GateHealth {
   id: string;
   gateName: string;
@@ -221,6 +229,7 @@ export interface GateHealth {
   edgeDeviceId?: string;
   rawStatus?: string;
   rawType?: string;
+  lastTelemetry?: GateTelemetrySnapshot;
 }
 
 // Latest WS telemetry frame per gate (drives the barrier map's live overlay).

@@ -79,6 +79,9 @@ async def create_site(
         contact_phone=body.contact_phone,
         manager_name=body.manager_name,
         timezone=body.timezone,
+        latitude=body.latitude,
+        longitude=body.longitude,
+        capacity=body.capacity or 0,
         status=body.status or "active",
     )
     db.add(row)

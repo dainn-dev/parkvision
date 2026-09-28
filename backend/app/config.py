@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     db_max_overflow: int = 20
 
     redis_url: str = "redis://localhost:6379/0"
+    rate_limit_enabled: bool = True
 
     jwt_secret: str = "change-me-32-byte-minimum-secret"
     jwt_previous_secrets: list[str] = []

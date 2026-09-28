@@ -4,6 +4,7 @@ Refresh tokens rotate on every use; presenting a rotated/revoked token marks
 the whole session family compromised and revokes it.
 """
 
+import hashlib
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -79,6 +80,29 @@ async def _create_session(
     user_agent: str | None,
     mfa_verified: bool,
 ) -> UserSession:
+    # Light device/risk scoring: fingerprint from IP+UA; a login from a
+    # fingerprint the user has never used is flagged 'suspicious'.
+    fingerprint = hashlib.sha256(f"{ip or ''}|{user_agent or ''}".encode()).hexdigest()[:32]
+    seen_q = await session.execute(
+        select(UserSession.id)
+        .where(
+            UserSession.user_id == user_id,
+            UserSession.user_type == user_type,
+            UserSession.device_fingerprint == fingerprint,
+        )
+        .limit(1)
+    )
+    known_device = seen_q.scalar_one_or_none() is not None
+    risk = "normal"
+    if not known_device:
+        prior_q = await session.execute(
+            select(UserSession.id)
+            .where(UserSession.user_id == user_id, UserSession.user_type == user_type)
+            .limit(1)
+        )
+        if prior_q.scalar_one_or_none() is not None:
+            risk = "suspicious"
+
     refresh_plain = new_refresh_token()
     sess = UserSession(
         user_id=user_id,
@@ -91,6 +115,8 @@ async def _create_session(
         mfa_verified=mfa_verified,
         expires_at=_new_session_expiry(),
         last_seen_at=datetime.now(timezone.utc),
+        risk_level=risk,
+        device_fingerprint=fingerprint,
     )
     session.add(sess)
     await session.flush()

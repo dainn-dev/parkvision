@@ -1,42 +1,71 @@
 """Platform-admin endpoints: tenant governance, admins, settings, flags, infra."""
 
+import hashlib
+import secrets
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import func, or_, select, update
 
 from app.api.deps import AuthContext, require_platform_admin
+from app.api.v1.auth import _cookie_kwargs
+from app.config import settings
 from app.core.enums import ActorType, PlatformAdminRole, TenantStatus
 from app.core.errors import bad_request, conflict, not_found
 from app.database import platform_session
 from app.models import (
+    AccessEvent,
+    ApiCredential,
     AuditLog,
+    BarrierGate,
+    BarrierIncident,
+    EdgeDevice,
     FeatureFlag,
+    GateCommand,
+    GateTelemetryLog,
     PlatformAdmin,
     PlatformSetting,
     Tenant,
+    TenantSite,
     TenantUser,
     UserSession,
 )
 from app.schemas.auth import SessionOut
 from app.schemas.common import MessageOut, Page, paginate
 from app.schemas.resources import (
+    ApiCredentialCreatedOut,
+    ApiCredentialCreateIn,
+    ApiCredentialOut,
     AuditLogOut,
+    EdgeRebootOut,
     FeatureFlagIn,
     FeatureFlagOut,
+    ImpersonateOut,
+    MetricsOverviewOut,
     PlatformAdminIn,
     PlatformAdminOut,
     PlatformSettingIn,
     PlatformSettingOut,
+    SnapshotDevice,
+    SnapshotGate,
+    TelemetrySnapshotOut,
     TenantCreateIn,
     TenantOut,
     TenantStatusIn,
     TenantStatusOut,
     TenantUpdateIn,
+    ThroughputChartOut,
+    ThroughputPoint,
 )
-from app.security import hash_password
+from app.security import (
+    create_access_token,
+    hash_password,
+    hash_refresh_token,
+    new_csrf_token,
+)
 from app.services.audit_service import write_audit
+from app.services.command_service import issue_command
 from app.services.infra_service import infra_status
 
 router = APIRouter(
@@ -447,3 +476,438 @@ async def list_platform_audit_logs(
             .all()
         )
     return paginate([AuditLogOut.model_validate(r) for r in rows], total, page, limit)
+
+
+# ---------- metrics ----------
+@router.get("/metrics/overview", response_model=MetricsOverviewOut)
+async def metrics_overview() -> MetricsOverviewOut:
+    now = datetime.now(timezone.utc)
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    async with platform_session() as db:
+
+        async def count(model, *conds) -> int:
+            q = select(func.count()).select_from(model)
+            if conds:
+                q = q.where(*conds)
+            return int((await db.execute(q)).scalar_one())
+
+        tenants_total = await count(Tenant)
+        tenants_active = await count(Tenant, Tenant.status == "active")
+        users_total = await count(TenantUser)
+        sessions_active = await count(
+            UserSession,
+            UserSession.revoked_at.is_(None),
+            UserSession.expires_at > now,
+        )
+        events_today = await count(AccessEvent, AccessEvent.occurred_at >= today)
+        commands_today = await count(GateCommand, GateCommand.requested_at >= today)
+        open_incidents = await count(BarrierIncident, BarrierIncident.status.in_(["open", "acknowledged"]))
+        gates_total = await count(BarrierGate)
+        edge_total = await count(EdgeDevice)
+        edge_online = await count(EdgeDevice, EdgeDevice.status == "online")
+    return MetricsOverviewOut(
+        tenants_total=tenants_total,
+        tenants_active=tenants_active,
+        users_total=users_total,
+        sessions_active=sessions_active,
+        events_today=events_today,
+        commands_today=commands_today,
+        open_incidents=open_incidents,
+        gates_total=gates_total,
+        edge_devices_online=edge_online,
+        edge_devices_total=edge_total,
+    )
+
+
+@router.get("/metrics/throughput-chart", response_model=ThroughputChartOut)
+async def metrics_throughput_chart(
+    hours: int = Query(24, ge=1, le=168),
+) -> ThroughputChartOut:
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    async with platform_session() as db:
+        ev_bucket = func.date_trunc("hour", AccessEvent.occurred_at)
+        ev_rows = (
+            await db.execute(
+                select(ev_bucket.label("hr"), func.count().label("n"))
+                .where(AccessEvent.occurred_at >= since)
+                .group_by("hr")
+                .order_by("hr")
+            )
+        ).all()
+        cmd_bucket = func.date_trunc("hour", GateCommand.requested_at)
+        cmd_rows = (
+            await db.execute(
+                select(cmd_bucket.label("hr"), func.count().label("n"))
+                .where(GateCommand.requested_at >= since)
+                .group_by("hr")
+                .order_by("hr")
+            )
+        ).all()
+    points: dict[datetime, dict[str, int]] = {}
+    for hr, n in ev_rows:
+        points.setdefault(hr, {"events": 0, "commands": 0})["events"] = int(n)
+    for hr, n in cmd_rows:
+        points.setdefault(hr, {"events": 0, "commands": 0})["commands"] = int(n)
+    return ThroughputChartOut(
+        points=[ThroughputPoint(hour=hr.isoformat(), **slot) for hr, slot in sorted(points.items())]
+    )
+
+
+# ---------- monitoring ----------
+@router.get("/monitoring/telemetry-snapshot", response_model=TelemetrySnapshotOut)
+async def telemetry_snapshot() -> TelemetrySnapshotOut:
+    """Latest telemetry per gate across all tenants (DISTINCT ON per gate)."""
+    async with platform_session() as db:
+        latest = (
+            select(
+                GateTelemetryLog.gate_id.label("gate_id"),
+                GateTelemetryLog.state.label("state"),
+                GateTelemetryLog.payload.label("payload"),
+                GateTelemetryLog.recorded_at.label("recorded_at"),
+            )
+            .distinct(GateTelemetryLog.gate_id)
+            .order_by(GateTelemetryLog.gate_id, GateTelemetryLog.recorded_at.desc())
+            .subquery()
+        )
+        gate_rows = (
+            await db.execute(
+                select(
+                    BarrierGate.id,
+                    BarrierGate.tenant_id,
+                    BarrierGate.site_id,
+                    BarrierGate.name,
+                    TenantSite.name.label("site_name"),
+                    BarrierGate.status,
+                    latest.c.state,
+                    latest.c.payload,
+                    latest.c.recorded_at,
+                )
+                .join(TenantSite, TenantSite.id == BarrierGate.site_id)
+                .outerjoin(latest, latest.c.gate_id == BarrierGate.id)
+                .order_by(BarrierGate.name)
+            )
+        ).all()
+        device_rows = (
+            await db.execute(
+                select(
+                    EdgeDevice.id,
+                    EdgeDevice.tenant_id,
+                    EdgeDevice.site_id,
+                    EdgeDevice.name,
+                    EdgeDevice.status,
+                    EdgeDevice.last_heartbeat_at,
+                ).order_by(EdgeDevice.name)
+            )
+        ).all()
+    return TelemetrySnapshotOut(
+        captured_at=datetime.now(timezone.utc),
+        gates=[
+            SnapshotGate(
+                gate_id=r.id,
+                tenant_id=r.tenant_id,
+                site_id=r.site_id,
+                gate_name=r.name,
+                site_name=r.site_name,
+                status=r.status,
+                last_recorded_at=r.recorded_at,
+                last_state=r.state,
+                payload=r.payload,
+            )
+            for r in gate_rows
+        ],
+        devices=[
+            SnapshotDevice(
+                device_id=r.id,
+                tenant_id=r.tenant_id,
+                site_id=r.site_id,
+                name=r.name,
+                status=r.status,
+                last_heartbeat_at=r.last_heartbeat_at,
+            )
+            for r in device_rows
+        ],
+    )
+
+
+@router.post("/edge-devices/{device_id}/reboot", response_model=EdgeRebootOut)
+async def reboot_edge_device(
+    device_id: uuid.UUID,
+    request: Request,
+    auth: AuthContext = Depends(require_platform_admin()),
+) -> EdgeRebootOut:
+    """Issue `reboot` commands to every gate bound to this edge device."""
+    async with platform_session() as db:
+        device = (await db.execute(select(EdgeDevice).where(EdgeDevice.id == device_id))).scalar_one_or_none()
+        if device is None:
+            raise not_found("edge_device", device_id)
+        gates = (
+            (await db.execute(select(BarrierGate.id).where(BarrierGate.edge_device_id == device_id)))
+            .scalars()
+            .all()
+        )
+        command_ids: list[uuid.UUID] = []
+        for gate_id in gates:
+            row = await issue_command(
+                db,
+                tenant_id=device.tenant_id,
+                gate_id=gate_id,
+                command="reboot",
+                idempotency_key=f"edge-reboot-{device_id}-{gate_id}-{uuid.uuid4().hex[:8]}",
+                issued_by=auth.user_id,
+                issued_by_type=auth.user_type,
+                payload={"target": "edge_device", "deviceId": str(device_id)},
+            )
+            command_ids.append(row.id)
+        if gates:
+            await write_audit(
+                db,
+                tenant_id=device.tenant_id,
+                actor_type=auth.user_type,
+                actor_id=auth.user_id,
+                actor_email=None,
+                action="edge_device.reboot",
+                resource_type="edge_device",
+                resource_id=str(device_id),
+                details={"gateCount": len(gates)},
+                ip=request.client.host if request.client else None,
+            )
+        await db.commit()
+    return EdgeRebootOut(command_ids=command_ids)
+
+
+# ---------- tenant impersonation ----------
+
+
+@router.post("/tenants/{tenant_id}/impersonate", response_model=ImpersonateOut)
+async def impersonate_tenant(
+    tenant_id: uuid.UUID,
+    request: Request,
+    response: Response,
+    auth: AuthContext = Depends(require_platform_admin()),
+) -> ImpersonateOut:
+    """15-minute tenant-scoped token for platform admins (audited).
+
+    Sets the access + CSRF cookies to the impersonation token but leaves the
+    refresh cookie untouched — when it expires, /auth/refresh restores the
+    admin's own session. The impersonated user is the tenant's OWNER.
+    """
+    async with platform_session() as db:
+        tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalar_one_or_none()
+        if tenant is None:
+            raise not_found("tenant", tenant_id)
+        owner = (
+            (
+                await db.execute(
+                    select(TenantUser).where(
+                        TenantUser.tenant_id == tenant_id,
+                        TenantUser.role == "owner",
+                        TenantUser.status == "active",
+                    )
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if owner is None:
+            raise conflict("tenant has no active owner to impersonate")
+
+        ttl = 900
+        sess = UserSession(
+            user_id=owner.id,
+            user_type=ActorType.TENANT_USER,
+            tenant_id=tenant_id,
+            family_id=uuid.uuid4(),
+            # Random hash nobody knows the plaintext of — refresh impossible.
+            refresh_token_hash=hash_refresh_token(secrets.token_urlsafe(48)),
+            ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            mfa_verified=False,
+            expires_at=datetime.now(timezone.utc) + timedelta(seconds=ttl),
+            last_seen_at=datetime.now(timezone.utc),
+            risk_level="impersonated",
+        )
+        db.add(sess)
+        await db.flush()
+
+        token = create_access_token(
+            user_id=owner.id,
+            user_type=ActorType.TENANT_USER,
+            session_id=sess.id,
+            tenant_id=tenant_id,
+            role=owner.role,
+            mfa_verified=False,
+            impersonator_id=auth.user_id,
+            ttl_seconds=ttl,
+        )
+        csrf = new_csrf_token()
+        kwargs = _cookie_kwargs()
+        response.set_cookie(settings.access_cookie_name, token, max_age=ttl, **kwargs)
+        response.set_cookie(settings.csrf_cookie_name, csrf, **{**kwargs, "httponly": False})
+        await write_audit(
+            db,
+            tenant_id=tenant_id,
+            actor_type=auth.user_type,
+            actor_id=auth.user_id,
+            actor_email=None,
+            action="TENANT_IMPERSONATE",
+            resource_type="tenant",
+            resource_id=str(tenant_id),
+            details={"impersonatedUserId": str(owner.id), "ttlSeconds": ttl},
+            ip=request.client.host if request.client else None,
+        )
+        await db.commit()
+    return ImpersonateOut(
+        tenant_id=tenant_id,
+        tenant_name=tenant.name,
+        impersonated_user_id=owner.id,
+        expires_in=ttl,
+        csrf_token=csrf,
+    )
+
+
+# ---------- API credentials ----------
+
+
+def _new_api_key() -> tuple[str, str, str]:
+    """Returns (plaintext, prefix, sha256 hash)."""
+    plain = f"pk_{secrets.token_urlsafe(32)}"
+    return plain, plain[:10], hashlib.sha256(plain.encode()).hexdigest()
+
+
+def _cred_out(c: ApiCredential) -> ApiCredentialOut:
+    now = datetime.now(timezone.utc)
+    grace = bool(c.previous_grace_until and c.previous_grace_until > now)
+    status = c.status
+    if status == "active" and c.expires_at and c.expires_at < now:
+        status = "expired"
+    elif grace:
+        status = "expiring"
+    return ApiCredentialOut(
+        id=c.id,
+        tenant_id=c.tenant_id,
+        name=c.name,
+        key_prefix=c.key_prefix,
+        scopes=c.scopes or [],
+        status=status,
+        expires_at=c.expires_at,
+        last_used_at=c.last_used_at,
+        grace_active=grace,
+        created_at=c.created_at,
+    )
+
+
+@router.get("/credentials", response_model=list[ApiCredentialOut])
+async def list_credentials() -> list[ApiCredentialOut]:
+    async with platform_session() as db:
+        rows = (
+            (await db.execute(select(ApiCredential).order_by(ApiCredential.created_at.desc())))
+            .scalars()
+            .all()
+        )
+        return [_cred_out(c) for c in rows]
+
+
+@router.post("/credentials", response_model=ApiCredentialCreatedOut, status_code=201)
+async def create_credential(
+    body: ApiCredentialCreateIn,
+    request: Request,
+    auth: AuthContext = Depends(require_platform_admin()),
+) -> ApiCredentialCreatedOut:
+    async with platform_session() as db:
+        plain, prefix, hashed = _new_api_key()
+        c = ApiCredential(
+            tenant_id=body.tenant_id,
+            name=body.name,
+            key_prefix=prefix,
+            key_hash=hashed,
+            scopes=body.scopes,
+            expires_at=(
+                datetime.now(timezone.utc) + timedelta(days=body.expires_in_days)
+                if body.expires_in_days
+                else None
+            ),
+            created_by=auth.user_id,
+        )
+        db.add(c)
+        await db.flush()
+        await write_audit(
+            db,
+            tenant_id=body.tenant_id,
+            actor_type=auth.user_type,
+            actor_id=auth.user_id,
+            actor_email=None,
+            action="api_credential.create",
+            resource_type="api_credential",
+            resource_id=str(c.id),
+            details={"name": c.name, "keyPrefix": prefix},
+            ip=request.client.host if request.client else None,
+        )
+        await db.commit()
+    return ApiCredentialCreatedOut(**_cred_out(c).model_dump(), plaintext_key=plain)
+
+
+@router.post("/credentials/{cred_id}/rotate", response_model=ApiCredentialCreatedOut)
+async def rotate_credential(
+    cred_id: uuid.UUID,
+    request: Request,
+    auth: AuthContext = Depends(require_platform_admin()),
+) -> ApiCredentialCreatedOut:
+    """Issue a new key; the old key stays valid for a 24h grace window."""
+    async with platform_session() as db:
+        c = (await db.execute(select(ApiCredential).where(ApiCredential.id == cred_id))).scalar_one_or_none()
+        if c is None:
+            raise not_found("api_credential", cred_id)
+        plain, prefix, hashed = _new_api_key()
+        c.previous_key_hash = c.key_hash
+        c.previous_grace_until = datetime.now(timezone.utc) + timedelta(hours=24)
+        c.key_prefix = prefix
+        c.key_hash = hashed
+        c.rotated_from = auth.user_id
+        await write_audit(
+            db,
+            tenant_id=c.tenant_id,
+            actor_type=auth.user_type,
+            actor_id=auth.user_id,
+            actor_email=None,
+            action="api_credential.rotate",
+            resource_type="api_credential",
+            resource_id=str(c.id),
+            details={"keyPrefix": prefix, "graceUntil": c.previous_grace_until.isoformat()},
+            ip=request.client.host if request.client else None,
+        )
+        await db.commit()
+    return ApiCredentialCreatedOut(
+        **_cred_out(c).model_dump(),
+        plaintext_key=plain,
+        previous_grace_until=c.previous_grace_until,
+    )
+
+
+@router.post("/credentials/{cred_id}/revoke", response_model=MessageOut)
+async def revoke_credential(
+    cred_id: uuid.UUID,
+    request: Request,
+    auth: AuthContext = Depends(require_platform_admin()),
+) -> MessageOut:
+    async with platform_session() as db:
+        c = (await db.execute(select(ApiCredential).where(ApiCredential.id == cred_id))).scalar_one_or_none()
+        if c is None:
+            raise not_found("api_credential", cred_id)
+        c.status = "revoked"
+        c.revoked_at = datetime.now(timezone.utc)
+        c.previous_key_hash = None
+        c.previous_grace_until = None
+        await write_audit(
+            db,
+            tenant_id=c.tenant_id,
+            actor_type=auth.user_type,
+            actor_id=auth.user_id,
+            actor_email=None,
+            action="api_credential.revoke",
+            resource_type="api_credential",
+            resource_id=str(c.id),
+            details={"name": c.name},
+            ip=request.client.host if request.client else None,
+        )
+        await db.commit()
+    return MessageOut(message="credential revoked")

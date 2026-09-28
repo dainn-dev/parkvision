@@ -17,6 +17,8 @@ class WorkerSettings:
         # Runs every ~15s so a stale edge device is flagged within ~20-35s.
         cron(jobs.mark_offline_devices, second={0, 15, 30, 45}),
         cron(jobs.cleanup_expired_sessions, hour=3, minute=15),
+        cron(jobs.enforce_retention, hour=2, minute=0),
+        cron(jobs.incident_notify, second=45),
     ]
     redis_settings = jobs.redis_settings()
     max_jobs = 10

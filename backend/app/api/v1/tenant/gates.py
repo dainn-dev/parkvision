@@ -31,6 +31,36 @@ router = APIRouter(
 )
 
 
+async def _latest_telemetry_map(
+    db: AsyncSession, tenant_id: uuid.UUID, gate_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, TelemetryOut]:
+    """Latest gate_telemetry_logs row per gate (DISTINCT ON)."""
+    if not gate_ids:
+        return {}
+    rows = (
+        (
+            await db.execute(
+                select(GateTelemetryLog)
+                .where(
+                    GateTelemetryLog.tenant_id == tenant_id,
+                    GateTelemetryLog.gate_id.in_(gate_ids),
+                )
+                .distinct(GateTelemetryLog.gate_id)
+                .order_by(GateTelemetryLog.gate_id, GateTelemetryLog.recorded_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return {t.gate_id: TelemetryOut.model_validate(t) for t in rows}
+
+
+def _gate_out(row: BarrierGate, tele: TelemetryOut | None = None) -> GateOut:
+    out = GateOut.model_validate(row)
+    out.last_telemetry = tele
+    return out
+
+
 # ---------- gates ----------
 @router.get("/gates", response_model=Page[GateOut])
 async def list_gates(
@@ -51,7 +81,8 @@ async def list_gates(
         .scalars()
         .all()
     )
-    return paginate([GateOut.model_validate(r) for r in rows], total, page, limit)
+    tele_map = await _latest_telemetry_map(db, ctx.tenant_id, [r.id for r in rows])
+    return paginate([_gate_out(r, tele_map.get(r.id)) for r in rows], total, page, limit)
 
 
 @router.post("/gates", response_model=GateOut, status_code=201)
@@ -92,7 +123,8 @@ async def get_gate(
     ).scalar_one_or_none()
     if row is None:
         raise not_found("gate", gate_id)
-    return GateOut.model_validate(row)
+    tele_map = await _latest_telemetry_map(db, ctx.tenant_id, [row.id])
+    return _gate_out(row, tele_map.get(row.id))
 
 
 @router.patch("/gates/{gate_id}", response_model=GateOut)

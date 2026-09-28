@@ -11,8 +11,9 @@ from app.api.v1.tenant import TenantCtx, get_tenant_db, tenant_ctx
 from app.core.errors import not_found
 from app.models import TenantAccessRule
 from app.schemas.common import Page, paginate
-from app.schemas.resources import RuleIn, RuleOut
+from app.schemas.resources import RuleIn, RuleOut, RuleSimulateIn, RuleSimulateOut
 from app.services.audit_service import write_audit
+from app.services.event_service import decide_access
 
 router = APIRouter(
     prefix="/tenants/{tenant_id}",
@@ -137,3 +138,20 @@ async def delete_rule(
         ip=request.client.host if request.client else None,
     )
     return {"data": {"message": "Rule deleted"}}
+
+
+@router.post("/rules/simulate", response_model=RuleSimulateOut)
+async def simulate_rule(
+    body: RuleSimulateIn,
+    ctx: TenantCtx = Depends(tenant_ctx),
+    db: AsyncSession = Depends(get_tenant_db),
+    _: None = Depends(require_roles(*WRITE_ROLES)),
+) -> RuleSimulateOut:
+    """Dry-run the access decision engine for a plate — reuses decide_access."""
+    decision, reason, vehicle_id = await decide_access(db, ctx.tenant_id, body.plate_number)
+    return RuleSimulateOut(
+        decision=decision,
+        reason=reason,
+        matched_rule=reason.split(":", 1)[1] if reason.startswith("rule:") else None,
+        vehicle_id=vehicle_id,
+    )

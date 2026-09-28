@@ -105,6 +105,8 @@ export interface AccessEvent {
   accessRule?: string;
   reason?: string;
   verifiedBy?: string;
+  correctedPlate?: string;
+  correctedAt?: string;
 }
 
 export interface TenantAlertItem {

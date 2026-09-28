@@ -5,6 +5,7 @@
  */
 import type {
   AccessEventOut,
+  ApiCredentialOut,
   AuditLogOut,
   DeviceOut,
   FeatureFlagOut,
@@ -23,6 +24,7 @@ import type {
 } from './index';
 import type {
   ActiveSession,
+  ApiCredential,
   AuditLogItem,
   EdgeDeviceHealth,
   FeatureFlag,
@@ -106,7 +108,7 @@ export const mapSession = (
     browser: s.userAgent ?? '',
     os: '',
     ipAddress: s.ip ?? '',
-    riskLevel: 'NORMAL',
+    riskLevel: (s.riskLevel ?? 'normal').toUpperCase() === 'SUSPICIOUS' ? 'SUSPICIOUS' : (s.riskLevel ?? 'normal').toUpperCase() === 'IMPERSONATED' ? 'HIGH_RISK' : 'NORMAL',
     createdTime: s.createdAt,
     lastActive: s.lastSeenAt ?? s.createdAt,
   };
@@ -184,7 +186,7 @@ export const mapAuditLog = (a: AuditLogOut): AuditLogItem => ({
 export const mapSite = (s: SiteOut, tenantId: string, tenantName = ''): TenantSite => ({
   id: s.id,
   name: s.name,
-  code: s.name.slice(0, 8).toUpperCase().replace(/\s+/g, '-'),
+  code: s.code ?? s.name.slice(0, 8).toUpperCase().replace(/\s+/g, '-'),
   tenantId,
   tenantName,
   address: s.address ?? '',
@@ -199,6 +201,12 @@ export const mapSite = (s: SiteOut, tenantId: string, tenantName = ''): TenantSi
   todayAccessCount: 0,
   lanesCount: 0,
   operatingHours: s.timezone,
+  capacity: s.capacity ?? undefined,
+  currentOccupancy: s.currentOccupancy ?? undefined,
+  coordinates:
+    s.latitude != null && s.longitude != null
+      ? { lat: s.latitude, lng: s.longitude }
+      : undefined,
   createdAt: s.createdAt,
   description: '',
 });
@@ -218,6 +226,7 @@ export const mapGate = (g: GateOut, tenantId: string, tenantName = ''): GateHeal
   edgeDeviceId: g.edgeDeviceId ?? undefined,
   rawStatus: g.status ?? 'closed',
   rawType: g.gateType ?? undefined,
+  lastTelemetry: g.lastTelemetry ?? undefined,
 });
 
 export const mapDevice = (d: DeviceOut, tenantId: string, tenantName = ''): EdgeDeviceHealth => ({
@@ -225,6 +234,7 @@ export const mapDevice = (d: DeviceOut, tenantId: string, tenantName = ''): Edge
   deviceName: d.name,
   tenantId,
   tenantName,
+  siteId: d.siteId ?? undefined,
   status: upper(d.status, 'OFFLINE') as EdgeDeviceHealth['status'],
   cpuPercent: 0,
   memoryPercent: 0,
@@ -378,7 +388,9 @@ export const mapAccessEvent = (
   direction: upper(e.direction, 'IN') as AccessEvent['direction'],
   decision: upper(e.decision, 'UNKNOWN') as AccessEvent['decision'],
   reason: e.reason ?? undefined,
-  verifiedBy: e.source,
+  verifiedBy: e.verifiedBy ?? e.source,
+  correctedPlate: e.correctedPlate ?? undefined,
+  correctedAt: e.correctedAt ?? undefined,
 });
 
 export const mapIncident = (
@@ -415,4 +427,19 @@ export const mapPlan = (p: PlanOut) => ({
   priceMonthlyCents: p.priceMonthlyCents,
   currency: p.currency,
   limits: p.limits as Record<string, number>,
+});
+
+export const mapApiCredential = (
+  c: ApiCredentialOut,
+  tenantName?: string,
+): ApiCredential => ({
+  id: c.id,
+  name: c.name,
+  type: c.scopes?.some((s) => s.startsWith('edge')) ? 'EDGE_KEY' : 'PLATFORM_KEY',
+  ownerName: tenantName ?? (c.tenantId ? c.tenantId.slice(0, 8) : 'Platform'),
+  keyPrefix: c.keyPrefix,
+  status: c.status.toUpperCase() as ApiCredential['status'],
+  lastUsedAt: c.lastUsedAt ? new Date(c.lastUsedAt).toLocaleString() : 'never',
+  createdAt: c.createdAt,
+  expiresAt: c.expiresAt ?? undefined,
 });

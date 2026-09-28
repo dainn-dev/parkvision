@@ -1,39 +1,110 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePlatform } from '../../context/PlatformContext';
+import { tenantApi } from '../../services/api';
 import {
   Settings,
   Building2,
-  Bell,
   Radio,
-  Key,
-  Shield,
   Save,
-  CheckCircle2,
   HardDrive
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
 
+interface TenantSettingsForm {
+  orgName: string;
+  contactEmail: string;
+  supportHotline: string;
+  ocrConfidenceThreshold: string; // percent in UI (0-100); API stores 0-1
+  loopClearDelayMs: string;
+  autoOpenBarrier: boolean;
+  alarmOnUnknownPlate: boolean;
+  webhookUrl: string;
+  telegramChatId: string;
+  backupFrequency: string;
+  retentionDays: string;
+  notifyOnCritical: boolean;
+  [key: string]: string | boolean;
+}
+
+const DEFAULTS: TenantSettingsForm = {
+  orgName: '',
+  contactEmail: '',
+  supportHotline: '',
+  ocrConfidenceThreshold: '90.0',
+  loopClearDelayMs: '2000',
+  autoOpenBarrier: true,
+  alarmOnUnknownPlate: true,
+  webhookUrl: '',
+  telegramChatId: '',
+  backupFrequency: 'HOURLY',
+  retentionDays: '90',
+  notifyOnCritical: true,
+};
+
 export const TenantSettingsPage: React.FC = () => {
-  const { addToast } = usePlatform();
+  const { addToast, activeTenantId } = usePlatform();
 
-  const [settings, setSettings] = useState({
-    orgName: 'Acme Parking Systems',
-    contactEmail: 'support@acmeparking.vn',
-    supportHotline: '+84 28 3822 9999',
-    ocrConfidenceThreshold: '90.0',
-    autoOpenBarrier: true,
-    alarmOnUnknownPlate: true,
-    webhookUrl: 'https://api.acmeparking.vn/v1/webhooks/anpr-events',
-    backupFrequency: 'HOURLY'
-  });
+  const [settings, setSettings] = useState<TenantSettingsForm>(DEFAULTS);
+  const [isSaving, setIsSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!activeTenantId) return;
+    tenantApi
+      .settings(activeTenantId)
+      .then((res) => {
+        setSettings((prev) => ({
+          ...prev,
+          ...res,
+          ocrConfidenceThreshold:
+            res.ocrConfidenceThreshold != null
+              ? String(Math.round(Number(res.ocrConfidenceThreshold) * 1000) / 10)
+              : prev.ocrConfidenceThreshold,
+          loopClearDelayMs:
+            res.loopClearDelayMs != null ? String(res.loopClearDelayMs) : prev.loopClearDelayMs,
+          webhookUrl: res.webhookUrl ?? '',
+          telegramChatId: res.telegramChatId ?? '',
+          retentionDays: res.retentionDays != null ? String(res.retentionDays) : prev.retentionDays,
+          notifyOnCritical: res.notifyOnCritical ?? prev.notifyOnCritical,
+        }));
+        setLoaded(true);
+      })
+      .catch(() => {
+        setLoaded(true);
+      });
+  }, [activeTenantId]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    addToast({
-      type: 'info',
-      title: 'Not persisted',
-      description: 'These tenant settings are not editable via the API yet — a platform admin must apply them.'
-    });
+    if (!activeTenantId) {
+      addToast({ type: 'error', title: 'No tenant selected' });
+      return;
+    }
+    const pct = parseFloat(settings.ocrConfidenceThreshold);
+    const delay = parseInt(settings.loopClearDelayMs, 10);
+    const retention = parseInt(settings.retentionDays, 10);
+    setIsSaving(true);
+    try {
+      await tenantApi.updateSettings(activeTenantId, {
+        orgName: settings.orgName,
+        contactEmail: settings.contactEmail,
+        supportHotline: settings.supportHotline,
+        ocrConfidenceThreshold: Number.isFinite(pct) ? Math.min(Math.max(pct, 0), 100) / 100 : null,
+        loopClearDelayMs: Number.isFinite(delay) ? delay : null,
+        autoOpenBarrier: settings.autoOpenBarrier,
+        alarmOnUnknownPlate: settings.alarmOnUnknownPlate,
+        webhookUrl: settings.webhookUrl || null,
+        telegramChatId: settings.telegramChatId || null,
+        backupFrequency: settings.backupFrequency,
+        retentionDays: Number.isFinite(retention) ? retention : null,
+        notifyOnCritical: settings.notifyOnCritical,
+      });
+      addToast({ type: 'success', title: 'Settings saved', description: 'Tenant settings persisted.' });
+    } catch {
+      addToast({ type: 'error', title: 'Failed to save settings' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -50,6 +121,7 @@ export const TenantSettingsPage: React.FC = () => {
             Configure default OCR recognition thresholds, automated barrier relay policies, and webhook subscriptions
           </p>
         </div>
+        {!loaded && <span className="text-[11px] text-[#8b949e]">Loading…</span>}
       </div>
 
       <form onSubmit={handleSave} className="space-y-5 text-xs">
@@ -103,6 +175,18 @@ export const TenantSettingsPage: React.FC = () => {
 
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
+                Loop-Clear Delay (ms)
+              </label>
+              <Input
+                type="number"
+                value={settings.loopClearDelayMs}
+                onChange={(e) => setSettings({ ...settings, loopClearDelayMs: e.target.value })}
+                className="bg-[#0d0e12] border-[#30363d] text-white font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[#c9d1d9] font-medium mb-1.5">
                 Edge Backup Frequency
               </label>
               <select
@@ -114,6 +198,18 @@ export const TenantSettingsPage: React.FC = () => {
                 <option value="HOURLY">Hourly Batch Sync</option>
                 <option value="DAILY">Daily Off-peak Archive</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+                Event Retention (days)
+              </label>
+              <Input
+                type="number"
+                value={settings.retentionDays}
+                onChange={(e) => setSettings({ ...settings, retentionDays: e.target.value })}
+                className="bg-[#0d0e12] border-[#30363d] text-white font-mono"
+              />
             </div>
           </div>
 
@@ -141,6 +237,18 @@ export const TenantSettingsPage: React.FC = () => {
                 Send operator alert push notification when unregistered or unknown vehicle approaches gate
               </span>
             </label>
+
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.notifyOnCritical}
+                onChange={(e) => setSettings({ ...settings, notifyOnCritical: e.target.checked })}
+                className="rounded border-[#30363d] text-[#58a6ff]"
+              />
+              <span className="text-[#c9d1d9]">
+                Push critical-severity incidents to webhook + Telegram
+              </span>
+            </label>
           </div>
         </div>
 
@@ -162,12 +270,30 @@ export const TenantSettingsPage: React.FC = () => {
               Events will be dispatched in JSON payload upon every gate open, denied, or manual override event.
             </p>
           </div>
+
+          <div>
+            <label className="block text-[#c9d1d9] font-medium mb-1.5">Telegram Chat ID</label>
+            <Input
+              value={settings.telegramChatId}
+              onChange={(e) => setSettings({ ...settings, telegramChatId: e.target.value })}
+              placeholder="-100xxxxxxxxxx"
+              className="bg-[#0d0e12] border-[#30363d] text-white font-mono"
+            />
+            <p className="text-[11px] text-[#8b949e] mt-1">
+              Target chat/channel for critical incident alerts via the platform notification dispatcher.
+            </p>
+          </div>
         </div>
 
         <div className="flex justify-end pt-2">
-          <Button type="submit" variant="primary" className="bg-[#238636] hover:bg-[#2ea043] text-white gap-2">
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={isSaving}
+            className="bg-[#238636] hover:bg-[#2ea043] text-white gap-2"
+          >
             <Save className="w-4 h-4" />
-            Save Changes
+            {isSaving ? 'Saving…' : 'Save Changes'}
           </Button>
         </div>
       </form>

@@ -38,7 +38,7 @@ import { TenantRulesPage } from './pages/tenant/TenantRulesPage';
 import { TenantUsersPage } from './pages/tenant/TenantUsersPage';
 import { TenantSettingsPage } from './pages/tenant/TenantSettingsPage';
 import { BarrierMapVisualization } from './components/monitoring/BarrierMapVisualization';
-import { ArrowLeft, LayoutDashboard } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, UserCog, LogOut } from 'lucide-react';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const PlatformAppContent: React.FC = () => {
@@ -54,7 +54,9 @@ const PlatformAppContent: React.FC = () => {
     isMfaModalOpen,
     closeMfaModal,
     mfaModalMode,
-    mfaTargetAdminName
+    mfaTargetAdminName,
+    impersonation,
+    exitImpersonation
   } = usePlatform();
 
   // Public site view state: 'landing' | 'terms' | 'privacy' | 'sla' | 'login' | 'register' | 'activate'
@@ -175,6 +177,24 @@ const PlatformAppContent: React.FC = () => {
             setIsPreviewingLandingAsAuth(true);
           }}
         />
+
+        {/* Impersonation banner — shown while a platform admin browses a tenant's portal */}
+        {impersonation && (
+          <div className="bg-amber-500/15 border-b border-amber-500/40 px-6 py-2 flex items-center justify-between gap-4 shrink-0">
+            <div className="flex items-center gap-2 text-amber-300 text-xs font-semibold">
+              <UserCog className="w-4 h-4" />
+              Đang mạo danh tenant <span className="font-mono">{impersonation.tenantName}</span>
+              — phiên hết hạn sau {Math.round(impersonation.expiresIn / 60)} phút
+            </div>
+            <button
+              onClick={() => exitImpersonation()}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/20 border border-amber-500/50 text-amber-200 text-[11px] font-bold hover:bg-amber-500/30 transition-colors cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Thoát mạo danh
+            </button>
+          </div>
+        )}
 
         {/* Scrollable Page Viewport */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">

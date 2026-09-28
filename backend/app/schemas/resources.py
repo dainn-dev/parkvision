@@ -2,7 +2,8 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import EmailStr, Field, field_validator
+from pydantic import ConfigDict, EmailStr, Field, field_validator
+from pydantic.alias_generators import to_camel
 
 from app.schemas.common import CamelModel
 
@@ -135,6 +136,9 @@ class SiteIn(CamelModel):
     contact_phone: str | None = None
     manager_name: str | None = None
     timezone: str = "UTC"
+    latitude: float | None = Field(None, ge=-90, le=90)
+    longitude: float | None = Field(None, ge=-180, le=180)
+    capacity: int | None = Field(None, ge=0)
     status: str | None = None
 
 
@@ -153,6 +157,10 @@ class SiteOut(CamelModel):
     contact_phone: str | None
     manager_name: str | None
     timezone: str
+    latitude: float | None
+    longitude: float | None
+    capacity: int
+    current_occupancy: int
     status: str
     created_at: datetime
 
@@ -244,6 +252,7 @@ class GateOut(CamelModel):
     warning_note: str | None
     last_state_change_at: datetime | None
     created_at: datetime
+    last_telemetry: "TelemetryOut | None" = None
 
 
 class CommandIn(CamelModel):
@@ -272,6 +281,9 @@ class TelemetryOut(CamelModel):
     recorded_at: datetime
     state: str | None
     payload: dict[str, Any]
+
+
+GateOut.model_rebuild()
 
 
 # ---------- tenant users ----------
@@ -404,6 +416,9 @@ class AccessEventOut(CamelModel):
     lane_id: uuid.UUID | None
     vehicle_id: uuid.UUID | None
     plate_number: str | None
+    corrected_plate: str | None = None
+    verified_by: str | None = None
+    corrected_at: datetime | None = None
     direction: str
     decision: str
     reason: str | None
@@ -418,6 +433,10 @@ class AccessEventOut(CamelModel):
     corrected_plate: str | None
     corrected_at: datetime | None
     occurred_at: datetime
+
+
+class CorrectPlateIn(CamelModel):
+    plate_number: str = Field(min_length=2, max_length=20)
 
 
 class PresignIn(CamelModel):
@@ -465,6 +484,148 @@ class IncidentOut(CamelModel):
 class IncidentResolveIn(CamelModel):
     resolution_notes: str | None = None
     resolution_method: str | None = None
+
+
+class BulkResolveIn(CamelModel):
+    incident_ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+    resolution_notes: str | None = None
+
+
+class BulkResolveOut(CamelModel):
+    resolved: int
+
+
+# ---------- tenant settings ----------
+class TenantSettingsIn(CamelModel):
+    """Per-tenant operational settings stored in `tenants.settings` JSONB.
+
+    Unknown keys pass through untouched (extra='allow') so the edge/notify
+    layers can introduce keys without a schema bump.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True,
+        use_enum_values=True,
+        extra="allow",
+    )
+
+    ocr_confidence_threshold: float | None = Field(default=None, ge=0, le=1)
+    loop_clear_delay_ms: int | None = Field(default=None, ge=0, le=60_000)
+    webhook_url: str | None = Field(default=None, max_length=500)
+    telegram_chat_id: str | None = Field(default=None, max_length=100)
+    notify_on_critical: bool | None = None
+    retention_days: int | None = Field(default=None, ge=1, le=3650)
+
+
+class TenantSettingsOut(TenantSettingsIn):
+    pass
+
+
+# ---------- rules / simulate ----------
+class RuleSimulateIn(CamelModel):
+    plate_number: str | None = Field(default=None, max_length=20)
+
+
+class RuleSimulateOut(CamelModel):
+    decision: str
+    reason: str
+    matched_rule: str | None = None
+    vehicle_id: uuid.UUID | None = None
+
+
+# ---------- public check-code ----------
+class CheckCodeOut(CamelModel):
+    available: bool
+    slug: str | None = None
+    reason: str | None = None
+
+
+# ---------- tenant dashboard aggregation ----------
+class DashboardSummaryOut(CamelModel):
+    sites: int = 0
+    gates: int = 0
+    gates_online: int = 0
+    devices: int = 0
+    devices_online: int = 0
+    vehicles: int = 0
+    users: int = 0
+    today_events: int = 0
+    today_allowed: int = 0
+    today_denied: int = 0
+    today_unknown: int = 0
+    open_incidents: int = 0
+    capacity: int = 0
+    current_occupancy: int = 0
+    occupancy_rate: float = 0.0
+
+
+class HourlyFlowPoint(CamelModel):
+    hour: str  # ISO hour bucket start, e.g. "2026-09-25T07:00:00+00:00"
+    entries: int = 0
+    exits: int = 0
+    allowed: int = 0
+    denied: int = 0
+
+
+class HourlyFlowOut(CamelModel):
+    points: list[HourlyFlowPoint]
+
+
+# ---------- platform metrics + monitoring ----------
+class MetricsOverviewOut(CamelModel):
+    tenants_total: int = 0
+    tenants_active: int = 0
+    users_total: int = 0
+    sessions_active: int = 0
+    events_today: int = 0
+    commands_today: int = 0
+    open_incidents: int = 0
+    gates_total: int = 0
+    edge_devices_online: int = 0
+    edge_devices_total: int = 0
+
+
+class ThroughputPoint(CamelModel):
+    hour: str
+    events: int = 0
+    commands: int = 0
+
+
+class ThroughputChartOut(CamelModel):
+    points: list[ThroughputPoint]
+
+
+class SnapshotGate(CamelModel):
+    gate_id: uuid.UUID
+    tenant_id: uuid.UUID
+    site_id: uuid.UUID
+    gate_name: str
+    site_name: str
+    status: str
+    last_recorded_at: datetime | None = None
+    last_state: str | None = None
+    payload: dict[str, Any] | None = None
+
+
+class SnapshotDevice(CamelModel):
+    device_id: uuid.UUID
+    tenant_id: uuid.UUID
+    site_id: uuid.UUID | None
+    name: str
+    status: str
+    last_heartbeat_at: datetime | None = None
+
+
+class TelemetrySnapshotOut(CamelModel):
+    captured_at: datetime
+    gates: list[SnapshotGate]
+    devices: list[SnapshotDevice]
+
+
+class EdgeRebootOut(CamelModel):
+    command_ids: list[uuid.UUID]
 
 
 # ---------- audit ----------
@@ -544,3 +705,63 @@ class SitesGatesSiteOut(CamelModel):
 class SitesGatesOut(CamelModel):
     tenant_id: uuid.UUID
     sites: list[SitesGatesSiteOut]
+
+
+class ApiCredentialCreateIn(CamelModel):
+    name: str = Field(min_length=2, max_length=120)
+    tenant_id: uuid.UUID | None = None
+    scopes: list[str] = Field(default_factory=list)
+    expires_in_days: int | None = Field(default=None, ge=1, le=3650)
+
+
+class ApiCredentialOut(CamelModel):
+    id: uuid.UUID
+    tenant_id: uuid.UUID | None
+    name: str
+    key_prefix: str
+    scopes: list[str]
+    status: str
+    expires_at: datetime | None
+    last_used_at: datetime | None
+    grace_active: bool
+    created_at: datetime
+
+
+class ApiCredentialCreatedOut(ApiCredentialOut):
+    """Returned once on create/rotate — plaintext key is never stored or shown again."""
+
+    plaintext_key: str
+    previous_grace_until: datetime | None = None
+
+
+class ImpersonateOut(CamelModel):
+    tenant_id: uuid.UUID
+    tenant_name: str
+    impersonated_user_id: uuid.UUID
+    expires_in: int
+    csrf_token: str
+
+
+class EdgeVehicleEntry(CamelModel):
+    plate_normalized: str
+    tag: str
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
+    status: str
+    updated_at: datetime
+
+
+class EdgeWhitelistOut(CamelModel):
+    items: list[EdgeVehicleEntry]
+    synced_at: datetime
+    truncated: bool
+
+
+class EdgeRuleEntry(CamelModel):
+    id: uuid.UUID
+    site_id: uuid.UUID | None = None
+    name: str
+    rule_type: str
+    priority: int
+    schedule: dict[str, Any] = {}
+    conditions: dict[str, Any] = {}

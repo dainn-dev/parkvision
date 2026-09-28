@@ -99,6 +99,8 @@ def create_access_token(
     role: str | None = None,
     mfa_verified: bool = False,
     mfa_pending: bool = False,
+    impersonator_id: uuid.UUID | None = None,
+    ttl_seconds: int | None = None,
 ) -> str:
     now = datetime.now(timezone.utc)
     claims = {
@@ -111,8 +113,10 @@ def create_access_token(
         "mfa_pending": mfa_pending,
         "jti": uuid.uuid4().hex,
         "iat": now,
-        "exp": now + timedelta(seconds=settings.access_token_ttl_seconds),
+        "exp": now + timedelta(seconds=ttl_seconds or settings.access_token_ttl_seconds),
     }
+    if impersonator_id is not None:
+        claims["impersonator_id"] = str(impersonator_id)
     return jwt.encode(claims, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 

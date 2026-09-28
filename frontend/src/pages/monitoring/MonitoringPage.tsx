@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { usePlatform } from '../../context/PlatformContext';
+import { platformApi } from '../../services/api';
 import {
   Activity,
   Server,
@@ -38,9 +39,21 @@ export const MonitoringPage: React.FC = () => {
     incidents,
     acknowledgeIncident,
     resolveIncident,
+    bulkResolveIncidents,
     monitoringSubTab,
-    setMonitoringSubTab
+    setMonitoringSubTab,
+    userType,
+    addToast
   } = usePlatform();
+
+  const rebootEdge = (deviceId: string) => {
+    platformApi
+      .rebootEdgeDevice(deviceId)
+      .then((r) =>
+        addToast({ type: 'success', title: 'Reboot dispatched', description: `${r.commandIds.length} command(s) queued` })
+      )
+      .catch(() => addToast({ type: 'error', title: 'Reboot failed' }));
+  };
 
   // Resolution modal
   const [resolveModal, setActionModal] = useState<{
@@ -147,6 +160,7 @@ export const MonitoringPage: React.FC = () => {
                   <th className="py-3.5 px-4 text-center">Cameras</th>
                   <th className="py-3.5 px-4 text-center">Events/Min</th>
                   <th className="py-3.5 px-4">Heartbeat</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80 text-slate-200">
@@ -179,6 +193,14 @@ export const MonitoringPage: React.FC = () => {
                     <td className="py-3.5 px-4 text-center font-mono font-semibold">{e.connectedCameras}</td>
                     <td className="py-3.5 px-4 text-center font-mono text-emerald-400 font-bold">{e.eventsPerMin}</td>
                     <td className="py-3.5 px-4 text-slate-400 font-mono">{e.lastHeartbeat}</td>
+                    <td className="py-3.5 px-4 text-right">
+                      {userType === 'platform_admin' && (
+                        <Button variant="outline" size="sm" onClick={() => rebootEdge(e.id)}>
+                          <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                          Reboot
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -234,7 +256,21 @@ export const MonitoringPage: React.FC = () => {
       {/* 5. INCIDENTS QUEUE TAB */}
       {monitoringSubTab === 'incidents' && (
         <Card className="p-5 space-y-4">
-          <CardHeader title="Operational Incidents Queue" subtitle="Track and acknowledge infrastructure alerts requiring engineering response" />
+          <CardHeader
+            title="Operational Incidents Queue"
+            subtitle="Track and acknowledge infrastructure alerts requiring engineering response"
+            action={
+              openIncidents.length > 0 ? (
+                <Button
+                  variant="success"
+                  size="sm"
+                  onClick={() => bulkResolveIncidents(openIncidents.map((i) => i.id), 'resolved_bulk')}
+                >
+                  Resolve all ({openIncidents.length})
+                </Button>
+              ) : undefined
+            }
+          />
           <div className="space-y-3">
             {incidents.map((inc) => (
               <div key={inc.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
