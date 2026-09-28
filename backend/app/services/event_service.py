@@ -44,7 +44,10 @@ async def _final(
     ).scalar_one_or_none() or {}
     if settings_row.get("anti_passback_enabled") is False:
         return decision, reason, vehicle_id
-    window_minutes = int(settings_row.get("anti_passback_window_minutes") or 5)
+    try:
+        window_minutes = int(settings_row.get("anti_passback_window_minutes") or 5)
+    except (TypeError, ValueError):
+        window_minutes = 5
     if window_minutes <= 0:
         return decision, reason, vehicle_id
     last = (

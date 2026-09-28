@@ -59,6 +59,9 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    # When set, /metrics requires `Authorization: Bearer <token>`.
+    metrics_token: str | None = None
+
     seed_platform_admin_email: str = "admin@example.com"
     seed_platform_admin_password: str = "ChangeMe!123"
 

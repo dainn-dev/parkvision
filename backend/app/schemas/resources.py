@@ -393,7 +393,7 @@ class AccessEventIn(CamelModel):
     site_id: uuid.UUID | None = None
     gate_id: uuid.UUID | None = None
     lane_id: uuid.UUID | None = None
-    plate_number: str | None = None
+    plate_number: str | None = Field(default=None, max_length=20)
     direction: str = "entry"
     decision: str
     reason: str | None = None
@@ -508,6 +508,25 @@ class TenantSettingsIn(CamelModel):
     telegram_chat_id: str | None = Field(default=None, max_length=100)
     notify_on_critical: bool | None = None
     retention_days: int | None = Field(default=None, ge=1, le=3650)
+
+    @field_validator("webhook_url")
+    @classmethod
+    def _webhook_must_be_public_http(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        import ipaddress
+        from urllib.parse import urlparse
+
+        parsed = urlparse(v)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            raise ValueError("webhook_url must be an http(s) URL")
+        try:
+            ip = ipaddress.ip_address(parsed.hostname)
+        except ValueError:
+            ip = None  # hostname, not an IP literal — DNS re-checked at send time
+        if ip is not None and not ip.is_global:
+            raise ValueError("webhook_url must resolve to a public host")
+        return v
 
 
 class TenantSettingsOut(TenantSettingsIn):

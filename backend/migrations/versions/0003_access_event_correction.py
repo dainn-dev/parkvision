@@ -20,9 +20,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute("ALTER TABLE access_events ADD COLUMN corrected_plate varchar(20)")
-    op.execute("ALTER TABLE access_events ADD COLUMN verified_by varchar(120)")
-    op.execute("ALTER TABLE access_events ADD COLUMN corrected_at timestamptz")
+    op.execute("ALTER TABLE access_events ADD COLUMN IF NOT EXISTS corrected_plate varchar(20)")
+    op.execute("ALTER TABLE access_events ADD COLUMN IF NOT EXISTS verified_by varchar(120)")
+    op.execute("ALTER TABLE access_events ADD COLUMN IF NOT EXISTS corrected_at timestamptz")
 
 
 def downgrade() -> None:

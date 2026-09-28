@@ -95,7 +95,7 @@ def create_app() -> FastAPI:
         start = time.perf_counter()
         response = await call_next(request)
         route = request.scope.get("route")
-        route_label = getattr(route, "path", request.url.path)
+        route_label = getattr(route, "path", None) or "__unmatched__"
         if route_label != "/metrics":
             http_requests.labels(request.method, route_label, response.status_code).inc()
             http_duration.labels(request.method, route_label).observe(time.perf_counter() - start)
@@ -136,7 +136,11 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     @app.get("/metrics", include_in_schema=False)
-    async def metrics() -> StarletteResponse:
+    async def metrics(request: Request) -> StarletteResponse:
+        if settings.metrics_token:
+            auth = request.headers.get("authorization", "")
+            if auth != f"Bearer {settings.metrics_token}":
+                return StarletteResponse("unauthorized", status_code=401)
         return StarletteResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     @app.get("/readyz", tags=["health"])

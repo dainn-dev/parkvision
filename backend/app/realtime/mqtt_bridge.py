@@ -103,7 +103,7 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
                 .where(BarrierGate.id == gid, BarrierGate.tenant_id == tid)
                 .values(**gate_updates)
             )
-        if kind == "heartbeat" and payload.get("deviceId"):
+        if kind == "heartbeat" and _uuid_or_none(payload.get("deviceId")):
             device_updates: dict = {"last_heartbeat_at": now, "status": "online"}
             for payload_key, column in (
                 ("cpuUsagePct", "cpu_usage_pct"),
@@ -115,7 +115,7 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
                     device_updates[column] = payload[payload_key]
             await db.execute(
                 update(EdgeDevice)
-                .where(EdgeDevice.id == uuid.UUID(payload["deviceId"]))
+                .where(EdgeDevice.id == _uuid_or_none(payload["deviceId"]))
                 .values(**device_updates)
             )
         # ANPR event piggy-backed on telemetry: record an access event too.
@@ -126,8 +126,8 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
                 tenant_id=tid,
                 site_id=uuid.UUID(site_id),
                 gate_id=gid,
-                lane_id=uuid.UUID(payload["laneId"]) if payload.get("laneId") else None,
-                plate_number=payload["plateNumber"],
+                lane_id=_uuid_or_none(payload.get("laneId")),
+                plate_number=str(payload["plateNumber"])[:20],
                 direction=payload.get("direction", "entry"),
                 source=EventSource.ANPR,
                 confidence=payload.get("confidence"),
@@ -157,6 +157,13 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
         )
 
 
+def _uuid_or_none(value) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(str(value)) if value is not None else None
+    except (ValueError, AttributeError, TypeError):
+        return None
+
+
 async def handle_incident(tenant_id: str, site_id: str, gate_id: str, payload: dict) -> None:
     tid = uuid.UUID(tenant_id)
     gid = uuid.UUID(gate_id)
@@ -182,7 +189,7 @@ async def handle_incident(tenant_id: str, site_id: str, gate_id: str, payload: d
                     tenant_id=tid,
                     site_id=uuid.UUID(site_id),
                     gate_id=gid,
-                    edge_device_id=uuid.UUID(payload["deviceId"]) if payload.get("deviceId") else None,
+                    edge_device_id=_uuid_or_none(payload.get("deviceId")),
                     type=incident_type,
                     title=payload.get("title") or payload.get("message"),
                     severity=str(payload.get("severity", "medium")).lower(),

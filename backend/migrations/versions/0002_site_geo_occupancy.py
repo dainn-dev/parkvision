@@ -20,11 +20,11 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute("ALTER TABLE tenant_sites ADD COLUMN code varchar(50)")
-    op.execute("ALTER TABLE tenant_sites ADD COLUMN latitude numeric(10,7)")
-    op.execute("ALTER TABLE tenant_sites ADD COLUMN longitude numeric(10,7)")
-    op.execute("ALTER TABLE tenant_sites ADD COLUMN capacity integer NOT NULL DEFAULT 0")
-    op.execute("ALTER TABLE tenant_sites ADD COLUMN current_occupancy integer NOT NULL DEFAULT 0")
+    op.execute("ALTER TABLE tenant_sites ADD COLUMN IF NOT EXISTS code varchar(50)")
+    op.execute("ALTER TABLE tenant_sites ADD COLUMN IF NOT EXISTS latitude numeric(10,7)")
+    op.execute("ALTER TABLE tenant_sites ADD COLUMN IF NOT EXISTS longitude numeric(10,7)")
+    op.execute("ALTER TABLE tenant_sites ADD COLUMN IF NOT EXISTS capacity integer NOT NULL DEFAULT 0")
+    op.execute("ALTER TABLE tenant_sites ADD COLUMN IF NOT EXISTS current_occupancy integer NOT NULL DEFAULT 0")
 
 
 def downgrade() -> None:

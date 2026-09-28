@@ -633,7 +633,9 @@ async def telemetry_snapshot() -> TelemetrySnapshotOut:
 async def reboot_edge_device(
     device_id: uuid.UUID,
     request: Request,
-    auth: AuthContext = Depends(require_platform_admin()),
+    auth: AuthContext = Depends(
+        require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))
+    ),
 ) -> EdgeRebootOut:
     """Issue `reboot` commands to every gate bound to this edge device."""
     async with platform_session() as db:
@@ -683,7 +685,9 @@ async def impersonate_tenant(
     tenant_id: uuid.UUID,
     request: Request,
     response: Response,
-    auth: AuthContext = Depends(require_platform_admin()),
+    auth: AuthContext = Depends(
+        require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))
+    ),
 ) -> ImpersonateOut:
     """15-minute tenant-scoped token for platform admins (audited).
 
@@ -811,9 +815,17 @@ async def list_credentials() -> list[ApiCredentialOut]:
 async def create_credential(
     body: ApiCredentialCreateIn,
     request: Request,
-    auth: AuthContext = Depends(require_platform_admin()),
+    auth: AuthContext = Depends(
+        require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))
+    ),
 ) -> ApiCredentialCreatedOut:
     async with platform_session() as db:
+        if body.tenant_id is not None:
+            exists = (
+                await db.execute(select(Tenant.id).where(Tenant.id == body.tenant_id))
+            ).scalar_one_or_none()
+            if exists is None:
+                raise not_found("tenant", body.tenant_id)
         plain, prefix, hashed = _new_api_key()
         c = ApiCredential(
             tenant_id=body.tenant_id,
@@ -850,13 +862,17 @@ async def create_credential(
 async def rotate_credential(
     cred_id: uuid.UUID,
     request: Request,
-    auth: AuthContext = Depends(require_platform_admin()),
+    auth: AuthContext = Depends(
+        require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))
+    ),
 ) -> ApiCredentialCreatedOut:
     """Issue a new key; the old key stays valid for a 24h grace window."""
     async with platform_session() as db:
         c = (await db.execute(select(ApiCredential).where(ApiCredential.id == cred_id))).scalar_one_or_none()
         if c is None:
             raise not_found("api_credential", cred_id)
+        if c.status != "active":
+            raise bad_request(f"Cannot rotate a {c.status} credential")
         plain, prefix, hashed = _new_api_key()
         c.previous_key_hash = c.key_hash
         c.previous_grace_until = datetime.now(timezone.utc) + timedelta(hours=24)
@@ -887,7 +903,9 @@ async def rotate_credential(
 async def revoke_credential(
     cred_id: uuid.UUID,
     request: Request,
-    auth: AuthContext = Depends(require_platform_admin()),
+    auth: AuthContext = Depends(
+        require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))
+    ),
 ) -> MessageOut:
     async with platform_session() as db:
         c = (await db.execute(select(ApiCredential).where(ApiCredential.id == cred_id))).scalar_one_or_none()

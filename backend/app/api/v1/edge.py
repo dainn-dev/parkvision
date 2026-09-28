@@ -20,11 +20,15 @@ from app.services.credential_service import authenticate_api_key
 router = APIRouter(prefix="/edge", tags=["edge"])
 
 
+EDGE_SYNC_SCOPE = "edge:ingest"
+
+
 async def edge_ctx(tenant_id: uuid.UUID, x_api_key: str = Header(default="")) -> ApiCredential:
     """Resolve the `X-Api-Key` credential and scope it to `tenant_id`.
 
     Keys with `tenant_id` set are bound to that tenant; platform-wide keys
-    (`tenant_id IS NULL`) may read any tenant's whitelist.
+    (`tenant_id IS NULL`) may read any tenant's whitelist. Either way the
+    credential must carry the `edge:ingest` scope.
     """
     if not x_api_key:
         raise unauthorized("X-Api-Key header required")
@@ -32,6 +36,8 @@ async def edge_ctx(tenant_id: uuid.UUID, x_api_key: str = Header(default="")) ->
         cred = await authenticate_api_key(db, x_api_key)
     if cred is None:
         raise unauthorized("Invalid or expired API key")
+    if EDGE_SYNC_SCOPE not in (cred.scopes or []):
+        raise forbidden(f"API key missing '{EDGE_SYNC_SCOPE}' scope")
     if cred.tenant_id is not None and cred.tenant_id != tenant_id:
         raise forbidden("API key not scoped to this tenant")
     return cred
@@ -59,7 +65,7 @@ async def edge_whitelist(
                 await db.execute(
                     select(RegisteredVehicle)
                     .where(*cond)
-                    .order_by(RegisteredVehicle.updated_at.asc())
+                    .order_by(RegisteredVehicle.updated_at.asc(), RegisteredVehicle.id.asc())
                     .limit(limit + 1)
                 )
             )

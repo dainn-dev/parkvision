@@ -341,6 +341,31 @@ async def cleanup_expired_sessions(ctx) -> int:
 MAX_NOTIFY_ATTEMPTS = 5
 
 
+def _setting_scalar(v):
+    """platform_settings.value is JSONB — unwrap a stored scalar."""
+    if isinstance(v, dict):
+        return v.get("value") or v.get("token")
+    return v
+
+
+def _webhook_target_safe(url: str) -> bool:
+    """SSRF guard: only http(s) URLs resolving exclusively to public IPs."""
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            return False
+        return all(
+            ipaddress.ip_address(info[4][0]).is_global
+            for info in socket.getaddrinfo(parsed.hostname, None)
+        )
+    except Exception:
+        return False
+
+
 async def incident_notify(ctx) -> int:
     """Deliver CRITICAL incident alerts to the tenant's webhook + Telegram.
 
@@ -376,9 +401,11 @@ async def incident_notify(ctx) -> int:
         if not rows:
             return 0
 
-        bot_token = (
-            await db.execute(select(PlatformSetting.value).where(PlatformSetting.key == "telegram_bot_token"))
-        ).scalar_one_or_none()
+        bot_token = _setting_scalar(
+            (
+                await db.execute(select(PlatformSetting.value).where(PlatformSetting.key == "telegram_bot_token"))
+            ).scalar_one_or_none()
+        )
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             for inc in rows:
@@ -407,12 +434,15 @@ async def incident_notify(ctx) -> int:
                 webhook = tcfg.get("webhook_url")
                 if webhook:
                     attempted = True
-                    try:
-                        resp = await client.post(webhook, json=payload)
-                        if resp.status_code >= 400:
-                            errors.append(f"webhook http {resp.status_code}")
-                    except Exception as exc:  # network/timeout -> retry later
-                        errors.append(f"webhook {exc.__class__.__name__}")
+                    if not _webhook_target_safe(webhook):
+                        errors.append("webhook url rejected (ssrf guard)")
+                    else:
+                        try:
+                            resp = await client.post(webhook, json=payload)
+                            if resp.status_code >= 400:
+                                errors.append(f"webhook http {resp.status_code}")
+                        except Exception as exc:  # network/timeout -> retry later
+                            errors.append(f"webhook {exc.__class__.__name__}")
 
                 chat_id = tcfg.get("telegram_chat_id")
                 if chat_id and bot_token:
@@ -491,19 +521,23 @@ async def enforce_retention(ctx) -> dict:
 
     async with platform_session() as db:
         retention_months = int(
-            (
-                await db.execute(
-                    select(PlatformSetting.value).where(PlatformSetting.key == "retention_months")
-                )
-            ).scalar_one_or_none()
+            _setting_scalar(
+                (
+                    await db.execute(
+                        select(PlatformSetting.value).where(PlatformSetting.key == "retention_months")
+                    )
+                ).scalar_one_or_none()
+            )
             or 12
         )
         image_retention_days = int(
-            (
-                await db.execute(
-                    select(PlatformSetting.value).where(PlatformSetting.key == "image_retention_days")
-                )
-            ).scalar_one_or_none()
+            _setting_scalar(
+                (
+                    await db.execute(
+                        select(PlatformSetting.value).where(PlatformSetting.key == "image_retention_days")
+                    )
+                ).scalar_one_or_none()
+            )
             or 90
         )
 

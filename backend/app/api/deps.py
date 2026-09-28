@@ -1,6 +1,7 @@
 """Shared request dependencies: auth context, RBAC, CSRF, tenant matching."""
 
 import uuid
+from contextvars import ContextVar
 from dataclasses import dataclass
 
 import jwt as pyjwt
@@ -11,6 +12,8 @@ from app.core.enums import ActorType, PlatformAdminRole, TenantUserRole
 from app.core.errors import forbidden, unauthorized
 from app.security import decode_access_token
 from app.services.auth_service import validate_session_state
+
+impersonator_ctx: ContextVar[uuid.UUID | None] = ContextVar("impersonator_id", default=None)
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
 CSRF_EXEMPT_PATH_PREFIXES = (
@@ -58,6 +61,7 @@ async def get_auth_context(request: Request) -> AuthContext:
     if not await validate_session_state(uuid.UUID(claims["sid"])):
         raise unauthorized("Session expired or revoked") from None
 
+    impersonator_ctx.set(uuid.UUID(claims["impersonator_id"]) if claims.get("impersonator_id") else None)
     return AuthContext(
         user_id=uuid.UUID(claims["sub"]),
         user_type=claims["typ"],

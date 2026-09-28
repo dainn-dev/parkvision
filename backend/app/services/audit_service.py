@@ -21,6 +21,11 @@ async def write_audit(
     details: dict[str, Any] | None = None,
     ip: str | None = None,
 ) -> None:
+    from app.api.deps import impersonator_ctx
+
+    impersonator = impersonator_ctx.get()
+    if impersonator is not None:
+        details = {**(details or {}), "impersonatorId": str(impersonator)}
     db.add(
         AuditLog(
             tenant_id=tenant_id,
