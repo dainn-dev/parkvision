@@ -217,6 +217,7 @@ export const mapGate = (g: GateOut, tenantId: string, tenantName = ''): GateHeal
   siteId: g.siteId ?? undefined,
   edgeDeviceId: g.edgeDeviceId ?? undefined,
   rawStatus: g.status ?? 'closed',
+  rawType: g.gateType ?? undefined,
 });
 
 export const mapDevice = (d: DeviceOut, tenantId: string, tenantName = ''): EdgeDeviceHealth => ({

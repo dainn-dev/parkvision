@@ -20,6 +20,7 @@ import {
   ApiCredential,
   AuditLogItem,
   TenantStatus,
+  LiveGateFrame,
 } from '../types/platform';
 import {
   TenantLocation,
@@ -217,6 +218,7 @@ interface PlatformContextType {
   accessEvents: AccessEvent[];
   accessActivity: AccessActivityDataPoint[];
   tenantLanes: LaneOut[];
+  liveGateFrames: Record<string, LiveGateFrame>;
   registeredVehicles: RegisteredVehicle[];
   tenantVehicles: TenantVehicle[];
   tenantAccessRules: TenantAccessRule[];
@@ -232,7 +234,7 @@ interface PlatformContextType {
   updateTenantSite: (siteId: string, siteData: Partial<TenantSite>) => void;
   deleteTenantSite: (siteId: string) => void;
   resolveTenantAlert: (alertId: string) => void;
-  triggerGateCommand: (gateId: string, command: 'OPEN' | 'CLOSE' | 'LOCK' | 'RESET') => void;
+  triggerGateCommand: (gateId: string, command: 'OPEN' | 'CLOSE' | 'LOCK' | 'UNLOCK' | 'RESET' | 'REBOOT' | 'open' | 'close' | 'lock' | 'unlock' | 'reboot') => void;
   simulateNewAccessEvent: (customEvent?: Partial<AccessEvent>) => void;
   addRegisteredVehicle: (vehicleData: { plate: string; ownerName: string; model: string; type: string; siteId?: string }) => void;
   deleteRegisteredVehicle: (id: string) => void;
@@ -449,6 +451,8 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [cameras, setCameras] = useState<CameraHealth[]>([]);
   const [gates, setGates] = useState<GateHealth[]>([]);
   const [incidents, setIncidents] = useState<OperationalIncident[]>([]);
+  // Latest WS telemetry frame per gate (live overlay for the barrier map)
+  const [liveGateFrames, setLiveGateFrames] = useState<Record<string, LiveGateFrame>>({});
   const [securityAlerts] = useState<SecurityAlert[]>([]);
   const [loginEvents] = useState<LoginActivityEvent[]>([]);
   const [credentials] = useState<ApiCredential[]>([]);
@@ -693,6 +697,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     let ws: WebSocket | null = null;
     let closed = false;
     let retry = 0;
+    setLiveGateFrames({});
     const connect = () => {
       if (closed) return;
       ws = new WebSocket(barrierTelemetryWsUrl(activeTenantId));
@@ -700,6 +705,42 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         try {
           const msg = JSON.parse(ev.data);
           const kind = msg?.type ?? msg?.event ?? '';
+          const gateId: string | undefined = msg?.gateId ?? msg?.gate_id;
+          const siteId: string | undefined = msg?.siteId ?? msg?.site_id;
+          const nowIso = new Date().toISOString();
+
+          // Apply WS deltas directly — never re-fetch the whole tenant per frame.
+          if (/incident/i.test(kind)) {
+            // Rare event: one targeted refetch of the incidents list only.
+            tenantApi.incidents(activeTenantId, { limit: 100 })
+              .then((page) =>
+                setIncidents(page.data.map((i) =>
+                  mapIncident(i, {
+                    siteName: siteNameOf(i.siteId),
+                    gateName: gateNameOf(i.gateId),
+                    tenantName: tenantNameRef.current,
+                  })
+                ))
+              )
+              .catch(() => undefined);
+            return;
+          }
+          if (/command_ack/i.test(kind)) {
+            setLastUpdatedTime(new Date().toLocaleTimeString());
+            return;
+          }
+          if (/heartbeat/i.test(kind)) {
+            const deviceId: string | undefined = msg?.deviceId ?? msg?.device_id;
+            if (deviceId) {
+              setEdgeDevices((prev) => prev.map((d) => (d.id === deviceId ? { ...d, status: 'ONLINE', lastHeartbeat: nowIso } : d)));
+            }
+            if (gateId) {
+              setLiveGateFrames((prev) => ({ ...prev, [gateId]: { ...prev[gateId], ...msg, receivedAt: Date.now() } }));
+            }
+            setLastUpdatedTime(new Date().toLocaleTimeString());
+            return;
+          }
+          // Access events & plate reads (arrive as telemetry frames carrying a plate/decision).
           if (/access|event/i.test(kind) || msg?.decision) {
             const out = msg.payload ?? msg;
             const mapped = mapAccessEvent({
@@ -716,14 +757,38 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
               plateImageUrl: out.plateImageUrl ?? out.plate_image_url,
               overviewImageUrl: out.overviewImageUrl ?? out.overview_image_url,
               source: out.source ?? 'edge',
-              occurredAt: out.occurredAt ?? out.occurred_at ?? new Date().toISOString(),
+              occurredAt: out.occurredAt ?? out.occurred_at ?? nowIso,
             } as any, { siteName: siteNameOf(out.siteId ?? out.site_id), gateName: gateNameOf(out.gateId ?? out.gate_id) });
             setAccessEvents((prev) => [mapped, ...prev.slice(0, 99)]);
-          } else if (/incident/i.test(kind)) {
-            void loadTenantData(activeTenantId);
-          } else if (/telemetry|gate|heartbeat/i.test(kind)) {
+            if (siteId) {
+              const dir = String(out.direction ?? 'IN').toUpperCase() === 'IN' ? 1 : -1;
+              setTenantSites((prev) =>
+                prev.map((s) =>
+                  s.id === siteId
+                    ? { ...s, currentOccupancy: Math.max(0, (s.currentOccupancy ?? 0) + dir) }
+                    : s
+                )
+              );
+            }
+          }
+          if (/telemetry|gate|access|event/i.test(kind) || msg?.state) {
+            if (gateId) {
+              const raw = typeof msg?.state === 'string' ? msg.state : undefined;
+              setGates((prev) =>
+                prev.map((g) =>
+                  g.id === gateId
+                    ? {
+                        ...g,
+                        rawStatus: raw ?? g.rawStatus,
+                        status: raw === 'fault' ? 'DEGRADED' : raw === 'unknown' ? 'OFFLINE' : raw ? 'ONLINE' : g.status,
+                        lastHeartbeat: nowIso,
+                      }
+                    : g
+                )
+              );
+              setLiveGateFrames((prev) => ({ ...prev, [gateId]: { ...prev[gateId], ...msg, receivedAt: Date.now() } }));
+            }
             setLastUpdatedTime(new Date().toLocaleTimeString());
-            void loadTenantData(activeTenantId);
           }
         } catch {
           /* malformed frame */
@@ -994,12 +1059,14 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       .catch(toastErr('Failed to resolve alert'));
   };
 
-  const triggerGateCommand = (gateId: string, command: 'OPEN' | 'CLOSE' | 'LOCK' | 'RESET') => {
+  const triggerGateCommand = (gateId: string, command: string) => {
     if (!activeTenantId) return;
+    const upper = command.toUpperCase();
+    const backendCommand = upper === 'RESET' ? 'reboot' : upper.toLowerCase();
     tenantApi
-      .sendCommand(activeTenantId, gateId, command.toLowerCase(), crypto.randomUUID())
+      .sendCommand(activeTenantId, gateId, backendCommand, crypto.randomUUID())
       .then((cmd) => {
-        addToast({ type: 'success', title: `Command ${command} sent`, description: cmd.id });
+        addToast({ type: 'success', title: `Command ${upper === 'RESET' ? 'REBOOT' : upper} sent`, description: cmd.id });
         // Poll for the ack a couple of times, then surface the outcome.
         let tries = 0;
         const poll = setInterval(() => {
@@ -1512,6 +1579,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         accessEvents,
         accessActivity,
         tenantLanes,
+        liveGateFrames,
         registeredVehicles,
         tenantVehicles,
         tenantAccessRules,
