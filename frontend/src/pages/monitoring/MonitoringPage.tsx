@@ -43,6 +43,7 @@ export const MonitoringPage: React.FC = () => {
     monitoringSubTab,
     setMonitoringSubTab,
     userType,
+    tenantSites,
     addToast
   } = usePlatform();
 
@@ -212,39 +213,65 @@ export const MonitoringPage: React.FC = () => {
       {/* 3. CAMERAS TAB */}
       {monitoringSubTab === 'cameras' && (
         <Card className="overflow-hidden">
-          <CardHeader title="Camera Feeds & Video Stream Health" subtitle="RTSP video stream decoding and license plate recognition stats" />
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="py-3.5 px-4">Camera Identifier</th>
-                  <th className="py-3.5 px-4">Organization</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4 text-center">FPS</th>
-                  <th className="py-3.5 px-4 text-center">Frame Drop</th>
-                  <th className="py-3.5 px-4 text-center">OCR Rate/Min</th>
-                  <th className="py-3.5 px-4">Last Frame</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/80 text-slate-200">
-                {cameras.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-800/50 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-100">{c.cameraName}</td>
-                    <td className="py-3.5 px-4">{c.tenantName}</td>
-                    <td className="py-3.5 px-4">
-                      <Badge variant={c.status === 'ONLINE' ? 'emerald' : 'red'} dot>
-                        {c.status}
-                      </Badge>
-                    </td>
-                    <td className="py-3.5 px-4 text-center font-mono font-bold text-sky-400">{c.fps} FPS</td>
-                    <td className="py-3.5 px-4 text-center font-mono">{c.frameDropPercent}%</td>
-                    <td className="py-3.5 px-4 text-center font-mono text-emerald-400 font-bold">{c.recognitionRatePerMin}</td>
-                    <td className="py-3.5 px-4 text-slate-400 font-mono">{c.lastFrameTime}</td>
+          <CardHeader
+            title="Registered ANPR Cameras"
+            subtitle="Camera endpoints and lane assignments. Live stream health requires edge telemetry (not yet available)."
+          />
+          {cameras.length === 0 ? (
+            <div className="p-8 text-center space-y-2">
+              <Video className="w-6 h-6 mx-auto text-slate-500" />
+              <p className="text-xs text-slate-500">
+                No cameras registered. Manage cameras per site from the tenant Site panel.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+                  <tr>
+                    <th className="py-3.5 px-4">Camera</th>
+                    <th className="py-3.5 px-4">Organization</th>
+                    <th className="py-3.5 px-4">Site</th>
+                    <th className="py-3.5 px-4 text-center">Purpose</th>
+                    <th className="py-3.5 px-4">Stream URL</th>
+                    <th className="py-3.5 px-4">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80 text-slate-200">
+                  {cameras.map((c) => (
+                    <tr key={c.id} className="hover:bg-slate-800/50 transition-colors">
+                      <td className="py-3.5 px-4">
+                        <span className="font-semibold text-slate-100 block">{c.cameraName}</span>
+                        {c.code && (
+                          <span className="font-mono text-[10px] text-sky-400">{c.code}</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4">{c.tenantName}</td>
+                      <td className="py-3.5 px-4 text-slate-400">
+                        {tenantSites.find((s) => s.id === c.siteId)?.name ?? '—'}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <Badge variant={c.purpose === 'overview' ? 'slate' : 'blue'} size="sm">
+                          {c.purpose === 'overview' ? 'OVERVIEW' : 'PLATE'}
+                        </Badge>
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-slate-400 max-w-[220px] truncate">
+                        {(c.streamUrl ?? '').replace(/^(\w+:\/\/)[^@/]*@/, '$1•••@') || '—'}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <Badge
+                          variant={c.status === 'ONLINE' ? 'emerald' : c.status === 'DEGRADED' ? 'amber' : 'red'}
+                          dot
+                        >
+                          {c.status === 'ONLINE' ? 'ACTIVE' : c.status === 'DEGRADED' ? 'PROVISIONING' : 'DISABLED'}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       )}
 
