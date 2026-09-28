@@ -165,6 +165,27 @@ export interface TenantDashboardSummary {
   };
 }
 
+export interface TenantEdgeDevice {
+  id: string;
+  siteId: string;
+  siteName: string;
+  name: string;
+  deviceKey: string;
+  deviceSerial?: string;
+  hardwareModel?: string;
+  mac?: string;
+  ipAddress?: string;
+  mqttClientId?: string;
+  firmwareVersion?: string;
+  status: 'PROVISIONING' | 'ONLINE' | 'OFFLINE' | 'DECOMMISSIONED' | 'DEGRADED';
+  cpuUsagePct: number;
+  ramUsagePct: number;
+  storageUsagePct: number;
+  latencyMs?: number;
+  lastHeartbeatAt?: string;
+  createdAt: string;
+}
+
 export interface TenantSystemHealth {
   overall: 'HEALTHY' | 'WARNING' | 'DEGRADED' | 'CRITICAL' | 'OFFLINE';
   cameras: {

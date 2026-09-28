@@ -43,6 +43,7 @@ import {
   TenantUserRole,
   MembershipType,
   TenantMemberProfile,
+  TenantEdgeDevice,
 } from '../types/tenant';
 import {
   authApi,
@@ -57,6 +58,7 @@ import {
   mapApiCredential,
   mapAuditLog,
   mapDevice,
+  mapTenantDevice,
   mapFeatureFlag,
   mapGate,
   mapIncident,
@@ -153,6 +155,7 @@ interface PlatformContextType {
   settings: PlatformSettings;
   services: ServiceHealthItem[];
   edgeDevices: EdgeDeviceHealth[];
+  tenantDevices: TenantEdgeDevice[];
   cameras: CameraHealth[];
   gates: GateHealth[];
   incidents: OperationalIncident[];
@@ -454,6 +457,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [settings, setSettings] = useState<PlatformSettings>(INITIAL_SETTINGS);
   const [services, setServices] = useState<ServiceHealthItem[]>([]);
   const [edgeDevices, setEdgeDevices] = useState<EdgeDeviceHealth[]>([]);
+  const [tenantDevices, setTenantDevices] = useState<TenantEdgeDevice[]>([]);
   // No camera/security-activity/credential APIs exist yet — start honest-empty instead of mock.
   const [cameras, setCameras] = useState<CameraHealth[]>([]);
   const [gates, setGates] = useState<GateHealth[]>([]);
@@ -566,6 +570,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       })));
       setGates(gatesMapped);
       setEdgeDevices(devicesPage.data.map((d) => mapDevice(d, tId, tName)));
+      setTenantDevices(devicesPage.data.map((d) => mapTenantDevice(d, siteNames.get(d.siteId) ?? '')));
 
       const primarySite = sitesPage.data[0];
       if (primarySite) {
@@ -780,6 +785,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
             const deviceId: string | undefined = msg?.deviceId ?? msg?.device_id;
             if (deviceId) {
               setEdgeDevices((prev) => prev.map((d) => (d.id === deviceId ? { ...d, status: 'ONLINE', lastHeartbeat: nowIso } : d)));
+              setTenantDevices((prev) => prev.map((d) => (d.id === deviceId ? { ...d, status: 'ONLINE', lastHeartbeatAt: nowIso } : d)));
             }
             if (gateId) {
               setLiveGateFrames((prev) => ({ ...prev, [gateId]: { ...prev[gateId], ...msg, receivedAt: Date.now() } }));
@@ -850,6 +856,11 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
               setEdgeDevices((prev) =>
                 prev.map((d) =>
                   d.id === msg.deviceId ? { ...d, status: 'ONLINE', lastHeartbeat: nowIso } : d,
+                ),
+              );
+              setTenantDevices((prev) =>
+                prev.map((d) =>
+                  d.id === msg.deviceId ? { ...d, status: 'ONLINE', lastHeartbeatAt: nowIso } : d,
                 ),
               );
             }
@@ -1616,6 +1627,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         settings,
         services,
         edgeDevices,
+        tenantDevices,
         cameras,
         gates,
         incidents,

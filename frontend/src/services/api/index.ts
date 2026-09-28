@@ -155,7 +155,12 @@ export const tenantApi = {
 
   devices: (t: string, p: { page?: number; limit?: number; siteId?: string } = {}) => api.get<Page<DeviceOut>>(T(t, `/devices${qs(p)}`)),
   device: (t: string, id: string) => api.get<DeviceOut>(T(t, `/devices/${id}`)),
-  createDevice: (t: string, body: { siteId: string; name: string; mac?: string; firmwareVersion?: string }) => api.post<DeviceOut>(T(t, '/devices'), body),
+  createDevice: (t: string, body: { siteId: string; name: string; deviceSerial?: string; hardwareModel?: string; mac?: string; ipAddress?: string; mqttClientId?: string; firmwareVersion?: string }) => api.post<DeviceOut>(T(t, '/devices'), body),
+  updateDevice: (t: string, id: string, body: Partial<{ siteId: string; name: string; deviceSerial: string; hardwareModel: string; mac: string; ipAddress: string; mqttClientId: string; firmwareVersion: string }>) => api.patch<DeviceOut>(T(t, `/devices/${id}`), body),
+  decommissionDevice: (t: string, id: string) => api.post<DeviceOut>(T(t, `/devices/${id}/decommission`)),
+  reactivateDevice: (t: string, id: string) => api.post<DeviceOut>(T(t, `/devices/${id}/reactivate`)),
+  deleteDevice: (t: string, id: string) => api.del<MessageOut>(T(t, `/devices/${id}`)),
+  rebootDevice: (t: string, id: string) => api.post<S['EdgeRebootOut']>(T(t, `/devices/${id}/reboot`)),
 
   vehicles: (t: string, p: { page?: number; limit?: number; tag?: string; status?: string; search?: string } = {}) =>
     api.get<Page<VehicleOut>>(T(t, `/vehicles${qs(p)}`)),
