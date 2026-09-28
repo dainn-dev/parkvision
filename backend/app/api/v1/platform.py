@@ -661,17 +661,17 @@ async def reboot_edge_device(
             )
             command_ids.append(row.id)
         await write_audit(
-                db,
-                tenant_id=device.tenant_id,
-                actor_type=auth.user_type,
-                actor_id=auth.user_id,
-                actor_email=None,
-                action="edge_device.reboot",
-                resource_type="edge_device",
-                resource_id=str(device_id),
-                details={"gateCount": len(gates)},
-                ip=request.client.host if request.client else None,
-            )
+            db,
+            tenant_id=device.tenant_id,
+            actor_type=auth.user_type,
+            actor_id=auth.user_id,
+            actor_email=None,
+            action="edge_device.reboot",
+            resource_type="edge_device",
+            resource_id=str(device_id),
+            details={"gateCount": len(gates)},
+            ip=request.client.host if request.client else None,
+        )
         await db.commit()
     return EdgeRebootOut(command_ids=command_ids)
 
