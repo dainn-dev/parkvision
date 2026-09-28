@@ -1,6 +1,7 @@
 pub mod config;
 pub mod fsm;
 pub mod hal;
+pub mod mqtt;
 pub mod payloads;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
