@@ -129,16 +129,13 @@ class SiteIn(CamelModel):
     code: str | None = Field(default=None, max_length=20)
     address: str | None = None
     city: str | None = None
-    latitude: float | None = None
-    longitude: float | None = None
+    latitude: float | None = Field(None, ge=-90, le=90)
+    longitude: float | None = Field(None, ge=-180, le=180)
     capacity: int | None = Field(default=None, ge=0)
     operating_hours: dict[str, Any] = {}
     contact_phone: str | None = None
     manager_name: str | None = None
     timezone: str = "UTC"
-    latitude: float | None = Field(None, ge=-90, le=90)
-    longitude: float | None = Field(None, ge=-180, le=180)
-    capacity: int | None = Field(None, ge=0)
     status: str | None = None
 
 
@@ -157,10 +154,6 @@ class SiteOut(CamelModel):
     contact_phone: str | None
     manager_name: str | None
     timezone: str
-    latitude: float | None
-    longitude: float | None
-    capacity: int
-    current_occupancy: int
     status: str
     created_at: datetime
 
@@ -416,9 +409,7 @@ class AccessEventOut(CamelModel):
     lane_id: uuid.UUID | None
     vehicle_id: uuid.UUID | None
     plate_number: str | None
-    corrected_plate: str | None = None
     verified_by: str | None = None
-    corrected_at: datetime | None = None
     direction: str
     decision: str
     reason: str | None
