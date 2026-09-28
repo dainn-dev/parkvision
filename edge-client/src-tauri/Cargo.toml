@@ -27,8 +27,15 @@ futures = "0.3"
 sysinfo = "0.33"
 rusqlite = { version = "0.32", features = ["bundled"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+ort = { version = "2.0.0-rc.13", optional = true }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"], optional = true }
+ndarray = { version = "0.16", optional = true }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[features]
+default = []
+onnx = ["dep:ort", "dep:image", "dep:ndarray"]
 
 [dev-dependencies]
 tempfile = "3"

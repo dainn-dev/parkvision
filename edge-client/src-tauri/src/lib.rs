@@ -1,4 +1,5 @@
 pub mod access;
+pub mod anpr;
 pub mod commands;
 pub mod config;
 pub mod fsm;
@@ -6,6 +7,7 @@ pub mod hal;
 pub mod incidents;
 pub mod mqtt;
 pub mod payloads;
+pub mod pipeline;
 pub mod store;
 pub mod sync;
 pub mod telemetry;
