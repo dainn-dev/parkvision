@@ -3,6 +3,8 @@
 # blocks unsigned build-script/test binaries non-deterministically).
 FROM rust:1.98-bookworm
 
+RUN rustup component add rustfmt clippy
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libglib2.0-dev \
