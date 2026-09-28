@@ -16,6 +16,7 @@ class CamelModel(BaseModel):
         populate_by_name=True,
         from_attributes=True,
         use_enum_values=True,
+        protected_namespaces=(),
     )
 
 

@@ -10,9 +10,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import WRITE_ROLES, csrf_protect, require_roles
 from app.api.v1.tenant import TenantCtx, get_tenant_db, tenant_ctx
 from app.core.errors import conflict, not_found
-from app.models import SiteLane, TenantSite
+from app.models import BarrierGate, SiteLane, TenantSite
 from app.schemas.common import MessageOut, Page, paginate
-from app.schemas.resources import LaneIn, LaneOut, SiteIn, SiteOut
+from app.schemas.resources import (
+    LaneIn,
+    LaneOut,
+    SiteIn,
+    SiteOut,
+    SitesGatesGateOut,
+    SitesGatesOut,
+    SitesGatesSiteOut,
+)
 from app.services.audit_service import write_audit
 
 router = APIRouter(
@@ -61,7 +69,15 @@ async def create_site(
     row = TenantSite(
         tenant_id=ctx.tenant_id,
         name=body.name,
+        code=body.code,
         address=body.address,
+        city=body.city,
+        latitude=body.latitude,
+        longitude=body.longitude,
+        capacity=body.capacity,
+        operating_hours=body.operating_hours,
+        contact_phone=body.contact_phone,
+        manager_name=body.manager_name,
         timezone=body.timezone,
         status=body.status or "active",
     )
@@ -279,3 +295,60 @@ async def delete_lane(
         ip=request.client.host if request.client else None,
     )
     return MessageOut(message="Lane deleted")
+
+
+# ---------- aggregate: sites + gates (spec §4.3) ----------
+@router.get("/sites-gates", response_model=SitesGatesOut)
+async def sites_gates(
+    ctx: TenantCtx = Depends(tenant_ctx),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> SitesGatesOut:
+    sites = (
+        (
+            await db.execute(
+                select(TenantSite)
+                .where(TenantSite.tenant_id == ctx.tenant_id)
+                .order_by(TenantSite.created_at)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    gates = (
+        (
+            await db.execute(
+                select(BarrierGate)
+                .where(BarrierGate.tenant_id == ctx.tenant_id)
+                .order_by(BarrierGate.created_at)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    gates_by_site: dict[uuid.UUID, list[SitesGatesGateOut]] = {}
+    for g in gates:
+        gates_by_site.setdefault(g.site_id, []).append(SitesGatesGateOut.model_validate(g))
+    return SitesGatesOut(
+        tenant_id=ctx.tenant_id,
+        sites=[
+            SitesGatesSiteOut(
+                **{
+                    f: getattr(s, f)
+                    for f in (
+                        "id",
+                        "name",
+                        "code",
+                        "city",
+                        "latitude",
+                        "longitude",
+                        "capacity",
+                        "current_occupancy",
+                        "overall_health",
+                        "status",
+                    )
+                },
+                gates=gates_by_site.get(s.id, []),
+            )
+            for s in sites
+        ],
+    )

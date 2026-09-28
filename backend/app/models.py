@@ -77,7 +77,14 @@ class Tenant(TimestampMixin, Base):
     )
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="trial")
     contact_email: Mapped[str] = mapped_column(String(320), nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(50))
+    timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="UTC")
     settings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    max_sites: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    max_gates: Mapped[int] = mapped_column(Integer, nullable=False, default=50)
+    max_vehicles: Mapped[int] = mapped_column(Integer, nullable=False, default=10000)
+    storage_quota_gb: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    storage_used_gb: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0)
 
 
 class PlatformAdmin(TimestampMixin, Base):
@@ -93,6 +100,8 @@ class PlatformAdmin(TimestampMixin, Base):
     mfa_secret: Mapped[str | None] = mapped_column(Text)
     mfa_backup_hashes: Mapped[list | None] = mapped_column(JSONB)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class TenantUser(TimestampMixin, Base):
@@ -130,6 +139,8 @@ class UserSession(Base):
     ip: Mapped[str | None] = mapped_column(INET)
     user_agent: Mapped[str | None] = mapped_column(Text)
     mfa_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    device_fingerprint: Mapped[str | None] = mapped_column(String(255))
+    risk_level: Mapped[str] = mapped_column(String(20), nullable=False, default="normal")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -151,11 +162,24 @@ class TenantSite(TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    code: Mapped[str | None] = mapped_column(String(20))
     address: Mapped[str | None] = mapped_column(Text)
+    city: Mapped[str | None] = mapped_column(String(100))
+    latitude: Mapped[float | None] = mapped_column(Numeric(10, 7))
+    longitude: Mapped[float | None] = mapped_column(Numeric(10, 7))
+    capacity: Mapped[int | None] = mapped_column(Integer)
+    current_occupancy: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    operating_hours: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    overall_health: Mapped[str] = mapped_column(String(20), nullable=False, default="healthy")
+    contact_phone: Mapped[str | None] = mapped_column(String(50))
+    manager_name: Mapped[str | None] = mapped_column(String(120))
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC")
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
 
-    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_site_name"),)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_site_name"),
+        UniqueConstraint("tenant_id", "code", name="uq_tenant_site_code"),
+    )
 
 
 class EdgeDevice(TimestampMixin, Base):
@@ -170,8 +194,16 @@ class EdgeDevice(TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     device_key: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    device_serial: Mapped[str | None] = mapped_column(String(120), unique=True)
+    hardware_model: Mapped[str | None] = mapped_column(String(100))
     mac: Mapped[str | None] = mapped_column(MACADDR)
+    ip_address: Mapped[str | None] = mapped_column(INET)
+    mqtt_client_id: Mapped[str | None] = mapped_column(String(120), unique=True)
     firmware_version: Mapped[str | None] = mapped_column(String(60))
+    cpu_usage_pct: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=0)
+    ram_usage_pct: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=0)
+    storage_usage_pct: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=0)
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="provisioning")
     last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -188,6 +220,7 @@ class SiteLane(TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     direction: Mapped[str] = mapped_column(String(20), nullable=False, default="entry")
+    vehicle_allowed_type: Mapped[str] = mapped_column(String(50), nullable=False, default="all")
     camera_url: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
 
@@ -209,9 +242,24 @@ class BarrierGate(TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("edge_devices.id", ondelete="SET NULL")
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    code: Mapped[str | None] = mapped_column(String(50))
     gate_type: Mapped[str] = mapped_column(String(40), nullable=False, default="barrier")
+    model_type: Mapped[str | None] = mapped_column(String(100))
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="unknown")
+    health: Mapped[str] = mapped_column(String(20), nullable=False, default="healthy")
+    arm_angle_deg: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    relay_state: Mapped[str] = mapped_column(String(30), nullable=False, default="normal")
+    loop_detector_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    motor_temperature_c: Mapped[float | None] = mapped_column(Numeric(5, 1))
+    ups_battery_pct: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    daily_cycles_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_lifetime_cycles: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_action_by: Mapped[str | None] = mapped_column(String(100))
+    last_passage_plate: Mapped[str | None] = mapped_column(String(50))
+    warning_note: Mapped[str | None] = mapped_column(Text)
     last_state_change_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (UniqueConstraint("site_id", "code", name="uq_site_gate_code"),)
 
 
 class GateTelemetryLog(Base):
@@ -243,6 +291,9 @@ class BarrierIncident(TimestampMixin, Base):
     severity: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="open")
     description: Mapped[str | None] = mapped_column(Text)
+    title: Mapped[str | None] = mapped_column(String(255))
+    telemetry_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    resolution_method: Mapped[str | None] = mapped_column(String(50))
     snapshot_urls: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     detected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -265,7 +316,15 @@ class RegisteredVehicle(TimestampMixin, Base):
     plate_normalized: Mapped[str] = mapped_column(String(20), nullable=False)
     owner_name: Mapped[str | None] = mapped_column(String(200))
     owner_contact: Mapped[str | None] = mapped_column(String(200))
+    owner_phone: Mapped[str | None] = mapped_column(String(50))
+    owner_email: Mapped[str | None] = mapped_column(String(255))
+    owner_department: Mapped[str | None] = mapped_column(String(120))
+    owner_category: Mapped[str] = mapped_column(String(50), nullable=False, default="employee")
+    rfid_card_number: Mapped[str | None] = mapped_column(String(100))
     vehicle_type: Mapped[str | None] = mapped_column(String(60))
+    brand: Mapped[str | None] = mapped_column(String(100))
+    model: Mapped[str | None] = mapped_column(String(100))
+    color: Mapped[str | None] = mapped_column(String(50))
     tag: Mapped[str] = mapped_column(String(30), nullable=False, default="standard")
     valid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     valid_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -287,7 +346,11 @@ class TenantAccessRule(TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     rule_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    action: Mapped[str | None] = mapped_column(String(30))
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    target_category: Mapped[str] = mapped_column(String(50), nullable=False, default="all")
+    applied_sites: Mapped[list] = mapped_column(JSONB, nullable=False, default=lambda: ["ALL"])
+    holiday_override: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     schedule: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -311,6 +374,12 @@ class AccessEvent(Base):
     plate_image_url: Mapped[str | None] = mapped_column(Text)
     overview_image_url: Mapped[str | None] = mapped_column(Text)
     source: Mapped[str] = mapped_column(String(20), nullable=False, default="anpr")
+    vehicle_detected_type: Mapped[str | None] = mapped_column(String(50))
+    matching_rule_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    processing_time_ms: Mapped[int | None] = mapped_column(Integer)
+    verified_by_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    corrected_plate: Mapped[str | None] = mapped_column(String(50))
+    corrected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -329,6 +398,8 @@ class AuditLog(Base):
     resource_type: Mapped[str | None] = mapped_column(String(60))
     resource_id: Mapped[str | None] = mapped_column(String(80))
     details: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    category: Mapped[str | None] = mapped_column(String(50))
+    user_agent: Mapped[str | None] = mapped_column(Text)
     ip: Mapped[str | None] = mapped_column(INET)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -365,6 +436,32 @@ class GateCommand(Base):
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     acked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     timeout_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ApiCredential(Base):
+    __tablename__ = "api_credentials"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    key_prefix: Mapped[str] = mapped_column(String(20), nullable=False)
+    secret_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    scopes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rotated_from_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("api_credentials.id", ondelete="SET NULL")
+    )
+    grace_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (Index("ix_api_credentials_tenant", "tenant_id", "status"),)
 
 
 class FeatureFlag(TimestampMixin, Base):

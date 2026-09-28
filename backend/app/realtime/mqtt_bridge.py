@@ -75,17 +75,48 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
                 payload=payload,
             )
         )
-        if payload.get("state"):
+        state = payload.get("state") or payload.get("status")
+        gate_updates: dict = {}
+        if state:
+            gate_updates["status"] = str(state).lower()
+            gate_updates["last_state_change_at"] = now
+        for payload_key, column in (
+            ("armAngleDeg", "arm_angle_deg"),
+            ("motorTempC", "motor_temperature_c"),
+            ("relayState", "relay_state"),
+            ("loopDetectorActive", "loop_detector_active"),
+            ("upsBattery", "ups_battery_pct"),
+            ("upsBatteryPercent", "ups_battery_pct"),
+            ("dailyCycles", "daily_cycles_count"),
+            ("lifetimeCycles", "total_lifetime_cycles"),
+            ("lastPlate", "last_passage_plate"),
+            ("lastActionBy", "last_action_by"),
+            ("warningNote", "warning_note"),
+        ):
+            if payload.get(payload_key) is not None:
+                gate_updates[column] = payload[payload_key]
+        if gate_updates.get("relay_state") is not None:
+            gate_updates["relay_state"] = str(gate_updates["relay_state"]).lower()
+        if gate_updates:
             await db.execute(
                 update(BarrierGate)
                 .where(BarrierGate.id == gid, BarrierGate.tenant_id == tid)
-                .values(status=payload["state"], last_state_change_at=now)
+                .values(**gate_updates)
             )
         if kind == "heartbeat" and payload.get("deviceId"):
+            device_updates: dict = {"last_heartbeat_at": now, "status": "online"}
+            for payload_key, column in (
+                ("cpuUsagePct", "cpu_usage_pct"),
+                ("ramUsagePct", "ram_usage_pct"),
+                ("storageUsagePct", "storage_usage_pct"),
+                ("latencyMs", "latency_ms"),
+            ):
+                if payload.get(payload_key) is not None:
+                    device_updates[column] = payload[payload_key]
             await db.execute(
                 update(EdgeDevice)
                 .where(EdgeDevice.id == uuid.UUID(payload["deviceId"]))
-                .values(last_heartbeat_at=now, status="online")
+                .values(**device_updates)
             )
         # ANPR event piggy-backed on telemetry: record an access event too.
         if payload.get("plateNumber"):
@@ -116,8 +147,10 @@ async def handle_incident(tenant_id: str, site_id: str, gate_id: str, payload: d
                 gate_id=uuid.UUID(gate_id),
                 edge_device_id=uuid.UUID(payload["deviceId"]) if payload.get("deviceId") else None,
                 type=payload.get("type", "fault"),
-                severity=payload.get("severity", "medium"),
-                description=payload.get("description"),
+                title=payload.get("title") or payload.get("message"),
+                severity=str(payload.get("severity", "medium")).lower(),
+                description=payload.get("description") or payload.get("message"),
+                telemetry_snapshot=payload,
                 snapshot_urls=payload.get("snapshotUrls", []),
             )
         )

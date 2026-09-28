@@ -332,6 +332,26 @@ export interface paths {
         patch: operations["update_tenant_api_v1_platform_tenants__tenant_id__patch"];
         trace?: never;
     };
+    "/api/v1/platform/tenants/{tenant_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Tenant Status
+         * @description Change tenant lifecycle status; suspending revokes all live sessions.
+         */
+        patch: operations["update_tenant_status_api_v1_platform_tenants__tenant_id__status_patch"];
+        trace?: never;
+    };
     "/api/v1/platform/tenants/{tenant_id}/users": {
         parameters: {
             query?: never;
@@ -486,6 +506,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Platform Audit Logs */
+        get: operations["list_platform_audit_logs_api_v1_platform_audit_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenants/{tenant_id}/sites": {
         parameters: {
             query?: never;
@@ -557,6 +594,23 @@ export interface paths {
         head?: never;
         /** Update Lane */
         patch: operations["update_lane_api_v1_tenants__tenant_id__lanes__lane_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant_id}/sites-gates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sites Gates */
+        get: operations["sites_gates_api_v1_tenants__tenant_id__sites_gates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/tenants/{tenant_id}/gates": {
@@ -1003,6 +1057,10 @@ export interface components {
              * @default manual
              */
             source: string;
+            /** Vehicledetectedtype */
+            vehicleDetectedType?: string | null;
+            /** Processingtimems */
+            processingTimeMs?: number | null;
         };
         /** AccessEventOut */
         AccessEventOut: {
@@ -1035,6 +1093,18 @@ export interface components {
             overviewImageUrl: string | null;
             /** Source */
             source: string;
+            /** Vehicledetectedtype */
+            vehicleDetectedType: string | null;
+            /** Matchingruleid */
+            matchingRuleId: string | null;
+            /** Processingtimems */
+            processingTimeMs: number | null;
+            /** Verifiedbyuserid */
+            verifiedByUserId: string | null;
+            /** Correctedplate */
+            correctedPlate: string | null;
+            /** Correctedat */
+            correctedAt: string | null;
             /**
              * Occurredat
              * Format: date-time
@@ -1078,6 +1148,10 @@ export interface components {
             resourceId: string | null;
             /** Details */
             details: Record<string, never>;
+            /** Category */
+            category: string | null;
+            /** Useragent */
+            userAgent: string | null;
             /** Ip */
             ip: string | null;
             /**
@@ -1156,8 +1230,16 @@ export interface components {
             siteId: string;
             /** Name */
             name: string;
+            /** Deviceserial */
+            deviceSerial?: string | null;
+            /** Hardwaremodel */
+            hardwareModel?: string | null;
             /** Mac */
             mac?: string | null;
+            /** Ipaddress */
+            ipAddress?: string | null;
+            /** Mqttclientid */
+            mqttClientId?: string | null;
             /** Firmwareversion */
             firmwareVersion?: string | null;
         };
@@ -1177,10 +1259,26 @@ export interface components {
             name: string;
             /** Devicekey */
             deviceKey: string;
+            /** Deviceserial */
+            deviceSerial: string | null;
+            /** Hardwaremodel */
+            hardwareModel: string | null;
             /** Mac */
             mac: string | null;
+            /** Ipaddress */
+            ipAddress: string | null;
+            /** Mqttclientid */
+            mqttClientId: string | null;
             /** Firmwareversion */
             firmwareVersion: string | null;
+            /** Cpuusagepct */
+            cpuUsagePct: number;
+            /** Ramusagepct */
+            ramUsagePct: number;
+            /** Storageusagepct */
+            storageUsagePct: number;
+            /** Latencyms */
+            latencyMs: number | null;
             /** Status */
             status: string;
             /** Lastheartbeatat */
@@ -1227,11 +1325,15 @@ export interface components {
             edgeDeviceId?: string | null;
             /** Name */
             name: string;
+            /** Code */
+            code?: string | null;
             /**
              * Gatetype
              * @default barrier
              */
             gateType: string;
+            /** Modeltype */
+            modelType?: string | null;
         };
         /** GateOut */
         GateOut: {
@@ -1251,10 +1353,36 @@ export interface components {
             edgeDeviceId: string | null;
             /** Name */
             name: string;
+            /** Code */
+            code: string | null;
             /** Gatetype */
             gateType: string;
+            /** Modeltype */
+            modelType: string | null;
             /** Status */
             status: string;
+            /** Health */
+            health: string;
+            /** Armangledeg */
+            armAngleDeg: number;
+            /** Relaystate */
+            relayState: string;
+            /** Loopdetectoractive */
+            loopDetectorActive: boolean;
+            /** Motortemperaturec */
+            motorTemperatureC: number | null;
+            /** Upsbatterypct */
+            upsBatteryPct: number;
+            /** Dailycyclescount */
+            dailyCyclesCount: number;
+            /** Totallifetimecycles */
+            totalLifetimeCycles: number;
+            /** Lastactionby */
+            lastActionBy: string | null;
+            /** Lastpassageplate */
+            lastPassagePlate: string | null;
+            /** Warningnote */
+            warningNote: string | null;
             /** Laststatechangeat */
             lastStateChangeAt: string | null;
             /**
@@ -1284,6 +1412,8 @@ export interface components {
             gateId?: string | null;
             /** Type */
             type: string;
+            /** Title */
+            title?: string | null;
             /**
              * Severity
              * @default medium
@@ -1305,12 +1435,18 @@ export interface components {
             gateId: string | null;
             /** Type */
             type: string;
+            /** Title */
+            title: string | null;
             /** Severity */
             severity: string;
             /** Status */
             status: string;
             /** Description */
             description: string | null;
+            /** Telemetrysnapshot */
+            telemetrySnapshot: Record<string, never>;
+            /** Resolutionmethod */
+            resolutionMethod: string | null;
             /** Snapshoturls */
             snapshotUrls: unknown[];
             /**
@@ -1333,6 +1469,8 @@ export interface components {
         IncidentResolveIn: {
             /** Resolutionnotes */
             resolutionNotes?: string | null;
+            /** Resolutionmethod */
+            resolutionMethod?: string | null;
         };
         /** JobOut */
         JobOut: {
@@ -1370,6 +1508,11 @@ export interface components {
              * @default entry
              */
             direction: string;
+            /**
+             * Vehicleallowedtype
+             * @default all
+             */
+            vehicleAllowedType: string;
             /** Cameraurl */
             cameraUrl?: string | null;
             /** Status */
@@ -1391,6 +1534,8 @@ export interface components {
             name: string;
             /** Direction */
             direction: string;
+            /** Vehicleallowedtype */
+            vehicleAllowedType: string;
             /** Cameraurl */
             cameraUrl: string | null;
             /** Status */
@@ -1609,6 +1754,10 @@ export interface components {
             status: string;
             /** Mfaenabled */
             mfaEnabled: boolean;
+            /** Failedloginattempts */
+            failedLoginAttempts: number;
+            /** Lockeduntil */
+            lockedUntil: string | null;
             /** Lastloginat */
             lastLoginAt: string | null;
             /**
@@ -1712,11 +1861,30 @@ export interface components {
             name: string;
             /** Ruletype */
             ruleType: string;
+            /** Action */
+            action?: string | null;
             /**
              * Priority
              * @default 100
              */
             priority: number;
+            /**
+             * Targetcategory
+             * @default all
+             */
+            targetCategory: string;
+            /**
+             * Appliedsites
+             * @default [
+             *       "ALL"
+             *     ]
+             */
+            appliedSites: string[];
+            /**
+             * Holidayoverride
+             * @default false
+             */
+            holidayOverride: boolean;
             /**
              * Schedule
              * @default {}
@@ -1746,8 +1914,16 @@ export interface components {
             name: string;
             /** Ruletype */
             ruleType: string;
+            /** Action */
+            action: string | null;
             /** Priority */
             priority: number;
+            /** Targetcategory */
+            targetCategory: string;
+            /** Appliedsites */
+            appliedSites: string[];
+            /** Holidayoverride */
+            holidayOverride: boolean;
             /** Schedule */
             schedule: Record<string, never>;
             /** Conditions */
@@ -1782,6 +1958,13 @@ export interface components {
             userAgent: string | null;
             /** Mfaverified */
             mfaVerified: boolean;
+            /** Devicefingerprint */
+            deviceFingerprint?: string | null;
+            /**
+             * Risklevel
+             * @default normal
+             */
+            riskLevel: string;
             /**
              * Createdat
              * Format: date-time
@@ -1806,8 +1989,27 @@ export interface components {
         SiteIn: {
             /** Name */
             name: string;
+            /** Code */
+            code?: string | null;
             /** Address */
             address?: string | null;
+            /** City */
+            city?: string | null;
+            /** Latitude */
+            latitude?: number | null;
+            /** Longitude */
+            longitude?: number | null;
+            /** Capacity */
+            capacity?: number | null;
+            /**
+             * Operatinghours
+             * @default {}
+             */
+            operatingHours: Record<string, never>;
+            /** Contactphone */
+            contactPhone?: string | null;
+            /** Managername */
+            managerName?: string | null;
             /**
              * Timezone
              * @default UTC
@@ -1825,8 +2027,28 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /** Code */
+            code: string | null;
             /** Address */
             address: string | null;
+            /** City */
+            city: string | null;
+            /** Latitude */
+            latitude: number | null;
+            /** Longitude */
+            longitude: number | null;
+            /** Capacity */
+            capacity: number | null;
+            /** Currentoccupancy */
+            currentOccupancy: number;
+            /** Operatinghours */
+            operatingHours: Record<string, never>;
+            /** Overallhealth */
+            overallHealth: string;
+            /** Contactphone */
+            contactPhone: string | null;
+            /** Managername */
+            managerName: string | null;
             /** Timezone */
             timezone: string;
             /** Status */
@@ -1836,6 +2058,85 @@ export interface components {
              * Format: date-time
              */
             createdAt: string;
+        };
+        /** SitesGatesGateOut */
+        SitesGatesGateOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Siteid
+             * Format: uuid
+             */
+            siteId: string;
+            /** Laneid */
+            laneId: string | null;
+            /** Name */
+            name: string;
+            /** Code */
+            code: string | null;
+            /** Gatetype */
+            gateType: string;
+            /** Status */
+            status: string;
+            /** Health */
+            health: string;
+            /** Armangledeg */
+            armAngleDeg: number;
+            /** Relaystate */
+            relayState: string;
+            /** Loopdetectoractive */
+            loopDetectorActive: boolean;
+            /** Motortempc */
+            motorTempC: number | null;
+            /** Upsbatterypercent */
+            upsBatteryPercent: number;
+            /** Dailycycles */
+            dailyCycles: number;
+            /** Lastpassageplate */
+            lastPassagePlate: string | null;
+            /** Laststatechangeat */
+            lastStateChangeAt: string | null;
+        };
+        /** SitesGatesOut */
+        SitesGatesOut: {
+            /**
+             * Tenantid
+             * Format: uuid
+             */
+            tenantId: string;
+            /** Sites */
+            sites: components["schemas"]["SitesGatesSiteOut"][];
+        };
+        /** SitesGatesSiteOut */
+        SitesGatesSiteOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Code */
+            code: string | null;
+            /** City */
+            city: string | null;
+            /** Latitude */
+            latitude: number | null;
+            /** Longitude */
+            longitude: number | null;
+            /** Capacity */
+            capacity: number | null;
+            /** Currentoccupancy */
+            currentOccupancy: number;
+            /** Overallhealth */
+            overallHealth: string;
+            /** Status */
+            status: string;
+            /** Gates */
+            gates: components["schemas"]["SitesGatesGateOut"][];
         };
         /** TelemetryOut */
         TelemetryOut: {
@@ -1880,6 +2181,12 @@ export interface components {
              * @default {}
              */
             settings: Record<string, never>;
+            /** Owneremail */
+            ownerEmail?: string | null;
+            /** Ownerfullname */
+            ownerFullName?: string | null;
+            /** Ownerpassword */
+            ownerPassword?: string | null;
         };
         /** TenantOut */
         TenantOut: {
@@ -1901,8 +2208,22 @@ export interface components {
              * Format: email
              */
             contactEmail: string;
+            /** Phone */
+            phone: string | null;
+            /** Timezone */
+            timezone: string;
             /** Settings */
             settings: Record<string, never>;
+            /** Maxsites */
+            maxSites: number;
+            /** Maxgates */
+            maxGates: number;
+            /** Maxvehicles */
+            maxVehicles: number;
+            /** Storagequotagb */
+            storageQuotaGb: number;
+            /** Storageusedgb */
+            storageUsedGb: number;
             /**
              * Createdat
              * Format: date-time
@@ -1914,6 +2235,27 @@ export interface components {
              */
             updatedAt: string;
         };
+        /** TenantStatusIn */
+        TenantStatusIn: {
+            /** Status */
+            status: string;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** TenantStatusOut */
+        TenantStatusOut: {
+            /** Success */
+            success: boolean;
+            /**
+             * Tenantid
+             * Format: uuid
+             */
+            tenantId: string;
+            /** Newstatus */
+            newStatus: string;
+            /** Revokedsessionscount */
+            revokedSessionsCount: number;
+        };
         /** TenantUpdateIn */
         TenantUpdateIn: {
             /** Name */
@@ -1924,6 +2266,10 @@ export interface components {
             planCode?: string | null;
             /** Contactemail */
             contactEmail?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Timezone */
+            timezone?: string | null;
             /** Settings */
             settings?: Record<string, never> | null;
         };
@@ -1993,8 +2339,27 @@ export interface components {
             ownerName?: string | null;
             /** Ownercontact */
             ownerContact?: string | null;
+            /** Ownerphone */
+            ownerPhone?: string | null;
+            /** Owneremail */
+            ownerEmail?: string | null;
+            /** Ownerdepartment */
+            ownerDepartment?: string | null;
+            /**
+             * Ownercategory
+             * @default employee
+             */
+            ownerCategory: string;
+            /** Rfidcardnumber */
+            rfidCardNumber?: string | null;
             /** Vehicletype */
             vehicleType?: string | null;
+            /** Brand */
+            brand?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Color */
+            color?: string | null;
             /**
              * Tag
              * @default standard
@@ -2020,8 +2385,24 @@ export interface components {
             ownerName: string | null;
             /** Ownercontact */
             ownerContact: string | null;
+            /** Ownerphone */
+            ownerPhone: string | null;
+            /** Owneremail */
+            ownerEmail: string | null;
+            /** Ownerdepartment */
+            ownerDepartment: string | null;
+            /** Ownercategory */
+            ownerCategory: string;
+            /** Rfidcardnumber */
+            rfidCardNumber: string | null;
             /** Vehicletype */
             vehicleType: string | null;
+            /** Brand */
+            brand: string | null;
+            /** Model */
+            model: string | null;
+            /** Color */
+            color: string | null;
             /** Tag */
             tag: string;
             /** Validfrom */
@@ -2044,8 +2425,24 @@ export interface components {
             ownerName?: string | null;
             /** Ownercontact */
             ownerContact?: string | null;
+            /** Ownerphone */
+            ownerPhone?: string | null;
+            /** Owneremail */
+            ownerEmail?: string | null;
+            /** Ownerdepartment */
+            ownerDepartment?: string | null;
+            /** Ownercategory */
+            ownerCategory?: string | null;
+            /** Rfidcardnumber */
+            rfidCardNumber?: string | null;
             /** Vehicletype */
             vehicleType?: string | null;
+            /** Brand */
+            brand?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Color */
+            color?: string | null;
             /** Tag */
             tag?: string | null;
             /** Validfrom */
@@ -2665,6 +3062,41 @@ export interface operations {
             };
         };
     };
+    update_tenant_status_api_v1_platform_tenants__tenant_id__status_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantStatusIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_tenant_users_api_v1_platform_tenants__tenant_id__users_get: {
         parameters: {
             query?: never;
@@ -2930,6 +3362,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_platform_audit_logs_api_v1_platform_audit_logs_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+                action?: string | null;
+                actor_id?: string | null;
+                from_ts?: string | null;
+                to_ts?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_AuditLogOut_"];
                 };
             };
             /** @description Validation Error */
@@ -3235,6 +3703,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LaneOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sites_gates_api_v1_tenants__tenant_id__sites_gates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitesGatesOut"];
                 };
             };
             /** @description Validation Error */
