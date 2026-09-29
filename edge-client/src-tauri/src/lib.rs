@@ -168,10 +168,7 @@ pub async fn boot_runtime(app: &AppHandle, cfg: EdgeConfig) -> anyhow::Result<()
     Ok(())
 }
 
-fn gate_for(
-    rt: &SharedRuntime,
-    gate_id: Option<Uuid>,
-) -> Result<&Arc<GateRuntime>, String> {
+fn gate_for(rt: &SharedRuntime, gate_id: Option<Uuid>) -> Result<&Arc<GateRuntime>, String> {
     match gate_id {
         Some(id) => rt.gate(&id).ok_or_else(|| "unknown gate".to_string()),
         None => rt
