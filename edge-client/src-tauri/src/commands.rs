@@ -51,7 +51,7 @@ impl CommandLog for InMemCommandLog {
 }
 
 pub struct CommandExecutor {
-    fsm: Mutex<GateFsm>,
+    fsm: Arc<Mutex<GateFsm>>,
     publisher: Arc<dyn Publisher>,
     log: Arc<dyn CommandLog>,
     cfg: Arc<EdgeConfig>,
@@ -59,7 +59,7 @@ pub struct CommandExecutor {
 
 impl CommandExecutor {
     pub fn new(
-        fsm: Mutex<GateFsm>,
+        fsm: Arc<Mutex<GateFsm>>,
         publisher: Arc<dyn Publisher>,
         log: Arc<dyn CommandLog>,
         cfg: Arc<EdgeConfig>,
@@ -250,7 +250,7 @@ mod tests {
         let log = Arc::new(InMemCommandLog::new());
         let cfg = cfg();
         let exec = CommandExecutor::new(
-            Mutex::new(GateFsm::new(hal.clone())),
+            Arc::new(Mutex::new(GateFsm::new(hal.clone()))),
             pub_.clone(),
             log.clone(),
             cfg.clone(),

@@ -8,6 +8,7 @@ pub mod incidents;
 pub mod mqtt;
 pub mod payloads;
 pub mod pipeline;
+pub mod runtime;
 pub mod store;
 pub mod sync;
 pub mod telemetry;

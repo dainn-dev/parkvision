@@ -24,6 +24,7 @@ chrono = { version = "0.4", features = ["serde"] }
 rumqttc = { version = "0.24", features = ["use-rustls"] }
 async-trait = "0.1"
 futures = "0.3"
+tokio-util = "0.7"
 sysinfo = "0.33"
 rusqlite = { version = "0.32", features = ["bundled"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }

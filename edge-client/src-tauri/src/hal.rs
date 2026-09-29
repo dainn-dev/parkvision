@@ -32,6 +32,9 @@ pub trait BarrierHal: Send + Sync {
     fn sensors(&self) -> HalSensors;
     /// Return the arm to the 0° home position after a reboot.
     fn home_calibrate(&self) -> Result<()>;
+    /// Advance simulated hardware physics. Real drivers keep the default
+    /// no-op — physical hardware moves on its own.
+    fn tick(&self, _dt: Duration) {}
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -152,6 +155,10 @@ impl BarrierHal for SimulatedHal {
     fn home_calibrate(&self) -> Result<()> {
         self.inner.lock().unwrap().angle = 0.0;
         Ok(())
+    }
+
+    fn tick(&self, dt: Duration) {
+        SimulatedHal::tick(self, dt)
     }
 
     fn sensors(&self) -> HalSensors {
