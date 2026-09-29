@@ -48,7 +48,7 @@ export default function GatePanel({ gate, cameras, onAction }: Props) {
   };
 
   return (
-    <section className="flex flex-1 flex-col overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40">
+    <section className="relative flex flex-1 flex-col overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40">
       {/* Header — direction + gate state */}
       <div className="flex items-center justify-between px-4 py-2.5">
         <span
@@ -196,12 +196,15 @@ export default function GatePanel({ gate, cameras, onAction }: Props) {
           </button>
         </div>
         {showEntry && (
-          <div className="flex gap-2">
+          <div className="absolute inset-x-4 bottom-[8.5rem] z-10 flex gap-2 rounded-lg border border-zinc-600 bg-zinc-900 p-2 shadow-2xl">
             <input
               autoFocus
               value={plateInput}
               onChange={(e) => setPlateInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submitPlate()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submitPlate();
+                if (e.key === "Escape") setShowEntry(false);
+              }}
               placeholder="VD: 30E-892.41"
               className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono uppercase tracking-wider outline-none focus:border-sky-500"
             />
