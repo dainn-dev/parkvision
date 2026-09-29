@@ -306,7 +306,7 @@ interface PlatformContextType {
   reactivateTenantDevice: (deviceId: string) => Promise<{ success: boolean; message?: string }>;
   deleteTenantDevice: (deviceId: string) => Promise<{ success: boolean; message?: string }>;
   rebootTenantDevice: (deviceId: string) => Promise<{ success: boolean; commandIds?: string[]; message?: string }>;
-  generateDeviceActivationCode: (deviceId: string) => Promise<{ success: boolean; code?: string; expiresAt?: string; message?: string }>;
+  generateDeviceActivationCode: (deviceId: string, allowedIp?: string) => Promise<{ success: boolean; code?: string; expiresAt?: string; message?: string }>;
   revokeDeviceToken: (deviceId: string) => Promise<{ success: boolean; message?: string }>;
 
   inviteTenantUser: (data: {
@@ -1705,10 +1705,12 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
-  const generateDeviceActivationCode = async (deviceId: string) => {
+  const generateDeviceActivationCode = async (deviceId: string, allowedIp?: string) => {
     if (!activeTenantId) return { success: false, message: 'No tenant selected' };
     try {
-      const r = await tenantApi.generateActivationCode(activeTenantId, deviceId);
+      const r = await tenantApi.generateActivationCode(activeTenantId, deviceId, {
+        allowedIp: allowedIp?.trim() || undefined,
+      });
       return { success: true, code: r.code, expiresAt: r.expiresAt };
     } catch (e) {
       return { success: false, message: errText(e) };

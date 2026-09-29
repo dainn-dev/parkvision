@@ -229,6 +229,8 @@ class DeviceActivationCode(TimestampMixin, Base):
     code_prefix: Mapped[str] = mapped_column(String(16), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Optional IP/CIDR the code may be redeemed from (e.g. the site's WAN IP).
+    allowed_ip: Mapped[str | None] = mapped_column(String(64))
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
 

@@ -117,7 +117,8 @@ def create_app() -> FastAPI:
         return _envelope(
             "validation_error",
             "Request validation failed",
-            {"errors": exc.errors()},
+            # ctx.error holds the raw exception object — not JSON-serializable.
+            {"errors": [{k: v for k, v in e.items() if k != "ctx"} for e in exc.errors()]},
             getattr(request.state, "request_id", "-"),
             422,
         )

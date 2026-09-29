@@ -196,7 +196,8 @@ export const tenantApi = {
   reactivateDevice: (t: string, id: string) => api.post<DeviceOut>(T(t, `/devices/${id}/reactivate`)),
   deleteDevice: (t: string, id: string) => api.del<MessageOut>(T(t, `/devices/${id}`)),
   rebootDevice: (t: string, id: string) => api.post<S['EdgeRebootOut']>(T(t, `/devices/${id}/reboot`)),
-  generateActivationCode: (t: string, id: string) => api.post<ActivationCodeOut>(T(t, `/devices/${id}/activation-codes`)),
+  generateActivationCode: (t: string, id: string, body: { allowedIp?: string } = {}) =>
+    api.post<ActivationCodeOut>(T(t, `/devices/${id}/activation-codes`), body),
   revokeDeviceToken: (t: string, id: string) => api.post<MessageOut>(T(t, `/devices/${id}/revoke-token`)),
 
   cameras: (t: string, p: { page?: number; limit?: number; siteId?: string; laneId?: string; status?: string } = {}) =>

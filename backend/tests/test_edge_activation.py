@@ -477,3 +477,141 @@ async def test_mqtt_authz_scopes_topics_to_tenant(client: AsyncClient, tenant, a
         },
     )
     assert bad.json()["result"] == "deny"
+
+
+# ---------- Activation-code IP binding ----------
+
+
+def _edge_client(ip: str) -> AsyncClient:
+    """Unauthenticated client whose requests appear to originate from `ip`."""
+    from app.main import app
+    from httpx import ASGITransport
+
+    return AsyncClient(
+        transport=ASGITransport(app=app, client=(ip, 4444)), base_url="http://test"
+    )
+
+
+async def _gen_code(client: AsyncClient, tenant, device_id: str, body=None) -> str:
+    res = await client.post(
+        f"/api/v1/tenants/{tenant['tenant_id']}/devices/{device_id}/activation-codes",
+        json=body or {},
+        headers=csrf(client),
+    )
+    assert res.status_code == 201, res.text
+    return res.json()["code"]
+
+
+@pytest.mark.asyncio
+async def test_generate_code_stores_allowed_ip(
+    client: AsyncClient, tenant, site_and_device, admin_engine
+):
+    from app.models import DeviceActivationCode
+
+    _, device = site_and_device
+    code = await _gen_code(client, tenant, device["id"], {"allowedIp": "203.0.113.10"})
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        row = (
+            await db.execute(
+                select(DeviceActivationCode).where(
+                    DeviceActivationCode.code_hash == hash_activation_code(code)
+                )
+            )
+        ).scalar_one()
+    assert row.allowed_ip == "203.0.113.10"
+
+
+@pytest.mark.asyncio
+async def test_activate_rejects_wrong_source_ip(
+    client: AsyncClient, tenant, site_and_device
+):
+    _, device = site_and_device
+    code = await _gen_code(client, tenant, device["id"], {"allowedIp": "203.0.113.10"})
+
+    async with _edge_client("198.51.100.99") as edge:
+        res = await edge.post("/api/v1/edge/activate", json={"code": code})
+    assert res.status_code == 403, res.text
+
+
+@pytest.mark.asyncio
+async def test_failed_ip_check_does_not_consume_code(
+    client: AsyncClient, tenant, site_and_device
+):
+    """A wrong-IP attempt must not burn the one-time code."""
+    _, device = site_and_device
+    code = await _gen_code(client, tenant, device["id"], {"allowedIp": "203.0.113.10"})
+
+    async with _edge_client("198.51.100.99") as bad:
+        res = await bad.post("/api/v1/edge/activate", json={"code": code})
+    assert res.status_code == 403
+
+    async with _edge_client("203.0.113.10") as good:
+        res = await good.post("/api/v1/edge/activate", json={"code": code})
+    assert res.status_code == 200, res.text
+    assert res.json()["api"]["token"].startswith("pk_")
+
+
+@pytest.mark.asyncio
+async def test_activate_cidr_range_allows_subnet(
+    client: AsyncClient, tenant, site_and_device
+):
+    _, device = site_and_device
+    code = await _gen_code(client, tenant, device["id"], {"allowedIp": "203.0.113.0/24"})
+
+    async with _edge_client("203.0.113.77") as edge:
+        res = await edge.post("/api/v1/edge/activate", json={"code": code})
+    assert res.status_code == 200, res.text
+
+
+@pytest.mark.asyncio
+async def test_xff_honored_when_peer_is_private(
+    client: AsyncClient, tenant, site_and_device
+):
+    """Behind a proxy the peer is private/loopback — first XFF hop is the real IP."""
+    _, device = site_and_device
+    code = await _gen_code(client, tenant, device["id"], {"allowedIp": "203.0.113.10"})
+
+    async with _edge_client("127.0.0.1") as edge:
+        res = await edge.post(
+            "/api/v1/edge/activate",
+            json={"code": code},
+            headers={"X-Forwarded-For": "203.0.113.10, 10.0.0.1"},
+        )
+    assert res.status_code == 200, res.text
+
+
+@pytest.mark.asyncio
+async def test_xff_ignored_when_peer_is_public(
+    client: AsyncClient, tenant, site_and_device
+):
+    """On a direct connection a client-set XFF must not bypass the check.
+
+    Uses a globally-routable peer (8.8.8.8): TEST-NET ranges like
+    198.51.100.x are `is_private` and would legitimately trigger the
+    XFF trust path used for same-host proxies.
+    """
+    _, device = site_and_device
+    code = await _gen_code(client, tenant, device["id"], {"allowedIp": "203.0.113.10"})
+
+    async with _edge_client("8.8.8.8") as edge:
+        res = await edge.post(
+            "/api/v1/edge/activate",
+            json={"code": code},
+            headers={"X-Forwarded-For": "203.0.113.10"},
+        )
+    assert res.status_code == 403, res.text
+
+
+@pytest.mark.asyncio
+async def test_generate_code_rejects_invalid_ip(
+    client: AsyncClient, tenant, site_and_device
+):
+    _, device = site_and_device
+    res = await client.post(
+        f"/api/v1/tenants/{tenant['tenant_id']}/devices/{device['id']}/activation-codes",
+        json={"allowedIp": "not-an-ip"},
+        headers=csrf(client),
+    )
+    assert res.status_code == 422

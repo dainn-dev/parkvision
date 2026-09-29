@@ -22,6 +22,7 @@ from app.models import (
 from app.models import GateCommand as GateCommandRow
 from app.schemas.common import MessageOut, Page, paginate
 from app.schemas.resources import (
+    ActivationCodeIn,
     ActivationCodeOut,
     CommandIn,
     CommandOut,
@@ -355,6 +356,7 @@ ACTIVATION_CODE_TTL = timedelta(hours=24)
 async def create_activation_code(
     device_id: uuid.UUID,
     request: Request,
+    body: ActivationCodeIn | None = None,
     ctx: TenantCtx = Depends(tenant_ctx),
     db: AsyncSession = Depends(get_tenant_db),
     _: None = Depends(require_roles(*WRITE_ROLES)),
@@ -380,6 +382,7 @@ async def create_activation_code(
         code_hash=hash_activation_code(code),
         code_prefix=code[:5],
         expires_at=now + ACTIVATION_CODE_TTL,
+        allowed_ip=body.allowed_ip if body else None,
         created_by=ctx.auth.user_id,
     )
     db.add(row)

@@ -34,6 +34,7 @@ export default function SetupScreen({ onDone }: { onDone: () => void }) {
       if (msg.includes("invalid activation code")) setErr("Mã kích hoạt không đúng.");
       else if (msg.includes("expired")) setErr("Mã kích hoạt đã hết hạn.");
       else if (msg.includes("409")) setErr("Mã kích hoạt đã được sử dụng.");
+      else if (msg.includes("403")) setErr("Thiết bị không được phép kích hoạt từ địa chỉ IP này.");
       else if (msg.includes("cannot reach server")) setErr("Không kết nối được server.");
       else setErr("Kích hoạt thất bại. Kiểm tra lại mã và URL server.");
     } finally {

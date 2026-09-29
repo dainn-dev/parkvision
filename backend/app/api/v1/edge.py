@@ -7,6 +7,7 @@ local `decide_access` fallback when the broker/API is unreachable.
 one-time code into a device credential + config bundle.
 """
 
+import ipaddress
 import uuid
 from datetime import datetime, timezone
 
@@ -46,6 +47,37 @@ router = APIRouter(prefix="/edge", tags=["edge"])
 
 EDGE_SYNC_SCOPE = "edge:ingest"
 EDGE_CONFIG_SCOPE = "edge:config"
+
+
+def _client_ip(request: Request) -> str | None:
+    """Source IP of the request, verified against the TCP peer.
+
+    `X-Forwarded-For` is trusted only when the direct peer is a private/
+    loopback address (i.e. a same-host proxy/LB hop) — on a direct public
+    connection a client-set XFF must not bypass the IP check.
+    """
+    peer = request.client.host if request.client else None
+    fwd = request.headers.get("x-forwarded-for")
+    if peer and fwd:
+        try:
+            addr = ipaddress.ip_address(peer)
+            if addr.is_private or addr.is_loopback:
+                first = fwd.split(",")[0].strip()
+                if first:
+                    return first
+        except ValueError:
+            pass
+    return peer
+
+
+def _ip_allowed(allowed: str, request: Request) -> bool:
+    """`allowed` is a stored IP or CIDR; the request source must fall inside."""
+    try:
+        network = ipaddress.ip_network(allowed, strict=False)
+        peer = _client_ip(request)
+        return peer is not None and ipaddress.ip_address(peer) in network
+    except ValueError:
+        return False
 
 
 async def _resolve_api_key(x_api_key: str) -> ApiCredential:
@@ -105,6 +137,9 @@ async def edge_activate(body: ActivateIn, request: Request) -> ActivationBundleO
             )
         if row.consumed_at is not None:
             raise conflict("Activation code already redeemed")
+        if row.allowed_ip and not _ip_allowed(row.allowed_ip, request):
+            # Reject WITHOUT consuming — a wrong-IP attempt must not burn the code.
+            raise forbidden("Activation code is not allowed from this IP address")
         consumed = await consume_activation_code(db, row)
         if consumed is None:
             raise conflict("Activation code already redeemed")

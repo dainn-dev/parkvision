@@ -1,3 +1,4 @@
+import ipaddress
 import uuid
 from datetime import datetime
 from typing import Any
@@ -258,6 +259,26 @@ class ActivationBundleOut(CamelModel):
     gates: list[ActivationGateOut]
     api: ActivationApiOut
     mqtt: ActivationMqttOut
+
+
+class ActivationCodeIn(CamelModel):
+    """Options when generating a device activation code."""
+
+    allowed_ip: str | None = Field(default=None, max_length=64)
+
+    @field_validator("allowed_ip")
+    @classmethod
+    def _valid_ip_or_cidr(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            return None
+        try:
+            ipaddress.ip_network(v, strict=False)
+        except ValueError:
+            raise ValueError("allowedIp must be an IP address or CIDR range") from None
+        return v
 
 
 class ActivationCodeOut(CamelModel):
