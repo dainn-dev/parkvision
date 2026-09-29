@@ -8,6 +8,26 @@ use std::sync::{Arc, Mutex};
 
 use tracing::{info, warn};
 
+/// Optional UI sinks — `events` fans each access decision out as
+/// `edge://event` frames; `last_event` holds the most recent one for the
+/// status poll. Absent in tests.
+#[derive(Clone, Default)]
+pub struct PipelineHooks {
+    pub events: Option<tokio::sync::broadcast::Sender<serde_json::Value>>,
+    pub last_event: Option<Arc<Mutex<Option<serde_json::Value>>>>,
+}
+
+impl PipelineHooks {
+    fn notify(&self, event: serde_json::Value) {
+        if let Some(last) = &self.last_event {
+            *last.lock().unwrap() = Some(event.clone());
+        }
+        if let Some(tx) = &self.events {
+            let _ = tx.send(event);
+        }
+    }
+}
+
 use crate::access::{decide_access, normalize_plate};
 use crate::anpr::PlateSource;
 use crate::config::EdgeConfig;
@@ -44,6 +64,7 @@ pub async fn run_pipeline(
     publisher: Arc<dyn Publisher>,
     fsm: Arc<Mutex<GateFsm>>,
     captures_dir: PathBuf,
+    hooks: PipelineHooks,
 ) {
     let topic = telemetry_topic(&cfg.tenant_id, &cfg.site_id, &cfg.gate_id);
     while let Some(reading) = src.next().await {
@@ -69,6 +90,13 @@ pub async fn run_pipeline(
         // Mirror backend access_events: every decision is recorded —
         // anti-passback inspects the latest event regardless of outcome.
         let _ = store.record_local_event(&normalized, &cfg.lane_direction, &outcome.decision);
+        hooks.notify(serde_json::json!({
+            "plate": normalized,
+            "direction": cfg.lane_direction,
+            "decision": outcome.decision,
+            "reason": outcome.reason,
+            "at": chrono::Utc::now().to_rfc3339(),
+        }));
 
         let plate_key = stash_image(reading.plate_image_path.as_ref(), &captures_dir);
         let overview_key = stash_image(reading.overview_image_path.as_ref(), &captures_dir);
@@ -207,6 +235,7 @@ mod tests {
             rig.pub_,
             rig.fsm,
             rig.captures.path().to_path_buf(),
+            PipelineHooks::default(),
         )
         .await;
     }

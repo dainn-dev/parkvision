@@ -205,6 +205,16 @@ impl Store {
         }
     }
 
+    pub fn whitelist_count(&self) -> Result<u64> {
+        let conn = self.conn.lock().unwrap();
+        Ok(conn.query_row("SELECT COUNT(*) FROM whitelist", [], |r| r.get::<_, i64>(0))? as u64)
+    }
+
+    pub fn pending_count(&self) -> Result<u64> {
+        let conn = self.conn.lock().unwrap();
+        Ok(conn.query_row("SELECT COUNT(*) FROM pending_events", [], |r| r.get::<_, i64>(0))? as u64)
+    }
+
     pub fn kv_set(&self, key: &str, value: &str) -> Result<()> {
         self.conn.lock().unwrap().execute(
             "INSERT INTO kv (key, value) VALUES (?1, ?2)

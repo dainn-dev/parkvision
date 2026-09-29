@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use tokio::sync::{mpsc, watch};
+use tokio::sync::{broadcast, mpsc, watch};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
@@ -66,8 +66,18 @@ pub struct SharedRuntime {
     pub plate_tx: mpsc::Sender<PlateReading>,
     pub state_rx: watch::Receiver<GateState>,
     pub connected_rx: watch::Receiver<bool>,
+    /// Each pipeline access decision — forwarded to the UI as `edge://event`.
+    pub events_tx: broadcast::Sender<serde_json::Value>,
+    /// Latest access event for the status poll.
+    pub last_event: Arc<Mutex<Option<serde_json::Value>>>,
     token: CancellationToken,
     handles: Mutex<Vec<JoinHandle<()>>>,
+}
+
+impl SharedRuntime {
+    pub fn events_rx(&self) -> broadcast::Receiver<serde_json::Value> {
+        self.events_tx.subscribe()
+    }
 }
 
 impl SharedRuntime {
@@ -118,6 +128,8 @@ impl EdgeRuntime {
         let token = CancellationToken::new();
         let (state_tx, state_rx) = watch::channel(GateState::Closed);
         let (connected_tx, connected_rx) = watch::channel(publisher.is_connected());
+        let (events_tx, _) = broadcast::channel::<serde_json::Value>(64);
+        let last_event = Arc::new(Mutex::new(None::<serde_json::Value>));
         let captures_dir = app_data.join("captures");
         std::fs::create_dir_all(&captures_dir).ok();
 
@@ -304,6 +316,8 @@ impl EdgeRuntime {
             src,
             state_rx,
             connected_rx,
+            events_tx,
+            last_event,
             token,
             handles,
             captures_dir,
@@ -325,6 +339,8 @@ impl EdgeRuntime {
         src: Box<dyn PlateSource>,
         state_rx: watch::Receiver<GateState>,
         connected_rx: watch::Receiver<bool>,
+        events_tx: broadcast::Sender<serde_json::Value>,
+        last_event: Arc<Mutex<Option<serde_json::Value>>>,
         token: CancellationToken,
         mut handles: Vec<JoinHandle<()>>,
         captures_dir: PathBuf,
@@ -334,10 +350,14 @@ impl EdgeRuntime {
         let t = token.clone();
         let (pcfg, pstore, pfsm, ppub) =
             (cfg.clone(), store.clone(), fsm.clone(), publisher.clone());
+        let hooks = crate::pipeline::PipelineHooks {
+            events: Some(events_tx.clone()),
+            last_event: Some(last_event.clone()),
+        };
         handles.push(tokio::spawn(async move {
             tokio::select! {
                 _ = t.cancelled() => {}
-                _ = run_pipeline(src, pcfg, pstore, ppub, pfsm, captures_dir) => {}
+                _ = run_pipeline(src, pcfg, pstore, ppub, pfsm, captures_dir, hooks) => {}
             }
         }));
         Ok(SharedRuntime {
@@ -351,6 +371,8 @@ impl EdgeRuntime {
             plate_tx,
             state_rx,
             connected_rx,
+            events_tx,
+            last_event,
             token,
             handles: Mutex::new(handles),
         })
