@@ -53,7 +53,15 @@ import {
   barrierTelemetryWsUrl,
   ApiError,
 } from '../services/api';
-import type { CameraIn, IncidentOut, LaneOut } from '../services/api';
+import type {
+  CameraIn,
+  IncidentOut,
+  LaneOut,
+  LocateOut,
+  MapLevelOut,
+  PresenceOut,
+  ZoneBounds,
+} from '../services/api';
 import {
   mapAccessEvent,
   mapApiCredential,
@@ -232,6 +240,25 @@ interface PlatformContextType {
   accessActivity: AccessActivityDataPoint[];
   tenantLanes: LaneOut[];
   liveGateFrames: Record<string, LiveGateFrame>;
+  parkingMap: MapLevelOut[];
+  parkingPresences: PresenceOut[];
+  refreshParkingMap: () => void;
+  locateVehicleInLot: (plate: string) => Promise<LocateOut | null>;
+  parkingCheckin: (plateNumber: string, zoneId: string) => void;
+  parkingCheckout: (plateNumber: string) => void;
+  upsertParkingLevel: (
+    id: string | null,
+    data: { siteId?: string; name: string; code?: string | null; sortOrder?: number; mapImageUrl?: string | null; status?: string | null }
+  ) => void;
+  upsertParkingZone: (
+    levelId: string,
+    id: string | null,
+    data: { name: string; code?: string | null; bounds?: ZoneBounds | null; capacity?: number; status?: string | null }
+  ) => void;
+  removeParkingLevel: (id: string) => void;
+  removeParkingZone: (id: string) => void;
+  setCameraCoverage: (cameraId: string, zoneIds: string[]) => void;
+  uploadParkingMapImage: (file: File) => Promise<string>;
   registeredVehicles: RegisteredVehicle[];
   tenantVehicles: TenantVehicle[];
   tenantAccessRules: TenantAccessRule[];
@@ -477,6 +504,10 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [incidents, setIncidents] = useState<OperationalIncident[]>([]);
   // Latest WS telemetry frame per gate (live overlay for the barrier map)
   const [liveGateFrames, setLiveGateFrames] = useState<Record<string, LiveGateFrame>>({});
+  // Parking map: levels+zones with live occupancy, plus active presences.
+  const [parkingMap, setParkingMap] = useState<MapLevelOut[]>([]);
+  const [parkingPresences, setParkingPresences] = useState<PresenceOut[]>([]);
+  const parkingPresencesRef = useRef<PresenceOut[]>([]);
   const [securityAlerts] = useState<SecurityAlert[]>([]);
   const [loginEvents] = useState<LoginActivityEvent[]>([]);
   const [credentials, setCredentials] = useState<ApiCredential[]>([]);
@@ -548,7 +579,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const loadTenantData = useCallback(async (tId: string) => {
     setIsTenantRefreshing(true);
     try {
-      const [sitesPage, gatesPage, devicesPage, camerasPage, vehiclesPage, rulesPage, usersPage, eventsPage, incidentsPage, auditPage, dashSummary, hourlyFlow] =
+      const [sitesPage, gatesPage, devicesPage, camerasPage, vehiclesPage, rulesPage, usersPage, eventsPage, incidentsPage, auditPage, dashSummary, hourlyFlow, parkingMapRes, parkingPresencePage] =
         await Promise.all([
           tenantApi.sites(tId, { limit: 200 }),
           tenantApi.gates(tId, { limit: 200 }),
@@ -562,7 +593,13 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
           tenantApi.auditLogs(tId, { limit: 100 }).catch(() => ({ data: [], meta: { page: 1, limit: 100, total: 0 } })),
           tenantApi.dashboardSummary(tId).catch(() => null),
           tenantApi.hourlyFlow(tId, 24).catch(() => null),
+          tenantApi.parkingMap(tId).catch(() => null),
+          tenantApi.parkingPresence(tId, { limit: 200 }).catch(() => ({ data: [] as PresenceOut[], meta: { page: 1, limit: 200, total: 0 } })),
         ]);
+
+      setParkingMap(parkingMapRes?.levels ?? []);
+      parkingPresencesRef.current = parkingPresencePage.data;
+      setParkingPresences(parkingPresencePage.data);
 
       const tName = tenantNameRef.current;
       const sites = sitesPage.data.map((s) => mapSite(s, tId, tName));
@@ -780,6 +817,69 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
           const gateId: string | undefined = msg?.gateId ?? msg?.gate_id;
           const siteId: string | undefined = msg?.siteId ?? msg?.site_id;
           const nowIso = new Date().toISOString();
+
+          // Parking: monitor-camera detections arrive as vehicle_location frames.
+          if (kind === 'vehicle_location' && msg.presence) {
+            const pr = msg.presence as Partial<PresenceOut> & { zoneCode?: string; zoneName?: string };
+            const evType = String(msg.eventType ?? '');
+            const plateNorm = String(pr.plateNumber ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const prevList = parkingPresencesRef.current;
+            const prevRow = prevList.find((p) => p.id === pr.id || p.plateNormalized === plateNorm);
+            const prevZone = prevRow?.zoneId ?? null;
+            const newZone: string | null = pr.zoneId ?? null;
+
+            // Occupancy deltas (stale still counts as occupied; seen → no change).
+            const deltas: Record<string, number> = {};
+            const bump = (z: string | null | undefined, d: number) => {
+              if (z) deltas[z] = (deltas[z] ?? 0) + d;
+            };
+            if (evType === 'parked' || evType === 'relocated' || evType === 'seen') {
+              if (!prevRow) bump(newZone, 1);
+              else if (prevZone !== newZone) {
+                bump(newZone, 1);
+                bump(prevZone, -1);
+              }
+            } else if (evType === 'exited') {
+              bump(prevZone ?? newZone, -1);
+            }
+
+            const row: PresenceOut = {
+              id: pr.id ?? prevRow?.id ?? '',
+              tenantId: activeTenantId,
+              siteId: msg.siteId ?? prevRow?.siteId ?? '',
+              levelId: pr.levelId ?? prevRow?.levelId ?? null,
+              zoneId: newZone,
+              plateNumber: pr.plateNumber ?? prevRow?.plateNumber ?? '',
+              plateNormalized: prevRow?.plateNormalized ?? plateNorm,
+              vehicleId: prevRow?.vehicleId ?? null,
+              cameraId: msg.cameraId ?? prevRow?.cameraId ?? null,
+              confidence: prevRow?.confidence ?? null,
+              status: pr.status ?? (evType === 'exited' ? 'exited' : 'parked'),
+              firstSeenAt: prevRow?.firstSeenAt ?? nowIso,
+              lastSeenAt: pr.lastSeenAt ?? nowIso,
+              exitedAt: evType === 'exited' ? nowIso : (prevRow?.exitedAt ?? null),
+            };
+            const nextList =
+              evType === 'exited'
+                ? prevList.filter((p) => p !== prevRow)
+                : prevRow
+                  ? prevList.map((p) => (p === prevRow ? row : p))
+                  : [row, ...prevList];
+            parkingPresencesRef.current = nextList;
+            setParkingPresences(nextList);
+            if (Object.keys(deltas).length > 0) {
+              setParkingMap((prev) =>
+                prev.map((lv) => ({
+                  ...lv,
+                  zones: lv.zones.map((z) =>
+                    deltas[z.id] ? { ...z, occupiedCount: Math.max(0, z.occupiedCount + deltas[z.id]) } : z
+                  ),
+                }))
+              );
+            }
+            setLastUpdatedTime(new Date().toLocaleTimeString());
+            return;
+          }
 
           // Apply WS deltas directly — never re-fetch the whole tenant per frame.
           if (/incident/i.test(kind)) {
@@ -1236,6 +1336,111 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       .then(() => loadTenantData(activeTenantId))
       .then(() => addToast({ type: 'success', title: 'Camera deleted' }))
       .catch(toastErr('Failed to delete camera'));
+  };
+
+  // ---------- Parking map ----------
+  const refreshParkingMap = () => {
+    if (!activeTenantId) return;
+    Promise.all([
+      tenantApi.parkingMap(activeTenantId),
+      tenantApi.parkingPresence(activeTenantId, { limit: 200 }),
+    ])
+      .then(([m, p]) => {
+        setParkingMap(m.levels);
+        parkingPresencesRef.current = p.data;
+        setParkingPresences(p.data);
+      })
+      .catch(toastErr('Failed to refresh parking map'));
+  };
+
+  const locateVehicleInLot = async (plate: string): Promise<LocateOut | null> => {
+    if (!activeTenantId) return null;
+    try {
+      return await tenantApi.locateVehicle(activeTenantId, plate);
+    } catch (e) {
+      toastErr('Locate failed')(e);
+      return null;
+    }
+  };
+
+  const parkingCheckin = (plateNumber: string, zoneId: string) => {
+    if (!activeTenantId) return;
+    tenantApi
+      .parkingCheckin(activeTenantId, { plateNumber, zoneId })
+      .then(refreshParkingMap)
+      .then(() => addToast({ type: 'success', title: 'Vehicle checked in', description: plateNumber }))
+      .catch(toastErr('Check-in failed'));
+  };
+
+  const parkingCheckout = (plateNumber: string) => {
+    if (!activeTenantId) return;
+    tenantApi
+      .parkingCheckout(activeTenantId, plateNumber)
+      .then(refreshParkingMap)
+      .then(() => addToast({ type: 'success', title: 'Vehicle checked out', description: plateNumber }))
+      .catch(toastErr('Check-out failed'));
+  };
+
+  const upsertParkingLevel: PlatformContextType['upsertParkingLevel'] = (id, data) => {
+    if (!activeTenantId) return;
+    const req = id
+      ? tenantApi.updateParkingLevel(activeTenantId, id, data)
+      : tenantApi.createParkingLevel(activeTenantId, { siteId: data.siteId ?? '', ...data });
+    req
+      .then(refreshParkingMap)
+      .then(() => addToast({ type: 'success', title: id ? 'Level updated' : 'Level added', description: data.name }))
+      .catch(toastErr('Failed to save level'));
+  };
+
+  const upsertParkingZone: PlatformContextType['upsertParkingZone'] = (levelId, id, data) => {
+    if (!activeTenantId) return;
+    const req = id
+      ? tenantApi.updateParkingZone(activeTenantId, id, data)
+      : tenantApi.createParkingZone(activeTenantId, levelId, data);
+    req
+      .then(refreshParkingMap)
+      .then(() => addToast({ type: 'success', title: id ? 'Zone updated' : 'Zone added', description: data.name }))
+      .catch(toastErr('Failed to save zone'));
+  };
+
+  const removeParkingLevel = (id: string) => {
+    if (!activeTenantId) return;
+    tenantApi
+      .deleteParkingLevel(activeTenantId, id)
+      .then(refreshParkingMap)
+      .then(() => addToast({ type: 'success', title: 'Level deleted' }))
+      .catch(toastErr('Failed to delete level'));
+  };
+
+  const removeParkingZone = (id: string) => {
+    if (!activeTenantId) return;
+    tenantApi
+      .deleteParkingZone(activeTenantId, id)
+      .then(refreshParkingMap)
+      .then(() => addToast({ type: 'success', title: 'Zone deleted' }))
+      .catch(toastErr('Failed to delete zone'));
+  };
+
+  const setCameraCoverage = (cameraId: string, zoneIds: string[]) => {
+    if (!activeTenantId) return;
+    tenantApi
+      .setCameraCoverage(activeTenantId, cameraId, zoneIds)
+      .then(refreshParkingMap)
+      .then(() => addToast({ type: 'success', title: 'Camera coverage updated' }))
+      .catch(toastErr('Failed to update coverage'));
+  };
+
+  const uploadParkingMapImage = async (file: File): Promise<string> => {
+    if (!activeTenantId) throw new Error('No tenant selected');
+    const presign = await tenantApi.presignMapImage(activeTenantId, file.type || 'image/png');
+    await fetch(presign.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      body: file,
+    }).then((r) => {
+      if (!r.ok) throw new Error(`Upload failed (${r.status})`);
+    });
+    return presign.objectKey;
   };
 
   const resolveTenantAlert = (alertId: string) => {
@@ -1803,6 +2008,18 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         accessActivity,
         tenantLanes,
         liveGateFrames,
+        parkingMap,
+        parkingPresences,
+        refreshParkingMap,
+        locateVehicleInLot,
+        parkingCheckin,
+        parkingCheckout,
+        upsertParkingLevel,
+        upsertParkingZone,
+        removeParkingLevel,
+        removeParkingZone,
+        setCameraCoverage,
+        uploadParkingMapImage,
         registeredVehicles,
         tenantVehicles,
         tenantAccessRules,

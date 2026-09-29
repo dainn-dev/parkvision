@@ -229,6 +229,7 @@ export type TenantNavigationTab =
   | 'access-rules'
   | 'access_rules'
   | 'cameras'
+  | 'parking-map'
   | 'gates'
   | 'edge-devices'
   | 'monitoring'

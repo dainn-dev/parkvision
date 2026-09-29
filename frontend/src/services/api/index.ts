@@ -56,6 +56,8 @@ export interface CameraOut {
   purpose: string;
   status: string;
   notes: string | null;
+  lastSnapshotUrl: string | null;
+  snapshotCapturedAt: string | null;
   createdAt: string;
 }
 
@@ -69,6 +71,107 @@ export interface CameraIn {
   purpose?: string;
   status?: string | null;
   notes?: string | null;
+}
+
+// ---------- Parking map (hand-written; schema.d.ts has no regen) ----------
+export interface ZoneBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface ParkingLevelOut {
+  id: string;
+  tenantId: string;
+  siteId: string;
+  name: string;
+  code: string | null;
+  sortOrder: number;
+  mapImageUrl: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface ParkingZoneOut {
+  id: string;
+  tenantId: string;
+  siteId: string;
+  levelId: string;
+  name: string;
+  code: string | null;
+  bounds: ZoneBounds | null;
+  capacity: number;
+  status: string;
+  createdAt: string;
+}
+
+export interface MapZoneOut extends ParkingZoneOut {
+  occupiedCount: number;
+  cameraIds: string[];
+}
+
+export interface MapLevelOut extends ParkingLevelOut {
+  zones: MapZoneOut[];
+}
+
+export interface ParkingMapOut {
+  tenantId: string;
+  levels: MapLevelOut[];
+}
+
+export interface PresenceOut {
+  id: string;
+  tenantId: string;
+  siteId: string;
+  levelId: string | null;
+  zoneId: string | null;
+  plateNumber: string;
+  plateNormalized: string;
+  vehicleId: string | null;
+  cameraId: string | null;
+  confidence: number | null;
+  status: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  exitedAt: string | null;
+}
+
+export interface LocateOut {
+  found: boolean;
+  presence?: PresenceOut | null;
+  zone?: ParkingZoneOut | null;
+  level?: ParkingLevelOut | null;
+  cameraName?: string | null;
+}
+
+export interface PublicMapZoneOut {
+  id: string;
+  levelId: string;
+  name: string;
+  code: string | null;
+  bounds: ZoneBounds | null;
+  occupiedCount: number;
+}
+
+export interface PublicMapLevelOut {
+  id: string;
+  name: string;
+  code: string | null;
+  sortOrder: number;
+  mapImageUrl: string | null;
+  zones: PublicMapZoneOut[];
+}
+
+export interface PublicLocateOut {
+  found: boolean;
+  zoneId?: string | null;
+  zoneName?: string | null;
+  zoneCode?: string | null;
+  levelId?: string | null;
+  levelName?: string | null;
+  levelCode?: string | null;
+  sinceAt?: string | null;
 }
 
 const qs = (params: Record<string, string | number | boolean | undefined | null>) => {
@@ -112,6 +215,9 @@ export const publicApi = {
     ownerFullName: string;
     ownerPassword: string;
   }) => api.post<{ tenantId: string; ownerUserId: string; message?: string }>('/register', body),
+  publicParkingMap: (slug: string) => api.get<PublicMapLevelOut[]>(`/public/tenants/${slug}/parking/map`),
+  publicLocate: (slug: string, plate: string) =>
+    api.get<PublicLocateOut>(`/public/tenants/${slug}/parking/locate${qs({ plate })}`),
 };
 
 // ---------- Platform ----------
@@ -196,6 +302,37 @@ export const tenantApi = {
   createCamera: (t: string, body: CameraIn) => api.post<CameraOut>(T(t, '/cameras'), body),
   updateCamera: (t: string, id: string, body: Partial<Omit<CameraIn, 'siteId'>>) => api.patch<CameraOut>(T(t, `/cameras/${id}`), body),
   deleteCamera: (t: string, id: string) => api.del(T(t, `/cameras/${id}`)),
+  setCameraCoverage: (t: string, id: string, zoneIds: string[]) =>
+    api.put<CameraOut>(T(t, `/cameras/${id}/coverage`), { zoneIds }),
+
+  parkingLevels: (t: string, siteId?: string) =>
+    api.get<ParkingLevelOut[]>(T(t, `/parking/levels${qs({ site_id: siteId })}`)),
+  createParkingLevel: (t: string, body: { siteId: string; name: string; code?: string | null; sortOrder?: number; mapImageUrl?: string | null; status?: string | null }) =>
+    api.post<ParkingLevelOut>(T(t, '/parking/levels'), body),
+  updateParkingLevel: (t: string, id: string, body: Partial<{ name: string; code: string | null; sortOrder: number; mapImageUrl: string | null; status: string | null }>) =>
+    api.patch<ParkingLevelOut>(T(t, `/parking/levels/${id}`), body),
+  deleteParkingLevel: (t: string, id: string) => api.del(T(t, `/parking/levels/${id}`)),
+
+  parkingZones: (t: string, levelId: string) =>
+    api.get<ParkingZoneOut[]>(T(t, `/parking/levels/${levelId}/zones`)),
+  createParkingZone: (t: string, levelId: string, body: { name: string; code?: string | null; bounds?: ZoneBounds | null; capacity?: number; status?: string | null }) =>
+    api.post<ParkingZoneOut>(T(t, `/parking/levels/${levelId}/zones`), body),
+  updateParkingZone: (t: string, id: string, body: Partial<{ name: string; code: string | null; bounds: ZoneBounds | null; capacity: number; status: string | null }>) =>
+    api.patch<ParkingZoneOut>(T(t, `/parking/zones/${id}`), body),
+  deleteParkingZone: (t: string, id: string) => api.del(T(t, `/parking/zones/${id}`)),
+
+  parkingMap: (t: string, siteId?: string) =>
+    api.get<ParkingMapOut>(T(t, `/parking/map${qs({ site_id: siteId })}`)),
+  parkingPresence: (t: string, p: { zoneId?: string; status?: string; page?: number; limit?: number } = {}) =>
+    api.get<Page<PresenceOut>>(T(t, `/parking/presence${qs({ zone_id: p.zoneId, status: p.status, page: p.page, limit: p.limit })}`)),
+  locateVehicle: (t: string, plate: string) =>
+    api.get<LocateOut>(T(t, `/parking/locate${qs({ plate })}`)),
+  parkingCheckin: (t: string, body: { plateNumber: string; zoneId: string; confidence?: number }) =>
+    api.post<PresenceOut>(T(t, '/parking/presence'), body),
+  parkingCheckout: (t: string, plateNumber: string) =>
+    api.post<MessageOut>(T(t, '/parking/presence/checkout'), { plateNumber }),
+  presignMapImage: (t: string, contentType: string) =>
+    api.post<{ uploadUrl: string; objectKey: string; expiresIn: number }>(T(t, '/parking/map-image/presign'), { contentType }),
 
   vehicles: (t: string, p: { page?: number; limit?: number; tag?: string; status?: string; search?: string } = {}) =>
     api.get<Page<VehicleOut>>(T(t, `/vehicles${qs(p)}`)),
