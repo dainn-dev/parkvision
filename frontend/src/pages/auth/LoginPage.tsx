@@ -2,19 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ShieldCheck,
-  ShieldAlert,
   Lock,
   Mail,
   Key,
-  Smartphone,
   ArrowRight,
-  Sparkles,
   CheckCircle2,
   AlertCircle,
   Clock,
   ChevronLeft,
-  User,
-  Shield,
   Layers,
   Activity,
   Check,
@@ -41,8 +36,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   const [email, setEmail] = useState('anh.nh@kyanon.digital');
   const [password, setPassword] = useState('••••••••••••');
   const [showPassword, setShowPassword] = useState(false);
-  const [isMfaEnabledForAccount, setIsMfaEnabledForAccount] = useState(false);
-
   // Flow Step: 'credentials' | 'mfa_challenge' | 'backup_code' | 'forgot_password'
   const [step, setStep] = useState<'credentials' | 'mfa_challenge' | 'backup_code' | 'forgot_password'>('credentials');
 
@@ -83,32 +76,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     }
   }, [step]);
 
-  // Preset demo accounts selection
-  const handleSelectPreset = (presetType: 'mfa_off' | 'mfa_on') => {
-    setErrorMessage(null);
-    if (presetType === 'mfa_off') {
-      setEmail('admin.normal@vehicleplatform.io');
-      setPassword('Password123!');
-      setIsMfaEnabledForAccount(false);
-      setStep('credentials');
-      addToast({
-        type: 'info',
-        title: t('Selected account without MFA'),
-        description: t('Password will sign you in directly.')
-      });
-    } else {
-      setEmail('admin.mfa@vehicleplatform.io');
-      setPassword('Password123!');
-      setIsMfaEnabledForAccount(true);
-      setStep('credentials');
-      addToast({
-        type: 'info',
-        title: t('Selected account WITH MFA enabled'),
-        description: t('A 6-digit TOTP code is required after the password.')
-      });
-    }
-  };
-
   // Handle credentials submit (Step 1)
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,7 +94,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
       return;
     }
     if (res.requiresMfa) {
-      setIsMfaEnabledForAccount(true);
       setStep('mfa_challenge');
       addToast({
         type: 'warning',
@@ -177,12 +143,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
         inputRefs.current[5]?.focus();
       }
     }
-  };
-
-  // Auto fill test passcode 123456
-  const handleFillDemoCode = () => {
-    setOtpDigits(['1', '2', '3', '4', '5', '6']);
-    setErrorMessage(null);
   };
 
   // Submit MFA Code (Step 2)
@@ -313,34 +273,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
           </p>
         </div>
 
-        {/* Demo Account Quick Selector Pills */}
-        <div className="p-3 bg-[#0d0e12]/80 border-b border-[#30363d] flex items-center justify-center gap-2 text-xs">
-          <span className="text-[11px] text-[#8b949e] font-mono mr-1">{t('Try a flow:')}</span>
-          <button
-            type="button"
-            onClick={() => handleSelectPreset('mfa_off')}
-            className={`px-2.5 py-1 rounded-lg border font-mono text-[11px] transition-all cursor-pointer flex items-center gap-1.5 ${
-              !isMfaEnabledForAccount
-                ? 'bg-[#238636]/20 border-[#3fb950] text-[#3fb950] font-bold shadow-sm'
-                : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:text-white hover:border-[#484f58]'
-            }`}
-          >
-            <User className="w-3 h-3" /> {t('MFA Disabled')}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSelectPreset('mfa_on')}
-            className={`px-2.5 py-1 rounded-lg border font-mono text-[11px] transition-all cursor-pointer flex items-center gap-1.5 ${
-              isMfaEnabledForAccount
-                ? 'bg-[#8250df]/20 border-[#8250df] text-[#a371f7] font-bold shadow-sm'
-                : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:text-white hover:border-[#484f58]'
-            }`}
-          >
-            <Shield className="w-3 h-3" /> {t('MFA Enabled (2FA)')}
-          </button>
-        </div>
-
         {/* Form Body */}
         <div className="p-6 space-y-5">
           {/* STEP 1: CREDENTIALS FORM */}
@@ -385,31 +317,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-              </div>
-
-              {/* MFA Toggle Option Switch */}
-              <div className="p-3 bg-[#0d0e12] border border-[#30363d] rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className={`p-1.5 rounded-lg ${isMfaEnabledForAccount ? 'bg-[#8250df]/20 text-[#a371f7]' : 'bg-[#21262d] text-[#8b949e]'}`}>
-                    <Smartphone className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-white block">{t('Account has MFA (TOTP) enabled')}</span>
-                    <span className="text-[10px] text-[#8b949e] block">
-                      {isMfaEnabledForAccount ? t('A 6-digit code is required after the password') : t('Sign in directly with password only')}
-                    </span>
-                  </div>
-                </div>
-
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isMfaEnabledForAccount}
-                    onChange={(e) => setIsMfaEnabledForAccount(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-[#21262d] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#58a6ff]"></div>
-                </label>
               </div>
 
               {errorMessage && (
@@ -570,15 +477,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                   </div>
                 )}
 
-                {/* Helper Auto Fill Demo */}
-                <div className="flex items-center justify-between text-[11px] pt-1">
-                  <button
-                    type="button"
-                    onClick={handleFillDemoCode}
-                    className="text-[#58a6ff] hover:underline flex items-center gap-1 font-mono cursor-pointer"
-                  >
-                    <Sparkles className="w-3 h-3" /> {t('Auto-fill demo code (123456)')}
-                  </button>
+                {/* Recovery-code fallback */}
+                <div className="flex items-center justify-end text-[11px] pt-1">
                   <button
                     type="button"
                     onClick={() => {
