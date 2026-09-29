@@ -4,13 +4,44 @@
 //! (serial RS-485, GPIO, Modbus TCP) implement `BarrierHal` later without
 //! touching the FSM.
 
+pub mod backends;
 pub mod config;
+pub mod contact;
+#[cfg(test)]
+pub mod mock;
 pub mod profiles;
+pub mod relay;
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::Result;
+
+use crate::config::GateBinding;
+
+/// Per-gate HAL: `SimulatedHal` when the gate has no local relay wiring,
+/// otherwise a `ContactBarrierHal` over the configured relay backend. A
+/// backend that fails to construct still yields a HAL — one that reports
+/// `link_ok = false` and keeps retrying — so a bad COM port never blocks boot.
+pub fn build_hal(binding: &GateBinding) -> Arc<dyn BarrierHal> {
+    let Some(cfg) = &binding.barrier else {
+        return Arc::new(SimulatedHal::new());
+    };
+    let backend = match backends::build(cfg) {
+        Ok(b) => b,
+        Err(e) => {
+            tracing::warn!(
+                "gate {} relay backend '{}' unavailable: {e:#}",
+                binding.gate_id,
+                cfg.backend.kind()
+            );
+            Arc::new(relay::FailedBackend {
+                reason: format!("{e:#}"),
+            })
+        }
+    };
+    contact::ContactBarrierHal::spawn(backend, cfg, profiles::resolve_profile(cfg))
+}
 
 /// Snapshot of everything the telemetry loop and FSM need per tick.
 #[derive(Clone, Copy, Debug, Default)]

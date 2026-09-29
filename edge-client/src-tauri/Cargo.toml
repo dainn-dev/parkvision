@@ -44,5 +44,6 @@ default = []
 onnx = ["dep:ort", "dep:image", "dep:ndarray"]
 
 [dev-dependencies]
+tokio = { version = "1", features = ["full", "test-util"] }
 tempfile = "3"
 httpmock = "0.7"
