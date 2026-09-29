@@ -203,8 +203,10 @@ export interface CameraHealth {
   edgeDeviceId: string;
   code?: string | null;
   streamUrl?: string;
-  purpose?: 'plate' | 'overview';
+  purpose?: 'plate' | 'overview' | 'monitor';
   notes?: string | null;
+  lastSnapshotUrl?: string | null;
+  snapshotCapturedAt?: string | null;
   // ONLINE = administratively 'active' until edge stream telemetry exists.
   status: 'ONLINE' | 'OFFLINE' | 'DEGRADED';
   fps: number;

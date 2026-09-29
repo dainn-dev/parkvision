@@ -279,8 +279,10 @@ export const mapCamera = (c: CameraOut, tenantId: string, tenantName = ''): Came
   edgeDeviceId: c.edgeDeviceId ?? '',
   code: c.code,
   streamUrl: c.streamUrl,
-  purpose: (c.purpose === 'overview' ? 'overview' : 'plate') as CameraHealth['purpose'],
+  purpose: (c.purpose === 'overview' || c.purpose === 'monitor' ? c.purpose : 'plate') as CameraHealth['purpose'],
   notes: c.notes,
+  lastSnapshotUrl: c.lastSnapshotUrl,
+  snapshotCapturedAt: c.snapshotCapturedAt,
   // 'active' → ONLINE is administrative state only; real stream health needs edge telemetry.
   status: c.status === 'active' ? 'ONLINE' : c.status === 'disabled' ? 'OFFLINE' : 'DEGRADED',
   fps: 0,

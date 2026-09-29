@@ -1,5 +1,5 @@
-import React from 'react';
-import type { MapLevelOut, MapZoneOut } from '../../../services/api';
+import React, { useRef, useState } from 'react';
+import type { MapLevelOut, MapZoneOut, ZoneBounds } from '../../../services/api';
 
 interface ParkingMapCanvasProps {
   levels: MapLevelOut[];
@@ -8,6 +8,7 @@ interface ParkingMapCanvasProps {
   highlightZoneId?: string | null;
   editMode?: boolean;
   onZoneClick?: (zone: MapZoneOut) => void;
+  onZoneDrawn?: (bounds: ZoneBounds) => void;
 }
 
 const zoneFill = (z: MapZoneOut): string => {
@@ -25,8 +26,53 @@ export const ParkingMapCanvas: React.FC<ParkingMapCanvasProps> = ({
   highlightZoneId,
   editMode = false,
   onZoneClick,
+  onZoneDrawn,
 }) => {
   const level = levels.find((l) => l.id === selectedLevelId) ?? levels[0];
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [draft, setDraft] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+
+  // Pointer → normalized (0..1) coordinates on the 0..100 viewBox.
+  const toBounds = (e: React.PointerEvent<SVGSVGElement>) => {
+    const r = svgRef.current?.getBoundingClientRect();
+    if (!r) return { x: 0, y: 0 };
+    return {
+      x: Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100)),
+      y: Math.min(100, Math.max(0, ((e.clientY - r.top) / r.height) * 100)),
+    };
+  };
+
+  const draftStart = useRef<{ x: number; y: number } | null>(null);
+
+  const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!editMode || !onZoneDrawn) return;
+    e.preventDefault();
+    draftStart.current = toBounds(e);
+    setDraft({ ...draftStart.current, w: 0, h: 0 });
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+  };
+
+  const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!draftStart.current) return;
+    const cur = toBounds(e);
+    const s = draftStart.current;
+    setDraft({
+      x: Math.min(s.x, cur.x),
+      y: Math.min(s.y, cur.y),
+      w: Math.abs(cur.x - s.x),
+      h: Math.abs(cur.y - s.y),
+    });
+  };
+
+  const onPointerUp = () => {
+    const d = draft;
+    draftStart.current = null;
+    setDraft(null);
+    // Ignore accidental tiny drags (< 2% of the map).
+    if (d && d.w >= 2 && d.h >= 2 && onZoneDrawn) {
+      onZoneDrawn({ x: d.x / 100, y: d.y / 100, w: d.w / 100, h: d.h / 100 });
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -70,9 +116,14 @@ export const ParkingMapCanvas: React.FC<ParkingMapCanvasProps> = ({
 
         {level && (
           <svg
+            ref={svgRef}
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
-            className="absolute inset-0 w-full h-full"
+            className={`absolute inset-0 w-full h-full ${editMode ? 'cursor-crosshair touch-none' : ''}`}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerLeave={() => { draftStart.current = null; setDraft(null); }}
           >
             {level.zones.map((z) => {
               const b = z.bounds;
@@ -119,6 +170,20 @@ export const ParkingMapCanvas: React.FC<ParkingMapCanvasProps> = ({
                 </g>
               );
             })}
+            {draft && (
+              <rect
+                x={draft.x}
+                y={draft.y}
+                width={draft.w}
+                height={draft.h}
+                fill="rgba(88,166,255,0.20)"
+                stroke="#58a6ff"
+                strokeWidth="0.4"
+                strokeDasharray="1.5 1"
+                vectorEffect="non-scaling-stroke"
+                style={{ pointerEvents: 'none' }}
+              />
+            )}
           </svg>
         )}
       </div>

@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { MapPinned, Plus, Layers, Car, X } from 'lucide-react';
+import { MapPinned, Plus, Layers, Car, X, Pencil } from 'lucide-react';
 import { usePlatform } from '../../context/PlatformContext';
 import { Button, Card, Select } from '../../components/ui';
 import { ParkingMapCanvas } from '../../components/tenant/parking/ParkingMapCanvas';
 import { VehicleLocatePanel } from '../../components/tenant/parking/VehicleLocatePanel';
-import type { LocateOut, MapZoneOut } from '../../services/api';
+import { ParkingLevelEditor } from '../../components/tenant/parking/ParkingLevelEditor';
+import { ZoneEditorSheet } from '../../components/tenant/parking/ZoneEditorSheet';
+import type { LocateOut, MapZoneOut, ZoneBounds } from '../../services/api';
 
 export const TenantParkingMapPage: React.FC = () => {
   const {
@@ -22,6 +24,9 @@ export const TenantParkingMapPage: React.FC = () => {
   const [locateResult, setLocateResult] = useState<LocateOut | null>(null);
   const [searching, setSearching] = useState(false);
   const [zonePopover, setZonePopover] = useState<MapZoneOut | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [levelEditorOpen, setLevelEditorOpen] = useState(false);
+  const [zoneEditor, setZoneEditor] = useState<{ zone: MapZoneOut | null; bounds: ZoneBounds | null } | null>(null);
 
   const canWrite = /owner|admin|operator/i.test(currentUser.role);
 
@@ -34,6 +39,10 @@ export const TenantParkingMapPage: React.FC = () => {
   );
 
   const selectedLevel = levels.find((l) => l.id === selectedLevelId) ?? levels[0] ?? null;
+  const editorSite = useMemo(
+    () => tenantSites.find((s) => s.id === (siteFilter !== 'all' ? siteFilter : selectedLevel?.siteId)) ?? tenantSites[0] ?? null,
+    [tenantSites, siteFilter, selectedLevel]
+  );
 
   const zonePlates = useMemo(() => {
     if (!zonePopover) return [];
@@ -70,17 +79,39 @@ export const TenantParkingMapPage: React.FC = () => {
             Phân tầng, khu vực đỗ xe và tìm kiếm vị trí xe theo biển số — cập nhật trực tiếp từ camera giám sát.
           </p>
         </div>
-        {tenantSites.length > 1 && (
-          <Select
-            value={siteFilter}
-            onChange={(e) => setSiteFilter(e.target.value)}
-            className="min-w-[180px]"
-            options={[
-              { value: 'all', label: 'Tất cả khu vực' },
-              ...tenantSites.map((s) => ({ value: s.id, label: s.name })),
-            ]}
-          />
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {tenantSites.length > 1 && (
+            <Select
+              value={siteFilter}
+              onChange={(e) => setSiteFilter(e.target.value)}
+              className="min-w-[180px]"
+              options={[
+                { value: 'all', label: 'Tất cả khu vực' },
+                ...tenantSites.map((s) => ({ value: s.id, label: s.name })),
+              ]}
+            />
+          )}
+          {canWrite && (
+            <>
+              <Button
+                variant="outline"
+                className="text-xs gap-1.5"
+                onClick={() => setLevelEditorOpen(true)}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                Quản lý tầng
+              </Button>
+              <Button
+                variant={editMode ? 'primary' : 'outline'}
+                className="text-xs gap-1.5"
+                onClick={() => setEditMode((v) => !v)}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                {editMode ? 'Đang chỉnh sửa' : 'Chỉnh sửa sơ đồ'}
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {levels.length === 0 ? (
@@ -92,7 +123,7 @@ export const TenantParkingMapPage: React.FC = () => {
           </p>
           {canWrite && (
             <Button
-              onClick={() => setTenantNavTab('sites')}
+              onClick={() => (editorSite ? setLevelEditorOpen(true) : setTenantNavTab('sites'))}
               className="mt-2"
             >
               <Plus className="w-4 h-4 mr-1.5" />
@@ -143,18 +174,46 @@ export const TenantParkingMapPage: React.FC = () => {
           </div>
 
           <Card className="lg:col-span-2 p-4">
+            {editMode && canWrite && (
+              <p className="text-[11px] text-[#58a6ff] mb-2">
+                Chế độ chỉnh sửa: kéo chuột trên sơ đồ để vẽ khu vực mới, hoặc bấm vào khu vực để sửa.
+              </p>
+            )}
             <ParkingMapCanvas
               levels={levels}
               selectedLevelId={selectedLevel?.id ?? null}
               onSelectLevel={setSelectedLevelId}
               highlightZoneId={highlightZoneId}
+              editMode={editMode && canWrite}
               onZoneClick={(z) => {
-                setZonePopover(z);
-                setHighlightZoneId(z.id);
+                if (editMode && canWrite) {
+                  setZoneEditor({ zone: z, bounds: null });
+                } else {
+                  setZonePopover(z);
+                  setHighlightZoneId(z.id);
+                }
               }}
+              onZoneDrawn={(bounds) => setZoneEditor({ zone: null, bounds })}
             />
           </Card>
         </div>
+      )}
+
+      {editorSite && (
+        <ParkingLevelEditor
+          site={editorSite}
+          isOpen={levelEditorOpen}
+          onClose={() => setLevelEditorOpen(false)}
+        />
+      )}
+      {selectedLevel && zoneEditor && (
+        <ZoneEditorSheet
+          level={selectedLevel}
+          zone={zoneEditor.zone}
+          draftBounds={zoneEditor.bounds}
+          isOpen
+          onClose={() => setZoneEditor(null)}
+        />
       )}
     </div>
   );

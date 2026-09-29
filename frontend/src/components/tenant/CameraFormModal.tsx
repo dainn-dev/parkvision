@@ -16,8 +16,9 @@ const SELECT_CLS =
   'w-full bg-[#161b22] border border-[#30363d] text-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#58a6ff]';
 
 export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, isOpen, onClose }) => {
-  const { createTenantCamera, updateTenantCamera, tenantLanes, edgeDevices } = usePlatform();
+  const { createTenantCamera, updateTenantCamera, tenantLanes, edgeDevices, parkingMap, setCameraCoverage } = usePlatform();
   const isEdit = camera !== null;
+  const [coverageZoneIds, setCoverageZoneIds] = useState<Set<string>>(new Set());
 
   const [formData, setFormData] = useState({
     name: '',
@@ -43,12 +44,34 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
       status: camera ? (camera.status === 'ONLINE' ? 'active' : camera.status === 'OFFLINE' ? 'disabled' : 'provisioning') : 'provisioning',
       notes: camera?.notes ?? '',
     });
-  }, [isOpen, camera]);
+    // Prefill coverage from zones that already list this camera.
+    const covered = new Set<string>();
+    if (camera) {
+      for (const lv of parkingMap) {
+        for (const z of lv.zones) {
+          if (z.cameraIds.includes(camera.id)) covered.add(z.id);
+        }
+      }
+    }
+    setCoverageZoneIds(covered);
+  }, [isOpen, camera, parkingMap]);
 
   if (!isOpen) return null;
 
   const siteLanes = tenantLanes.filter((l) => l.siteId === site.id);
   const siteDevices = edgeDevices.filter((d) => d.siteId === site.id);
+  const siteZones = parkingMap.filter((l) => l.siteId === site.id).flatMap((l) =>
+    l.zones.map((z) => ({ ...z, levelName: l.name }))
+  );
+
+  const toggleZone = (id: string) => {
+    setCoverageZoneIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +90,9 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
     };
     if (isEdit && camera) {
       updateTenantCamera(camera.id, body);
+      if (formData.purpose === 'monitor') {
+        setCameraCoverage(camera.id, [...coverageZoneIds]);
+      }
     } else {
       createTenantCamera(site.id, body);
     }
@@ -156,6 +182,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
               >
                 <option value="plate">Plate close-up (ANPR)</option>
                 <option value="overview">Overview / context</option>
+                <option value="monitor">Camera giám sát khu đỗ</option>
               </select>
             </div>
 
@@ -204,6 +231,55 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
                 <option value="active">Active</option>
                 <option value="disabled">Disabled</option>
               </select>
+            </div>
+          )}
+
+          {formData.purpose === 'monitor' && (
+            <div className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] space-y-2">
+              <h4 className="text-white font-semibold text-xs">Phạm vi khu vực đỗ (zone coverage)</h4>
+              {siteZones.length === 0 ? (
+                <p className="text-[11px] text-[#8b949e] italic">
+                  Site chưa có khu vực đỗ — tạo zone trong Sơ Đồ Bãi Xe trước.
+                </p>
+              ) : !isEdit ? (
+                <p className="text-[11px] text-[#8b949e] italic">
+                  Lưu camera trước, sau đó mở lại để gán khu vực phụ trách.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
+                  {siteZones.map((z) => (
+                    <label
+                      key={z.id}
+                      className="flex items-center gap-2 text-xs text-[#c9d1d9] cursor-pointer hover:text-white"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={coverageZoneIds.has(z.id)}
+                        onChange={() => toggleZone(z.id)}
+                        className="accent-[#58a6ff]"
+                      />
+                      <span className="font-mono">{z.code ?? z.name}</span>
+                      <span className="text-[10px] text-[#8b949e]">{z.levelName}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {isEdit && camera.lastSnapshotUrl && (
+            <div className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] space-y-2">
+              <h4 className="text-white font-semibold text-xs">Snapshot gần nhất</h4>
+              <img
+                src={camera.lastSnapshotUrl}
+                alt="Last camera snapshot"
+                className="w-full max-h-40 object-contain rounded-lg border border-[#30363d] bg-black"
+              />
+              {camera.snapshotCapturedAt && (
+                <p className="text-[10px] text-[#8b949e] font-mono">
+                  Captured: {new Date(camera.snapshotCapturedAt).toLocaleString()}
+                </p>
+              )}
             </div>
           )}
 
