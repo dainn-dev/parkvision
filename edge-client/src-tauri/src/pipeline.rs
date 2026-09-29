@@ -92,6 +92,7 @@ pub async fn run_pipeline(
         let _ = store.record_local_event(&normalized, &cfg.lane_direction, &outcome.decision);
         hooks.notify(serde_json::json!({
             "plate": normalized,
+            "gateId": cfg.gate_id,
             "direction": cfg.lane_direction,
             "decision": outcome.decision,
             "reason": outcome.reason,

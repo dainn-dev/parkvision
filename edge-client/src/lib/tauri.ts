@@ -9,17 +9,28 @@ export interface MqttConfig {
   tls: boolean;
 }
 
-export interface EdgeConfig {
-  tenantId: string;
-  siteId: string;
+export interface CameraBinding {
+  cameraId: string;
+  purpose: string;
+  streamUrl: string;
+}
+
+export interface GateBinding {
   gateId: string;
   laneId: string | null;
+  direction: "entry" | "exit";
+  cameras: CameraBinding[];
+}
+
+export interface EdgeConfig {
+  version: number;
+  tenantId: string;
+  siteId: string;
   deviceId: string;
   apiKey: string;
   apiBaseUrl: string;
   mqtt: MqttConfig;
-  laneDirection: "entry" | "exit";
-  cameraRtspUrl: string | null;
+  gates: GateBinding[];
 }
 
 export type GateState =
@@ -30,42 +41,83 @@ export type GateState =
   | "locked"
   | "fault";
 
-export interface EdgeStatus {
+export interface GateStatus {
+  gateId: string;
+  direction: "entry" | "exit" | string;
   gateState: GateState;
   armAngleDeg: number;
   motorTempC: number;
   loopActive: boolean;
   upsBattery: number;
-  mqttConnected: boolean;
-  whitelistCount: number;
-  outboxDepth: number;
   lastPlate: string | null;
   lastDecision: string | null;
   lastReason: string | null;
+}
+
+export interface EdgeStatus {
+  mqttConnected: boolean;
+  whitelistCount: number;
+  outboxDepth: number;
   lastSyncAt: string | null;
+  gates: GateStatus[];
 }
 
 export interface AccessEvent {
   plate: string;
+  gateId?: string;
   direction: string;
   decision: "allow" | "deny";
   reason: string;
   at: string;
 }
 
+export interface LockStatus {
+  enabled: boolean;
+  locked: boolean;
+}
+
+// ---------- commands ----------
+
 export const getConfig = () => invoke<EdgeConfig | null>("get_config");
-export const provision = (cfg: EdgeConfig) => invoke<void>("provision", { cfg });
+
+export const activate = (apiBaseUrl: string, code: string) =>
+  invoke<void>("activate", {
+    args: { apiBaseUrl, code, deviceInfo: { hostname: window.location.hostname || null } },
+  });
+
+export const deprovision = () => invoke<void>("deprovision");
+
 export const getStatus = () => invoke<EdgeStatus | null>("get_status");
-export const manualOpen = () => invoke<void>("manual_open");
-export const manualClose = () => invoke<void>("manual_close");
-export const manualLock = () => invoke<void>("manual_lock");
-export const manualUnlock = () => invoke<void>("manual_unlock");
-export const manualPlate = (plate: string) =>
-  invoke<void>("manual_plate", { plate });
 export const resync = () => invoke<string>("resync");
+
+// gateId omitted → primary gate
+export const manualOpen = (gateId?: string) =>
+  invoke<void>("manual_open", { gateId: gateId ?? null });
+export const manualClose = (gateId?: string) =>
+  invoke<void>("manual_close", { gateId: gateId ?? null });
+export const manualLock = (gateId?: string) =>
+  invoke<void>("manual_lock", { gateId: gateId ?? null });
+export const manualUnlock = (gateId?: string) =>
+  invoke<void>("manual_unlock", { gateId: gateId ?? null });
+export const manualPlate = (plate: string, gateId?: string) =>
+  invoke<void>("manual_plate", { plate, gateId: gateId ?? null });
+
+export const setLockPassword = (password: string | null) =>
+  invoke<LockStatus>("set_lock_password", { password });
+export const unlock = (password: string) =>
+  invoke<boolean>("unlock", { password });
+export const lockNow = () => invoke<LockStatus>("lock_now");
+export const lockStatus = () => invoke<LockStatus>("lock_status");
+
+// ---------- events ----------
 
 export const onStatus = (cb: (s: EdgeStatus) => void): Promise<UnlistenFn> =>
   listen<EdgeStatus>("edge://status", (e) => cb(e.payload));
 
 export const onEvent = (cb: (e: AccessEvent) => void): Promise<UnlistenFn> =>
   listen<AccessEvent>("edge://event", (e) => cb(e.payload));
+
+/// Fired when the tenant admin revokes the device credential — the app
+/// wipes local config; the UI must return to the activation screen.
+export const onDeprovisioned = (cb: () => void): Promise<UnlistenFn> =>
+  listen("edge://deprovisioned", () => cb());

@@ -1,6 +1,11 @@
-import type { AccessEvent } from "../lib/tauri";
+import type { AccessEvent, GateStatus } from "../lib/tauri";
 
-export default function EventFeed({ events }: { events: AccessEvent[] }) {
+interface Props {
+  events: AccessEvent[];
+  gates?: GateStatus[];
+}
+
+export default function EventFeed({ events, gates = [] }: Props) {
   if (events.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center rounded-lg border border-zinc-800 text-sm text-zinc-500">
@@ -8,6 +13,11 @@ export default function EventFeed({ events }: { events: AccessEvent[] }) {
       </div>
     );
   }
+  const gateLabel = (e: AccessEvent) => {
+    const g = e.gateId ? gates.find((x) => x.gateId === e.gateId) : undefined;
+    const dir = g?.direction ?? e.direction;
+    return dir === "entry" ? "Vào" : dir === "exit" ? "Ra" : e.direction;
+  };
   return (
     <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-zinc-800 p-1">
       {events.map((e, i) => (
@@ -16,9 +26,7 @@ export default function EventFeed({ events }: { events: AccessEvent[] }) {
           className="flex items-center justify-between rounded px-3 py-2 text-sm hover:bg-zinc-900"
         >
           <span className="font-mono font-semibold">{e.plate}</span>
-          <span className="text-zinc-400">
-            {e.direction === "entry" ? "Vào" : "Ra"}
-          </span>
+          <span className="text-zinc-400">{gateLabel(e)}</span>
           <span
             className={`rounded px-2 py-0.5 text-xs font-semibold ${
               e.decision === "allow"

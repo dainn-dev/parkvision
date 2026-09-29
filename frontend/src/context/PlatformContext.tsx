@@ -306,6 +306,8 @@ interface PlatformContextType {
   reactivateTenantDevice: (deviceId: string) => Promise<{ success: boolean; message?: string }>;
   deleteTenantDevice: (deviceId: string) => Promise<{ success: boolean; message?: string }>;
   rebootTenantDevice: (deviceId: string) => Promise<{ success: boolean; commandIds?: string[]; message?: string }>;
+  generateDeviceActivationCode: (deviceId: string) => Promise<{ success: boolean; code?: string; expiresAt?: string; message?: string }>;
+  revokeDeviceToken: (deviceId: string) => Promise<{ success: boolean; message?: string }>;
 
   inviteTenantUser: (data: {
     email: string;
@@ -1703,6 +1705,26 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
+  const generateDeviceActivationCode = async (deviceId: string) => {
+    if (!activeTenantId) return { success: false, message: 'No tenant selected' };
+    try {
+      const r = await tenantApi.generateActivationCode(activeTenantId, deviceId);
+      return { success: true, code: r.code, expiresAt: r.expiresAt };
+    } catch (e) {
+      return { success: false, message: errText(e) };
+    }
+  };
+
+  const revokeDeviceToken = async (deviceId: string) => {
+    if (!activeTenantId) return { success: false, message: 'No tenant selected' };
+    try {
+      await tenantApi.revokeDeviceToken(activeTenantId, deviceId);
+      return { success: true };
+    } catch (e) {
+      return { success: false, message: errText(e) };
+    }
+  };
+
   return (
     <PlatformContext.Provider
       value={{
@@ -1849,6 +1871,8 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         reactivateTenantDevice,
         deleteTenantDevice,
         rebootTenantDevice,
+        generateDeviceActivationCode,
+        revokeDeviceToken,
         inviteTenantUser,
         createTenantUserManually,
         changeTenantUserRole,

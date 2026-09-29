@@ -43,6 +43,13 @@ export interface Page<T> {
   meta: { page: number; limit: number; total: number };
 }
 
+// Hand-written to match backend ActivationCodeOut — plaintext shown once.
+export interface ActivationCodeOut {
+  code: string;
+  codePrefix: string;
+  expiresAt: string;
+}
+
 // Cameras: schema.d.ts has no regen script — hand-written to match CameraOut.
 export interface CameraOut {
   id: string;
@@ -189,6 +196,8 @@ export const tenantApi = {
   reactivateDevice: (t: string, id: string) => api.post<DeviceOut>(T(t, `/devices/${id}/reactivate`)),
   deleteDevice: (t: string, id: string) => api.del<MessageOut>(T(t, `/devices/${id}`)),
   rebootDevice: (t: string, id: string) => api.post<S['EdgeRebootOut']>(T(t, `/devices/${id}/reboot`)),
+  generateActivationCode: (t: string, id: string) => api.post<ActivationCodeOut>(T(t, `/devices/${id}/activation-codes`)),
+  revokeDeviceToken: (t: string, id: string) => api.post<MessageOut>(T(t, `/devices/${id}/revoke-token`)),
 
   cameras: (t: string, p: { page?: number; limit?: number; siteId?: string; laneId?: string; status?: string } = {}) =>
     api.get<Page<CameraOut>>(T(t, `/cameras${qs(p)}`)),

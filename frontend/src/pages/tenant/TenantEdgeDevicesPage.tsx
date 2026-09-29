@@ -11,7 +11,9 @@ import {
   RefreshCw,
   Activity,
   Wifi,
-  WifiOff
+  WifiOff,
+  KeyRound,
+  Ban
 } from 'lucide-react';
 import { Button, Input, Pagination } from '../../components/ui';
 import { TenantEdgeDevice } from '../../types/tenant';
@@ -21,7 +23,9 @@ import {
   RebootDeviceDialog,
   DecommissionDeviceDialog,
   ReactivateDeviceDialog,
-  DeleteDeviceDialog
+  DeleteDeviceDialog,
+  ActivationCodeDialog,
+  RevokeTokenDialog
 } from '../../components/tenant/devices/DeviceActionDialogs';
 
 const STATUS_STYLES: Record<string, { dot: string; text: string; bg: string }> = {
@@ -74,6 +78,8 @@ export const TenantEdgeDevicesPage: React.FC = () => {
   const [decommissionTarget, setDecommissionTarget] = useState<TenantEdgeDevice | null>(null);
   const [reactivateTarget, setReactivateTarget] = useState<TenantEdgeDevice | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TenantEdgeDevice | null>(null);
+  const [activationTarget, setActivationTarget] = useState<TenantEdgeDevice | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<TenantEdgeDevice | null>(null);
 
   const filteredDevices = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -337,6 +343,20 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                           {!isDecommissioned && (
                             <>
                               <button
+                                title="Generate activation code"
+                                onClick={() => setActivationTarget(device)}
+                                className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#58a6ff] hover:bg-[#58a6ff]/10 transition-colors cursor-pointer"
+                              >
+                                <KeyRound className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                title="Revoke device token"
+                                onClick={() => setRevokeTarget(device)}
+                                className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#f85149] hover:bg-[#f85149]/10 transition-colors cursor-pointer"
+                              >
+                                <Ban className="w-3.5 h-3.5" />
+                              </button>
+                              <button
                                 title="Reboot device"
                                 onClick={() => setRebootTarget(device)}
                                 className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#e3b341] hover:bg-[#d29922]/10 transition-colors cursor-pointer"
@@ -396,6 +416,8 @@ export const TenantEdgeDevicesPage: React.FC = () => {
       <DecommissionDeviceDialog device={decommissionTarget} isOpen={!!decommissionTarget} onClose={() => setDecommissionTarget(null)} />
       <ReactivateDeviceDialog device={reactivateTarget} isOpen={!!reactivateTarget} onClose={() => setReactivateTarget(null)} />
       <DeleteDeviceDialog device={deleteTarget} isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} />
+      <ActivationCodeDialog device={activationTarget} isOpen={!!activationTarget} onClose={() => setActivationTarget(null)} />
+      <RevokeTokenDialog device={revokeTarget} isOpen={!!revokeTarget} onClose={() => setRevokeTarget(null)} />
     </div>
   );
 };
