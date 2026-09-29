@@ -3,12 +3,14 @@
 pub mod dahua;
 pub mod digest;
 pub mod hikvision;
+pub mod modbus;
+pub mod serial_lcus;
 
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
 
-use super::config::{BarrierConfig, RelayBackendConfig};
+use super::config::{BarrierConfig, RelayBackendConfig, SerialProtocol};
 use super::relay::RelayBackend;
 
 /// 1-based input indices the site wired up (empty when feedback is off).
@@ -52,6 +54,33 @@ pub fn build(cfg: &BarrierConfig) -> Result<Arc<dyn RelayBackend>> {
             *strobe,
             input_count,
         )?),
+        RelayBackendConfig::Serial {
+            port,
+            protocol: SerialProtocol::Lcus,
+            baud,
+            ..
+        } => Arc::new(serial_lcus::LcusRelay::new(port, *baud)?),
+        RelayBackendConfig::Serial {
+            port,
+            protocol: SerialProtocol::ModbusRtu,
+            baud,
+            unit_id,
+        } => Arc::new(modbus::ModbusRelay::rtu(
+            port,
+            *baud,
+            *unit_id,
+            input_count as u16,
+        )),
+        RelayBackendConfig::ModbusTcp {
+            host,
+            port,
+            unit_id,
+        } => Arc::new(modbus::ModbusRelay::tcp(
+            host,
+            *port,
+            *unit_id,
+            input_count as u16,
+        )),
         other => bail!("relay backend '{}' not implemented", other.kind()),
     })
 }
