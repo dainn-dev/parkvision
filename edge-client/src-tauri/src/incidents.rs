@@ -106,6 +106,7 @@ mod tests {
             loop_active: false,
             motor_temp_c: 55.0,
             ups_battery_pct: 98,
+            link_ok: true,
         }
     }
 

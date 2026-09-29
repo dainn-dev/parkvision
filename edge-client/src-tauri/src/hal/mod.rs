@@ -17,6 +17,8 @@ pub struct HalSensors {
     pub loop_active: bool,
     pub motor_temp_c: f32,
     pub ups_battery_pct: u8,
+    /// `false` when the barrier driver lost contact with its relay hardware.
+    pub link_ok: bool,
 }
 
 pub trait BarrierHal: Send + Sync {
@@ -177,6 +179,7 @@ impl BarrierHal for SimulatedHal {
             loop_active: i.loop_active,
             motor_temp_c: i.motor_temp_c,
             ups_battery_pct: i.ups_battery_pct,
+            link_ok: true,
         }
     }
 }
@@ -246,6 +249,11 @@ mod tests {
         assert!(hal.sensors().loop_active);
         hal.set_loop(false);
         assert!(!hal.sensors().loop_active);
+    }
+
+    #[test]
+    fn simulated_hal_reports_link_ok() {
+        assert!(SimulatedHal::new().sensors().link_ok);
     }
 
     #[test]
