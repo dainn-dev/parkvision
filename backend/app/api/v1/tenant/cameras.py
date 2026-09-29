@@ -10,10 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import WRITE_ROLES, csrf_protect, require_roles
 from app.api.v1.tenant import TenantCtx, get_tenant_db, tenant_ctx
 from app.core.errors import bad_request, conflict, not_found
-from app.models import Camera, EdgeDevice, SiteLane, TenantSite
+from app.models import Camera, CameraZoneCoverage, EdgeDevice, ParkingZone, SiteLane, TenantSite
 from app.schemas.common import MessageOut, Page, paginate
-from app.schemas.resources import CameraIn, CameraOut, CameraUpdateIn
+from app.schemas.resources import CameraCoverageIn, CameraIn, CameraOut, CameraUpdateIn
 from app.services.audit_service import write_audit
+from app.services.storage import presign_download
 
 router = APIRouter(
     prefix="/tenants/{tenant_id}",
@@ -29,6 +30,13 @@ async def _get_camera(db: AsyncSession, tenant_id: uuid.UUID, camera_id: uuid.UU
     if row is None:
         raise not_found("camera", camera_id)
     return row
+
+
+def _camera_out(row: Camera) -> CameraOut:
+    out = CameraOut.model_validate(row)
+    if row.last_snapshot_key:
+        out.last_snapshot_url = presign_download(row.last_snapshot_key)
+    return out
 
 
 async def _validate_refs(
@@ -98,7 +106,7 @@ async def list_cameras(
         .scalars()
         .all()
     )
-    return paginate([CameraOut.model_validate(r) for r in rows], total, page, limit)
+    return paginate([_camera_out(r) for r in rows], total, page, limit)
 
 
 @router.post("/cameras", response_model=CameraOut, status_code=201)
@@ -127,7 +135,7 @@ async def create_camera(
         resource_id=str(row.id),
         ip=request.client.host if request.client else None,
     )
-    return CameraOut.model_validate(row)
+    return _camera_out(row)
 
 
 @router.get("/cameras/{camera_id}", response_model=CameraOut)
@@ -136,7 +144,7 @@ async def get_camera(
     ctx: TenantCtx = Depends(tenant_ctx),
     db: AsyncSession = Depends(get_tenant_db),
 ) -> CameraOut:
-    return CameraOut.model_validate(await _get_camera(db, ctx.tenant_id, camera_id))
+    return _camera_out(await _get_camera(db, ctx.tenant_id, camera_id))
 
 
 @router.patch("/cameras/{camera_id}", response_model=CameraOut)
@@ -175,7 +183,7 @@ async def update_camera(
         resource_id=str(row.id),
         ip=request.client.host if request.client else None,
     )
-    return CameraOut.model_validate(row)
+    return _camera_out(row)
 
 
 @router.delete("/cameras/{camera_id}", response_model=MessageOut)
@@ -200,3 +208,58 @@ async def delete_camera(
         ip=request.client.host if request.client else None,
     )
     return MessageOut(message="Camera deleted")
+
+
+# ---------- monitor-camera zone coverage ----------
+@router.put("/cameras/{camera_id}/coverage", response_model=CameraOut)
+async def set_camera_coverage(
+    camera_id: uuid.UUID,
+    body: CameraCoverageIn,
+    request: Request,
+    ctx: TenantCtx = Depends(tenant_ctx),
+    db: AsyncSession = Depends(get_tenant_db),
+    _: None = Depends(require_roles(*WRITE_ROLES)),
+) -> CameraOut:
+    """Replace the parking zones a monitor camera covers (all-or-nothing)."""
+    camera = await _get_camera(db, ctx.tenant_id, camera_id)
+    if body.zone_ids:
+        zones = (
+            (
+                await db.execute(
+                    select(ParkingZone).where(
+                        ParkingZone.tenant_id == ctx.tenant_id,
+                        ParkingZone.id.in_(body.zone_ids),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        found_ids = {z.id for z in zones}
+        missing = [z for z in body.zone_ids if z not in found_ids]
+        if missing:
+            raise not_found("parking_zone", missing[0])
+        if any(z.site_id != camera.site_id for z in zones):
+            raise bad_request("zones must belong to the camera's site")
+    await db.execute(
+        CameraZoneCoverage.__table__.delete().where(
+            CameraZoneCoverage.camera_id == camera.id,
+            CameraZoneCoverage.tenant_id == ctx.tenant_id,
+        )
+    )
+    for zid in body.zone_ids:
+        db.add(CameraZoneCoverage(tenant_id=ctx.tenant_id, camera_id=camera.id, zone_id=zid))
+    await db.flush()
+    await write_audit(
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="camera.coverage_updated",
+        resource_type="camera",
+        resource_id=str(camera.id),
+        details={"zoneIds": [str(z) for z in body.zone_ids]},
+        ip=request.client.host if request.client else None,
+    )
+    return _camera_out(camera)
