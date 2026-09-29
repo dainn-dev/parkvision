@@ -247,8 +247,149 @@ class Camera(TimestampMixin, Base):
     purpose: Mapped[str] = mapped_column(String(20), nullable=False, default="plate")
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="provisioning")
     notes: Mapped[str | None] = mapped_column(Text)
+    last_snapshot_key: Mapped[str | None] = mapped_column(Text)
+    snapshot_captured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (Index("ix_cameras_tenant", "tenant_id", "site_id"),)
+
+
+class ParkingLevel(TimestampMixin, Base):
+    """A floor of a site's parking map (B2, L1...) — zones hang off this."""
+
+    __tablename__ = "parking_levels"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    site_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenant_sites.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    code: Mapped[str | None] = mapped_column(String(50))
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    map_image_url: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
+
+    __table_args__ = (Index("ix_parking_levels_tenant", "tenant_id", "site_id"),)
+
+
+class ParkingZone(TimestampMixin, Base):
+    """A named area/column within a level; `bounds` is a normalized
+    {x, y, w, h} rect on the level's map image."""
+
+    __tablename__ = "parking_zones"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    site_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenant_sites.id", ondelete="CASCADE"), nullable=False
+    )
+    level_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("parking_levels.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    code: Mapped[str | None] = mapped_column(String(50))
+    bounds: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    capacity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
+
+    __table_args__ = (Index("ix_parking_zones_tenant", "tenant_id", "level_id"),)
+
+
+class CameraZoneCoverage(Base):
+    """Which zones a monitor camera (purpose='monitor') watches."""
+
+    __tablename__ = "camera_zone_coverages"
+
+    camera_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cameras.id", ondelete="CASCADE"), primary_key=True
+    )
+    zone_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("parking_zones.id", ondelete="CASCADE"), primary_key=True
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (Index("ix_camera_zone_cov_tenant", "tenant_id", "zone_id"),)
+
+
+class VehiclePresence(TimestampMixin, Base):
+    """Current parking location of a plate — at most one `parked` row per
+    (tenant_id, plate_normalized), enforced by partial unique index
+    `ux_presence_active_plate`."""
+
+    __tablename__ = "vehicle_presences"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    site_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenant_sites.id", ondelete="CASCADE"), nullable=False
+    )
+    level_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    zone_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("parking_zones.id", ondelete="SET NULL")
+    )
+    plate_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    plate_normalized: Mapped[str] = mapped_column(String(20), nullable=False)
+    vehicle_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    camera_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cameras.id", ondelete="SET NULL")
+    )
+    confidence: Mapped[float | None] = mapped_column(Numeric(5, 4))
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="parked")
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    exited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        Index("ix_presence_zone", "tenant_id", "zone_id", "status"),
+        Index("ix_presence_plate", "tenant_id", "plate_normalized"),
+    )
+
+
+class VehicleLocationEvent(Base):
+    """Relocation audit trail — one row per parked/relocated/exited/stale."""
+
+    __tablename__ = "vehicle_location_events"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    presence_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("vehicle_presences.id", ondelete="CASCADE"), nullable=False
+    )
+    event_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    from_zone_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("parking_zones.id", ondelete="SET NULL")
+    )
+    to_zone_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("parking_zones.id", ondelete="SET NULL")
+    )
+    camera_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cameras.id", ondelete="SET NULL")
+    )
+    plate_number: Mapped[str | None] = mapped_column(String(20))
+    confidence: Mapped[float | None] = mapped_column(Numeric(5, 4))
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_loc_events_plate", "tenant_id", "plate_number", "occurred_at"),
+        Index("ix_loc_events_presence", "presence_id"),
+    )
 
 
 class BarrierGate(TimestampMixin, Base):

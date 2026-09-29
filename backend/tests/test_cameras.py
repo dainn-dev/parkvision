@@ -112,9 +112,7 @@ async def test_camera_rejects_lane_of_other_site(client: AsyncClient, tenant, si
     site_id, _ = site_lane
     tid = tenant["tenant_id"]
 
-    site_b = await client.post(
-        f"/api/v1/tenants/{tid}/sites", json={"name": "Lot B"}, headers=csrf(client)
-    )
+    site_b = await client.post(f"/api/v1/tenants/{tid}/sites", json={"name": "Lot B"}, headers=csrf(client))
     site_b_id = site_b.json()["id"]
     lane_b = await client.post(
         f"/api/v1/tenants/{tid}/sites/{site_b_id}/lanes",
@@ -149,9 +147,7 @@ async def test_camera_code_uniqueness_per_site(client: AsyncClient, tenant, site
     )
     assert dup.status_code == 409
 
-    site_b = await client.post(
-        f"/api/v1/tenants/{tid}/sites", json={"name": "Lot C"}, headers=csrf(client)
-    )
+    site_b = await client.post(f"/api/v1/tenants/{tid}/sites", json={"name": "Lot C"}, headers=csrf(client))
     ok_other_site = await client.post(
         f"/api/v1/tenants/{tid}/cameras",
         json={**base, "siteId": site_b.json()["id"]},
@@ -213,9 +209,10 @@ async def test_camera_viewer_cannot_write(client: AsyncClient, tenant, site_lane
     site_id, _ = site_lane
     tid = tenant["tenant_id"]
 
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
     from app.models import TenantUser
     from app.security import hash_password
-    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
     async with Session() as db:
@@ -238,9 +235,7 @@ async def test_camera_viewer_cannot_write(client: AsyncClient, tenant, site_lane
 
         viewer_email = (
             await db.execute(
-                _select(TenantUser.email).where(
-                    TenantUser.tenant_id == tid, TenantUser.role == "viewer"
-                )
+                _select(TenantUser.email).where(TenantUser.tenant_id == tid, TenantUser.role == "viewer")
             )
         ).scalar_one()
 
