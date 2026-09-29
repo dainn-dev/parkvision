@@ -327,6 +327,37 @@ async def mark_offline_devices(ctx, stale_seconds: int = 20) -> int:
         return res.rowcount
 
 
+async def expire_stale_presence(ctx) -> int:
+    """Mark vehicle_presences rows stale/exited past the tenant TTL.
+
+    Per-tenant `parking_presence_ttl_hours` in tenants.settings (default 48h):
+    parked rows idle past it go 'stale'; anything idle past 4x goes 'exited'.
+    """
+    from sqlalchemy import select
+
+    from app.database import platform_session
+    from app.models import Tenant
+    from app.services.parking_service import sweep_stale_presences
+
+    async with platform_session() as db:
+        tenants = (await db.execute(select(Tenant.id, Tenant.settings))).all()
+
+    now = datetime.now(timezone.utc)
+    total = 0
+    for _tenant_id, tenant_settings in tenants:
+        try:
+            ttl_hours = int((tenant_settings or {}).get("parking_presence_ttl_hours") or 48)
+        except (TypeError, ValueError):
+            ttl_hours = 48
+        async with platform_session() as db:
+            total += await sweep_stale_presences(
+                db,
+                stale_before=now - timedelta(hours=ttl_hours),
+                expire_before=now - timedelta(hours=ttl_hours * 4),
+            )
+    return total
+
+
 async def cleanup_expired_sessions(ctx) -> int:
     from sqlalchemy import delete
 
