@@ -398,3 +398,82 @@ async def test_revoke_token_requires_write_role_and_tenant_scope(
         headers=csrf(client),
     )
     assert cross.status_code == 404
+
+
+# ---------- Task 5: /edge/mqtt-auth (EMQX http auth) ----------
+
+
+@pytest.mark.asyncio
+async def test_mqtt_auth_allows_active_device_token(client: AsyncClient, tenant, activation_setup):
+    s = activation_setup
+    act = await client.post("/api/v1/edge/activate", json={"code": s["code"]})
+    assert act.status_code == 200, act.text
+    body = act.json()
+    res = await client.post(
+        "/api/v1/edge/mqtt-auth",
+        json={"username": body["mqtt"]["username"], "password": body["api"]["token"]},
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["result"] == "allow"
+
+
+@pytest.mark.asyncio
+async def test_mqtt_auth_denies_revoked_token(client: AsyncClient, tenant, activation_setup):
+    s = activation_setup
+    act = await client.post("/api/v1/edge/activate", json={"code": s["code"]})
+    body = act.json()
+    await login(client, tenant["email"], tenant["password"])
+    await client.post(
+        f"/api/v1/tenants/{s['tenant_id']}/devices/{s['device_id']}/revoke-token",
+        headers=csrf(client),
+    )
+    res = await client.post(
+        "/api/v1/edge/mqtt-auth",
+        json={"username": body["mqtt"]["username"], "password": body["api"]["token"]},
+    )
+    assert res.json()["result"] == "deny"
+
+
+@pytest.mark.asyncio
+async def test_mqtt_auth_denies_username_mismatch(client: AsyncClient, tenant, activation_setup):
+    """A token must not authenticate under a different device's username."""
+    s = activation_setup
+    act = await client.post("/api/v1/edge/activate", json={"code": s["code"]})
+    body = act.json()
+    res = await client.post(
+        "/api/v1/edge/mqtt-auth",
+        json={"username": "edge-00000000-0000-0000-0000-000000000000", "password": body["api"]["token"]},
+    )
+    assert res.json()["result"] == "deny"
+
+
+@pytest.mark.asyncio
+async def test_mqtt_authz_scopes_topics_to_tenant(client: AsyncClient, tenant, activation_setup):
+    """Authz phase: publish/subscribe only allowed under the credential's tenant prefix."""
+    s = activation_setup
+    act = await client.post("/api/v1/edge/activate", json={"code": s["code"]})
+    body = act.json()
+    username = body["mqtt"]["username"]
+
+    ok = await client.post(
+        "/api/v1/edge/mqtt-auth",
+        json={
+            "username": username,
+            "password": body["api"]["token"],
+            "action": "publish",
+            "topic": f"tenants/{s['tenant_id']}/sites/{s['site_id']}/gates/{uuid.uuid4()}/telemetry",
+        },
+    )
+    assert ok.json()["result"] == "allow"
+
+    other = uuid.uuid4()
+    bad = await client.post(
+        "/api/v1/edge/mqtt-auth",
+        json={
+            "username": username,
+            "password": body["api"]["token"],
+            "action": "publish",
+            "topic": f"tenants/{other}/sites/x/gates/y/telemetry",
+        },
+    )
+    assert bad.json()["result"] == "deny"

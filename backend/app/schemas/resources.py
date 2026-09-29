@@ -918,3 +918,17 @@ class EdgeRuleEntry(CamelModel):
     priority: int
     schedule: dict[str, Any] = {}
     conditions: dict[str, Any] = {}
+
+
+class MqttAuthIn(CamelModel):
+    """EMQX http authn/authz request shape."""
+
+    username: str
+    password: str | None = None
+    clientid: str | None = None
+    action: str | None = None  # authz only: publish | subscribe
+    topic: str | None = None   # authz only
+
+
+class MqttAuthOut(CamelModel):
+    result: str  # "allow" | "deny"

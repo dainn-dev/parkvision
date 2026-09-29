@@ -29,6 +29,8 @@ from app.schemas.resources import (
     EdgeRuleEntry,
     EdgeVehicleEntry,
     EdgeWhitelistOut,
+    MqttAuthIn,
+    MqttAuthOut,
 )
 from app.services.activation_service import (
     build_activation_bundle,
@@ -213,3 +215,61 @@ async def edge_rules(tenant_id: uuid.UUID, cred: ApiCredential = Depends(edge_ct
             .all()
         )
     return [EdgeRuleEntry.model_validate(r) for r in rows]
+
+
+_DENY = MqttAuthOut(result="deny")
+
+
+@router.post("/mqtt-auth", response_model=MqttAuthOut)
+async def mqtt_auth(body: MqttAuthIn) -> MqttAuthOut:
+    """EMQX http authn/authz hook.
+
+    Authn: EMQX posts {username, password}. Authz: posts {username, action,
+    topic} (no password). Password is the device's `pk_` credential — so a
+    tenant-side revoke kills MQTT access too. Username must equal the
+    device's `mqtt_client_id` (`edge-{device_id}` default) and topics are
+    scoped to the credential's tenant prefix.
+    """
+    async with platform_session() as db:
+        if body.password:
+            cred = await authenticate_api_key(db, body.password)
+            if cred is None or cred.edge_device_id is None:
+                return _DENY
+        else:
+            cred = None
+        device: EdgeDevice | None = None
+        if cred is not None:
+            device = await db.get(EdgeDevice, cred.edge_device_id)
+        else:
+            # authz path: resolve device from its MQTT username
+            rows = (
+                await db.execute(
+                    select(EdgeDevice).where(
+                        EdgeDevice.mqtt_client_id == body.username
+                    )
+                )
+            ).scalars().all()
+            if len(rows) == 1:
+                device = rows[0]
+            elif body.username.startswith("edge-"):
+                try:
+                    device = await db.get(EdgeDevice, uuid.UUID(body.username[5:]))
+                except ValueError:
+                    device = None
+            if device is not None:
+                cred = (
+                    await db.execute(
+                        select(ApiCredential).where(
+                            ApiCredential.edge_device_id == device.id,
+                            ApiCredential.status == "active",
+                            ApiCredential.revoked_at.is_(None),
+                        )
+                    )
+                ).scalars().first()
+        if device is None or cred is None:
+            return _DENY
+        if body.username != (device.mqtt_client_id or f"edge-{device.id}"):
+            return _DENY
+        if body.topic and not body.topic.startswith(f"tenants/{cred.tenant_id}/"):
+            return _DENY
+    return MqttAuthOut(result="allow")
