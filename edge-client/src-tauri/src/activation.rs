@@ -131,7 +131,12 @@ pub async fn refresh_and_boot(app: &AppHandle, cfg: EdgeConfig) -> Result<()> {
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
     let url = format!("{}/edge/config", cfg.api_base_url.trim_end_matches('/'));
-    match http.get(&url).header("X-Api-Key", &cfg.api_key).send().await {
+    match http
+        .get(&url)
+        .header("X-Api-Key", &cfg.api_key)
+        .send()
+        .await
+    {
         Ok(resp) if is_revoked(resp.status()) => {
             tracing::warn!("device credential revoked — deprovisioning");
             deprovision_inner(app).await?;
@@ -147,7 +152,10 @@ pub async fn refresh_and_boot(app: &AppHandle, cfg: EdgeConfig) -> Result<()> {
             return crate::boot_runtime(app, merged).await;
         }
         Ok(resp) => {
-            tracing::warn!("config refresh HTTP {} — booting cached config", resp.status());
+            tracing::warn!(
+                "config refresh HTTP {} — booting cached config",
+                resp.status()
+            );
         }
         Err(e) => {
             tracing::warn!("config refresh unreachable ({e:#}) — booting cached config");
@@ -240,7 +248,9 @@ pub async fn activate(
     if let Some(rt) = old {
         rt.stop().await;
     }
-    crate::boot_runtime(&app, cfg).await.map_err(|e| e.to_string())
+    crate::boot_runtime(&app, cfg)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Manual "log out" — wipes the config and stops the runtime.

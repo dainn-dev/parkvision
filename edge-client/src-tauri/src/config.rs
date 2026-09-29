@@ -100,7 +100,10 @@ impl fmt::Debug for GateCtx {
             .field("gate_id", &self.gate_id)
             .field("lane_id", &self.lane_id)
             .field("lane_direction", &self.lane_direction)
-            .field("camera_rtsp_url", &self.camera_rtsp_url.as_ref().map(|_| "***"))
+            .field(
+                "camera_rtsp_url",
+                &self.camera_rtsp_url.as_ref().map(|_| "***"),
+            )
             .field("cameras", &self.cameras.len())
             .finish()
     }

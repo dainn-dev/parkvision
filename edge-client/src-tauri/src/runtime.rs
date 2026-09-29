@@ -141,7 +141,16 @@ impl EdgeRuntime {
             .map(|g| command_topic(&cfg.tenant_id, &cfg.site_id, &g.gate_id))
             .collect();
         let (client, cmd_rx) = MqttClient::connect(&cfg.mqtt, &client_id, &topics).await?;
-        Self::start_with(cfg, store, hal_factory, app_data, client, cmd_rx, Knots::default()).await
+        Self::start_with(
+            cfg,
+            store,
+            hal_factory,
+            app_data,
+            client,
+            cmd_rx,
+            Knots::default(),
+        )
+        .await
     }
 
     /// Injectable entry for tests / future transports.
@@ -611,11 +620,13 @@ mod tests {
                 .any(|(_, b, _)| b["type"] == "command_ack")
         })
         .await;
-        let sent = pub_.sent.lock().unwrap();
-        let ack = sent
-            .iter()
-            .find(|(_, b, _)| b["type"] == "command_ack")
-            .unwrap();
+        let ack = {
+            let sent = pub_.sent.lock().unwrap();
+            sent.iter()
+                .find(|(_, b, _)| b["type"] == "command_ack")
+                .unwrap()
+                .clone()
+        };
         assert_eq!(ack.1["success"], true);
         assert!(ack.0.contains(GATE_B), "ack must go to gate B's topic");
         let ga = rt.gate(&Uuid::parse_str(GATE_A).unwrap()).unwrap();

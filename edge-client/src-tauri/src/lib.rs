@@ -70,9 +70,15 @@ fn gate_status(g: &GateRuntime) -> GateStatus {
         motor_temp_c: sensors.motor_temp_c,
         loop_active: sensors.loop_active,
         ups_battery: sensors.ups_battery_pct,
-        last_plate: last.as_ref().and_then(|e| e["plate"].as_str().map(String::from)),
-        last_decision: last.as_ref().and_then(|e| e["decision"].as_str().map(String::from)),
-        last_reason: last.as_ref().and_then(|e| e["reason"].as_str().map(String::from)),
+        last_plate: last
+            .as_ref()
+            .and_then(|e| e["plate"].as_str().map(String::from)),
+        last_decision: last
+            .as_ref()
+            .and_then(|e| e["decision"].as_str().map(String::from)),
+        last_reason: last
+            .as_ref()
+            .and_then(|e| e["reason"].as_str().map(String::from)),
     }
 }
 
@@ -137,8 +143,9 @@ pub async fn boot_runtime(app: &AppHandle, cfg: EdgeConfig) -> anyhow::Result<()
     let app_data = app.path().app_data_dir()?;
     std::fs::create_dir_all(&app_data)?;
     let store = Store::open(&app_data.join("edge.db"))?;
-    let hal_factory =
-        |_binding: &crate::config::GateBinding| -> Arc<dyn BarrierHal> { Arc::new(SimulatedHal::new()) };
+    let hal_factory = |_binding: &crate::config::GateBinding| -> Arc<dyn BarrierHal> {
+        Arc::new(SimulatedHal::new())
+    };
     let rt = Arc::new(EdgeRuntime::start(cfg, store, &hal_factory, app_data).await?);
 
     let state = app.state::<RuntimeState>();
@@ -161,13 +168,15 @@ pub async fn boot_runtime(app: &AppHandle, cfg: EdgeConfig) -> anyhow::Result<()
     Ok(())
 }
 
-fn gate_for<'a>(
-    rt: &'a SharedRuntime,
+fn gate_for(
+    rt: &SharedRuntime,
     gate_id: Option<Uuid>,
-) -> Result<&'a Arc<GateRuntime>, String> {
+) -> Result<&Arc<GateRuntime>, String> {
     match gate_id {
         Some(id) => rt.gate(&id).ok_or_else(|| "unknown gate".to_string()),
-        None => rt.primary().ok_or_else(|| "runtime has no gates".to_string()),
+        None => rt
+            .primary()
+            .ok_or_else(|| "runtime has no gates".to_string()),
     }
 }
 
@@ -238,8 +247,14 @@ async fn resync(rt: State<'_, RuntimeState>) -> Result<String, String> {
         guard.as_ref().cloned().ok_or("runtime not provisioned")?
     };
     let client = SyncClient::new(rt.cfg.clone(), rt.store.clone());
-    let w = client.sync_whitelist().await.map_err(|e| format!("whitelist: {e}"))?;
-    let r = client.sync_rules().await.map_err(|e| format!("rules: {e}"))?;
+    let w = client
+        .sync_whitelist()
+        .await
+        .map_err(|e| format!("whitelist: {e}"))?;
+    let r = client
+        .sync_rules()
+        .await
+        .map_err(|e| format!("rules: {e}"))?;
     Ok(format!("{} vehicles / {} rules", w.upserted, r))
 }
 

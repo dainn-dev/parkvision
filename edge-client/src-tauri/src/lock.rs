@@ -31,7 +31,9 @@ impl LockStore {
             Err(e) => return Err(e).context("read lock file"),
         };
         let v: serde_json::Value = serde_json::from_str(&raw).context("parse lock file")?;
-        Ok(v.get("passwordHash").and_then(|h| h.as_str()).map(str::to_string))
+        Ok(v.get("passwordHash")
+            .and_then(|h| h.as_str())
+            .map(str::to_string))
     }
 
     pub fn set_password(&self, password: Option<&str>) -> Result<()> {
