@@ -38,6 +38,7 @@ import { TenantEdgeDevicesPage } from './pages/tenant/TenantEdgeDevicesPage';
 import { TenantRulesPage } from './pages/tenant/TenantRulesPage';
 import { TenantUsersPage } from './pages/tenant/TenantUsersPage';
 import { TenantSettingsPage } from './pages/tenant/TenantSettingsPage';
+import { TenantParkingMapPage } from './pages/tenant/TenantParkingMapPage';
 import { BarrierMapVisualization } from './components/monitoring/BarrierMapVisualization';
 import { ArrowLeft, LayoutDashboard, UserCog, LogOut } from 'lucide-react';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -222,6 +223,7 @@ const PlatformAppContent: React.FC = () => {
                   <BarrierMapVisualization tenantFilterId={selectedTenantId || tenantLocation?.tenantId || 't-001'} />
                 </div>
               )}
+              {tenantNavTab === 'parking-map' && <TenantParkingMapPage />}
               {(tenantNavTab === 'access_events' || tenantNavTab === 'access-events') && <TenantEventsPage />}
               {tenantNavTab === 'vehicles' && <TenantVehiclesPage />}
               {tenantNavTab === 'edge-devices' && <TenantEdgeDevicesPage />}

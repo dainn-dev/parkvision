@@ -23,7 +23,8 @@ import {
   DoorOpen,
   Camera,
   UserPlus,
-  ArrowLeftRight
+  ArrowLeftRight,
+  MapPinned
 } from 'lucide-react';
 import { PrimaryTab, PlatformSubTab, MonitoringSubTab, SecuritySubTab } from '../../types/platform';
 import { TenantNavTab } from '../../types/tenant';
@@ -199,6 +200,24 @@ export const PlatformSidebar: React.FC = () => {
                   <span>Barrier Map</span>
                 </div>
                 <span className="text-[10px] px-1.5 py-0.2 bg-[#3fb950]/20 text-[#3fb950] rounded-full font-bold">
+                  Live
+                </span>
+              </button>
+
+              {/* Parking Map */}
+              <button
+                onClick={() => setTenantNavTab('parking-map')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all cursor-pointer ${
+                  tenantNavTab === 'parking-map'
+                    ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
+                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <MapPinned className={`w-4 h-4 shrink-0 ${tenantNavTab === 'parking-map' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+                  <span>Sơ Đồ Bãi Xe</span>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.2 bg-[#58a6ff]/20 text-[#58a6ff] rounded-full font-bold">
                   Live
                 </span>
               </button>
