@@ -30,7 +30,7 @@ impl PipelineHooks {
 
 use crate::access::{decide_access, normalize_plate};
 use crate::anpr::PlateSource;
-use crate::config::EdgeConfig;
+use crate::config::GateCtx;
 use crate::fsm::GateFsm;
 use crate::mqtt::Publisher;
 use crate::payloads::{telemetry_topic, AnprFields, TelemetryFrame};
@@ -59,7 +59,7 @@ fn stash_image(src: Option<&PathBuf>, captures_dir: &std::path::Path) -> Option<
 
 pub async fn run_pipeline(
     mut src: Box<dyn PlateSource>,
-    cfg: Arc<EdgeConfig>,
+    cfg: Arc<GateCtx>,
     store: Arc<Store>,
     publisher: Arc<dyn Publisher>,
     fsm: Arc<Mutex<GateFsm>>,
@@ -130,7 +130,7 @@ pub async fn run_pipeline(
 mod tests {
     use super::*;
     use crate::anpr::{ManualPlateSource, PlateReading};
-    use crate::config::{EdgeConfig, MqttConfig};
+    use crate::config::GateCtx;
     use crate::fsm::{GateFsm, GateState};
     use crate::hal::SimulatedHal;
     use crate::mqtt::MemPublisher;
@@ -142,24 +142,16 @@ mod tests {
     const SITE: &str = "22222222-2222-2222-2222-222222222222";
     const GATE: &str = "33333333-3333-3333-3333-333333333333";
 
-    fn cfg() -> Arc<EdgeConfig> {
-        Arc::new(EdgeConfig {
+    fn cfg() -> Arc<GateCtx> {
+        Arc::new(GateCtx {
             tenant_id: Uuid::parse_str(TENANT).unwrap(),
             site_id: Uuid::parse_str(SITE).unwrap(),
+            device_id: Uuid::parse_str("44444444-4444-4444-4444-444444444444").unwrap(),
             gate_id: Uuid::parse_str(GATE).unwrap(),
             lane_id: Some(Uuid::parse_str("55555555-5555-5555-5555-555555555555").unwrap()),
-            device_id: Uuid::parse_str("44444444-4444-4444-4444-444444444444").unwrap(),
-            api_key: "k".to_string(),
-            api_base_url: "http://localhost".to_string(),
-            mqtt: MqttConfig {
-                host: "localhost".to_string(),
-                port: 1883,
-                username: None,
-                password: None,
-                tls: false,
-            },
             lane_direction: "entry".to_string(),
             camera_rtsp_url: None,
+            cameras: vec![],
         })
     }
 
@@ -185,7 +177,7 @@ mod tests {
     }
 
     struct Rig {
-        cfg: Arc<EdgeConfig>,
+        cfg: Arc<GateCtx>,
         store: Arc<Store>,
         pub_: Arc<MemPublisher>,
         fsm: Arc<Mutex<GateFsm>>,

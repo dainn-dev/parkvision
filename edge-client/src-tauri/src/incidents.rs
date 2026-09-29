@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 
 use tracing::warn;
 
-use crate::config::EdgeConfig;
+use crate::config::GateCtx;
 use crate::fsm::FsmEvent;
 use crate::hal::HalSensors;
 use crate::mqtt::Publisher;
@@ -17,11 +17,11 @@ use crate::payloads::{incident_topic, IncidentFrame};
 pub struct IncidentReporter {
     publisher: Arc<dyn Publisher>,
     open: Mutex<HashSet<&'static str>>,
-    cfg: Arc<EdgeConfig>,
+    cfg: Arc<GateCtx>,
 }
 
 impl IncidentReporter {
-    pub fn new(publisher: Arc<dyn Publisher>, cfg: Arc<EdgeConfig>) -> Self {
+    pub fn new(publisher: Arc<dyn Publisher>, cfg: Arc<GateCtx>) -> Self {
         Self {
             publisher,
             open: Mutex::new(HashSet::new()),
@@ -75,7 +75,7 @@ impl IncidentReporter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{EdgeConfig, MqttConfig};
+    use crate::config::GateCtx;
     use crate::fsm::FsmEvent;
     use crate::hal::HalSensors;
     use crate::mqtt::MemPublisher;
@@ -86,24 +86,16 @@ mod tests {
     const GATE: &str = "33333333-3333-3333-3333-333333333333";
     const DEVICE: &str = "44444444-4444-4444-4444-444444444444";
 
-    fn cfg() -> Arc<EdgeConfig> {
-        Arc::new(EdgeConfig {
+    fn cfg() -> Arc<GateCtx> {
+        Arc::new(GateCtx {
             tenant_id: Uuid::parse_str(TENANT).unwrap(),
             site_id: Uuid::parse_str(SITE).unwrap(),
+            device_id: Uuid::parse_str(DEVICE).unwrap(),
             gate_id: Uuid::parse_str(GATE).unwrap(),
             lane_id: None,
-            device_id: Uuid::parse_str(DEVICE).unwrap(),
-            api_key: "k".to_string(),
-            api_base_url: "http://localhost".to_string(),
-            mqtt: MqttConfig {
-                host: "localhost".to_string(),
-                port: 1883,
-                username: None,
-                password: None,
-                tls: false,
-            },
             lane_direction: "entry".to_string(),
             camera_rtsp_url: None,
+            cameras: vec![],
         })
     }
 

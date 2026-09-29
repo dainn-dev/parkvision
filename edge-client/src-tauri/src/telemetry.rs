@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use tracing::warn;
 
-use crate::config::EdgeConfig;
+use crate::config::GateCtx;
 use crate::fsm::{GateFsm, GateState};
 use crate::hal::{BarrierHal, HalSensors};
 use crate::mqtt::Publisher;
@@ -22,7 +22,7 @@ pub struct CycleCounters {
 }
 
 pub fn build_telemetry(
-    cfg: &EdgeConfig,
+    cfg: &GateCtx,
     fsm: &GateFsm,
     sensors: &HalSensors,
     counters: &CycleCounters,
@@ -99,7 +99,7 @@ impl SystemMetrics {
     }
 }
 
-pub fn build_heartbeat(cfg: &EdgeConfig, sys: &SystemMetrics) -> HeartbeatFrame {
+pub fn build_heartbeat(cfg: &GateCtx, sys: &SystemMetrics) -> HeartbeatFrame {
     let (cpu, ram, storage, latency) = sys.sample();
     HeartbeatFrame {
         cpu_usage_pct: Some(cpu),
@@ -114,7 +114,7 @@ pub fn build_heartbeat(cfg: &EdgeConfig, sys: &SystemMetrics) -> HeartbeatFrame 
 /// durable outbox (Task 14) owns store-and-forward, not this loop.
 pub async fn telemetry_loop(
     publisher: Arc<dyn Publisher>,
-    cfg: Arc<EdgeConfig>,
+    cfg: Arc<GateCtx>,
     fsm: Arc<Mutex<GateFsm>>,
     hal: Arc<dyn BarrierHal>,
     counters: Arc<CycleCounters>,
@@ -142,7 +142,7 @@ pub async fn telemetry_loop(
 
 /// 5s device liveness. Also skipped while disconnected (nothing to send
 /// through anyway — but the UI reads `is_connected` for status).
-pub async fn heartbeat_loop(publisher: Arc<dyn Publisher>, cfg: Arc<EdgeConfig>, every: Duration) {
+pub async fn heartbeat_loop(publisher: Arc<dyn Publisher>, cfg: Arc<GateCtx>, every: Duration) {
     let topic = telemetry_topic(&cfg.tenant_id, &cfg.site_id, &cfg.gate_id);
     let sys = SystemMetrics::new();
     let mut interval = tokio::time::interval(every);
@@ -164,7 +164,7 @@ pub async fn heartbeat_loop(publisher: Arc<dyn Publisher>, cfg: Arc<EdgeConfig>,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{EdgeConfig, MqttConfig};
+    use crate::config::GateCtx;
     use crate::fsm::GateFsm;
     use crate::hal::{BarrierHal, SimulatedHal};
     use crate::mqtt::MemPublisher;
@@ -177,24 +177,16 @@ mod tests {
     const GATE: &str = "33333333-3333-3333-3333-333333333333";
     const DEVICE: &str = "44444444-4444-4444-4444-444444444444";
 
-    fn cfg() -> Arc<EdgeConfig> {
-        Arc::new(EdgeConfig {
+    fn cfg() -> Arc<GateCtx> {
+        Arc::new(GateCtx {
             tenant_id: Uuid::parse_str(TENANT).unwrap(),
             site_id: Uuid::parse_str(SITE).unwrap(),
+            device_id: Uuid::parse_str(DEVICE).unwrap(),
             gate_id: Uuid::parse_str(GATE).unwrap(),
             lane_id: None,
-            device_id: Uuid::parse_str(DEVICE).unwrap(),
-            api_key: "k".to_string(),
-            api_base_url: "http://localhost".to_string(),
-            mqtt: MqttConfig {
-                host: "localhost".to_string(),
-                port: 1883,
-                username: None,
-                password: None,
-                tls: false,
-            },
             lane_direction: "entry".to_string(),
             camera_rtsp_url: None,
+            cameras: vec![],
         })
     }
 

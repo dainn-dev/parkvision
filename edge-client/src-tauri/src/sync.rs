@@ -16,6 +16,31 @@ use crate::store::{RuleRow, Store, VehicleRow};
 
 const PAGE_LIMIT: u32 = 500;
 
+/// The credential was rejected (401/403) — the tenant revoked it or it
+/// expired. Distinct from transient failures: the runtime turns this into
+/// a deprovision signal instead of retrying forever.
+#[derive(Debug)]
+pub struct AuthError(pub u16);
+
+impl std::fmt::Display for AuthError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "edge credential rejected: HTTP {}", self.0)
+    }
+}
+
+impl std::error::Error for AuthError {}
+
+fn check_status(resp: &reqwest::Response, what: &str) -> Result<()> {
+    let status = resp.status();
+    if status.is_success() {
+        return Ok(());
+    }
+    if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+        return Err(AuthError(status.as_u16()).into());
+    }
+    anyhow::bail!("{what} sync failed: HTTP {status}")
+}
+
 #[derive(Debug)]
 pub struct SyncReport {
     pub upserted: u32,
@@ -105,9 +130,7 @@ impl SyncClient {
                 req = req.query(&[("updatedSince", cursor)]);
             }
             let resp = req.send().await.context("whitelist request")?;
-            if !resp.status().is_success() {
-                anyhow::bail!("whitelist sync failed: HTTP {}", resp.status());
-            }
+            check_status(&resp, "whitelist")?;
             let page: EdgeWhitelistOut = resp.json().await.context("whitelist body decode")?;
 
             for item in &page.items {
@@ -147,9 +170,7 @@ impl SyncClient {
             .send()
             .await
             .context("rules request")?;
-        if !resp.status().is_success() {
-            anyhow::bail!("rules sync failed: HTTP {}", resp.status());
-        }
+        check_status(&resp, "rules")?;
         let entries: Vec<EdgeRuleEntry> = resp.json().await.context("rules body decode")?;
         let rows: Vec<RuleRow> = entries
             .into_iter()
@@ -172,7 +193,7 @@ impl SyncClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{EdgeConfig, MqttConfig};
+    use crate::config::{EdgeConfig, GateBinding, MqttConfig};
     use crate::store::Store;
     use httpmock::prelude::*;
     use serde_json::json;
@@ -184,10 +205,9 @@ mod tests {
 
     fn cfg(base: &str) -> Arc<EdgeConfig> {
         Arc::new(EdgeConfig {
+            version: 2,
             tenant_id: Uuid::parse_str(TENANT).unwrap(),
             site_id: Uuid::parse_str("22222222-2222-2222-2222-222222222222").unwrap(),
-            gate_id: Uuid::parse_str(GATE).unwrap(),
-            lane_id: None,
             device_id: Uuid::parse_str("44444444-4444-4444-4444-444444444444").unwrap(),
             api_key: "edge-key-123".to_string(),
             api_base_url: base.to_string(),
@@ -198,8 +218,12 @@ mod tests {
                 password: None,
                 tls: false,
             },
-            lane_direction: "entry".to_string(),
-            camera_rtsp_url: None,
+            gates: vec![GateBinding {
+                gate_id: Uuid::parse_str(GATE).unwrap(),
+                lane_id: None,
+                direction: "entry".to_string(),
+                cameras: vec![],
+            }],
         })
     }
 

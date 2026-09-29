@@ -31,6 +31,8 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 ort = { version = "2.0.0-rc.13", optional = true }
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"], optional = true }
 ndarray = { version = "0.16", optional = true }
+argon2 = "0.5"
+rand_core = { version = "0.6", features = ["getrandom"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
