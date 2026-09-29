@@ -65,7 +65,7 @@ export default function GatePanel({ gate, cameras, onAction }: Props) {
 
       {/* Camera tiles — RTSP can't render in WebView2; slots stay ready for a
           streaming gateway (mediamtx/go2rtc) or captured frames later. */}
-      <div className="grid min-h-44 flex-1 auto-rows-fr grid-cols-2 gap-2 px-4">
+      <div className="grid min-h-44 flex-1 auto-rows-fr grid-cols-1 gap-2 px-4">
         {(cameras.length ? cameras : [null]).map((c, i) => (
           <div
             key={c?.cameraId ?? i}
