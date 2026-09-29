@@ -186,10 +186,12 @@ export const TenantParkingMapPage: React.FC = () => {
               highlightZoneId={highlightZoneId}
               editMode={editMode && canWrite}
               onZoneClick={(z) => {
+                const full = parkingMap.flatMap((l) => l.zones).find((fz) => fz.id === z.id) ?? null;
+                if (!full) return;
                 if (editMode && canWrite) {
-                  setZoneEditor({ zone: z, bounds: null });
+                  setZoneEditor({ zone: full, bounds: null });
                 } else {
-                  setZonePopover(z);
+                  setZonePopover(full);
                   setHighlightZoneId(z.id);
                 }
               }}

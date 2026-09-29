@@ -1,17 +1,36 @@
 import React, { useRef, useState } from 'react';
-import type { MapLevelOut, MapZoneOut, ZoneBounds } from '../../../services/api';
+import type { ZoneBounds } from '../../../services/api';
+
+// Minimal shapes shared by the tenant map (MapLevelOut) and the public
+// find-my-car map (PublicMapLevelOut, which omits capacity/tenant fields).
+export interface CanvasZone {
+  id: string;
+  name: string;
+  code: string | null;
+  bounds: ZoneBounds | null;
+  capacity?: number;
+  occupiedCount: number;
+}
+
+export interface CanvasLevel {
+  id: string;
+  name: string;
+  code: string | null;
+  mapImageUrl: string | null;
+  zones: CanvasZone[];
+}
 
 interface ParkingMapCanvasProps {
-  levels: MapLevelOut[];
+  levels: CanvasLevel[];
   selectedLevelId: string | null;
   onSelectLevel: (id: string) => void;
   highlightZoneId?: string | null;
   editMode?: boolean;
-  onZoneClick?: (zone: MapZoneOut) => void;
+  onZoneClick?: (zone: CanvasZone) => void;
   onZoneDrawn?: (bounds: ZoneBounds) => void;
 }
 
-const zoneFill = (z: MapZoneOut): string => {
+const zoneFill = (z: CanvasZone): string => {
   if (!z.capacity) return 'rgba(88,166,255,0.28)'; // neutral blue when capacity unknown
   const ratio = Math.min(1, z.occupiedCount / z.capacity);
   if (ratio >= 1) return 'rgba(248,81,73,0.38)';

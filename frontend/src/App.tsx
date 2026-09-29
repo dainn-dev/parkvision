@@ -16,6 +16,7 @@ import { SlaPolicyPage } from './pages/public/SlaPolicyPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { ActivatePage } from './pages/auth/ActivatePage';
+import { FindMyCarPage } from './pages/public/FindMyCarPage';
 
 // Platform Governance Pages
 import { DashboardPage } from './pages/DashboardPage';
@@ -61,12 +62,18 @@ const PlatformAppContent: React.FC = () => {
     exitImpersonation
   } = usePlatform();
 
-  // Public site view state: 'landing' | 'terms' | 'privacy' | 'sla' | 'login' | 'register' | 'activate'
+  // Public site view state: 'landing' | 'terms' | 'privacy' | 'sla' | 'login' | 'register' | 'activate' | 'find-car'
   const [publicView, setPublicView] = useState<PublicViewType>(() => {
     const p = window.location.pathname.replace(/\/$/, '');
-    return p === '/activate' ? 'activate' : 'landing';
+    if (p === '/activate') return 'activate';
+    if (p === '/find-my-car') return 'find-car';
+    return 'landing';
   });
   const [inviteToken] = useState<string>(() => new URLSearchParams(window.location.search).get('token') ?? '');
+  const [findCarParams] = useState(() => {
+    const q = new URLSearchParams(window.location.search);
+    return { tenant: q.get('tenant') ?? '', plate: q.get('plate') ?? '' };
+  });
   const [selectedPricingPlan, setSelectedPricingPlan] = useState<string>('business');
 
   // Allow authenticated users to preview the public landing page if desired
@@ -130,6 +137,10 @@ const PlatformAppContent: React.FC = () => {
 
           {publicView === 'activate' && (
             <ActivatePage onNavigate={setPublicView} token={inviteToken} />
+          )}
+
+          {publicView === 'find-car' && (
+            <FindMyCarPage tenantSlug={findCarParams.tenant} initialPlate={findCarParams.plate} />
           )}
 
           {publicView === 'register' && (
