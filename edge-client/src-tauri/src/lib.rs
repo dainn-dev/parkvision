@@ -292,7 +292,7 @@ pub fn run() {
             activation::activate,
             activation::deprovision,
             activation::detect_public_ip,
-            activation::detect_local_ips,
+            activation::device_ip,
             lock::set_lock_password,
             lock::unlock,
             lock::lock_now,

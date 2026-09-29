@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { activate, detectLocalIps, detectPublicIp, setLockPassword } from "../lib/tauri";
+import { activate, detectPublicIp, setLockPassword } from "../lib/tauri";
 
 const input =
   "w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-emerald-500";
@@ -18,15 +18,7 @@ export default function SetupScreen({ onDone }: { onDone: () => void }) {
   type IpState = "idle" | "loading" | "ok" | "failed";
   const [publicIp, setPublicIp] = useState<string | null>(null);
   const [ipState, setIpState] = useState<IpState>("idle");
-  const [localIps, setLocalIps] = useState<string[]>([]);
   const ipTimer = useRef<ReturnType<typeof setTimeout>>(null);
-
-  // LAN IPs need no server — show them immediately.
-  useEffect(() => {
-    detectLocalIps()
-      .then(setLocalIps)
-      .catch(() => {});
-  }, []);
 
   const detectIp = async () => {
     const url = apiBaseUrl.trim();
@@ -107,14 +99,6 @@ export default function SetupScreen({ onDone }: { onDone: () => void }) {
             value={apiBaseUrl}
             onChange={(e) => setApiBaseUrl(e.target.value)}
           />
-          {localIps.length > 0 && (
-            <span className="mt-1 flex items-center gap-1.5 text-[11px] text-zinc-500">
-              IP mạng nội bộ của thiết bị:
-              <code className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-zinc-300 select-all">
-                {localIps.join(", ")}
-              </code>
-            </span>
-          )}
           {ipState !== "idle" && (
             <span className="mt-1 flex items-center gap-1.5 text-[11px] text-zinc-500">
               IP server nhìn thấy thiết bị:
