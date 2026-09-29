@@ -615,3 +615,22 @@ async def test_generate_code_rejects_invalid_ip(
         headers=csrf(client),
     )
     assert res.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_client_ip_endpoint_reports_peer(client: AsyncClient):
+    """GET /edge/client-ip echoes the source IP the server sees — the address
+    an admin should pin in `allowedIp`."""
+    async with _edge_client("203.0.113.55") as edge:
+        res = await edge.get("/api/v1/edge/client-ip")
+    assert res.status_code == 200, res.text
+    assert res.json()["ip"] == "203.0.113.55"
+
+
+@pytest.mark.asyncio
+async def test_client_ip_endpoint_honors_xff_behind_proxy(client: AsyncClient):
+    async with _edge_client("127.0.0.1") as edge:
+        res = await edge.get(
+            "/api/v1/edge/client-ip", headers={"X-Forwarded-For": "203.0.113.77, 10.0.0.1"}
+        )
+    assert res.json()["ip"] == "203.0.113.77"

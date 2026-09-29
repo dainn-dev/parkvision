@@ -294,6 +294,7 @@ pub fn run() {
             config::save_config,
             activation::activate,
             activation::deprovision,
+            activation::detect_public_ip,
             lock::set_lock_password,
             lock::unlock,
             lock::lock_now,

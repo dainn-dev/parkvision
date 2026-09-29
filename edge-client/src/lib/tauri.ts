@@ -87,6 +87,10 @@ export const activate = (apiBaseUrl: string, code: string) =>
 
 export const deprovision = () => invoke<void>("deprovision");
 
+/// Public IP the backend sees for this device (for activation-code IP pinning).
+export const detectPublicIp = (apiBaseUrl: string) =>
+  invoke<string>("detect_public_ip", { apiBaseUrl });
+
 export const getStatus = () => invoke<EdgeStatus | null>("get_status");
 export const resync = () => invoke<string>("resync");
 

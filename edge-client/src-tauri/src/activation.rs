@@ -253,6 +253,34 @@ pub async fn activate(
         .map_err(|e| e.to_string())
 }
 
+/// Fetch the public IP the backend sees for this device — the operator
+/// reports this to the tenant admin so they can pin `allowedIp` on the
+/// activation code.
+#[tauri::command]
+pub async fn detect_public_ip(api_base_url: String) -> Result<String, String> {
+    let base = api_base_url.trim().trim_end_matches('/');
+    if base.is_empty() {
+        return Err("server URL is empty".to_string());
+    }
+    let http = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(8))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let resp = http
+        .get(format!("{base}/edge/client-ip"))
+        .send()
+        .await
+        .map_err(|e| format!("cannot reach server: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("client-ip request failed (HTTP {})", resp.status()));
+    }
+    let body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    body["ip"]
+        .as_str()
+        .map(str::to_string)
+        .ok_or_else(|| "bad client-ip response".to_string())
+}
+
 /// Manual "log out" — wipes the config and stops the runtime.
 #[tauri::command]
 pub async fn deprovision(app: AppHandle) -> Result<(), String> {

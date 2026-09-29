@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { activate, setLockPassword } from "../lib/tauri";
+import { useEffect, useRef, useState } from "react";
+import { activate, detectPublicIp, setLockPassword } from "../lib/tauri";
 
 const input =
   "w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-emerald-500";
@@ -15,6 +15,33 @@ export default function SetupScreen({ onDone }: { onDone: () => void }) {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [publicIp, setPublicIp] = useState<string | null>(null);
+  const [ipLoading, setIpLoading] = useState(false);
+  const ipTimer = useRef<ReturnType<typeof setTimeout>>(null);
+
+  // Debounce-detect the IP the server sees once a plausible URL is typed —
+  // this is the address the tenant admin pins on the activation code.
+  useEffect(() => {
+    if (ipTimer.current) clearTimeout(ipTimer.current);
+    const url = apiBaseUrl.trim();
+    if (!/^https?:\/\/.+/.test(url)) {
+      setPublicIp(null);
+      return;
+    }
+    ipTimer.current = setTimeout(async () => {
+      setIpLoading(true);
+      try {
+        setPublicIp(await detectPublicIp(url));
+      } catch {
+        setPublicIp(null);
+      } finally {
+        setIpLoading(false);
+      }
+    }, 600);
+    return () => {
+      if (ipTimer.current) clearTimeout(ipTimer.current);
+    };
+  }, [apiBaseUrl]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +92,28 @@ export default function SetupScreen({ onDone }: { onDone: () => void }) {
             value={apiBaseUrl}
             onChange={(e) => setApiBaseUrl(e.target.value)}
           />
+          {(publicIp || ipLoading) && (
+            <span className="mt-1 flex items-center gap-1.5 text-[11px] text-zinc-500">
+              IP server nhìn thấy thiết bị:
+              {ipLoading ? (
+                <span className="text-zinc-400">đang kiểm tra…</span>
+              ) : (
+                <code className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-emerald-400 select-all">
+                  {publicIp}
+                </code>
+              )}
+              {!ipLoading && (
+                <button
+                  type="button"
+                  title="Sao chép IP"
+                  onClick={() => publicIp && navigator.clipboard.writeText(publicIp)}
+                  className="text-zinc-500 hover:text-zinc-300"
+                >
+                  ⧉
+                </button>
+              )}
+            </span>
+          )}
         </label>
 
         <label className="block">

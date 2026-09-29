@@ -115,6 +115,13 @@ async def edge_device_ctx(x_api_key: str = Header(default="")) -> ApiCredential:
     return cred
 
 
+@router.get("/client-ip")
+async def edge_client_ip(request: Request) -> dict:
+    """Echo the source IP the server sees — the operator reads this on the
+    setup screen and reports it to the tenant admin for `allowedIp` pinning."""
+    return {"ip": _client_ip(request)}
+
+
 @router.post(
     "/activate",
     response_model=ActivationBundleOut,
