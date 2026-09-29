@@ -3,18 +3,35 @@
 import re
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.enums import AccountStatus, TenantStatus, TenantUserRole
-from app.core.errors import conflict, not_found
+from app.core.errors import bad_request, conflict, not_found
 from app.core.rate_limit import rate_limited
 from app.database import anonymous_session, platform_session
-from app.models import LegalDocument, Plan, Tenant, TenantUser
+from app.models import (
+    LegalDocument,
+    ParkingLevel,
+    ParkingZone,
+    Plan,
+    Tenant,
+    TenantUser,
+    VehiclePresence,
+)
 from app.schemas.auth import RegisterTenantIn, RegisterTenantOut
 from app.schemas.common import Page, paginate
-from app.schemas.resources import CheckCodeOut, LegalDocOut, PlanOut
+from app.schemas.resources import (
+    CheckCodeOut,
+    LegalDocOut,
+    PlanOut,
+    PublicLocateOut,
+    PublicMapLevelOut,
+    PublicMapZoneOut,
+)
 from app.security import hash_password
+from app.services.parking_service import locate_presence
+from app.services.storage import presign_download
 
 router = APIRouter(tags=["public"])
 
@@ -114,4 +131,118 @@ async def register_tenant(body: RegisterTenantIn) -> RegisterTenantOut:
         tenant_id=tenant.id,
         owner_user_id=owner.id,
         message="Tenant registered. You can log in now.",
+    )
+
+
+# ---------- public parking map + find-my-car ----------
+async def _tenant_by_slug(db, slug: str) -> Tenant:
+    tenant = (
+        await db.execute(select(Tenant).where(Tenant.slug == slug.strip().lower()))
+    ).scalar_one_or_none()
+    if tenant is None or tenant.status != "active":
+        raise not_found("tenant", slug) from None
+    return tenant
+
+
+@router.get(
+    "/public/tenants/{slug}/parking/map",
+    response_model=list[PublicMapLevelOut],
+    dependencies=[Depends(rate_limited("public-parking-map", 60, 60))],
+)
+async def public_parking_map(slug: str) -> list[PublicMapLevelOut]:
+    """Levels + zones + occupancy only — no presence/plate data."""
+    async with platform_session() as db:
+        tenant = await _tenant_by_slug(db, slug)
+        levels = (
+            (
+                await db.execute(
+                    select(ParkingLevel)
+                    .where(ParkingLevel.tenant_id == tenant.id, ParkingLevel.status == "active")
+                    .order_by(ParkingLevel.sort_order, ParkingLevel.created_at)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not levels:
+            return []
+        level_ids = [lv.id for lv in levels]
+        zones = (
+            (
+                await db.execute(
+                    select(ParkingZone)
+                    .where(ParkingZone.tenant_id == tenant.id, ParkingZone.level_id.in_(level_ids))
+                    .order_by(ParkingZone.code)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        zone_ids = [z.id for z in zones]
+        occupancy = (
+            dict(
+                (
+                    await db.execute(
+                        select(VehiclePresence.zone_id, func.count())
+                        .where(
+                            VehiclePresence.tenant_id == tenant.id,
+                            VehiclePresence.zone_id.in_(zone_ids),
+                            VehiclePresence.status.in_(("parked", "stale")),
+                        )
+                        .group_by(VehiclePresence.zone_id)
+                    )
+                ).all()
+            )
+            if zone_ids
+            else {}
+        )
+
+    out: list[PublicMapLevelOut] = []
+    for lv in levels:
+        lv_out = PublicMapLevelOut.model_validate(lv)
+        if lv.map_image_url:
+            lv_out.map_image_url = presign_download(lv.map_image_url)
+        lv_out.zones = [
+            PublicMapZoneOut(
+                id=z.id,
+                level_id=z.level_id,
+                name=z.name,
+                code=z.code,
+                bounds=z.bounds or None,
+                occupied_count=occupancy.get(z.id, 0),
+            )
+            for z in zones
+            if z.level_id == lv.id
+        ]
+        out.append(lv_out)
+    return out
+
+
+@router.get(
+    "/public/tenants/{slug}/parking/locate",
+    response_model=PublicLocateOut,
+    dependencies=[Depends(rate_limited("public-parking-locate", 30, 60))],
+)
+async def public_parking_locate(
+    slug: str, plate: str = Query(min_length=1, max_length=20)
+) -> PublicLocateOut:
+    """Exact normalized-plate match; returns zone/level pointers only."""
+    if len(plate.strip()) < 4:
+        raise bad_request("plate must be at least 4 characters")
+    async with platform_session() as db:
+        tenant = await _tenant_by_slug(db, slug)
+        presence = await locate_presence(db, tenant_id=tenant.id, plate_number=plate)
+        if presence is None:
+            return PublicLocateOut(found=False)
+        zone = await db.get(ParkingZone, presence.zone_id) if presence.zone_id else None
+        level = await db.get(ParkingLevel, presence.level_id) if presence.level_id else None
+    return PublicLocateOut(
+        found=True,
+        zone_id=zone.id if zone else None,
+        zone_name=zone.name if zone else None,
+        zone_code=zone.code if zone else None,
+        level_id=level.id if level else None,
+        level_name=level.name if level else None,
+        level_code=level.code if level else None,
+        since_at=presence.first_seen_at,
     )

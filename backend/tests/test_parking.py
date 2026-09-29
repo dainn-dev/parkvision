@@ -9,6 +9,8 @@ from pydantic import ValidationError
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from tests.conftest import csrf, login
+
 
 def test_zone_bounds_rejects_overflow():
     from app.schemas.resources import ZoneBounds
@@ -496,3 +498,278 @@ async def test_exit_access_event_closes_presence(tenant, level_zone, admin_engin
         assert (
             await locate_presence(db, tenant_id=level_zone["tenant_id"], plate_number="51G-888.88")
         ) is None
+
+
+# ---------- Task 5/6/7: tenant + public parking API ----------
+
+
+@pytest_asyncio.fixture
+async def api_site(client, tenant):
+    """Site created through the API under `tenant` (logged in)."""
+    await login(client, tenant["email"], tenant["password"])
+    res = await client.post(
+        f"/api/v1/tenants/{tenant['tenant_id']}/sites",
+        json={"name": "Garage API"},
+        headers=csrf(client),
+    )
+    assert res.status_code == 201, res.text
+    return res.json()["id"]
+
+
+async def _mk_level(client, tid, site_id, name="B1", code="B1", sort_order=1):
+    res = await client.post(
+        f"/api/v1/tenants/{tid}/parking/levels",
+        json={"siteId": site_id, "name": name, "code": code, "sortOrder": sort_order},
+        headers=csrf(client),
+    )
+    assert res.status_code == 201, res.text
+    return res.json()["id"]
+
+
+async def _mk_zone(client, tid, level_id, name="Zone A", code="A", bounds=None, capacity=10):
+    body = {"name": name, "code": code, "capacity": capacity}
+    if bounds is not None:
+        body["bounds"] = bounds
+    res = await client.post(
+        f"/api/v1/tenants/{tid}/parking/levels/{level_id}/zones",
+        json=body,
+        headers=csrf(client),
+    )
+    assert res.status_code == 201, res.text
+    return res.json()["id"]
+
+
+async def _checkin(client, tid, zone_id, plate):
+    res = await client.post(
+        f"/api/v1/tenants/{tid}/parking/presence",
+        json={"plateNumber": plate, "zoneId": zone_id},
+        headers=csrf(client),
+    )
+    assert res.status_code == 201, res.text
+    return res.json()
+
+
+@pytest.mark.asyncio
+async def test_level_zone_crud_flow(client, tenant, api_site):
+    tid = tenant["tenant_id"]
+    level_id = await _mk_level(client, tid, api_site)
+
+    # list levels
+    res = await client.get(f"/api/v1/tenants/{tid}/parking/levels?site_id={api_site}")
+    assert res.status_code == 200
+    assert [lv["name"] for lv in res.json()] == ["B1"]
+
+    # patch level
+    res = await client.patch(
+        f"/api/v1/tenants/{tid}/parking/levels/{level_id}",
+        json={"name": "B1-renamed", "sortOrder": 3},
+        headers=csrf(client),
+    )
+    assert res.status_code == 200 and res.json()["name"] == "B1-renamed"
+
+    # zones under level
+    zone_id = await _mk_zone(client, tid, level_id, bounds={"x": 0.1, "y": 0.1, "w": 0.3, "h": 0.3})
+    res = await client.get(f"/api/v1/tenants/{tid}/parking/levels/{level_id}/zones")
+    assert res.status_code == 200 and res.json()[0]["code"] == "A"
+
+    # patch + delete zone
+    res = await client.patch(
+        f"/api/v1/tenants/{tid}/parking/zones/{zone_id}",
+        json={"capacity": 25},
+        headers=csrf(client),
+    )
+    assert res.status_code == 200 and res.json()["capacity"] == 25
+    res = await client.delete(f"/api/v1/tenants/{tid}/parking/zones/{zone_id}", headers=csrf(client))
+    assert res.status_code == 200
+
+    # delete level cascades
+    res = await client.delete(f"/api/v1/tenants/{tid}/parking/levels/{level_id}", headers=csrf(client))
+    assert res.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_parking_isolation(client, tenant, other_tenant, api_site):
+    tid = tenant["tenant_id"]
+    level_id = await _mk_level(client, tid, api_site)
+
+    client.cookies.clear()
+    await login(client, other_tenant["email"], other_tenant["password"])
+    otid = other_tenant["tenant_id"]
+
+    # other tenant's map is empty; foreign ids 404 under their context
+    res = await client.get(f"/api/v1/tenants/{otid}/parking/levels")
+    assert res.status_code == 200 and res.json() == []
+    res = await client.get(f"/api/v1/tenants/{otid}/parking/levels/{level_id}/zones")
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_map_aggregate_occupancy(client, tenant, api_site):
+    tid = tenant["tenant_id"]
+    level_id = await _mk_level(client, tid, api_site)
+    za = await _mk_zone(client, tid, level_id, name="A", code="A")
+    zb = await _mk_zone(client, tid, level_id, name="B", code="B")
+
+    await _checkin(client, tid, za, "51F-111.11")
+    await _checkin(client, tid, za, "51F-222.22")
+    await _checkin(client, tid, zb, "51F-333.33")
+
+    res = await client.get(f"/api/v1/tenants/{tid}/parking/map")
+    assert res.status_code == 200
+    levels = res.json()["levels"]
+    assert len(levels) == 1
+    occ = {z["code"]: z["occupiedCount"] for z in levels[0]["zones"]}
+    assert occ == {"A": 2, "B": 1}
+
+
+@pytest.mark.asyncio
+async def test_locate_found_and_not_found(client, tenant, api_site):
+    tid = tenant["tenant_id"]
+    level_id = await _mk_level(client, tid, api_site, name="B2", code="B2")
+    zone_id = await _mk_zone(client, tid, level_id, name="Zone S03", code="S03")
+    await _checkin(client, tid, zone_id, "51F-12345")
+
+    res = await client.get(f"/api/v1/tenants/{tid}/parking/locate?plate=51F123.45")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["found"] is True
+    assert body["zone"]["code"] == "S03"
+    assert body["level"]["name"] == "B2"
+
+    res = await client.get(f"/api/v1/tenants/{tid}/parking/locate?plate=99Z-99999")
+    assert res.status_code == 200 and res.json()["found"] is False
+
+
+@pytest.mark.asyncio
+async def test_manual_checkout_clears_presence(client, tenant, api_site):
+    tid = tenant["tenant_id"]
+    level_id = await _mk_level(client, tid, api_site)
+    zone_id = await _mk_zone(client, tid, level_id)
+    await _checkin(client, tid, zone_id, "51F-555.55")
+
+    res = await client.post(
+        f"/api/v1/tenants/{tid}/parking/presence/checkout",
+        json={"plateNumber": "51F-555.55"},
+        headers=csrf(client),
+    )
+    assert res.status_code == 200
+    res = await client.get(f"/api/v1/tenants/{tid}/parking/locate?plate=51F-555.55")
+    assert res.json()["found"] is False
+
+
+@pytest.mark.asyncio
+async def test_checkin_same_plate_other_zone_relocates(client, tenant, api_site):
+    tid = tenant["tenant_id"]
+    level_id = await _mk_level(client, tid, api_site)
+    za = await _mk_zone(client, tid, level_id, name="A", code="A")
+    zb = await _mk_zone(client, tid, level_id, name="B", code="B")
+
+    await _checkin(client, tid, za, "51F-777.77")
+    p2 = await _checkin(client, tid, zb, "51F-777.77")
+    assert p2["zoneId"] == zb
+
+    # map shows occupancy moved to B
+    res = await client.get(f"/api/v1/tenants/{tid}/parking/map")
+    occ = {z["code"]: z["occupiedCount"] for z in res.json()["levels"][0]["zones"]}
+    assert occ == {"A": 0, "B": 1}
+
+
+@pytest.mark.asyncio
+async def test_coverage_put_replaces_and_validates_site(client, tenant, api_site, admin_engine):
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    from app.models import CameraZoneCoverage
+
+    tid = tenant["tenant_id"]
+    level_id = await _mk_level(client, tid, api_site)
+    za = await _mk_zone(client, tid, level_id, name="A", code="A")
+    zb = await _mk_zone(client, tid, level_id, name="B", code="B")
+
+    cam = await client.post(
+        f"/api/v1/tenants/{tid}/cameras",
+        json={
+            "name": "Mon-1",
+            "siteId": api_site,
+            "streamUrl": "rtsp://10.0.0.5/1",
+            "purpose": "monitor",
+        },
+        headers=csrf(client),
+    )
+    assert cam.status_code == 201, cam.text
+    cam_id = cam.json()["id"]
+
+    res = await client.put(
+        f"/api/v1/tenants/{tid}/cameras/{cam_id}/coverage",
+        json={"zoneIds": [za, zb]},
+        headers=csrf(client),
+    )
+    assert res.status_code == 200, res.text
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        rows = (
+            (
+                await db.execute(
+                    select(CameraZoneCoverage.zone_id).where(
+                        CameraZoneCoverage.camera_id == uuid.UUID(cam_id)
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert set(rows) == {uuid.UUID(za), uuid.UUID(zb)}
+
+    # zone from another site → 400
+    site2 = await client.post(
+        f"/api/v1/tenants/{tid}/sites", json={"name": "Other Site"}, headers=csrf(client)
+    )
+    level2 = await _mk_level(client, tid, site2.json()["id"], name="L2", code="L2")
+    foreign_zone = await _mk_zone(client, tid, level2, name="FZ", code="FZ")
+    res = await client.put(
+        f"/api/v1/tenants/{tid}/cameras/{cam_id}/coverage",
+        json={"zoneIds": [foreign_zone]},
+        headers=csrf(client),
+    )
+    assert res.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_public_map_and_locate(client, tenant, api_site):
+    tid, slug = tenant["tenant_id"], tenant["slug"]
+    level_id = await _mk_level(client, tid, api_site, name="B1", code="B1")
+    zone_id = await _mk_zone(
+        client, tid, level_id, name="Zone A", code="A", bounds={"x": 0, "y": 0, "w": 0.5, "h": 0.5}
+    )
+    await _checkin(client, tid, zone_id, "51F-12345")
+
+    res = await client.get(f"/api/v1/public/tenants/{slug}/parking/map")
+    assert res.status_code == 200
+    levels = res.json()
+    assert len(levels) == 1 and levels[0]["zones"][0]["occupiedCount"] == 1
+    # no presence/plate fields anywhere
+    assert "plateNumber" not in res.text
+
+    res = await client.get(f"/api/v1/public/tenants/{slug}/parking/locate?plate=51F12345")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["found"] is True and body["zoneCode"] == "A" and body["levelName"] == "B1"
+    assert set(body.keys()) <= {
+        "found",
+        "zoneId",
+        "zoneName",
+        "zoneCode",
+        "levelId",
+        "levelName",
+        "levelCode",
+        "sinceAt",
+    }
+
+    res = await client.get(f"/api/v1/public/tenants/{slug}/parking/locate?plate=51F123")
+    assert res.json()["found"] is False
+
+    res = await client.get(f"/api/v1/public/tenants/{slug}/parking/locate?plate=51F")
+    assert res.status_code == 400
+
+    res = await client.get("/api/v1/public/tenants/nope-slug/parking/map")
+    assert res.status_code == 404
