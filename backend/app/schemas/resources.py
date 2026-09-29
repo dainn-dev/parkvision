@@ -292,7 +292,7 @@ GateOut.model_rebuild()
 
 # ---------- cameras ----------
 _CAMERA_SCHEMES = {"rtsp", "rtsps", "http", "https"}
-_CAMERA_PURPOSES = {"plate", "overview"}
+_CAMERA_PURPOSES = {"plate", "overview", "monitor"}
 _CAMERA_STATUSES = {"provisioning", "active", "disabled"}
 
 
@@ -362,7 +362,180 @@ class CameraOut(CamelModel):
     purpose: str
     status: str
     notes: str | None
+    last_snapshot_url: str | None = None
+    snapshot_captured_at: datetime | None = None
     created_at: datetime
+
+
+# ---------- parking map (levels → zones; monitor-camera presence) ----------
+_PARKING_STATUSES = {"active", "disabled"}
+
+
+def _valid_parking_status(v: str | None) -> str | None:
+    if v is not None and v not in _PARKING_STATUSES:
+        raise ValueError(f"status must be one of {sorted(_PARKING_STATUSES)}")
+    return v
+
+
+class ZoneBounds(CamelModel):
+    """Normalized rect {x, y, w, h} within the level map image (0..1)."""
+
+    x: float = Field(ge=0, le=1)
+    y: float = Field(ge=0, le=1)
+    w: float = Field(gt=0, le=1)
+    h: float = Field(gt=0, le=1)
+
+    def model_post_init(self, __context) -> None:
+        if self.x + self.w > 1.0001 or self.y + self.h > 1.0001:
+            raise ValueError("bounds must fit within the map")
+
+
+class ParkingLevelIn(CamelModel):
+    site_id: uuid.UUID
+    name: str = Field(min_length=1, max_length=200)
+    code: str | None = Field(default=None, max_length=50)
+    sort_order: int = 0
+    map_image_url: str | None = None
+    status: str | None = None
+
+    _status_ok = field_validator("status")(_valid_parking_status)
+
+
+class ParkingLevelUpdateIn(CamelModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    code: str | None = Field(default=None, max_length=50)
+    sort_order: int | None = None
+    map_image_url: str | None = None
+    status: str | None = None
+
+    _status_ok = field_validator("status")(_valid_parking_status)
+
+
+class ParkingLevelOut(CamelModel):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    site_id: uuid.UUID
+    name: str
+    code: str | None
+    sort_order: int
+    map_image_url: str | None
+    status: str
+    created_at: datetime
+
+
+class ParkingZoneIn(CamelModel):
+    name: str = Field(min_length=1, max_length=200)
+    code: str | None = Field(default=None, max_length=50)
+    bounds: ZoneBounds | None = None
+    capacity: int = Field(0, ge=0)
+    status: str | None = None
+
+    _status_ok = field_validator("status")(_valid_parking_status)
+
+
+class ParkingZoneUpdateIn(CamelModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    code: str | None = Field(default=None, max_length=50)
+    bounds: ZoneBounds | None = None
+    capacity: int | None = Field(default=None, ge=0)
+    status: str | None = None
+
+    _status_ok = field_validator("status")(_valid_parking_status)
+
+
+class ParkingZoneOut(CamelModel):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    site_id: uuid.UUID
+    level_id: uuid.UUID
+    name: str
+    code: str | None
+    bounds: dict[str, Any] | None
+    capacity: int
+    status: str
+    created_at: datetime
+
+
+class MapZoneOut(ParkingZoneOut):
+    occupied_count: int = 0
+    camera_ids: list[uuid.UUID] = []
+
+
+class MapLevelOut(ParkingLevelOut):
+    zones: list[MapZoneOut] = []
+
+
+class ParkingMapOut(CamelModel):
+    tenant_id: uuid.UUID
+    levels: list[MapLevelOut]
+
+
+class PresenceOut(CamelModel):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    site_id: uuid.UUID
+    level_id: uuid.UUID | None
+    zone_id: uuid.UUID | None
+    plate_number: str
+    plate_normalized: str
+    vehicle_id: uuid.UUID | None
+    camera_id: uuid.UUID | None
+    confidence: float | None
+    status: str
+    first_seen_at: datetime
+    last_seen_at: datetime
+    exited_at: datetime | None
+
+
+class LocateOut(CamelModel):
+    found: bool
+    presence: PresenceOut | None = None
+    zone: ParkingZoneOut | None = None
+    level: ParkingLevelOut | None = None
+    camera_name: str | None = None
+
+
+class PresenceCheckinIn(CamelModel):
+    plate_number: str = Field(min_length=4, max_length=20)
+    zone_id: uuid.UUID
+    confidence: float | None = Field(default=None, ge=0, le=1)
+
+
+class PresenceCheckoutIn(CamelModel):
+    plate_number: str = Field(min_length=4, max_length=20)
+
+
+class CameraCoverageIn(CamelModel):
+    zone_ids: list[uuid.UUID]
+
+
+class PublicMapZoneOut(CamelModel):
+    id: uuid.UUID
+    level_id: uuid.UUID
+    name: str
+    code: str | None
+    bounds: dict[str, Any] | None
+    occupied_count: int = 0
+
+
+class PublicMapLevelOut(CamelModel):
+    id: uuid.UUID
+    name: str
+    code: str | None
+    sort_order: int
+    map_image_url: str | None
+    zones: list[PublicMapZoneOut] = []
+
+
+class PublicLocateOut(CamelModel):
+    found: bool
+    zone_id: uuid.UUID | None = None
+    zone_name: str | None = None
+    zone_code: str | None = None
+    level_id: uuid.UUID | None = None
+    level_name: str | None = None
+    level_code: str | None = None
+    since_at: datetime | None = None
 
 
 # ---------- tenant users ----------
