@@ -208,6 +208,30 @@ class EdgeDevice(TimestampMixin, Base):
     last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class DeviceActivationCode(TimestampMixin, Base):
+    """One-time provisioning code for a registered edge device.
+
+    The tenant admin generates a code; the edge client redeems it once via
+    `POST /edge/activate` and receives a device credential + config bundle.
+    Only the sha256 hash of the code is stored.
+    """
+
+    __tablename__ = "device_activation_codes"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    edge_device_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("edge_devices.id", ondelete="CASCADE"), nullable=False
+    )
+    code_hash: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    code_prefix: Mapped[str] = mapped_column(String(16), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+
+
 class SiteLane(TimestampMixin, Base):
     __tablename__ = "site_lanes"
 
@@ -502,6 +526,9 @@ class ApiCredential(TimestampMixin, Base):
     previous_grace_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     scopes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    edge_device_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("edge_devices.id", ondelete="SET NULL")
+    )
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rotated_from: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))

@@ -1,6 +1,7 @@
 """API credential verification for non-cookie clients (edge devices, integrations)."""
 
 import hashlib
+import secrets
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -11,6 +12,22 @@ from app.models import ApiCredential
 
 def hash_api_key(plaintext: str) -> str:
     return hashlib.sha256(plaintext.encode()).hexdigest()
+
+
+# Crockford base32 — no I/L/O/U, safe for humans to read aloud or type.
+_ACTIVATION_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+
+
+def generate_activation_code() -> str:
+    """`XXXX-XXXX-XXXX` — 12 base32 chars (~60 bits), grouped for typing."""
+    raw = "".join(secrets.choice(_ACTIVATION_ALPHABET) for _ in range(12))
+    return f"{raw[:4]}-{raw[4:8]}-{raw[8:]}"
+
+
+def hash_activation_code(code: str) -> str:
+    """Normalize human input (case/dash/space-insensitive) then sha256."""
+    normalized = code.upper().replace("-", "").replace(" ", "")
+    return hashlib.sha256(normalized.encode()).hexdigest()
 
 
 async def authenticate_api_key(db: AsyncSession, plaintext: str) -> ApiCredential | None:
