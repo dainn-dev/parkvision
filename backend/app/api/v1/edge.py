@@ -20,6 +20,7 @@ from app.core.rate_limit import rate_limited
 from app.database import platform_session
 from app.models import (
     ApiCredential,
+    BarrierGate,
     EdgeDevice,
     RegisteredVehicle,
     TenantAccessRule,
@@ -147,15 +148,31 @@ async def edge_activate(body: ActivateIn, request: Request) -> ActivationBundleO
         if row.allowed_ip and not _ip_allowed(row.allowed_ip, request):
             # Reject WITHOUT consuming — a wrong-IP attempt must not burn the code.
             raise forbidden("Activation code is not allowed from this IP address")
-        consumed = await consume_activation_code(db, row)
-        if consumed is None:
-            raise conflict("Activation code already redeemed")
 
         device = (
             await db.execute(select(EdgeDevice).where(EdgeDevice.id == row.edge_device_id))
         ).scalar_one_or_none()
         if device is None or device.status == "decommissioned":
             raise unauthorized("Activation code is not valid for an active device")
+        # A device with no bound gates yields an empty bundle the client
+        # rejects — refuse BEFORE consuming so the code survives the fix.
+        has_gate = (
+            await db.execute(
+                select(BarrierGate.id)
+                .where(BarrierGate.edge_device_id == device.id)
+                .limit(1)
+            )
+        ).first() is not None
+        if not has_gate:
+            raise ApiError(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "device_has_no_gates",
+                "Device has no gates bound — assign gates to this device before activating",
+            )
+
+        consumed = await consume_activation_code(db, row)
+        if consumed is None:
+            raise conflict("Activation code already redeemed")
 
         cred, plain = mint_device_credential(device)
         db.add(cred)

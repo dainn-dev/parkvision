@@ -320,6 +320,38 @@ async def test_activate_consumed_code_rejected(
 
 
 @pytest.mark.asyncio
+async def test_activate_device_without_gates_rejected_before_consume(
+    client: AsyncClient, tenant, site_and_device, admin_engine
+):
+    """A device with no bound gates must not burn the one-time code — the
+    tenant binds gates on the dashboard and the operator retries the same code."""
+    from app.models import DeviceActivationCode
+
+    _site_id, device = site_and_device
+    code_res = await client.post(
+        f"/api/v1/tenants/{tenant['tenant_id']}/devices/{device['id']}/activation-codes",
+        headers=csrf(client),
+    )
+    assert code_res.status_code == 201, code_res.text
+    code = code_res.json()["code"]
+
+    res = await client.post("/api/v1/edge/activate", json={"code": code})
+    assert res.status_code == 422, res.text
+    assert "gate" in res.json()["error"]["message"].lower()
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        row = (
+            await db.execute(
+                select(DeviceActivationCode).where(
+                    DeviceActivationCode.code_hash == hash_activation_code(code)
+                )
+            )
+        ).scalar_one()
+        assert row.consumed_at is None
+
+
+@pytest.mark.asyncio
 async def test_edge_config_returns_bundle_without_secrets(
     client: AsyncClient, tenant, activation_setup
 ):
@@ -492,6 +524,27 @@ def _edge_client(ip: str) -> AsyncClient:
     )
 
 
+async def _bind_gate(client: AsyncClient, tenant, site_id: str, device_id: str) -> None:
+    """Attach one gate to the device — activation refuses gateless devices."""
+    lane = await client.post(
+        f"/api/v1/tenants/{tenant['tenant_id']}/sites/{site_id}/lanes",
+        json={"name": "Lane entry", "direction": "entry"},
+        headers=csrf(client),
+    )
+    assert lane.status_code == 201, lane.text
+    gate = await client.post(
+        f"/api/v1/tenants/{tenant['tenant_id']}/gates",
+        json={
+            "siteId": site_id,
+            "laneId": lane.json()["id"],
+            "edgeDeviceId": device_id,
+            "name": "Gate entry",
+        },
+        headers=csrf(client),
+    )
+    assert gate.status_code == 201, gate.text
+
+
 async def _gen_code(client: AsyncClient, tenant, device_id: str, body=None) -> str:
     res = await client.post(
         f"/api/v1/tenants/{tenant['tenant_id']}/devices/{device_id}/activation-codes",
@@ -540,7 +593,8 @@ async def test_failed_ip_check_does_not_consume_code(
     client: AsyncClient, tenant, site_and_device
 ):
     """A wrong-IP attempt must not burn the one-time code."""
-    _, device = site_and_device
+    site_id, device = site_and_device
+    await _bind_gate(client, tenant, site_id, device["id"])
     code = await _gen_code(client, tenant, device["id"], {"allowedIp": "203.0.113.10"})
 
     async with _edge_client("198.51.100.99") as bad:
@@ -557,7 +611,8 @@ async def test_failed_ip_check_does_not_consume_code(
 async def test_activate_cidr_range_allows_subnet(
     client: AsyncClient, tenant, site_and_device
 ):
-    _, device = site_and_device
+    site_id, device = site_and_device
+    await _bind_gate(client, tenant, site_id, device["id"])
     code = await _gen_code(client, tenant, device["id"], {"allowedIp": "203.0.113.0/24"})
 
     async with _edge_client("203.0.113.77") as edge:
@@ -570,7 +625,8 @@ async def test_xff_honored_when_peer_is_private(
     client: AsyncClient, tenant, site_and_device
 ):
     """Behind a proxy the peer is private/loopback — first XFF hop is the real IP."""
-    _, device = site_and_device
+    site_id, device = site_and_device
+    await _bind_gate(client, tenant, site_id, device["id"])
     code = await _gen_code(client, tenant, device["id"], {"allowedIp": "203.0.113.10"})
 
     async with _edge_client("127.0.0.1") as edge:

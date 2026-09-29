@@ -226,7 +226,16 @@ pub async fn activate(
         return Err("activation code expired".to_string());
     }
     if !resp.status().is_success() {
-        return Err(format!("activation failed (HTTP {})", resp.status()));
+        let status = resp.status();
+        let detail = resp
+            .json::<serde_json::Value>()
+            .await
+            .ok()
+            .and_then(|v| v["error"]["message"].as_str().map(str::to_string));
+        return Err(match detail {
+            Some(d) => format!("activation failed (HTTP {status}): {d}"),
+            None => format!("activation failed (HTTP {status})"),
+        });
     }
     let bundle: BundleOut = resp
         .json()
