@@ -16,7 +16,7 @@ use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::hal::config::{BarrierConfig, ContactMode};
+use crate::hal::config::BarrierConfig;
 
 pub const CONFIG_VERSION: u32 = 3;
 
@@ -143,7 +143,7 @@ impl EdgeConfig {
                 bail!("gate direction must be 'entry' or 'exit' (lowercase)");
             }
             if let Some(b) = &g.barrier {
-                b.validate(b.overrides.mode.unwrap_or(ContactMode::OpenCloseStop))
+                b.validate(crate::hal::profiles::resolve_profile(b).mode)
                     .with_context(|| format!("gate {} barrier", g.gate_id))?;
             }
         }

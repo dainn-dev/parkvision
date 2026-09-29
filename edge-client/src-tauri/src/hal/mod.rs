@@ -5,6 +5,7 @@
 //! touching the FSM.
 
 pub mod config;
+pub mod profiles;
 
 use std::sync::Mutex;
 use std::time::Duration;
