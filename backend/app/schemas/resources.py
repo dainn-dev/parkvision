@@ -212,6 +212,14 @@ class DeviceOut(CamelModel):
         return None if v is None else str(v)
 
 
+class ActivationCodeOut(CamelModel):
+    """One-time device activation code — plaintext `code` is only in this response."""
+
+    code: str
+    code_prefix: str
+    expires_at: datetime
+
+
 class DeviceUpdateIn(CamelModel):
     site_id: uuid.UUID | None = None
     name: str | None = Field(default=None, min_length=2, max_length=200)
