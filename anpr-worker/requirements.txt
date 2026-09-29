@@ -1,0 +1,17 @@
+# Dependencies for the headless edge service (run_edge.py).
+# Deliberately excludes the desktop-only stack (PyQt5, pyttsx3, gTTS, pygame,
+# matplotlib, seaborn) so the service can run on a slim/GUI-less host.
+opencv-python
+numpy<2.0
+Pillow
+torch
+torchvision
+tqdm
+pyyaml
+requests
+pandas
+ultralytics
+scipy
+# DAI-292 OCR dependencies are deliberately separated:
+#   requirements-ocr-production.txt                  PaddleOCR production path
+#   ../tools/plate_eval/requirements-ocr-benchmark.txt  EasyOCR/VietOCR offline comparison
