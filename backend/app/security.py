@@ -101,6 +101,7 @@ def create_access_token(
     mfa_pending: bool = False,
     impersonator_id: uuid.UUID | None = None,
     ttl_seconds: int | None = None,
+    amr: list[str] | None = None,
 ) -> str:
     now = datetime.now(timezone.utc)
     claims = {
@@ -111,6 +112,7 @@ def create_access_token(
         "role": role,
         "mfa": mfa_verified,
         "mfa_pending": mfa_pending,
+        "amr": amr or (["pwd", "otp"] if mfa_verified else ["pwd"]),
         "jti": uuid.uuid4().hex,
         "iat": now,
         "exp": now + timedelta(seconds=ttl_seconds or settings.access_token_ttl_seconds),

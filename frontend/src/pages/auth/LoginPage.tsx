@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Button, Badge } from '../../components/ui';
 import { usePlatform } from '../../context/PlatformContext';
+import { authApi } from '../../services/api';
 import { PublicViewType } from '../../components/layout/PublicNavbar';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../../components/common/LanguageSwitcher';
@@ -42,8 +43,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isMfaEnabledForAccount, setIsMfaEnabledForAccount] = useState(false);
 
-  // Flow Step: 'credentials' | 'mfa_challenge' | 'backup_code'
-  const [step, setStep] = useState<'credentials' | 'mfa_challenge' | 'backup_code'>('credentials');
+  // Flow Step: 'credentials' | 'mfa_challenge' | 'backup_code' | 'forgot_password'
+  const [step, setStep] = useState<'credentials' | 'mfa_challenge' | 'backup_code' | 'forgot_password'>('credentials');
 
   // OTP Input State (6 Digits)
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
@@ -54,6 +55,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number>(30);
+  const [forgotSent, setForgotSent] = useState(false);
+
+  // Resume a pending MFA transaction after a browser refresh (spec §27).
+  // A live mfa_pending cookie means credentials already passed — jump
+  // straight back to the OTP challenge instead of asking for the password.
+  useEffect(() => {
+    authApi
+      .mfaSession()
+      .then(() => setStep('mfa_challenge'))
+      .catch(() => undefined);
+  }, []);
 
   // 30s TOTP countdown timer
   useEffect(() => {
@@ -189,6 +201,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     const res = await login(email, password, code);
     setIsLoading(false);
     if (!res.success) {
+      // Expired/exhausted transaction → restart at credentials (spec §26).
+      if (res.code === 'mfa_session_expired' || res.code === 'mfa_session_invalid' || res.code === 'mfa_too_many_attempts') {
+        setStep('credentials');
+        setOtpDigits(['', '', '', '', '', '']);
+        setErrorMessage(res.message ?? t('Your authentication session expired. Please sign in again.'));
+        return;
+      }
       setErrorMessage(res.message ?? t('Invalid or expired TOTP code. Please try again.'));
     } else {
       addToast({
@@ -218,9 +237,30 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
         title: t('Signed in with Recovery Code'),
         description: t('Verified using an emergency backup code.')
       });
+    } else if (res.code === 'mfa_session_expired' || res.code === 'mfa_session_invalid' || res.code === 'mfa_too_many_attempts') {
+      setStep('credentials');
+      setErrorMessage(res.message ?? t('Your authentication session expired. Please sign in again.'));
     } else {
       setErrorMessage(res.message ?? t('Invalid recovery code.'));
     }
+  };
+
+  // Forgot password (Step 0) — response never reveals whether the email exists.
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      setErrorMessage(t('Please enter your account email.'));
+      return;
+    }
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      await authApi.passwordForgot(email.toLowerCase());
+    } catch {
+      // Even a transport failure gets the same neutral message.
+    }
+    setIsLoading(false);
+    setForgotSent(true);
   };
 
   return (
@@ -388,6 +428,83 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
               >
                 {isLoading ? t('Verifying credentials...') : t('Continue to sign in')}
               </Button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('forgot_password');
+                    setErrorMessage(null);
+                    setForgotSent(false);
+                  }}
+                  className="text-[11px] text-[#8b949e] hover:text-[#58a6ff] hover:underline font-mono cursor-pointer"
+                >
+                  {t('Forgot your password?')}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* STEP 0: FORGOT PASSWORD */}
+          {step === 'forgot_password' && (
+            <form onSubmit={handleForgotSubmit} className="space-y-4 animate-in fade-in duration-200">
+              <div className="text-center space-y-1">
+                <h3 className="text-sm font-bold text-white">{t('Reset your password')}</h3>
+                <p className="text-xs text-[#8b949e]">
+                  {t('Enter your account email and we will send you a reset link.')}
+                </p>
+              </div>
+
+              {forgotSent ? (
+                <div className="p-3 bg-[#238636]/15 border border-[#3fb950]/40 rounded-xl text-[#3fb950] text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{t('If an account exists for this email, a reset link was sent.')}</span>
+                </div>
+              ) : (
+                <div>
+                  <label className="text-xs font-semibold text-[#c9d1d9] block mb-1.5">
+                    {t('Administrator Email Address')}
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-[#8b949e] absolute left-3 top-3" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="admin@vehicleplatform.com"
+                      className="w-full pl-9 pr-3 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-xs text-white placeholder-[#8b949e] focus:outline-none focus:border-[#58a6ff] focus:ring-2 focus:ring-[#58a6ff]/20 transition-all font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {errorMessage && (
+                <div className="p-3 bg-[#da3633]/20 border border-[#f85149]/40 rounded-xl text-[#f85149] text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setStep('credentials');
+                    setErrorMessage(null);
+                  }}
+                  icon={ChevronLeft}
+                >
+                  {t('Back')}
+                </Button>
+                {!forgotSent && (
+                  <Button type="submit" variant="primary" className="flex-1" isLoading={isLoading}>
+                    {t('Send reset link')}
+                  </Button>
+                )}
+              </div>
             </form>
           )}
 

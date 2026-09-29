@@ -125,17 +125,18 @@ interface PlatformContextType {
     role: string;
     mfaEnabled: boolean;
   };
-  login: (email: string, pass: string, otp?: string) => Promise<{ requiresMfa: boolean; success: boolean; message?: string }>;
+  login: (email: string, pass: string, otp?: string) => Promise<{ requiresMfa: boolean; success: boolean; message?: string; code?: string; mfaExpiresIn?: number }>;
   logout: () => void;
+  refreshMe: () => Promise<void>;
 
   theme: 'dark' | 'light';
   toggleTheme: () => void;
 
   isMfaModalOpen: boolean;
-  mfaModalMode: 'enroll' | 'challenge' | 'reset_admin';
+  mfaModalMode: 'enroll' | 'challenge' | 'reset_admin' | 'disable';
   mfaTargetAdminName?: string;
   isMfaVerified: boolean;
-  openMfaModal: (mode?: 'enroll' | 'challenge' | 'reset_admin', targetAdminName?: string) => void;
+  openMfaModal: (mode?: 'enroll' | 'challenge' | 'reset_admin' | 'disable', targetAdminName?: string) => void;
   closeMfaModal: () => void;
 
   primaryTab: PrimaryTab;
@@ -418,15 +419,30 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         await authApi.mfaVerify(otpCode);
       } else {
         const res = await authApi.login(emailInput.toLowerCase(), passInput);
-        if (res.mfaRequired) return { requiresMfa: true, success: true };
+        if (res.mfaRequired)
+          return { requiresMfa: true, success: true, mfaExpiresIn: res.expiresIn };
       }
       const me = await authApi.me();
       applyMe(me);
       return { requiresMfa: false, success: true };
     } catch (e) {
-      return { requiresMfa: false, success: false, message: errText(e) };
+      return {
+        requiresMfa: false,
+        success: false,
+        message: errText(e),
+        code: e instanceof ApiError ? e.code : undefined,
+      };
     }
   };
+
+  // Re-pull /auth/me — e.g. after MFA enrollment flips user.mfaEnabled.
+  const refreshMe = useCallback(async () => {
+    try {
+      applyMe(await authApi.me());
+    } catch {
+      /* session gone — leave state as-is */
+    }
+  }, [applyMe]);
 
   const logout = () => {
     authApi.logout().catch(() => undefined);
@@ -450,10 +466,10 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   // ---------- MFA modal ----------
   const [isMfaModalOpen, setIsMfaModalOpen] = useState(false);
-  const [mfaModalMode, setMfaModalMode] = useState<'enroll' | 'challenge' | 'reset_admin'>('enroll');
+  const [mfaModalMode, setMfaModalMode] = useState<'enroll' | 'challenge' | 'reset_admin' | 'disable'>('enroll');
   const [mfaTargetAdminName, setMfaTargetAdminName] = useState<string | undefined>(undefined);
   const [isMfaVerified, setIsMfaVerified] = useState(false);
-  const openMfaModal = (mode: 'enroll' | 'challenge' | 'reset_admin' = 'enroll', targetAdminName?: string) => {
+  const openMfaModal = (mode: 'enroll' | 'challenge' | 'reset_admin' | 'disable' = 'enroll', targetAdminName?: string) => {
     setMfaModalMode(mode);
     setMfaTargetAdminName(targetAdminName);
     setIsMfaModalOpen(true);
@@ -1942,6 +1958,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         currentUser,
         login,
         logout,
+        refreshMe,
         theme,
         toggleTheme,
         isMfaModalOpen,

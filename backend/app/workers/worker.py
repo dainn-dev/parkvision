@@ -8,6 +8,7 @@ from app.workers import jobs
 class WorkerSettings:
     functions = [
         jobs.send_invite_email,
+        jobs.send_password_reset_email,
         jobs.vehicle_import,
         jobs.audit_export,
     ]

@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_ttl_seconds: int = 900
     refresh_token_ttl_seconds: int = 60 * 60 * 24 * 14
+    # MFA transaction: the mfa_pending token and the staged session's OTP
+    # window both expire after this. OTP guesses are bounded per transaction.
+    mfa_pending_ttl_seconds: int = 300
+    mfa_max_attempts: int = 5
+    # Brute-force lockout: consecutive password failures before temporary lock.
+    login_max_attempts: int = 5
+    login_lockout_seconds: int = 900
+    password_reset_ttl_seconds: int = 1800
 
     cookie_domain: str | None = None
     cookie_secure: bool = False

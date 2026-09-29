@@ -22,12 +22,14 @@ import {
 } from 'lucide-react';
 import { Button, Badge } from '../ui';
 import { usePlatform } from '../../context/PlatformContext';
+import { authApi, ApiError } from '../../services/api';
+import QRCode from 'qrcode';
 import { useTranslation } from 'react-i18next';
 
 export interface MfaFlowModalProps {
   isOpen: boolean;
   onClose: () => void;
-  mode?: 'enroll' | 'challenge' | 'reset_admin';
+  mode?: 'enroll' | 'challenge' | 'reset_admin' | 'disable';
   targetAdminName?: string;
   onSuccess?: () => void;
 }
@@ -41,29 +43,24 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
   targetAdminName,
   onSuccess
 }) => {
-  const { addToast, pushAuditLog } = usePlatform();
+  const { addToast, pushAuditLog, currentUser, logout, refreshMe } = usePlatform();
   const { t } = useTranslation('security');
 
   // Step flow state: 1: Method, 2: Setup/QR, 3: Verify OTP, 4: Recovery Codes, 5: Complete
   const [step, setStep] = useState<number>(mode === 'challenge' ? 3 : 1);
   const [selectedMethod, setSelectedMethod] = useState<MfaMethod>('totp');
-  
+
   // OTP input state (6 digits)
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Secret & Recovery state
-  const [mfaSecret] = useState('K43X-6MZP-9QL2-W8VY');
-  const [recoveryCodes] = useState<string[]>([
-    'a7f9-4b2c',
-    '9x3e-8k1m',
-    '5p2r-7w9q',
-    '3m8v-1n4k',
-    '8j5t-2z6p',
-    '4d1c-9g7h',
-    '6k3w-8s2x',
-    '2v9y-5f4b'
-  ]);
+  // Real enrollment state from the backend (secret/URI/QR + issued backup codes)
+  const [mfaSecret, setMfaSecret] = useState('');
+  const [provisioningUri, setProvisioningUri] = useState('');
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [isSetupLoading, setIsSetupLoading] = useState(false);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [disablePassword, setDisablePassword] = useState('');
   
   const [isCopiedSecret, setIsCopiedSecret] = useState(false);
   const [isCopiedCodes, setIsCopiedCodes] = useState(false);
@@ -83,6 +80,28 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
     return () => clearInterval(interval);
   }, [isOpen]);
 
+  // Fetch a real TOTP secret + QR from the backend when enrolling (spec §18:
+  // MFA only becomes enabled after the first OTP verifies).
+  const startSetup = async () => {
+    setIsSetupLoading(true);
+    setVerificationError(null);
+    try {
+      const res = await authApi.mfaSetup();
+      setMfaSecret(res.secret);
+      setProvisioningUri(res.provisioningUri);
+      setQrDataUrl(await QRCode.toDataURL(res.provisioningUri, { margin: 1, width: 220 }));
+      setStep(2);
+    } catch (e) {
+      addToast({
+        type: 'error',
+        title: t('MFA setup failed'),
+        description: e instanceof ApiError ? e.message : t('Could not generate an authenticator secret.')
+      });
+    } finally {
+      setIsSetupLoading(false);
+    }
+  };
+
   // Reset modal state on open
   useEffect(() => {
     if (isOpen) {
@@ -91,6 +110,11 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
       setVerificationError(null);
       setIsVerifying(false);
       setHasSavedCodes(false);
+      setMfaSecret('');
+      setProvisioningUri('');
+      setQrDataUrl('');
+      setRecoveryCodes([]);
+      setDisablePassword('');
     }
   }, [isOpen, mode]);
 
@@ -142,7 +166,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
   };
 
   // Handle OTP verification submission
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
     const fullCode = otpDigits.join('');
     if (fullCode.length < 6) {
       setVerificationError(t('Please enter all 6 digits of your authenticator code.'));
@@ -152,11 +176,33 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
     setIsVerifying(true);
     setVerificationError(null);
 
-    // Simulate MFA verification
+    // Enroll mode verifies against the real backend: a correct first code
+    // enables MFA and returns the one-time recovery codes.
+    if (mode === 'enroll') {
+      try {
+        const res = await authApi.mfaEnable(fullCode);
+        setRecoveryCodes(res.backupCodes);
+        addToast({
+          type: 'success',
+          title: t('MFA Verification Successful'),
+          description: t('TOTP Authenticator successfully configured!')
+        });
+        pushAuditLog('SECURITY', 'MFA_ENROLLED', 'USER', 'mfa-session', t('TOTP Authentication Verified'));
+        setStep(4);
+      } catch (e) {
+        setVerificationError(
+          e instanceof ApiError ? e.message : t('Invalid passkey code or expired TOTP window. Please check your device time.')
+        );
+      } finally {
+        setIsVerifying(false);
+      }
+      return;
+    }
+
+    // Demo challenge elevation (no backend counterpart — step-up auth is not
+    // exposed for already-authenticated sessions).
     setTimeout(() => {
       setIsVerifying(false);
-
-      // Any 6-digit code except starting with '000000' is considered valid for demo
       if (fullCode === '000000') {
         setVerificationError(t('Invalid passkey code or expired TOTP window. Please check your device time.'));
         addToast({
@@ -168,22 +214,43 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
         addToast({
           type: 'success',
           title: t('MFA Verification Successful'),
-          description: mode === 'challenge' ? t('Identity verified. Access session elevated.') : t('TOTP Authenticator successfully configured!')
+          description: t('Identity verified. Access session elevated.')
         });
-
-        pushAuditLog('SECURITY', mode === 'challenge' ? 'MFA_CHALLENGE_SUCCESS' : 'MFA_ENROLLED', 'USER', 'mfa-session', t('TOTP Authentication Verified'));
-
-        if (mode === 'challenge') {
-          if (onSuccess) onSuccess();
-          onClose();
-        } else if (mode === 'reset_admin') {
-          if (onSuccess) onSuccess();
-          onClose();
-        } else {
-          setStep(4); // Move to recovery codes step
-        }
+        pushAuditLog('SECURITY', 'MFA_CHALLENGE_SUCCESS', 'USER', 'mfa-session', t('TOTP Authentication Verified'));
+        if (onSuccess) onSuccess();
+        onClose();
       }
     }, 1000);
+  };
+
+  // Disable MFA — strong re-auth (password + current OTP); the backend revokes
+  // all sessions on success, so drop to a signed-out state locally (spec §19).
+  const handleDisableMfa = async () => {
+    const fullCode = otpDigits.join('');
+    if (!disablePassword) {
+      setVerificationError(t('Enter your password to continue.'));
+      return;
+    }
+    if (fullCode.length < 6) {
+      setVerificationError(t('Please enter all 6 digits of your authenticator code.'));
+      return;
+    }
+    setIsVerifying(true);
+    setVerificationError(null);
+    try {
+      await authApi.mfaDisable(disablePassword, fullCode);
+      addToast({
+        type: 'success',
+        title: t('MFA Disabled'),
+        description: t('All sessions were revoked. Please sign in again.')
+      });
+      onClose();
+      logout();
+    } catch (e) {
+      setVerificationError(e instanceof ApiError ? e.message : t('Could not disable MFA.'));
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   // Copy secret key
@@ -213,7 +280,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
   // Download recovery codes TXT file
   const handleDownloadRecoveryCodes = () => {
     const element = document.createElement('a');
-    const file = new Blob([`VEHICLE PLATFORM MFA RECOVERY CODES\nAccount: anh.nh@kyanon.digital\nGenerated: ${new Date().toLocaleString()}\n\nKeep these single-use codes in a secure location:\n\n` + recoveryCodes.map((c, i) => `${i + 1}. ${c}`).join('\n')], { type: 'text/plain' });
+    const file = new Blob([`VEHICLE PLATFORM MFA RECOVERY CODES\nAccount: ${currentUser.email}\nGenerated: ${new Date().toLocaleString()}\n\nKeep these single-use codes in a secure location:\n\n` + recoveryCodes.map((c, i) => `${i + 1}. ${c}`).join('\n')], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
     element.download = `vehicle-platform-mfa-recovery-codes.txt`;
     document.body.appendChild(element);
@@ -230,6 +297,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
 
   // Finish entire enrollment
   const handleCompleteEnrollment = () => {
+    refreshMe();
     if (onSuccess) onSuccess();
     onClose();
     addToast({
@@ -260,6 +328,8 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                     ? t('Multi-Factor Setup')
                     : mode === 'challenge'
                     ? t('MFA Security Challenge')
+                    : mode === 'disable'
+                    ? t('Disable Multi-Factor Authentication')
                     : t('Reset MFA for {{name}}', { name: targetAdminName || t('Administrator') })}
                 </h3>
                 <Badge variant="blue" size="sm">FIDO/TOTP</Badge>
@@ -269,6 +339,8 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                   ? t('Protect your platform account with 2-factor authentication')
                   : mode === 'challenge'
                   ? t('Enter your 6-digit TOTP code from your authenticator app')
+                  : mode === 'disable'
+                  ? t('Confirm with your password and a current authenticator code. All sessions will be revoked.')
                   : t('Generate a new authenticator binding URL for this account')}
               </p>
             </div>
@@ -378,7 +450,8 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                 <Button
                   variant="primary"
                   icon={ArrowRight}
-                  onClick={() => setStep(2)}
+                  isLoading={isSetupLoading}
+                  onClick={startSetup}
                 >
                   {t('Continue to Pairing')}
                 </Button>
@@ -399,44 +472,14 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
               {/* QR Code Container */}
               <div className="flex flex-col sm:flex-row items-center gap-6 p-5 bg-[#0d0e12] rounded-2xl border border-[#30363d]">
                 <div className="bg-white p-3 rounded-xl shrink-0 shadow-lg flex flex-col items-center">
-                  {/* SVG Simulated Clean QR Code */}
-                  <svg className="w-36 h-36" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="100" height="100" fill="white" />
-                    {/* Corners */}
-                    <rect x="5" y="5" width="25" height="25" fill="#0f172a" />
-                    <rect x="9" y="9" width="17" height="17" fill="white" />
-                    <rect x="13" y="13" width="9" height="9" fill="#0f172a" />
-
-                    <rect x="70" y="5" width="25" height="25" fill="#0f172a" />
-                    <rect x="74" y="9" width="17" height="17" fill="white" />
-                    <rect x="78" y="13" width="9" height="9" fill="#0f172a" />
-
-                    <rect x="5" y="70" width="25" height="25" fill="#0f172a" />
-                    <rect x="9" y="74" width="17" height="17" fill="white" />
-                    <rect x="13" y="78" width="9" height="9" fill="#0f172a" />
-
-                    {/* Data pixels pattern */}
-                    <rect x="35" y="10" width="8" height="8" fill="#0f172a" />
-                    <rect x="48" y="10" width="8" height="8" fill="#0f172a" />
-                    <rect x="58" y="18" width="8" height="8" fill="#0f172a" />
-
-                    <rect x="35" y="28" width="8" height="8" fill="#0f172a" />
-                    <rect x="48" y="32" width="12" height="8" fill="#0f172a" />
-                    <rect x="70" y="35" width="8" height="8" fill="#0f172a" />
-
-                    <rect x="10" y="38" width="8" height="8" fill="#0f172a" />
-                    <rect x="20" y="48" width="8" height="8" fill="#0f172a" />
-
-                    <rect x="35" y="50" width="12" height="12" fill="#0f172a" />
-                    <rect x="55" y="50" width="8" height="12" fill="#0f172a" />
-                    <rect x="70" y="50" width="12" height="8" fill="#0f172a" />
-
-                    <rect x="38" y="70" width="8" height="8" fill="#0f172a" />
-                    <rect x="50" y="75" width="12" height="8" fill="#0f172a" />
-                    <rect x="70" y="70" width="18" height="18" fill="#0f172a" />
-                    <rect x="75" y="75" width="8" height="8" fill="white" />
-                  </svg>
-                  <span className="text-[10px] text-slate-800 font-mono font-bold mt-2">VehiclePlatform:anh.nh</span>
+                  {qrDataUrl ? (
+                    <img src={qrDataUrl} alt="TOTP provisioning QR" className="w-36 h-36" />
+                  ) : (
+                    <div className="w-36 h-36 flex items-center justify-center text-slate-400 text-xs font-mono">
+                      {t('Generating…')}
+                    </div>
+                  )}
+                  <span className="text-[10px] text-slate-800 font-mono font-bold mt-2">VehiclePlatform:{currentUser.email || 'account'}</span>
                 </div>
 
                 <div className="flex-1 space-y-3 text-left w-full">
@@ -461,12 +504,12 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
 
                   <div className="space-y-1">
                     <p className="text-[11px] text-[#8b949e]">{t('Account identifier:')}</p>
-                    <p className="font-mono text-xs text-white">anh.nh@kyanon.digital</p>
+                    <p className="font-mono text-xs text-white">{currentUser.email || '—'}</p>
                   </div>
 
                   <div className="space-y-1">
-                    <p className="text-[11px] text-[#8b949e]">{t('Issuer domain:')}</p>
-                    <p className="font-mono text-xs text-white">VehiclePlatform Operational Governance</p>
+                    <p className="text-[11px] text-[#8b949e]">{t('Provisioning URI:')}</p>
+                    <p className="font-mono text-[10px] text-[#8b949e] break-all">{provisioningUri || '—'}</p>
                   </div>
                 </div>
               </div>
@@ -541,17 +584,19 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                 </div>
               )}
 
-              {/* Demo Fill Helper */}
-              <div className="flex items-center justify-between text-[11px] pt-1">
-                <button
-                  type="button"
-                  onClick={handleFillDemoCode}
-                  className="text-[#58a6ff] hover:underline flex items-center gap-1 font-mono cursor-pointer"
-                >
-                  <Sparkles className="w-3 h-3" /> {t('Auto-fill test passcode (123456)')}
-                </button>
-                <span className="text-[#8b949e] font-mono">{t('Paste supported')}</span>
-              </div>
+              {/* Demo Fill Helper — only meaningful for the simulated challenge mode */}
+              {mode === 'challenge' && (
+                <div className="flex items-center justify-between text-[11px] pt-1">
+                  <button
+                    type="button"
+                    onClick={handleFillDemoCode}
+                    className="text-[#58a6ff] hover:underline flex items-center gap-1 font-mono cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3" /> {t('Auto-fill test passcode (123456)')}
+                  </button>
+                  <span className="text-[#8b949e] font-mono">{t('Paste supported')}</span>
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex items-center justify-between pt-3 border-t border-[#30363d]">
@@ -652,6 +697,86 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                   icon={ShieldCheck}
                 >
                   {t('Complete MFA Setup')}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* DISABLE MODE — strong re-auth: password + current OTP (spec §19) */}
+          {mode === 'disable' && (
+            <div className="space-y-5 text-xs text-[#c9d1d9]">
+              <div className="p-4 bg-[#da3633]/10 border border-[#f85149]/30 rounded-xl flex items-center gap-3">
+                <ShieldAlert className="w-6 h-6 text-[#f85149] shrink-0" />
+                <div>
+                  <h4 className="font-bold text-white text-sm">{t('This is a high-impact security change')}</h4>
+                  <p className="text-xs text-[#8b949e]">
+                    {t('Disabling MFA removes a layer of protection and immediately signs out all sessions, including this one.')}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-[#c9d1d9] block mb-1.5">
+                  {t('Current Password')}
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-[#8b949e] absolute left-3 top-3" />
+                  <input
+                    type="password"
+                    value={disablePassword}
+                    onChange={(e) => setDisablePassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="w-full pl-9 pr-3 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-xs text-white placeholder-[#8b949e] focus:outline-none focus:border-[#58a6ff] font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-[#c9d1d9] block mb-1.5">
+                  {t('Authenticator or Recovery Code')}
+                </label>
+                <div className="flex justify-center items-center gap-2 sm:gap-3 py-2">
+                  {otpDigits.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      ref={(el) => { inputRefs.current[idx] = el; }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleDigitChange(idx, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(idx, e)}
+                      onPaste={idx === 0 ? handlePaste : undefined}
+                      className={`w-11 h-13 sm:w-12 sm:h-14 text-center text-xl font-bold font-mono rounded-xl border bg-[#0d0e12] focus:outline-none transition-all ${
+                        verificationError
+                          ? 'border-[#f85149] text-[#f85149]'
+                          : digit
+                          ? 'border-[#58a6ff] text-[#58a6ff] bg-[#58a6ff]/10'
+                          : 'border-[#30363d] text-white hover:border-[#484f58] focus:border-[#58a6ff]'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {verificationError && (
+                <div className="p-3 bg-[#da3633]/20 border border-[#f85149]/40 rounded-xl text-[#f85149] flex items-center gap-2.5 text-xs animate-in fade-in duration-150">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <p>{verificationError}</p>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-3 border-t border-[#30363d]">
+                <Button variant="ghost" onClick={onClose}>
+                  {t('Cancel')}
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={handleDisableMfa}
+                  isLoading={isVerifying}
+                  icon={ShieldAlert}
+                >
+                  {isVerifying ? t('Verifying...') : t('Disable MFA & Sign Out')}
                 </Button>
               </div>
             </div>

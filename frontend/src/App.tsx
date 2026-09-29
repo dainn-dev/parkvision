@@ -16,6 +16,7 @@ import { SlaPolicyPage } from './pages/public/SlaPolicyPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { ActivatePage } from './pages/auth/ActivatePage';
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
 import { FindMyCarPage } from './pages/public/FindMyCarPage';
 
 // Platform Governance Pages
@@ -69,6 +70,7 @@ const PlatformAppContent: React.FC = () => {
   const [publicView, setPublicView] = useState<PublicViewType>(() => {
     const p = window.location.pathname.replace(/\/$/, '');
     if (p === '/activate') return 'activate';
+    if (p === '/reset-password') return 'reset-password';
     if (p === '/find-my-car') return 'find-car';
     return 'landing';
   });
@@ -106,7 +108,7 @@ const PlatformAppContent: React.FC = () => {
         )}
 
         {/* Public Navigation Bar (only on non-login/register standalone pages) */}
-        {publicView !== 'login' && publicView !== 'register' && publicView !== 'activate' && (
+        {publicView !== 'login' && publicView !== 'register' && publicView !== 'activate' && publicView !== 'reset-password' && (
           <PublicNavbar
             currentView={publicView}
             onNavigate={setPublicView}
@@ -142,6 +144,10 @@ const PlatformAppContent: React.FC = () => {
             <ActivatePage onNavigate={setPublicView} token={inviteToken} />
           )}
 
+          {publicView === 'reset-password' && (
+            <ResetPasswordPage onNavigate={setPublicView} token={inviteToken} />
+          )}
+
           {publicView === 'find-car' && (
             <FindMyCarPage tenantSlug={findCarParams.tenant} initialPlate={findCarParams.plate} />
           )}
@@ -158,7 +164,7 @@ const PlatformAppContent: React.FC = () => {
         </main>
 
         {/* Public Footer (only on content pages) */}
-        {publicView !== 'login' && publicView !== 'register' && publicView !== 'activate' && (
+        {publicView !== 'login' && publicView !== 'register' && publicView !== 'activate' && publicView !== 'reset-password' && (
           <PublicFooter onNavigate={setPublicView} />
         )}
 

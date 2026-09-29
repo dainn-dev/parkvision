@@ -102,6 +102,8 @@ class PlatformAdmin(TimestampMixin, Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     failed_login_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    password_reset_token_hash: Mapped[str | None] = mapped_column(String(128))
+    password_reset_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class TenantUser(TimestampMixin, Base):
@@ -120,9 +122,13 @@ class TenantUser(TimestampMixin, Base):
     mfa_secret: Mapped[str | None] = mapped_column(Text)
     mfa_backup_hashes: Mapped[list | None] = mapped_column(JSONB)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     invited_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     invite_token_hash: Mapped[str | None] = mapped_column(String(128))
     invite_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    password_reset_token_hash: Mapped[str | None] = mapped_column(String(128))
+    password_reset_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class UserSession(Base):
@@ -139,6 +145,7 @@ class UserSession(Base):
     ip: Mapped[str | None] = mapped_column(INET)
     user_agent: Mapped[str | None] = mapped_column(Text)
     mfa_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    mfa_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     device_fingerprint: Mapped[str | None] = mapped_column(String(255))
     risk_level: Mapped[str] = mapped_column(String(20), nullable=False, default="normal")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -2,6 +2,7 @@
 
 Jobs run in the `worker` container (`arq app.workers.jobs.WorkerSettings`):
 - send_invite_email       : tenant user invite via SMTP (Mailpit in dev)
+- send_password_reset_email: password reset link via SMTP
 - vehicle_import          : CSV rows -> registered_vehicles
 - audit_export            : audit_logs -> CSV in S3 + presigned download URL
 - create_future_partitions: monthly telemetry / quarterly event partitions
@@ -49,6 +50,11 @@ async def enqueue_invite_email(
         invite_token=invite_token,
         expires=expires,
     )
+
+
+async def enqueue_password_reset_email(email: str, reset_token: str) -> None:
+    pool = await arq_pool()
+    await pool.enqueue_job("send_password_reset_email", email=email, reset_token=reset_token)
 
 
 async def enqueue_import_vehicles(job_id: str, tenant_id: str, rows: list[dict]) -> None:
@@ -102,6 +108,32 @@ async def send_invite_email(
         f"You have been invited to join a Vehicle Management workspace.\n"
         f"Activate your account here: {link}\n\n"
         f"This link expires at {expires}.\n"
+    )
+    await aiosmtplib.send(
+        msg,
+        hostname=settings.smtp_host,
+        port=settings.smtp_port,
+        username=settings.smtp_username or None,
+        password=settings.smtp_password or None,
+        start_tls=settings.smtp_tls,
+    )
+
+
+async def send_password_reset_email(ctx, email: str, reset_token: str) -> None:
+    from email.message import EmailMessage
+
+    import aiosmtplib
+
+    link = f"{settings.app_base_url}/reset-password?token={reset_token}"
+    msg = EmailMessage()
+    msg["From"] = settings.smtp_from
+    msg["To"] = email
+    msg["Subject"] = "Reset your Vehicle Management password"
+    msg.set_content(
+        f"A password reset was requested for {email}.\n\n"
+        f"Reset your password here: {link}\n\n"
+        f"This link expires in {settings.password_reset_ttl_seconds // 60} minutes. "
+        "If you did not request this, you can ignore this email.\n"
     )
     await aiosmtplib.send(
         msg,

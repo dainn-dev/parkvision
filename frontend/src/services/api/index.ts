@@ -192,18 +192,34 @@ const qs = (params: Record<string, string | number | boolean | undefined | null>
 // ---------- Auth ----------
 export const authApi = {
   login: (email: string, password: string) =>
-    api.post<{ mfaRequired: boolean; csrfToken?: string }>('/auth/login', { email, password }),
+    api.post<{ mfaRequired: boolean; csrfToken?: string; methods?: string[]; expiresIn?: number }>(
+      '/auth/login',
+      { email, password }
+    ),
   mfaVerify: (code: string) =>
-    api.post<{ mfaRequired: boolean; csrfToken?: string }>('/auth/mfa/verify', { code }),
+    api.post<{ mfaRequired: boolean; csrfToken?: string; expiresIn?: number }>(
+      '/auth/mfa/verify',
+      { code }
+    ),
+  // Pending MFA transaction status — used to resume the challenge after a page refresh.
+  mfaSession: () =>
+    api.get<{ status: string; methods: string[]; expiresIn: number }>('/auth/mfa/session'),
+  mfaResend: () =>
+    api.post<{ status: string; methods: string[]; expiresIn: number }>('/auth/mfa/resend'),
   me: () => api.get<MeOut>('/auth/me'),
   logout: () => api.post<{ message?: string }>('/auth/logout'),
   refresh: () => api.post<{ csrfToken?: string }>('/auth/refresh'),
   activate: (token: string, password: string) => api.post('/auth/activate', { token, password }),
+  passwordForgot: (email: string) =>
+    api.post<{ message?: string }>('/auth/password/forgot', { email }),
+  passwordReset: (token: string, password: string) =>
+    api.post<{ message?: string }>('/auth/password/reset', { token, password }),
   changePassword: (currentPassword: string, newPassword: string) =>
     api.post('/auth/password', { currentPassword, newPassword }),
   mfaSetup: () => api.post<{ secret: string; provisioningUri: string }>('/auth/mfa/setup'),
   mfaEnable: (code: string) => api.post<{ backupCodes: string[] }>('/auth/mfa/enable', { code }),
-  mfaDisable: (code: string) => api.post('/auth/mfa/disable', { code }),
+  mfaDisable: (password: string, code: string) =>
+    api.post('/auth/mfa/disable', { password, code }),
   listSessions: () => api.get<SessionOut[]>('/auth/sessions'),
   revokeSession: (sessionId: string) => api.del(`/auth/sessions/${sessionId}`),
 };

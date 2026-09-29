@@ -5,6 +5,7 @@ import {
   Settings,
   Lock,
   ShieldCheck,
+  ShieldAlert,
   Database,
   Bell,
   Check,
@@ -23,7 +24,7 @@ import { useTranslation } from 'react-i18next';
 
 export const PlatformSettingsPage: React.FC = () => {
   const { t } = useTranslation('platform');
-  const { settings, updateSettings, settingsSection, setSettingsSection, openMfaModal } = usePlatform();
+  const { settings, updateSettings, settingsSection, setSettingsSection, openMfaModal, currentUser } = usePlatform();
 
   const [formData, setFormData] = useState<any>(settings[settingsSection]);
 
@@ -292,21 +293,33 @@ export const PlatformSettingsPage: React.FC = () => {
                   ]}
                 />
 
-                <div className="p-4 bg-[#0d0e12] border border-[#30363d] rounded-xl flex items-center justify-between">
+                <div className="p-4 bg-[#0d0e12] border border-[#30363d] rounded-xl flex items-center justify-between gap-3">
                   <div>
                     <h5 className="font-bold text-white text-xs">{t('Self-Enrollment & Verification Test')}</h5>
                     <p className="text-[11px] text-[#8b949e] mt-0.5">
                       {t('Pair your authenticator app, scan QR code, or test 6-digit TOTP validation.')}
                     </p>
                   </div>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon={ShieldCheck}
-                    onClick={() => openMfaModal('enroll')}
-                  >
-                    {t('Setup / Verify MFA')}
-                  </Button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {currentUser.mfaEnabled && (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        icon={ShieldAlert}
+                        onClick={() => openMfaModal('disable')}
+                      >
+                        {t('Disable MFA')}
+                      </Button>
+                    )}
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={ShieldCheck}
+                      onClick={() => openMfaModal('enroll')}
+                    >
+                      {currentUser.mfaEnabled ? t('Re-enroll MFA') : t('Setup / Verify MFA')}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}

@@ -26,8 +26,23 @@ class MfaEnableIn(CamelModel):
     code: str = Field(min_length=6, max_length=10)
 
 
+class MfaDisableIn(CamelModel):
+    # Spec §19: disabling MFA requires strong re-authentication.
+    password: str = Field(min_length=1, max_length=200)
+    code: str = Field(min_length=6, max_length=10)
+
+
 class MfaEnableOut(CamelModel):
     backup_codes: list[str]
+
+
+class PasswordForgotIn(CamelModel):
+    email: EmailStr
+
+
+class PasswordResetIn(CamelModel):
+    token: str = Field(min_length=20, max_length=200)
+    password: str = Field(min_length=10, max_length=200)
 
 
 class RefreshIn(CamelModel):
