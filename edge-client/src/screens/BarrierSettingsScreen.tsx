@@ -46,7 +46,7 @@ function defaultBackend(kind: RelayBackendConfig["type"]): RelayBackendConfig {
     case "modbusTcp":
       return { type: "modbusTcp", host: "", port: 502, unitId: 1 };
     case "zkC3":
-      return { type: "zkC3", host: "", port: 4370, password: "" };
+      return { type: "zkC3", host: "", port: 4370, password: "", output: "aux" };
   }
 }
 
@@ -314,7 +314,27 @@ export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose }: P
                   hostUserPass(draft.backend as never, kind === "dahua")}
                 {kind === "modbusTcp" &&
                   hostUserPass(draft.backend as never, false)}
-                {kind === "zkC3" && hostUserPass(draft.backend as never, false)}
+                {kind === "zkC3" && (
+                  <>
+                    {hostUserPass(draft.backend as never, false)}
+                    <label className="block">
+                      <span className={label}>Terminal trên panel C3</span>
+                      <select
+                        className={input}
+                        value={(draft.backend as { output: string }).output}
+                        onChange={(e) =>
+                          setBackend({
+                            ...(draft.backend as Extract<RelayBackendConfig, { type: "zkC3" }>),
+                            output: e.target.value as "aux" | "door",
+                          })
+                        }
+                      >
+                        <option value="aux">Aux relay (AUX1–AUX4)</option>
+                        <option value="door">Door lock relay</option>
+                      </select>
+                    </label>
+                  </>
+                )}
 
                 {kind === "serial" && serial && (
                   <>

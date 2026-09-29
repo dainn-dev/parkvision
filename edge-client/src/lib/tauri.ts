@@ -48,7 +48,14 @@ export type RelayBackendConfig =
       unitId: number;
     }
   | { type: "modbusTcp"; host: string; port: number; unitId: number }
-  | { type: "zkC3"; host: string; port: number; password: string };
+  | {
+      type: "zkC3";
+      host: string;
+      port: number;
+      password: string;
+      /** C3 terminal the barrier contact is on: aux relay (default) or door lock. */
+      output: "aux" | "door";
+    };
 
 /** 1-based relay indices. */
 export interface OutputMap {
