@@ -4,6 +4,8 @@
 //! (serial RS-485, GPIO, Modbus TCP) implement `BarrierHal` later without
 //! touching the FSM.
 
+pub mod config;
+
 use std::sync::Mutex;
 use std::time::Duration;
 

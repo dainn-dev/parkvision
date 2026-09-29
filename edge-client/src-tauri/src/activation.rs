@@ -6,6 +6,8 @@
 //! activate response — `refresh` reuses the persisted key and never re-sees
 //! it. Secrets are kept out of logs and error strings.
 
+use std::collections::HashMap;
+
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use tauri::{AppHandle, Emitter, Manager};
@@ -15,6 +17,7 @@ use crate::config::{
     CameraBinding, ConfigStore, EdgeConfig, GateBinding, MqttConfig, SharedConfigStore,
     CONFIG_VERSION,
 };
+use crate::hal::config::BarrierConfig;
 use crate::runtime::SharedRuntime;
 use crate::RuntimeState;
 
@@ -67,10 +70,13 @@ pub fn is_revoked(status: reqwest::StatusCode) -> bool {
     status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN
 }
 
+/// `existing_barriers` — local relay wiring keyed by gate id, carried over
+/// from the persisted config so a cloud refresh never wipes it.
 fn bundle_to_config(
     bundle: &BundleOut,
     api_base_url: &str,
     existing_key: Option<String>,
+    existing_barriers: &HashMap<Uuid, BarrierConfig>,
 ) -> Result<EdgeConfig> {
     let token = bundle
         .api
@@ -108,6 +114,7 @@ fn bundle_to_config(
                         stream_url: c.stream_url.clone(),
                     })
                     .collect(),
+                barrier: existing_barriers.get(&g.gate_id).cloned(),
             })
             .collect(),
     })
@@ -144,7 +151,17 @@ pub async fn refresh_and_boot(app: &AppHandle, cfg: EdgeConfig) -> Result<()> {
         }
         Ok(resp) if resp.status().is_success() => {
             let bundle: BundleOut = resp.json().await.context("config body decode")?;
-            let merged = bundle_to_config(&bundle, &cfg.api_base_url, Some(cfg.api_key.clone()))?;
+            let barriers: HashMap<Uuid, BarrierConfig> = cfg
+                .gates
+                .iter()
+                .filter_map(|g| g.barrier.clone().map(|b| (g.gate_id, b)))
+                .collect();
+            let merged = bundle_to_config(
+                &bundle,
+                &cfg.api_base_url,
+                Some(cfg.api_key.clone()),
+                &barriers,
+            )?;
             if serde_json::to_value(&merged)? != serde_json::to_value(&cfg)? {
                 config_store(app)?.save(&merged)?;
                 tracing::info!("config refreshed from backend");
@@ -241,7 +258,7 @@ pub async fn activate(
         .json()
         .await
         .map_err(|e| format!("bad activation response: {e}"))?;
-    let cfg = bundle_to_config(&bundle, base, None).map_err(|e| e.to_string())?;
+    let cfg = bundle_to_config(&bundle, base, None, &HashMap::new()).map_err(|e| e.to_string())?;
     cfg.validate().map_err(|e| e.to_string())?;
 
     {
@@ -340,8 +357,8 @@ mod tests {
     #[test]
     fn bundle_maps_to_v2_config() {
         let bundle: BundleOut = serde_json::from_value(bundle_json()).unwrap();
-        let cfg = bundle_to_config(&bundle, "http://api:8000/", None).unwrap();
-        assert_eq!(cfg.version, 2);
+        let cfg = bundle_to_config(&bundle, "http://api:8000/", None, &HashMap::new()).unwrap();
+        assert_eq!(cfg.version, crate::config::CONFIG_VERSION);
         assert_eq!(cfg.api_key, "pk_abc");
         assert_eq!(cfg.api_base_url, "http://api:8000");
         assert_eq!(cfg.mqtt.username.as_deref(), Some("edge-4444"));
@@ -356,7 +373,7 @@ mod tests {
         v["api"]["token"] = serde_json::Value::Null;
         v["mqtt"]["password"] = serde_json::Value::Null;
         let bundle: BundleOut = serde_json::from_value(v).unwrap();
-        let cfg = bundle_to_config(&bundle, "http://api", Some("pk_persisted".into())).unwrap();
+        let cfg = bundle_to_config(&bundle, "http://api", Some("pk_persisted".into()), &HashMap::new()).unwrap();
         assert_eq!(cfg.api_key, "pk_persisted");
         assert_eq!(cfg.mqtt.password.as_deref(), Some("pk_persisted"));
     }
@@ -366,7 +383,36 @@ mod tests {
         let mut v = bundle_json();
         v["api"]["token"] = serde_json::Value::Null;
         let bundle: BundleOut = serde_json::from_value(v).unwrap();
-        assert!(bundle_to_config(&bundle, "http://api", None).is_err());
+        assert!(bundle_to_config(&bundle, "http://api", None, &HashMap::new()).is_err());
+    }
+
+    #[test]
+    fn refresh_preserves_local_barrier_config() {
+        let bundle: BundleOut = serde_json::from_value(bundle_json()).unwrap();
+        let gate: Uuid = "33333333-3333-3333-3333-333333333333".parse().unwrap();
+        let barrier = crate::hal::config::BarrierConfig {
+            backend: crate::hal::config::RelayBackendConfig::ModbusTcp {
+                host: "10.0.0.5".into(),
+                port: 502,
+                unit_id: 1,
+            },
+            brand: crate::hal::config::BarrierBrand::Came,
+            outputs: crate::hal::config::OutputMap {
+                open: 1,
+                close: Some(2),
+                stop: None,
+                power: None,
+            },
+            inputs: None,
+            overrides: Default::default(),
+        };
+        let mut existing = HashMap::new();
+        existing.insert(gate, barrier);
+        let cfg = bundle_to_config(&bundle, "http://api", None, &existing).unwrap();
+        assert!(cfg.gates[0].barrier.is_some());
+
+        let cfg = bundle_to_config(&bundle, "http://api", None, &HashMap::new()).unwrap();
+        assert!(cfg.gates[0].barrier.is_none());
     }
 
     #[test]

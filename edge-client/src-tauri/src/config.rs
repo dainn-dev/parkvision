@@ -16,7 +16,9 @@ use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub const CONFIG_VERSION: u32 = 2;
+use crate::hal::config::{BarrierConfig, ContactMode};
+
+pub const CONFIG_VERSION: u32 = 3;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -49,6 +51,10 @@ pub struct GateBinding {
     pub direction: String,
     #[serde(default)]
     pub cameras: Vec<CameraBinding>,
+    /// Local relay wiring for this gate's barrier — `None` runs the
+    /// simulated HAL. Never provisioned from the cloud bundle.
+    #[serde(default)]
+    pub barrier: Option<BarrierConfig>,
 }
 
 impl GateBinding {
@@ -135,6 +141,10 @@ impl EdgeConfig {
         for g in &self.gates {
             if !matches!(g.direction.as_str(), "entry" | "exit") {
                 bail!("gate direction must be 'entry' or 'exit' (lowercase)");
+            }
+            if let Some(b) = &g.barrier {
+                b.validate(b.overrides.mode.unwrap_or(ContactMode::OpenCloseStop))
+                    .with_context(|| format!("gate {} barrier", g.gate_id))?;
             }
         }
         if self.api_key.trim().is_empty() {
@@ -225,6 +235,7 @@ impl EdgeConfigV1 {
                 lane_id: self.lane_id,
                 direction: self.lane_direction,
                 cameras,
+                barrier: None,
             }],
         }
     }
@@ -336,6 +347,7 @@ mod tests {
                         purpose: "plate".to_string(),
                         stream_url: "rtsp://cam-entry".to_string(),
                     }],
+                    barrier: None,
                 },
                 GateBinding {
                     gate_id: Uuid::new_v4(),
@@ -346,8 +358,30 @@ mod tests {
                         purpose: "plate".to_string(),
                         stream_url: "rtsp://cam-exit".to_string(),
                     }],
+                    barrier: None,
                 },
             ],
+        }
+    }
+
+    fn sample_barrier() -> BarrierConfig {
+        use crate::hal::config::*;
+        BarrierConfig {
+            backend: RelayBackendConfig::Hikvision {
+                host: "192.168.1.64".into(),
+                port: 80,
+                username: "admin".into(),
+                password: "cam-secret".into(),
+            },
+            brand: BarrierBrand::Faac,
+            outputs: OutputMap {
+                open: 1,
+                close: Some(2),
+                stop: None,
+                power: None,
+            },
+            inputs: None,
+            overrides: ProfileOverrides::default(),
         }
     }
 
@@ -397,6 +431,43 @@ mod tests {
         assert_eq!(cfg.gates[0].direction, "exit");
         assert_eq!(cfg.gates[0].cameras.len(), 1);
         assert_eq!(cfg.gates[0].cameras[0].stream_url, "rtsp://old-cam");
+    }
+
+    #[test]
+    fn v2_config_loads_with_barrier_none() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("edge-config.json");
+        let mut v = serde_json::to_value(sample_config()).unwrap();
+        v["version"] = json!(2);
+        for g in v["gates"].as_array_mut().unwrap() {
+            g.as_object_mut().unwrap().remove("barrier");
+        }
+        fs::write(&path, serde_json::to_string(&v).unwrap()).unwrap();
+        let cfg = ConfigStore::new(path).load().unwrap().unwrap();
+        assert_eq!(cfg.gates.len(), 2);
+        assert!(cfg.gates.iter().all(|g| g.barrier.is_none()));
+    }
+
+    #[test]
+    fn barrier_config_round_trips_through_store() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = ConfigStore::new(dir.path().join("edge-config.json"));
+        let mut cfg = sample_config();
+        cfg.gates[0].barrier = Some(sample_barrier());
+        store.save(&cfg).unwrap();
+        let loaded = store.load().unwrap().unwrap();
+        assert!(loaded.gates[0].barrier.is_some());
+        assert!(loaded.gates[1].barrier.is_none());
+        assert_eq!(loaded.version, CONFIG_VERSION);
+    }
+
+    #[test]
+    fn invalid_barrier_fails_validation() {
+        let mut cfg = sample_config();
+        let mut b = sample_barrier();
+        b.outputs.close = None;
+        cfg.gates[0].barrier = Some(b);
+        assert!(cfg.validate().is_err());
     }
 
     #[test]

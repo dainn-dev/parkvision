@@ -574,12 +574,14 @@ mod tests {
                         purpose: "plate".to_string(),
                         stream_url: "rtsp://cam-a".to_string(),
                     }],
+                    barrier: None,
                 },
                 GateBinding {
                     gate_id: Uuid::parse_str(GATE_B).unwrap(),
                     lane_id: None,
                     direction: "exit".to_string(),
                     cameras: vec![],
+                    barrier: None,
                 },
             ],
         }

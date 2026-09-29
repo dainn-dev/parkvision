@@ -15,11 +15,80 @@ export interface CameraBinding {
   streamUrl: string;
 }
 
+// ---------- barrier relay config (local, per gate) ----------
+
+export type BarrierBrand =
+  | "bisen"
+  | "faac"
+  | "came"
+  | "mag"
+  | "zkteco"
+  | "wonsun"
+  | "generic";
+
+export type ContactMode = "openCloseStop" | "toggle";
+
+export type AutoClose = { type: "board" } | { type: "edge"; delaySec: number };
+
+export type RelayBackendConfig =
+  | { type: "hikvision"; host: string; port: number; username: string; password: string }
+  | {
+      type: "dahua";
+      host: string;
+      port: number;
+      username: string;
+      password: string;
+      strobe: boolean;
+    }
+  | {
+      type: "serial";
+      port: string;
+      protocol: "lcus" | "modbusRtu";
+      baud: number;
+      unitId: number;
+    }
+  | { type: "modbusTcp"; host: string; port: number; unitId: number }
+  | { type: "zkC3"; host: string; port: number; password: string };
+
+/** 1-based relay indices. */
+export interface OutputMap {
+  open: number;
+  close: number | null;
+  stop: number | null;
+  power: number | null;
+}
+
+/** 1-based digital-input indices; null = not wired. */
+export interface InputMap {
+  openLimit: number | null;
+  closedLimit: number | null;
+  loop: number | null;
+}
+
+export interface ProfileOverrides {
+  pulseMs?: number | null;
+  travelSec?: number | null;
+  mode?: ContactMode | null;
+  autoClose?: AutoClose | null;
+  boardHoldSec?: number | null;
+  pollMs?: number | null;
+}
+
+export interface BarrierConfig {
+  backend: RelayBackendConfig;
+  brand: BarrierBrand;
+  outputs: OutputMap;
+  inputs: InputMap | null;
+  overrides: ProfileOverrides;
+}
+
 export interface GateBinding {
   gateId: string;
   laneId: string | null;
   direction: "entry" | "exit";
   cameras: CameraBinding[];
+  /** Local relay wiring; null → simulated barrier. */
+  barrier: BarrierConfig | null;
 }
 
 export interface EdgeConfig {

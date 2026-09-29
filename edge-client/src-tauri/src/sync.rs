@@ -223,6 +223,7 @@ mod tests {
                 lane_id: None,
                 direction: "entry".to_string(),
                 cameras: vec![],
+                barrier: None,
             }],
         })
     }
