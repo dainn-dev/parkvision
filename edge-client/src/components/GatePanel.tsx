@@ -65,21 +65,24 @@ export default function GatePanel({ gate, cameras, onAction }: Props) {
 
       {/* Camera tiles — RTSP can't render in WebView2; slots stay ready for a
           streaming gateway (mediamtx/go2rtc) or captured frames later. */}
-      <div className="grid grid-cols-2 gap-2 px-4">
+      <div className="grid min-h-44 flex-1 auto-rows-fr grid-cols-2 gap-2 px-4">
         {(cameras.length ? cameras : [null]).map((c, i) => (
           <div
             key={c?.cameraId ?? i}
-            className="flex h-28 flex-col justify-between rounded-lg border border-zinc-800 bg-zinc-950 p-2"
+            className="flex min-h-32 flex-col justify-between rounded-lg border border-zinc-800 bg-zinc-950 p-2.5"
           >
             <span className="text-[10px] font-semibold tracking-wide text-zinc-500">
               {c ? (PURPOSE_LABEL[c.purpose] ?? c.purpose.toUpperCase()) : "CAMERA"}
+            </span>
+            <span className="self-center text-xs text-zinc-700">
+              {c ? "Chưa có tín hiệu" : "Chưa gán camera"}
             </span>
             {c ? (
               <span className="truncate font-mono text-[10px] text-zinc-600" title={c.streamUrl}>
                 {cameraHost(c.streamUrl) || c.streamUrl}
               </span>
             ) : (
-              <span className="text-[10px] text-zinc-700">Chưa gán camera</span>
+              <span />
             )}
           </div>
         ))}
