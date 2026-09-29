@@ -1,6 +1,5 @@
 """Platform-admin endpoints: tenant governance, admins, settings, flags, infra."""
 
-import hashlib
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -66,6 +65,7 @@ from app.security import (
 )
 from app.services.audit_service import write_audit
 from app.services.command_service import issue_command
+from app.services.credential_service import new_api_key as _new_api_key
 from app.services.infra_service import infra_status
 
 router = APIRouter(
@@ -769,12 +769,6 @@ async def impersonate_tenant(
 
 
 # ---------- API credentials ----------
-
-
-def _new_api_key() -> tuple[str, str, str]:
-    """Returns (plaintext, prefix, sha256 hash)."""
-    plain = f"pk_{secrets.token_urlsafe(32)}"
-    return plain, plain[:10], hashlib.sha256(plain.encode()).hexdigest()
 
 
 def _cred_out(c: ApiCredential) -> ApiCredentialOut:

@@ -5,9 +5,15 @@ Env expected (see README):
 """
 
 import os
+import sys
 import uuid
 
 import pytest
+
+if sys.platform == "win32":
+    import asyncio
+
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text

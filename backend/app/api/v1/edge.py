@@ -3,24 +3,57 @@
 Firmware uses these for offline operation: incremental whitelist sync
 (`GET /edge/tenants/{id}/whitelist?updatedSince=`) and a rules snapshot for
 local `decide_access` fallback when the broker/API is unreachable.
+`/edge/activate` is the one public endpoint: it redeems a tenant-issued
+one-time code into a device credential + config bundle.
 """
 
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy import select
 
 from app.api.deps import forbidden, unauthorized
+from app.core.errors import ApiError, conflict
+from app.core.rate_limit import rate_limited
 from app.database import platform_session
-from app.models import ApiCredential, RegisteredVehicle, TenantAccessRule
-from app.schemas.resources import EdgeRuleEntry, EdgeVehicleEntry, EdgeWhitelistOut
+from app.models import (
+    ApiCredential,
+    EdgeDevice,
+    RegisteredVehicle,
+    TenantAccessRule,
+)
+from app.schemas.resources import (
+    ActivationBundleOut,
+    ActivateIn,
+    EdgeRuleEntry,
+    EdgeVehicleEntry,
+    EdgeWhitelistOut,
+)
+from app.services.activation_service import (
+    build_activation_bundle,
+    consume_activation_code,
+    find_activation_code,
+    mint_device_credential,
+)
+from app.services.audit_service import write_audit
 from app.services.credential_service import authenticate_api_key
 
 router = APIRouter(prefix="/edge", tags=["edge"])
 
 
 EDGE_SYNC_SCOPE = "edge:ingest"
+EDGE_CONFIG_SCOPE = "edge:config"
+
+
+async def _resolve_api_key(x_api_key: str) -> ApiCredential:
+    if not x_api_key:
+        raise unauthorized("X-Api-Key header required")
+    async with platform_session() as db:
+        cred = await authenticate_api_key(db, x_api_key)
+    if cred is None:
+        raise unauthorized("Invalid or expired API key")
+    return cred
 
 
 async def edge_ctx(tenant_id: uuid.UUID, x_api_key: str = Header(default="")) -> ApiCredential:
@@ -30,17 +63,93 @@ async def edge_ctx(tenant_id: uuid.UUID, x_api_key: str = Header(default="")) ->
     (`tenant_id IS NULL`) may read any tenant's whitelist. Either way the
     credential must carry the `edge:ingest` scope.
     """
-    if not x_api_key:
-        raise unauthorized("X-Api-Key header required")
-    async with platform_session() as db:
-        cred = await authenticate_api_key(db, x_api_key)
-    if cred is None:
-        raise unauthorized("Invalid or expired API key")
+    cred = await _resolve_api_key(x_api_key)
     if EDGE_SYNC_SCOPE not in (cred.scopes or []):
         raise forbidden(f"API key missing '{EDGE_SYNC_SCOPE}' scope")
     if cred.tenant_id is not None and cred.tenant_id != tenant_id:
         raise forbidden("API key not scoped to this tenant")
     return cred
+
+
+async def edge_device_ctx(x_api_key: str = Header(default="")) -> ApiCredential:
+    """`X-Api-Key` -> device-bound credential carrying the `edge:config` scope."""
+    cred = await _resolve_api_key(x_api_key)
+    if EDGE_CONFIG_SCOPE not in (cred.scopes or []):
+        raise forbidden(f"API key missing '{EDGE_CONFIG_SCOPE}' scope")
+    if cred.edge_device_id is None:
+        raise forbidden("API key is not bound to an edge device")
+    return cred
+
+
+@router.post(
+    "/activate",
+    response_model=ActivationBundleOut,
+    dependencies=[Depends(rate_limited("edge-activate", 10, 60))],
+)
+async def edge_activate(body: ActivateIn, request: Request) -> ActivationBundleOut:
+    """Redeem a one-time activation code into a device credential + config bundle.
+
+    Public (the device has no credential yet); brute force is bounded by rate
+    limiting + code entropy. The consume is an atomic UPDATE so two devices
+    cannot redeem the same code.
+    """
+    async with platform_session() as db:
+        row = await find_activation_code(db, body.code)
+        if row is None:
+            raise unauthorized("Invalid activation code")
+        if row.expires_at <= datetime.now(timezone.utc):
+            raise ApiError(
+                status.HTTP_410_GONE, "activation_code_expired", "Activation code expired"
+            )
+        if row.consumed_at is not None:
+            raise conflict("Activation code already redeemed")
+        consumed = await consume_activation_code(db, row)
+        if consumed is None:
+            raise conflict("Activation code already redeemed")
+
+        device = (
+            await db.execute(select(EdgeDevice).where(EdgeDevice.id == row.edge_device_id))
+        ).scalar_one_or_none()
+        if device is None or device.status == "decommissioned":
+            raise unauthorized("Activation code is not valid for an active device")
+
+        cred, plain = mint_device_credential(device)
+        db.add(cred)
+        if body.device_info and body.device_info.serial and not device.device_serial:
+            device.device_serial = body.device_info.serial
+
+        await write_audit(
+            db,
+            tenant_id=device.tenant_id,
+            actor_type="edge_device",
+            actor_id=device.id,
+            actor_email=None,
+            action="device.activated",
+            resource_type="edge_device",
+            resource_id=str(device.id),
+            ip=request.client.host if request.client else None,
+        )
+        bundle = await build_activation_bundle(db, device, token=plain)
+        await db.commit()
+        return bundle
+
+
+@router.get(
+    "/config",
+    response_model=ActivationBundleOut,
+    response_model_exclude={"api": {"token"}, "mqtt": {"password"}},
+)
+async def edge_config(cred: ApiCredential = Depends(edge_device_ctx)) -> ActivationBundleOut:
+    """Re-emit the device's config bundle (gates/lanes/cameras) — no secrets."""
+    async with platform_session() as db:
+        device = (
+            await db.execute(
+                select(EdgeDevice).where(EdgeDevice.id == cred.edge_device_id)
+            )
+        ).scalar_one_or_none()
+        if device is None or device.status == "decommissioned":
+            raise unauthorized("Device is decommissioned")
+        return await build_activation_bundle(db, device)
 
 
 @router.get("/tenants/{tenant_id}/whitelist", response_model=EdgeWhitelistOut)

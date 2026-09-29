@@ -1,15 +1,28 @@
 """Edge device activation: one-time codes -> device credential + config bundle."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.services.credential_service import hash_activation_code
 from tests.conftest import csrf, login
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _cleanup_activation_rows(admin_engine):
+    """Session-scoped `migrated` DB is shared across test files — remove the
+    credentials/codes this module creates so `test_schema_alignment`'s
+    `count(api_credentials) == 0` assertion stays valid."""
+    yield
+    async with admin_engine.connect() as conn:
+        await conn.execute(text("DELETE FROM api_credentials"))
+        await conn.execute(text("DELETE FROM device_activation_codes"))
+        await conn.commit()
 
 
 def test_activation_code_normalization():
@@ -174,3 +187,172 @@ async def test_generate_code_cross_tenant_404(
         headers=csrf(client),
     )
     assert res.status_code == 404
+
+
+# ---------- Task 3: /edge/activate + /edge/config ----------
+
+
+@pytest.fixture
+async def activation_setup(client: AsyncClient, tenant, site_and_device):
+    """Device with entry+exit gates and cameras; returns dict of ids + code."""
+    site_id, device = site_and_device
+    tid = tenant["tenant_id"]
+    dev_id = device["id"]
+
+    lanes = {}
+    for direction in ("entry", "exit"):
+        res = await client.post(
+            f"/api/v1/tenants/{tid}/sites/{site_id}/lanes",
+            json={"name": f"Lane {direction}", "direction": direction},
+            headers=csrf(client),
+        )
+        assert res.status_code == 201, res.text
+        lanes[direction] = res.json()["id"]
+
+    for direction, lane_id in lanes.items():
+        res = await client.post(
+            f"/api/v1/tenants/{tid}/gates",
+            json={
+                "siteId": site_id,
+                "laneId": lane_id,
+                "edgeDeviceId": dev_id,
+                "name": f"Gate {direction}",
+            },
+            headers=csrf(client),
+        )
+        assert res.status_code == 201, res.text
+
+        cam = await client.post(
+            f"/api/v1/tenants/{tid}/cameras",
+            json={
+                "name": f"Cam {direction}",
+                "siteId": site_id,
+                "laneId": lane_id,
+                "streamUrl": f"rtsp://admin:secret@192.168.1.{10 + len(lanes)}/{direction}",
+                "purpose": "plate",
+            },
+            headers=csrf(client),
+        )
+        assert cam.status_code == 201, cam.text
+
+    code_res = await client.post(
+        f"/api/v1/tenants/{tid}/devices/{dev_id}/activation-codes", headers=csrf(client)
+    )
+    assert code_res.status_code == 201, code_res.text
+    return {
+        "tenant_id": tid,
+        "site_id": site_id,
+        "device_id": dev_id,
+        "lanes": lanes,
+        "code": code_res.json()["code"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_activate_returns_bundle_and_mints_credential(
+    client: AsyncClient, tenant, activation_setup
+):
+    s = activation_setup
+    res = await client.post(
+        "/api/v1/edge/activate",
+        json={"code": s["code"], "deviceInfo": {"hostname": "kiosk-01"}},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+
+    assert body["deviceId"] == s["device_id"]
+    assert body["tenantId"] == str(s["tenant_id"])
+    assert body["siteId"] == s["site_id"]
+    assert len(body["gates"]) == 2
+    directions = {g["direction"] for g in body["gates"]}
+    assert directions == {"entry", "exit"}
+    for g in body["gates"]:
+        assert len(g["cameras"]) == 1
+        assert g["cameras"][0]["streamUrl"].startswith("rtsp://")
+        assert g["cameras"][0]["purpose"] == "plate"
+
+    token = body["api"]["token"]
+    assert token.startswith("pk_")
+    assert body["mqtt"]["username"]
+    assert body["mqtt"]["password"] == token
+
+    # minted token authenticates existing edge sync endpoints
+    wl = await client.get(
+        f"/api/v1/edge/tenants/{s['tenant_id']}/whitelist", headers={"X-Api-Key": token}
+    )
+    assert wl.status_code == 200, wl.text
+
+
+@pytest.mark.asyncio
+async def test_activate_wrong_code_401(client: AsyncClient, tenant, activation_setup):
+    res = await client.post("/api/v1/edge/activate", json={"code": "ZZZZ-ZZZZ-ZZZZ"})
+    assert res.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_activate_expired_code_410(
+    client: AsyncClient, tenant, activation_setup, admin_engine
+):
+    from app.models import DeviceActivationCode
+
+    from sqlalchemy import update
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        await db.execute(
+            update(DeviceActivationCode).values(
+                expires_at=datetime.now(timezone.utc) - timedelta(hours=1)
+            )
+        )
+        await db.commit()
+    res = await client.post("/api/v1/edge/activate", json={"code": activation_setup["code"]})
+    assert res.status_code == 410
+
+
+@pytest.mark.asyncio
+async def test_activate_consumed_code_rejected(
+    client: AsyncClient, tenant, activation_setup
+):
+    first = await client.post("/api/v1/edge/activate", json={"code": activation_setup["code"]})
+    assert first.status_code == 200, first.text
+    second = await client.post("/api/v1/edge/activate", json={"code": activation_setup["code"]})
+    assert second.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_edge_config_returns_bundle_without_secrets(
+    client: AsyncClient, tenant, activation_setup
+):
+    act = await client.post("/api/v1/edge/activate", json={"code": activation_setup["code"]})
+    token = act.json()["api"]["token"]
+
+    res = await client.get("/api/v1/edge/config", headers={"X-Api-Key": token})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert len(body["gates"]) == 2
+    assert {g["direction"] for g in body["gates"]} == {"entry", "exit"}
+    assert "token" not in body["api"]
+    assert "password" not in body["mqtt"]
+    assert body["api"]["tokenStatus"] == "active"
+
+
+@pytest.mark.asyncio
+async def test_edge_config_rejects_sync_only_key(client: AsyncClient, tenant, admin_engine):
+    """A credential with only edge:ingest scope cannot pull the config bundle."""
+    from app.models import ApiCredential
+    from app.services.credential_service import hash_api_key
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        db.add(
+            ApiCredential(
+                tenant_id=tenant["tenant_id"],
+                name="sync-only",
+                key_prefix="pk_synconly",
+                key_hash=hash_api_key("pk_synconlykey"),
+                scopes=["edge:ingest"],
+            )
+        )
+        await db.commit()
+    res = await client.get("/api/v1/edge/config", headers={"X-Api-Key": "pk_synconlykey"})
+    assert res.status_code == 403

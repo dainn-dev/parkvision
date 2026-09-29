@@ -212,6 +212,54 @@ class DeviceOut(CamelModel):
         return None if v is None else str(v)
 
 
+class ActivateDeviceInfoIn(CamelModel):
+    hostname: str | None = Field(default=None, max_length=120)
+    serial: str | None = Field(default=None, max_length=120)
+
+
+class ActivateIn(CamelModel):
+    code: str = Field(min_length=1, max_length=64)
+    device_info: ActivateDeviceInfoIn | None = None
+
+
+class ActivationCameraOut(CamelModel):
+    id: uuid.UUID
+    name: str
+    stream_url: str
+    purpose: str
+
+
+class ActivationGateOut(CamelModel):
+    gate_id: uuid.UUID
+    lane_id: uuid.UUID | None
+    direction: str
+    name: str
+    cameras: list[ActivationCameraOut]
+
+
+class ActivationApiOut(CamelModel):
+    token: str | None = None  # only on activate; never re-emitted
+    token_status: str | None = None
+    base_url: str | None = None
+
+
+class ActivationMqttOut(CamelModel):
+    host: str
+    port: int
+    tls: bool
+    username: str
+    password: str | None = None  # only on activate
+
+
+class ActivationBundleOut(CamelModel):
+    device_id: uuid.UUID
+    tenant_id: uuid.UUID
+    site_id: uuid.UUID
+    gates: list[ActivationGateOut]
+    api: ActivationApiOut
+    mqtt: ActivationMqttOut
+
+
 class ActivationCodeOut(CamelModel):
     """One-time device activation code — plaintext `code` is only in this response."""
 

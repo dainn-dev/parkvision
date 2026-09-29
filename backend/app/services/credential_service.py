@@ -14,6 +14,12 @@ def hash_api_key(plaintext: str) -> str:
     return hashlib.sha256(plaintext.encode()).hexdigest()
 
 
+def new_api_key() -> tuple[str, str, str]:
+    """Returns (plaintext, prefix, sha256 hash)."""
+    plain = f"pk_{secrets.token_urlsafe(32)}"
+    return plain, plain[:10], hash_api_key(plain)
+
+
 # Crockford base32 — no I/L/O/U, safe for humans to read aloud or type.
 _ACTIVATION_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
