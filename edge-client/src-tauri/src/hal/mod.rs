@@ -5,6 +5,7 @@
 //! touching the FSM.
 
 pub mod backends;
+pub mod commands;
 pub mod config;
 pub mod contact;
 #[cfg(test)]

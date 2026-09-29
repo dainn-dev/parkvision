@@ -303,18 +303,36 @@ pub fn get_config(store: tauri::State<'_, SharedConfigStore>) -> Option<EdgeConf
         .and_then(|s| s.load().ok().flatten())
 }
 
+/// Persist the config and, when a runtime is already up, reboot it so a
+/// changed barrier wiring takes effect without restarting the app.
 #[tauri::command]
-pub fn save_config(
+pub async fn save_config(
     cfg: EdgeConfig,
+    app: tauri::AppHandle,
     store: tauri::State<'_, SharedConfigStore>,
 ) -> Result<(), String> {
-    let guard = store
-        .lock()
-        .map_err(|_| "config store poisoned".to_string())?;
-    let s = guard
-        .as_ref()
-        .ok_or_else(|| "config store not initialized".to_string())?;
-    s.save(&cfg).map_err(|e| e.to_string())
+    {
+        let guard = store
+            .lock()
+            .map_err(|_| "config store poisoned".to_string())?;
+        let s = guard
+            .as_ref()
+            .ok_or_else(|| "config store not initialized".to_string())?;
+        s.save(&cfg).map_err(|e| e.to_string())?;
+    }
+    let running = {
+        use tauri::Manager;
+        app.state::<crate::RuntimeState>()
+            .lock()
+            .map(|g| g.is_some())
+            .unwrap_or(false)
+    };
+    if running {
+        crate::boot_runtime(&app, cfg)
+            .await
+            .map_err(|e| format!("saved, but runtime restart failed: {e:#}"))?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

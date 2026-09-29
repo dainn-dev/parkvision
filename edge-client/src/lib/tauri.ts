@@ -150,6 +150,35 @@ export interface LockStatus {
 // ---------- commands ----------
 
 export const getConfig = () => invoke<EdgeConfig | null>("get_config");
+/// Persist config; if the runtime is up it is rebooted with the new config.
+export const saveConfig = (cfg: EdgeConfig) => invoke<void>("save_config", { cfg });
+
+// ---------- barrier relay setup ----------
+
+export interface BarrierProfile {
+  pulseMs: number;
+  travelSec: number;
+  mode: ContactMode;
+  autoClose: AutoClose;
+  boardHoldSec: number;
+  pollMs: number;
+  wiringHint: string;
+  verified: boolean;
+}
+
+export interface BarrierPreset {
+  brand: BarrierBrand;
+  profile: BarrierProfile;
+}
+
+export const listSerialPorts = () => invoke<string[]>("list_serial_ports");
+export const getBarrierProfiles = () => invoke<BarrierPreset[]>("get_barrier_profiles");
+/// Resolves to the backend kind on success; rejects with a message otherwise.
+export const barrierProbe = (cfg: BarrierConfig) => invoke<string>("barrier_probe", { cfg });
+export const barrierTestOutput = (cfg: BarrierConfig, output: number) =>
+  invoke<void>("barrier_test_output", { cfg, output });
+export const barrierReadInputs = (cfg: BarrierConfig) =>
+  invoke<boolean[] | null>("barrier_read_inputs", { cfg });
 
 export const activate = (apiBaseUrl: string, code: string) =>
   invoke<void>("activate", {

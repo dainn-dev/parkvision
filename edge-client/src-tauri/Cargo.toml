@@ -42,6 +42,7 @@ digest_auth = "0.3"
 tokio-modbus = { version = "0.17", default-features = false, features = ["rtu", "tcp"] }
 tokio-serial = "5.5"
 crc16 = "0.4"
+serialport = "4"
 
 [features]
 default = []

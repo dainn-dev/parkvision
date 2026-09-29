@@ -326,6 +326,11 @@ pub fn run() {
             manual_unlock,
             manual_plate,
             resync,
+            hal::commands::list_serial_ports,
+            hal::commands::get_barrier_profiles,
+            hal::commands::barrier_probe,
+            hal::commands::barrier_test_output,
+            hal::commands::barrier_read_inputs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
