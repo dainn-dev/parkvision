@@ -4,6 +4,7 @@ import {
   getStatus,
   lockNow,
   lockStatus,
+  onCamera,
   onEvent,
   onStatus,
   resync,
@@ -20,6 +21,10 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
   const [cfg, setCfg] = useState<EdgeConfig | null>(null);
   const [events, setEvents] = useState<AccessEvent[]>([]);
   const [lock, setLock] = useState<LockStatus | null>(null);
+  // cameraId → latest preview JPEG (b64) + worker/stream state
+  const [cameras, setCameras] = useState<
+    Record<string, { jpeg?: string; state?: string; detail?: string }>
+  >({});
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
@@ -35,12 +40,25 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
     lockStatus().then(setLock).catch(() => {});
     const un1 = onStatus(setStatus);
     const un2 = onEvent((e) => setEvents((prev) => [e, ...prev].slice(0, 100)));
+    const un3 = onCamera((e) =>
+      setCameras((prev) => {
+        const cur = prev[e.cameraId] ?? {};
+        return {
+          ...prev,
+          [e.cameraId]:
+            e.type === "camera.preview"
+              ? { ...cur, jpeg: e.jpeg, state: "live" }
+              : { ...cur, state: e.state, detail: e.detail },
+        };
+      })
+    );
     const poll = setInterval(() => {
       getStatus().then((s) => s && setStatus(s));
     }, 2000);
     return () => {
       un1.then((f) => f());
       un2.then((f) => f());
+      un3.then((f) => f());
       clearInterval(poll);
     };
   }, []);
@@ -109,6 +127,7 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
               cameras={
                 cfg?.gates.find((b) => b.gateId === g.gateId)?.cameras ?? []
               }
+              camLive={cameras}
               onAction={act}
             />
           ))}

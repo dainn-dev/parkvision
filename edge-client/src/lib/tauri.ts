@@ -124,6 +124,15 @@ export const onStatus = (cb: (s: EdgeStatus) => void): Promise<UnlistenFn> =>
 export const onEvent = (cb: (e: AccessEvent) => void): Promise<UnlistenFn> =>
   listen<AccessEvent>("edge://event", (e) => cb(e.payload));
 
+/** Camera worker events — `camera.preview` carries a base64 JPEG,
+ *  `camera.status` carries the worker/stream state. */
+export type CameraEvent =
+  | { type: "camera.preview"; cameraId: string; jpeg: string; width: number; height: number }
+  | { type: "camera.status"; cameraId: string; state: string; detail: string };
+
+export const onCamera = (cb: (e: CameraEvent) => void): Promise<UnlistenFn> =>
+  listen<CameraEvent>("edge://camera", (e) => cb(e.payload));
+
 /// Fired when the tenant admin revokes the device credential — the app
 /// wipes local config; the UI must return to the activation screen.
 export const onDeprovisioned = (cb: () => void): Promise<UnlistenFn> =>

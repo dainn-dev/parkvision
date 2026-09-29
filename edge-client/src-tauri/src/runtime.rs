@@ -22,6 +22,7 @@ use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::anpr::{ManualPlateSource, PlateReading, PlateSource};
+use crate::camera_worker::{CameraWorkerManager, WorkerCommand};
 use crate::commands::{CommandExecutor, InMemCommandLog};
 use crate::config::{EdgeConfig, GateBinding, GateCtx};
 use crate::fsm::{FsmEvent, GateFsm, GateState};
@@ -80,8 +81,12 @@ pub struct SharedRuntime {
     pub connected_rx: watch::Receiver<bool>,
     /// Each pipeline access decision (any gate) — forwarded as `edge://event`.
     pub events_tx: broadcast::Sender<serde_json::Value>,
+    /// Camera worker events (preview frames, stream state) → `edge://camera`.
+    pub camera_tx: broadcast::Sender<serde_json::Value>,
     /// `true` once a sync got 401/403 — the Tauri layer deprovisions.
     pub revoked_rx: watch::Receiver<bool>,
+    pub app_data: PathBuf,
+    workers: Mutex<Option<(CameraWorkerManager, crate::ingest::IngestServer)>>,
     token: CancellationToken,
     handles: Mutex<Vec<JoinHandle<()>>>,
 }
@@ -101,8 +106,57 @@ impl SharedRuntime {
         self.gates.first()
     }
 
+    pub fn camera_rx(&self) -> broadcast::Receiver<serde_json::Value> {
+        self.camera_tx.subscribe()
+    }
+
+    /// Spawn the ANPR camera workers + local ingest server. Disabled when no
+    /// worker command resolves (no env override and no bundled binary) — the
+    /// runtime then stays in manual-plate mode.
+    pub async fn start_camera_workers(&self) -> Result<bool> {
+        let Some(cmd) = WorkerCommand::resolve() else {
+            info!("no ANPR worker command resolvable — camera recognition disabled");
+            return Ok(false);
+        };
+        let mut routes = Vec::new();
+        let mut cameras = Vec::new();
+        for g in &self.gates {
+            for cam in &g.ctx.cameras {
+                cameras.push(cam.clone());
+                routes.push((
+                    cam.camera_id,
+                    crate::ingest::CameraRoute {
+                        gate_id: g.ctx.gate_id,
+                        plate_tx: g.plate_tx.clone(),
+                        captures_dir: self.app_data.join("captures"),
+                        camera_tx: self.camera_tx.clone(),
+                    },
+                ));
+            }
+        }
+        if cameras.is_empty() {
+            return Ok(false);
+        }
+        let server = crate::ingest::IngestServer::start(routes).await?;
+        let ingest_url = format!("http://127.0.0.1:{}/api/v1/parking-events", server.port);
+        let env = crate::camera_worker::WorkerEnv {
+            tenant_id: self.cfg.tenant_id,
+            site_id: self.cfg.site_id,
+            ingest_url: &ingest_url,
+            camera_key: &server.camera_key,
+            app_data: &self.app_data,
+            camera_tx: self.camera_tx.clone(),
+        };
+        let manager = CameraWorkerManager::spawn_all(&cmd, cameras, &env)?;
+        *self.workers.lock().unwrap() = Some((manager, server));
+        Ok(true)
+    }
+
     pub async fn stop(&self) {
         self.token.cancel();
+        // Dropping the pair aborts every worker task (children die via
+        // kill_on_drop) and shuts down the ingest server.
+        self.workers.lock().unwrap().take();
         for h in self.handles.lock().unwrap().drain(..) {
             h.abort();
         }
@@ -141,7 +195,7 @@ impl EdgeRuntime {
             .map(|g| command_topic(&cfg.tenant_id, &cfg.site_id, &g.gate_id))
             .collect();
         let (client, cmd_rx) = MqttClient::connect(&cfg.mqtt, &client_id, &topics).await?;
-        Self::start_with(
+        let rt = Self::start_with(
             cfg,
             store,
             hal_factory,
@@ -150,7 +204,13 @@ impl EdgeRuntime {
             cmd_rx,
             Knots::default(),
         )
-        .await
+        .await?;
+        // ANPR camera workers are best-effort — failure leaves the runtime in
+        // manual-plate mode rather than blocking boot.
+        if let Err(e) = rt.start_camera_workers().await {
+            warn!("camera workers not started (manual mode): {e:#}");
+        }
+        Ok(rt)
     }
 
     /// Injectable entry for tests / future transports.
@@ -168,6 +228,7 @@ impl EdgeRuntime {
         let token = CancellationToken::new();
         let (connected_tx, connected_rx) = watch::channel(publisher.is_connected());
         let (events_tx, _) = broadcast::channel::<serde_json::Value>(64);
+        let (camera_tx, _) = broadcast::channel::<serde_json::Value>(256);
         let (revoked_tx, revoked_rx) = watch::channel(false);
         let captures_dir = app_data.join("captures");
         std::fs::create_dir_all(&captures_dir).ok();
@@ -430,7 +491,10 @@ impl EdgeRuntime {
             publisher,
             connected_rx,
             events_tx,
+            camera_tx,
             revoked_rx,
+            app_data,
+            workers: Mutex::new(None),
             token,
             handles: Mutex::new(handles),
         })

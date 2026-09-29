@@ -1,11 +1,13 @@
 pub mod access;
 pub mod activation;
 pub mod anpr;
+pub mod camera_worker;
 pub mod commands;
 pub mod config;
 pub mod fsm;
 pub mod hal;
 pub mod incidents;
+pub mod ingest;
 pub mod lock;
 pub mod mqtt;
 pub mod payloads;
@@ -14,11 +16,13 @@ pub mod runtime;
 pub mod store;
 pub mod sync;
 pub mod telemetry;
+pub mod worker_ipc;
 
 use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
+use tokio::sync::broadcast;
 use uuid::Uuid;
 
 use crate::anpr::PlateReading;
@@ -132,6 +136,21 @@ fn spawn_event_forwarders(app: &AppHandle, rt: &Arc<SharedRuntime>) {
             while let Ok(ev) = events.recv().await {
                 let _ = app.emit("edge://event", ev);
                 let _ = app.emit("edge://status", build_status(&rt));
+            }
+        });
+    }
+    {
+        let app = app.clone();
+        let mut camera = rt.camera_rx();
+        tauri::async_runtime::spawn(async move {
+            loop {
+                match camera.recv().await {
+                    Ok(ev) => {
+                        let _ = app.emit("edge://camera", ev);
+                    }
+                    Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(broadcast::error::RecvError::Closed) => break,
+                }
             }
         });
     }
