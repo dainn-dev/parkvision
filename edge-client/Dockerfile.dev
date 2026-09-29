@@ -1,0 +1,20 @@
+# Dev/test environment for the edge client Rust core.
+# Used to run `cargo test` in Linux (Smart App Control on the Windows host
+# blocks unsigned build-script/test binaries non-deterministically).
+FROM rust:1.98-bookworm
+
+RUN rustup component add rustfmt clippy
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libglib2.0-dev \
+    libgtk-3-dev \
+    libwebkit2gtk-4.1-dev \
+    libjavascriptcoregtk-4.1-dev \
+    libsoup-3.0-dev \
+    libayatana-appindicator3-dev \
+    librsvg2-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app

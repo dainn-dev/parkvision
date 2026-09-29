@@ -1,0 +1,48 @@
+[package]
+name = "parkvision-edge"
+version = "0.1.0"
+description = "ParkVision Edge Gateway client"
+edition = "2021"
+
+[lib]
+name = "parkvision_edge_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-store = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+thiserror = "2"
+anyhow = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+rumqttc = { version = "0.24", features = ["use-rustls"] }
+async-trait = "0.1"
+futures = "0.3"
+tokio-util = "0.7"
+sysinfo = "0.33"
+rusqlite = { version = "0.32", features = ["bundled"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "multipart"] }
+axum = { version = "0.8", features = ["multipart"] }
+ort = { version = "2.0.0-rc.13", optional = true }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"], optional = true }
+ndarray = { version = "0.16", optional = true }
+argon2 = "0.5"
+rand_core = { version = "0.6", features = ["getrandom"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+local-ip-address = "0.6"
+url = "2"
+
+[features]
+default = []
+onnx = ["dep:ort", "dep:image", "dep:ndarray"]
+
+[dev-dependencies]
+tempfile = "3"
+httpmock = "0.7"

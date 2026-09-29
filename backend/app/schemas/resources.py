@@ -1,3 +1,4 @@
+import ipaddress
 import uuid
 from datetime import datetime
 from typing import Any
@@ -210,6 +211,82 @@ class DeviceOut(CamelModel):
     @classmethod
     def _ip_to_str(cls, v: object) -> object:
         return None if v is None else str(v)
+
+
+class ActivateDeviceInfoIn(CamelModel):
+    hostname: str | None = Field(default=None, max_length=120)
+    serial: str | None = Field(default=None, max_length=120)
+
+
+class ActivateIn(CamelModel):
+    code: str = Field(min_length=1, max_length=64)
+    device_info: ActivateDeviceInfoIn | None = None
+
+
+class ActivationCameraOut(CamelModel):
+    id: uuid.UUID
+    name: str
+    stream_url: str
+    purpose: str
+
+
+class ActivationGateOut(CamelModel):
+    gate_id: uuid.UUID
+    lane_id: uuid.UUID | None
+    direction: str
+    name: str
+    cameras: list[ActivationCameraOut]
+
+
+class ActivationApiOut(CamelModel):
+    token: str | None = None  # only on activate; never re-emitted
+    token_status: str | None = None
+    base_url: str | None = None
+
+
+class ActivationMqttOut(CamelModel):
+    host: str
+    port: int
+    tls: bool
+    username: str
+    password: str | None = None  # only on activate
+
+
+class ActivationBundleOut(CamelModel):
+    device_id: uuid.UUID
+    tenant_id: uuid.UUID
+    site_id: uuid.UUID
+    gates: list[ActivationGateOut]
+    api: ActivationApiOut
+    mqtt: ActivationMqttOut
+
+
+class ActivationCodeIn(CamelModel):
+    """Options when generating a device activation code."""
+
+    allowed_ip: str | None = Field(default=None, max_length=64)
+
+    @field_validator("allowed_ip")
+    @classmethod
+    def _valid_ip_or_cidr(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            return None
+        try:
+            ipaddress.ip_network(v, strict=False)
+        except ValueError:
+            raise ValueError("allowedIp must be an IP address or CIDR range") from None
+        return v
+
+
+class ActivationCodeOut(CamelModel):
+    """One-time device activation code — plaintext `code` is only in this response."""
+
+    code: str
+    code_prefix: str
+    expires_at: datetime
 
 
 class DeviceUpdateIn(CamelModel):
@@ -1035,3 +1112,17 @@ class EdgeRuleEntry(CamelModel):
     priority: int
     schedule: dict[str, Any] = {}
     conditions: dict[str, Any] = {}
+
+
+class MqttAuthIn(CamelModel):
+    """EMQX http authn/authz request shape."""
+
+    username: str
+    password: str | None = None
+    clientid: str | None = None
+    action: str | None = None  # authz only: publish | subscribe
+    topic: str | None = None   # authz only
+
+
+class MqttAuthOut(CamelModel):
+    result: str  # "allow" | "deny"

@@ -1,6 +1,7 @@
 """Barrier gates, edge devices, gate commands and telemetry history."""
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select, update
@@ -10,10 +11,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import WRITE_ROLES, csrf_protect, require_roles
 from app.api.v1.tenant import TenantCtx, get_tenant_db, tenant_ctx
 from app.core.errors import bad_request, conflict, not_found
-from app.models import BarrierGate, EdgeDevice, GateTelemetryLog, TenantSite
+from app.models import (
+    ApiCredential,
+    BarrierGate,
+    DeviceActivationCode,
+    EdgeDevice,
+    GateTelemetryLog,
+    TenantSite,
+)
 from app.models import GateCommand as GateCommandRow
 from app.schemas.common import MessageOut, Page, paginate
 from app.schemas.resources import (
+    ActivationCodeIn,
+    ActivationCodeOut,
     CommandIn,
     CommandOut,
     DeviceIn,
@@ -26,6 +36,7 @@ from app.schemas.resources import (
 )
 from app.services.audit_service import write_audit
 from app.services.command_service import issue_command
+from app.services.credential_service import generate_activation_code, hash_activation_code
 
 router = APIRouter(
     prefix="/tenants/{tenant_id}",
@@ -336,6 +347,105 @@ async def register_device(
         ip=request.client.host if request.client else None,
     )
     return DeviceOut.model_validate(row)
+
+
+ACTIVATION_CODE_TTL = timedelta(hours=24)
+
+
+@router.post("/devices/{device_id}/activation-codes", response_model=ActivationCodeOut, status_code=201)
+async def create_activation_code(
+    device_id: uuid.UUID,
+    request: Request,
+    body: ActivationCodeIn | None = None,
+    ctx: TenantCtx = Depends(tenant_ctx),
+    db: AsyncSession = Depends(get_tenant_db),
+    _: None = Depends(require_roles(*WRITE_ROLES)),
+) -> ActivationCodeOut:
+    """Mint a one-time activation code for a device. Plaintext is only in this response."""
+    device = await _get_device_or_404(db, ctx.tenant_id, device_id)
+    now = datetime.now(timezone.utc)
+
+    # Supersede (not delete) every prior unconsumed code for this device.
+    await db.execute(
+        update(DeviceActivationCode)
+        .where(
+            DeviceActivationCode.edge_device_id == device.id,
+            DeviceActivationCode.consumed_at.is_(None),
+        )
+        .values(consumed_at=now)
+    )
+
+    code = generate_activation_code()
+    row = DeviceActivationCode(
+        tenant_id=ctx.tenant_id,
+        edge_device_id=device.id,
+        code_hash=hash_activation_code(code),
+        code_prefix=code[:5],
+        expires_at=now + ACTIVATION_CODE_TTL,
+        allowed_ip=body.allowed_ip if body else None,
+        created_by=ctx.auth.user_id,
+    )
+    db.add(row)
+    await db.flush()
+    await write_audit(
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="device.activation_code_created",
+        resource_type="device_activation_code",
+        resource_id=str(row.id),
+        details={"deviceId": str(device.id), "codePrefix": row.code_prefix},
+        ip=request.client.host if request.client else None,
+    )
+    return ActivationCodeOut(code=code, code_prefix=row.code_prefix, expires_at=row.expires_at)
+
+
+@router.post("/devices/{device_id}/revoke-token", response_model=MessageOut)
+async def revoke_device_token(
+    device_id: uuid.UUID,
+    request: Request,
+    ctx: TenantCtx = Depends(tenant_ctx),
+    db: AsyncSession = Depends(get_tenant_db),
+    _: None = Depends(require_roles(*WRITE_ROLES)),
+) -> MessageOut:
+    """Revoke the edge device's API credential — REST (and MQTT via
+    /edge/mqtt-auth) stop working immediately; the client must re-activate."""
+    device = await _get_device_or_404(db, ctx.tenant_id, device_id)
+    creds = (
+        (
+            await db.execute(
+                select(ApiCredential).where(
+                    ApiCredential.edge_device_id == device.id,
+                    ApiCredential.tenant_id == ctx.tenant_id,
+                    ApiCredential.revoked_at.is_(None),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    now = datetime.now(timezone.utc)
+    for c in creds:
+        c.status = "revoked"
+        c.revoked_at = now
+        c.previous_key_hash = None
+        c.previous_grace_until = None
+    if creds:
+        await write_audit(
+            db,
+            tenant_id=ctx.tenant_id,
+            actor_type=ctx.auth.user_type,
+            actor_id=ctx.auth.user_id,
+            actor_email=None,
+            action="api_credential.revoke",
+            resource_type="edge_device",
+            resource_id=str(device.id),
+            details={"revokedCount": len(creds)},
+            ip=request.client.host if request.client else None,
+        )
+    return MessageOut(message="revoked", detail=f"{len(creds)} credential(s) revoked")
 
 
 async def _get_device_or_404(db: AsyncSession, tenant_id: uuid.UUID, device_id: uuid.UUID) -> EdgeDevice:

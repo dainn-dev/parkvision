@@ -1,0 +1,4 @@
+# DAI-292 CPU baseline. GPU hosts must replace paddlepaddle with the matching
+# paddlepaddle-gpu build from the deployment image; never install both variants.
+paddleocr==2.10.0
+paddlepaddle==3.0.0

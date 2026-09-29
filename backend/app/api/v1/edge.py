@@ -3,25 +3,46 @@
 Firmware uses these for offline operation: incremental whitelist sync
 (`GET /edge/tenants/{id}/whitelist?updatedSince=`) and a rules snapshot for
 local `decide_access` fallback when the broker/API is unreachable.
+`/edge/activate` is the one public endpoint: it redeems a tenant-issued
+one-time code into a device credential + config bundle.
 """
 
+import ipaddress
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy import select
 
 from app.api.deps import forbidden, unauthorized
-from app.core.errors import bad_request
+from app.core.errors import ApiError, bad_request, conflict
+from app.core.rate_limit import rate_limited
 from app.database import platform_session
-from app.models import ApiCredential, RegisteredVehicle, TenantAccessRule
+from app.models import (
+    ApiCredential,
+    BarrierGate,
+    EdgeDevice,
+    RegisteredVehicle,
+    TenantAccessRule,
+)
 from app.schemas.resources import (
+    ActivationBundleOut,
+    ActivateIn,
     EdgeRuleEntry,
     EdgeVehicleEntry,
     EdgeWhitelistOut,
+    MqttAuthIn,
+    MqttAuthOut,
     PresignIn,
     PresignOut,
 )
+from app.services.activation_service import (
+    build_activation_bundle,
+    consume_activation_code,
+    find_activation_code,
+    mint_device_credential,
+)
+from app.services.audit_service import write_audit
 from app.services.credential_service import authenticate_api_key
 from app.services.storage import presign_upload
 
@@ -29,6 +50,48 @@ router = APIRouter(prefix="/edge", tags=["edge"])
 
 
 EDGE_SYNC_SCOPE = "edge:ingest"
+EDGE_CONFIG_SCOPE = "edge:config"
+
+
+def _client_ip(request: Request) -> str | None:
+    """Source IP of the request, verified against the TCP peer.
+
+    `X-Forwarded-For` is trusted only when the direct peer is a private/
+    loopback address (i.e. a same-host proxy/LB hop) — on a direct public
+    connection a client-set XFF must not bypass the IP check.
+    """
+    peer = request.client.host if request.client else None
+    fwd = request.headers.get("x-forwarded-for")
+    if peer and fwd:
+        try:
+            addr = ipaddress.ip_address(peer)
+            if addr.is_private or addr.is_loopback:
+                first = fwd.split(",")[0].strip()
+                if first:
+                    return first
+        except ValueError:
+            pass
+    return peer
+
+
+def _ip_allowed(allowed: str, request: Request) -> bool:
+    """`allowed` is a stored IP or CIDR; the request source must fall inside."""
+    try:
+        network = ipaddress.ip_network(allowed, strict=False)
+        peer = _client_ip(request)
+        return peer is not None and ipaddress.ip_address(peer) in network
+    except ValueError:
+        return False
+
+
+async def _resolve_api_key(x_api_key: str) -> ApiCredential:
+    if not x_api_key:
+        raise unauthorized("X-Api-Key header required")
+    async with platform_session() as db:
+        cred = await authenticate_api_key(db, x_api_key)
+    if cred is None:
+        raise unauthorized("Invalid or expired API key")
+    return cred
 
 
 async def edge_ctx(tenant_id: uuid.UUID, x_api_key: str = Header(default="")) -> ApiCredential:
@@ -38,17 +101,119 @@ async def edge_ctx(tenant_id: uuid.UUID, x_api_key: str = Header(default="")) ->
     (`tenant_id IS NULL`) may read any tenant's whitelist. Either way the
     credential must carry the `edge:ingest` scope.
     """
-    if not x_api_key:
-        raise unauthorized("X-Api-Key header required")
-    async with platform_session() as db:
-        cred = await authenticate_api_key(db, x_api_key)
-    if cred is None:
-        raise unauthorized("Invalid or expired API key")
+    cred = await _resolve_api_key(x_api_key)
     if EDGE_SYNC_SCOPE not in (cred.scopes or []):
         raise forbidden(f"API key missing '{EDGE_SYNC_SCOPE}' scope")
     if cred.tenant_id is not None and cred.tenant_id != tenant_id:
         raise forbidden("API key not scoped to this tenant")
     return cred
+
+
+async def edge_device_ctx(x_api_key: str = Header(default="")) -> ApiCredential:
+    """`X-Api-Key` -> device-bound credential carrying the `edge:config` scope."""
+    cred = await _resolve_api_key(x_api_key)
+    if EDGE_CONFIG_SCOPE not in (cred.scopes or []):
+        raise forbidden(f"API key missing '{EDGE_CONFIG_SCOPE}' scope")
+    if cred.edge_device_id is None:
+        raise forbidden("API key is not bound to an edge device")
+    return cred
+
+
+@router.get("/client-ip")
+async def edge_client_ip(request: Request) -> dict:
+    """Echo the source IP the server sees — the operator reads this on the
+    setup screen and reports it to the tenant admin for `allowedIp` pinning."""
+    return {"ip": _client_ip(request)}
+
+
+@router.post(
+    "/activate",
+    response_model=ActivationBundleOut,
+    dependencies=[Depends(rate_limited("edge-activate", 10, 60))],
+)
+async def edge_activate(body: ActivateIn, request: Request) -> ActivationBundleOut:
+    """Redeem a one-time activation code into a device credential + config bundle.
+
+    Public (the device has no credential yet); brute force is bounded by rate
+    limiting + code entropy. The consume is an atomic UPDATE so two devices
+    cannot redeem the same code.
+    """
+    async with platform_session() as db:
+        row = await find_activation_code(db, body.code)
+        if row is None:
+            raise unauthorized("Invalid activation code")
+        if row.expires_at <= datetime.now(timezone.utc):
+            raise ApiError(
+                status.HTTP_410_GONE, "activation_code_expired", "Activation code expired"
+            )
+        if row.consumed_at is not None:
+            raise conflict("Activation code already redeemed")
+        if row.allowed_ip and not _ip_allowed(row.allowed_ip, request):
+            # Reject WITHOUT consuming — a wrong-IP attempt must not burn the code.
+            raise forbidden("Activation code is not allowed from this IP address")
+
+        device = (
+            await db.execute(select(EdgeDevice).where(EdgeDevice.id == row.edge_device_id))
+        ).scalar_one_or_none()
+        if device is None or device.status == "decommissioned":
+            raise unauthorized("Activation code is not valid for an active device")
+        # A device with no bound gates yields an empty bundle the client
+        # rejects — refuse BEFORE consuming so the code survives the fix.
+        has_gate = (
+            await db.execute(
+                select(BarrierGate.id)
+                .where(BarrierGate.edge_device_id == device.id)
+                .limit(1)
+            )
+        ).first() is not None
+        if not has_gate:
+            raise ApiError(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "device_has_no_gates",
+                "Device has no gates bound — assign gates to this device before activating",
+            )
+
+        consumed = await consume_activation_code(db, row)
+        if consumed is None:
+            raise conflict("Activation code already redeemed")
+
+        cred, plain = mint_device_credential(device)
+        db.add(cred)
+        if body.device_info and body.device_info.serial and not device.device_serial:
+            device.device_serial = body.device_info.serial
+
+        await write_audit(
+            db,
+            tenant_id=device.tenant_id,
+            actor_type="edge_device",
+            actor_id=device.id,
+            actor_email=None,
+            action="device.activated",
+            resource_type="edge_device",
+            resource_id=str(device.id),
+            ip=request.client.host if request.client else None,
+        )
+        bundle = await build_activation_bundle(db, device, token=plain)
+        await db.commit()
+        return bundle
+
+
+@router.get(
+    "/config",
+    response_model=ActivationBundleOut,
+    response_model_exclude={"api": {"token"}, "mqtt": {"password"}},
+)
+async def edge_config(cred: ApiCredential = Depends(edge_device_ctx)) -> ActivationBundleOut:
+    """Re-emit the device's config bundle (gates/lanes/cameras) — no secrets."""
+    async with platform_session() as db:
+        device = (
+            await db.execute(
+                select(EdgeDevice).where(EdgeDevice.id == cred.edge_device_id)
+            )
+        ).scalar_one_or_none()
+        if device is None or device.status == "decommissioned":
+            raise unauthorized("Device is decommissioned")
+        return await build_activation_bundle(db, device)
 
 
 @router.get("/tenants/{tenant_id}/whitelist", response_model=EdgeWhitelistOut)
@@ -131,3 +296,59 @@ async def edge_presign_upload(
     if body.kind not in _EDGE_UPLOAD_KINDS:
         raise bad_request(f"kind must be one of {sorted(_EDGE_UPLOAD_KINDS)}")
     return PresignOut(**presign_upload(tenant_id, body.kind, body.content_type))
+_DENY = MqttAuthOut(result="deny")
+
+
+@router.post("/mqtt-auth", response_model=MqttAuthOut)
+async def mqtt_auth(body: MqttAuthIn) -> MqttAuthOut:
+    """EMQX http authn/authz hook.
+
+    Authn: EMQX posts {username, password}. Authz: posts {username, action,
+    topic} (no password). Password is the device's `pk_` credential — so a
+    tenant-side revoke kills MQTT access too. Username must equal the
+    device's `mqtt_client_id` (`edge-{device_id}` default) and topics are
+    scoped to the credential's tenant prefix.
+    """
+    async with platform_session() as db:
+        if body.password:
+            cred = await authenticate_api_key(db, body.password)
+            if cred is None or cred.edge_device_id is None:
+                return _DENY
+        else:
+            cred = None
+        device: EdgeDevice | None = None
+        if cred is not None:
+            device = await db.get(EdgeDevice, cred.edge_device_id)
+        else:
+            # authz path: resolve device from its MQTT username
+            rows = (
+                await db.execute(
+                    select(EdgeDevice).where(
+                        EdgeDevice.mqtt_client_id == body.username
+                    )
+                )
+            ).scalars().all()
+            if len(rows) == 1:
+                device = rows[0]
+            elif body.username.startswith("edge-"):
+                try:
+                    device = await db.get(EdgeDevice, uuid.UUID(body.username[5:]))
+                except ValueError:
+                    device = None
+            if device is not None:
+                cred = (
+                    await db.execute(
+                        select(ApiCredential).where(
+                            ApiCredential.edge_device_id == device.id,
+                            ApiCredential.status == "active",
+                            ApiCredential.revoked_at.is_(None),
+                        )
+                    )
+                ).scalars().first()
+        if device is None or cred is None:
+            return _DENY
+        if body.username != (device.mqtt_client_id or f"edge-{device.id}"):
+            return _DENY
+        if body.topic and not body.topic.startswith(f"tenants/{cred.tenant_id}/"):
+            return _DENY
+    return MqttAuthOut(result="allow")

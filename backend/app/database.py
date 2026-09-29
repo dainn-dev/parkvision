@@ -39,11 +39,22 @@ async def tenant_session(tenant_id: str) -> AsyncIterator[AsyncSession]:
         yield session
 
 
+# `set_config(..., is_local=true)` leaves `app.current_tenant_id = ''` on a
+# pooled connection after commit (Postgres reverts to an empty placeholder,
+# not NULL). RLS policies cast it with `::uuid`, which throws on ''. Non-
+# tenant sessions pin it to the nil UUID so the cast always succeeds.
+_NIL_TENANT = "00000000-0000-0000-0000-000000000000"
+
+
 @asynccontextmanager
 async def platform_session() -> AsyncIterator[AsyncSession]:
     """Session bypassing tenant RLS — for login lookup and platform admin paths only."""
     async with AsyncSessionLocal() as session, session.begin():
         await session.execute(text("SELECT set_config('app.platform_bypass', 'true', true)"))
+        await session.execute(
+            text("SELECT set_config('app.current_tenant_id', :tid, true)"),
+            {"tid": _NIL_TENANT},
+        )
         yield session
 
 
@@ -51,6 +62,10 @@ async def platform_session() -> AsyncIterator[AsyncSession]:
 async def anonymous_session() -> AsyncIterator[AsyncSession]:
     """Session for public/unauthenticated reads (plans, legal docs)."""
     async with AsyncSessionLocal() as session, session.begin():
+        await session.execute(
+            text("SELECT set_config('app.current_tenant_id', :tid, true)"),
+            {"tid": _NIL_TENANT},
+        )
         yield session
 
 

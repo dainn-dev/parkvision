@@ -1,0 +1,108 @@
+{
+  "pipeline": {
+    "id": "lpr-mvp-v1",
+    "event_version": 1,
+    "frame_interval_ms": 200
+  },
+  "camera": {
+    "tenant_id": "10000000-0000-0000-0000-000000000001",
+    "site_id": "20000000-0000-0000-0000-000000000290",
+    "id": "30000000-0000-0000-0000-000000000290",
+    "source": {
+      "type": "file",
+      "path": "../backend/test_image.png",
+      "username": "",
+      "password": ""
+    }
+  },
+  "models": {
+    "vehicle_detector": {
+      "name": "yolo11n",
+      "artifact_path": "model/yolo11n.pt",
+      "artifact_version": "2026.07.0",
+      "image_size": 640,
+      "device": "cpu"
+    },
+    "plate_detector": {
+      "name": "lp-detector-nano",
+      "artifact_path": "model/LP_detector_nano_61.pt",
+      "artifact_version": "61",
+      "image_size": 640,
+      "device": "cpu"
+    },
+    "ocr": {
+      "name": "PaddleOCR",
+      "artifact_path": "model/paddleocr",
+      "artifact_version": "pp-ocr-mobile",
+      "device": "cpu"
+    }
+  },
+  "thresholds": {
+    "motion": {
+      "history": 500,
+      "var_threshold": 16,
+      "detect_shadows": false,
+      "min_foreground_area_ratio": 0.005,
+      "min_consecutive_active_frames": 2,
+      "warmup_frames": 30,
+      "cooldown_frames": 10
+    },
+    "vehicle": {
+      "confidence": 0.4,
+      "nms_iou": 0.5
+    },
+    "plate_confidence": 0.6,
+    "plate_padding_ratio": 0.1,
+    "min_plate_width_px": 20,
+    "min_plate_height_px": 8,
+    "ocr_confidence": 0.8,
+    "tracker": {
+      "high_confidence": 0.4,
+      "low_confidence": 0.1,
+      "match": 0.8,
+      "buffer_frames": 30,
+      "min_hits": 3
+    }
+  },
+  "ocr": {
+    "primary": "PaddleOCR",
+    "languages": ["en", "vi"],
+    "comparators": ["EasyOCR", "VietOCR"],
+    "automatic_fallback": false,
+    "low_confidence_policy": "reject"
+  },
+  "snapshot": {
+    "backend": "local",
+    "output_dir": "camera-snapshots",
+    "content_type": "image/jpeg",
+    "jpeg_quality": 80,
+    "max_width": 1280
+  },
+  "ingest": {
+    "url": "http://localhost:8080/api/v1/parking-events",
+    "timeout_seconds": 10,
+    "camera_key": "",
+    "snapshot_part": "snapshot",
+    "dry_run": true,
+    "max_attempts": 3,
+    "retry_base_seconds": 0.5,
+    "retry_max_seconds": 5.0,
+    "queue_enabled": true,
+    "queue_path": "camera-event-queue.sqlite3",
+    "queue_max_events": 5000,
+    "queue_retry_seconds": 5.0,
+    "heartbeat_interval_seconds": 20.0
+  },
+  "logging": {
+    "level": "INFO",
+    "service": "camera-pipeline"
+  },
+  "barrier": {
+    "enabled": true,
+    "backend": "simulation",
+    "open_duration_s": 5.0,
+    "close_cooldown_s": 2.0,
+    "pin_open": null,
+    "pin_close": null
+  }
+}
