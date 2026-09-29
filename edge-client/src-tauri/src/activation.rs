@@ -253,6 +253,22 @@ pub async fn activate(
         .map_err(|e| e.to_string())
 }
 
+/// LAN IPs of this machine's interfaces (e.g. `192.168.x.x`) — no network
+/// call needed. Useful for the operator; NOT the address the server sees,
+/// so it cannot be used for `allowedIp` pinning.
+#[tauri::command]
+pub fn detect_local_ips() -> Vec<String> {
+    let mut ips: Vec<String> = local_ip_address::list_afinet_netifas()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(_, ip)| ip.to_string())
+        .filter(|ip| !ip.starts_with("127."))
+        .collect();
+    ips.sort();
+    ips.dedup();
+    ips
+}
+
 /// Fetch the public IP the backend sees for this device — the operator
 /// reports this to the tenant admin so they can pin `allowedIp` on the
 /// activation code.

@@ -91,6 +91,9 @@ export const deprovision = () => invoke<void>("deprovision");
 export const detectPublicIp = (apiBaseUrl: string) =>
   invoke<string>("detect_public_ip", { apiBaseUrl });
 
+/// This machine's LAN IPs — informational only; the server sees the WAN IP.
+export const detectLocalIps = () => invoke<string[]>("detect_local_ips");
+
 export const getStatus = () => invoke<EdgeStatus | null>("get_status");
 export const resync = () => invoke<string>("resync");
 
