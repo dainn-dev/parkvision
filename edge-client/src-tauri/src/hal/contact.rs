@@ -269,7 +269,11 @@ async fn actor(
                 }
                 match backend.read_inputs().await {
                     Ok(snapshot) => {
-                        state.lock().unwrap().inputs = snapshot;
+                        // `Some(empty)` = polled fine but nothing new (e.g. an
+                        // event-only RTLog page) — keep the last known state.
+                        if !snapshot.as_ref().is_some_and(Vec::is_empty) {
+                            state.lock().unwrap().inputs = snapshot;
+                        }
                         record(&state, &Ok(()));
                     }
                     Err(e) => record(&state, &Err(e)),
@@ -429,6 +433,26 @@ mod tests {
         mock.set_inputs(Some(vec![false, false, false]));
         run_for(Duration::from_millis(250)).await;
         assert_eq!(hal.sensors().arm_angle_deg, 45);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn empty_input_snapshot_keeps_previous_state() {
+        let c = cfg(
+            Some(InputMap {
+                open_limit: Some(1),
+                closed_limit: Some(2),
+                r#loop: None,
+            }),
+            Default::default(),
+        );
+        let mock = Arc::new(MockBackend::with_inputs(vec![true, false]));
+        let hal = ContactBarrierHal::spawn(mock.clone(), &c, resolve_profile(&c));
+        run_for(Duration::from_millis(250)).await;
+        assert_eq!(hal.sensors().arm_angle_deg, 90);
+        // backend had nothing new to say (e.g. ZK RTLog with events only)
+        mock.set_inputs(Some(vec![]));
+        run_for(Duration::from_millis(250)).await;
+        assert_eq!(hal.sensors().arm_angle_deg, 90);
     }
 
     #[tokio::test(start_paused = true)]

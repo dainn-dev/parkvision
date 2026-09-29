@@ -106,7 +106,20 @@ pub enum RelayBackendConfig {
         port: u16,
         #[serde(default)]
         password: String,
+        /// Which panel terminal the barrier contact is on.
+        #[serde(default)]
+        output: ZkOutput,
     },
+}
+
+/// C3 terminal type for `outputs.*` indices: auxiliary relay (default) or
+/// door lock relay.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ZkOutput {
+    #[default]
+    Aux,
+    Door,
 }
 
 fn d80() -> u16 {
@@ -204,11 +217,17 @@ impl fmt::Debug for RelayBackendConfig {
                 .field("port", port)
                 .field("unit_id", unit_id)
                 .finish(),
-            RelayBackendConfig::ZkC3 { host, port, .. } => f
+            RelayBackendConfig::ZkC3 {
+                host,
+                port,
+                output,
+                ..
+            } => f
                 .debug_struct("ZkC3")
                 .field("host", host)
                 .field("port", port)
                 .field("password", &"***")
+                .field("output", output)
                 .finish(),
         }
     }
@@ -342,7 +361,7 @@ mod tests {
             json!({"type":"dahua","host":"h","port":80,"username":"u","password":"p","strobe":true}),
             json!({"type":"serial","port":"COM3","protocol":"lcus","baud":9600,"unitId":1}),
             json!({"type":"modbusTcp","host":"h","port":502,"unitId":1}),
-            json!({"type":"zkC3","host":"h","port":4370,"password":""}),
+            json!({"type":"zkC3","host":"h","port":4370,"password":"","output":"aux"}),
         ];
         for f in fixtures {
             let parsed: RelayBackendConfig = serde_json::from_value(f.clone()).unwrap();

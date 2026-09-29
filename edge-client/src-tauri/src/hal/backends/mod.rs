@@ -5,12 +5,13 @@ pub mod digest;
 pub mod hikvision;
 pub mod modbus;
 pub mod serial_lcus;
+pub mod zk_c3;
 
 use std::sync::Arc;
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 
-use super::config::{BarrierConfig, RelayBackendConfig, SerialProtocol};
+use super::config::{BarrierConfig, RelayBackendConfig, SerialProtocol, ZkOutput};
 use super::relay::RelayBackend;
 
 /// 1-based input indices the site wired up (empty when feedback is off).
@@ -81,6 +82,26 @@ pub fn build(cfg: &BarrierConfig) -> Result<Arc<dyn RelayBackend>> {
             *unit_id,
             input_count as u16,
         )),
-        other => bail!("relay backend '{}' not implemented", other.kind()),
+        RelayBackendConfig::ZkC3 {
+            host,
+            port,
+            password,
+            output,
+        } => {
+            let kind = match output {
+                ZkOutput::Aux => zk_c3::OutputKind::Aux,
+                ZkOutput::Door => zk_c3::OutputKind::Door,
+            };
+            let mut doors = Vec::new();
+            if let Some(m) = cfg.inputs {
+                if let Some(d) = m.open_limit {
+                    doors.push((d, zk_c3::InputRole::OpenLimit));
+                }
+                if let Some(d) = m.closed_limit {
+                    doors.push((d, zk_c3::InputRole::ClosedLimit));
+                }
+            }
+            Arc::new(zk_c3::ZkC3::new(host, *port, password.clone(), kind, doors))
+        }
     })
 }
