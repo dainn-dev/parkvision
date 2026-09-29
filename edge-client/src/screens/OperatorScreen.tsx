@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  getConfig,
   getStatus,
   lockNow,
   lockStatus,
@@ -7,6 +8,7 @@ import {
   onStatus,
   resync,
   type AccessEvent,
+  type EdgeConfig,
   type EdgeStatus,
   type LockStatus,
 } from "../lib/tauri";
@@ -15,6 +17,7 @@ import EventFeed from "../components/EventFeed";
 
 export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) {
   const [status, setStatus] = useState<EdgeStatus | null>(null);
+  const [cfg, setCfg] = useState<EdgeConfig | null>(null);
   const [events, setEvents] = useState<AccessEvent[]>([]);
   const [lock, setLock] = useState<LockStatus | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -28,6 +31,7 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
 
   useEffect(() => {
     getStatus().then((s) => s && setStatus(s));
+    getConfig().then(setCfg).catch(() => {});
     lockStatus().then(setLock).catch(() => {});
     const un1 = onStatus(setStatus);
     const un2 = onEvent((e) => setEvents((prev) => [e, ...prev].slice(0, 100)));
@@ -99,7 +103,14 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
         {/* One panel per configured gate — entry/exit run side by side */}
         <div className="flex flex-1 gap-6">
           {(s?.gates ?? []).map((g) => (
-            <GatePanel key={g.gateId} gate={g} onAction={act} />
+            <GatePanel
+              key={g.gateId}
+              gate={g}
+              cameras={
+                cfg?.gates.find((b) => b.gateId === g.gateId)?.cameras ?? []
+              }
+              onAction={act}
+            />
           ))}
           {s && s.gates.length === 0 && (
             <div className="flex flex-1 items-center justify-center rounded-xl border border-zinc-800 text-zinc-500">
@@ -108,10 +119,12 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
           )}
         </div>
 
-        {/* Right column */}
-        <aside className="flex w-[26rem] flex-col gap-4">
-          <div className="flex-1">
-            <h2 className="mb-2 text-sm font-semibold text-zinc-400">Sự kiện ra/vào</h2>
+        {/* Right column — recent scans */}
+        <aside className="flex w-[24rem] flex-col">
+          <h2 className="mb-2 text-sm font-semibold text-zinc-400">
+            Sự kiện ra/vào <span className="text-zinc-600">({events.length})</span>
+          </h2>
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             <EventFeed events={events} gates={s?.gates ?? []} />
           </div>
         </aside>
