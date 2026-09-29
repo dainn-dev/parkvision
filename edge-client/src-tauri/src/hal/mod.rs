@@ -18,6 +18,27 @@ use std::time::Duration;
 use anyhow::Result;
 
 use crate::config::GateBinding;
+use crate::fsm::FsmTuning;
+
+/// FSM knobs for a gate: defaults for the simulated HAL; for a contact
+/// gate the stuck timeout stretches to `travel × 1.5 + 1 s`, overcurrent is
+/// disabled (not measurable) and auto-close follows the profile.
+pub fn tuning_for(binding: &GateBinding) -> FsmTuning {
+    let Some(cfg) = &binding.barrier else {
+        return FsmTuning::default();
+    };
+    let p = profiles::resolve_profile(cfg);
+    FsmTuning {
+        stuck_timeout: Duration::from_secs_f32(p.travel_sec.max(0.0) * 1.5 + 1.0),
+        auto_close: match p.auto_close {
+            config::AutoClose::Board => None,
+            config::AutoClose::Edge { delay_sec } => {
+                Some(Duration::from_secs_f32(delay_sec.max(0.0)))
+            }
+        },
+        overcurrent_a: f32::INFINITY,
+    }
+}
 
 /// Per-gate HAL: `SimulatedHal` when the gate has no local relay wiring,
 /// otherwise a `ContactBarrierHal` over the configured relay backend. A

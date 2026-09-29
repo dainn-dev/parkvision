@@ -28,7 +28,7 @@ use uuid::Uuid;
 use crate::anpr::PlateReading;
 use crate::config::{ConfigStore, EdgeConfig, SharedConfigStore};
 use crate::fsm::GateState;
-use crate::hal::{BarrierHal, SimulatedHal};
+use crate::hal::BarrierHal;
 use crate::runtime::{EdgeRuntime, GateRuntime, SharedRuntime};
 use crate::store::Store;
 use crate::sync::SyncClient;
@@ -46,6 +46,8 @@ pub struct GateStatus {
     pub motor_temp_c: f32,
     pub loop_active: bool,
     pub ups_battery: u8,
+    /// `false` while the relay backend is unreachable (contact HAL only).
+    pub barrier_link_ok: bool,
     pub last_plate: Option<String>,
     pub last_decision: Option<String>,
     pub last_reason: Option<String>,
@@ -74,6 +76,7 @@ fn gate_status(g: &GateRuntime) -> GateStatus {
         motor_temp_c: sensors.motor_temp_c,
         loop_active: sensors.loop_active,
         ups_battery: sensors.ups_battery_pct,
+        barrier_link_ok: sensors.link_ok,
         last_plate: last
             .as_ref()
             .and_then(|e| e["plate"].as_str().map(String::from)),
@@ -162,8 +165,8 @@ pub async fn boot_runtime(app: &AppHandle, cfg: EdgeConfig) -> anyhow::Result<()
     let app_data = app.path().app_data_dir()?;
     std::fs::create_dir_all(&app_data)?;
     let store = Store::open(&app_data.join("edge.db"))?;
-    let hal_factory = |_binding: &crate::config::GateBinding| -> Arc<dyn BarrierHal> {
-        Arc::new(SimulatedHal::new())
+    let hal_factory = |binding: &crate::config::GateBinding| -> Arc<dyn BarrierHal> {
+        crate::hal::build_hal(binding)
     };
     let rt = Arc::new(EdgeRuntime::start(cfg, store, &hal_factory, app_data).await?);
 

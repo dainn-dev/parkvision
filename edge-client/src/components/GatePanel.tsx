@@ -79,6 +79,14 @@ export default function GatePanel({ gate, cameras, camLive, onAction }: Props) {
         >
           {gate.direction === "entry" ? "CỔNG VÀO" : gate.direction === "exit" ? "CỔNG RA" : "CỔNG"}
         </span>
+        {gate.barrierLinkOk === false && (
+          <span
+            className="rounded-md bg-red-500/20 px-2 py-0.5 text-[11px] font-semibold text-red-300"
+            title="Không liên lạc được với relay điều khiển barrier — lệnh đang được thử lại"
+          >
+            Mất kết nối relay
+          </span>
+        )}
         <GateStateBadge state={gate.gateState} />
       </div>
 

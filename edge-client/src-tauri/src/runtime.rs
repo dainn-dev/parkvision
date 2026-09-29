@@ -251,7 +251,10 @@ impl EdgeRuntime {
         for binding in &cfg.gates {
             let ctx = Arc::new(cfg.gate_ctx(binding));
             let hal = hal_factory(binding);
-            let fsm = Arc::new(Mutex::new(GateFsm::new(hal.clone())));
+            let fsm = Arc::new(Mutex::new(GateFsm::with_tuning(
+                hal.clone(),
+                crate::hal::tuning_for(binding),
+            )));
             let counters = Arc::new(CycleCounters::default());
             let incidents = Arc::new(IncidentReporter::new(publisher.clone(), ctx.clone()));
             let (state_tx, state_rx) = watch::channel(GateState::Closed);
@@ -309,6 +312,10 @@ impl EdgeRuntime {
                         let sensors = hal.sensors();
                         for ev in events {
                             match ev {
+                                FsmEvent::Incident { kind: "barrier_link_up", .. } => {
+                                    incidents.clear("barrier_link_down").await;
+                                    incidents.report(&ev, &sensors).await;
+                                }
                                 FsmEvent::Incident { .. } => {
                                     incidents.report(&ev, &sensors).await;
                                 }

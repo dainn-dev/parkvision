@@ -118,6 +118,8 @@ export interface GateStatus {
   motorTempC: number;
   loopActive: boolean;
   upsBattery: number;
+  /** false while the relay backend is unreachable (contact HAL only). */
+  barrierLinkOk: boolean;
   lastPlate: string | null;
   lastDecision: string | null;
   lastReason: string | null;
