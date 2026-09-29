@@ -97,7 +97,9 @@ async def test_command_idempotency_and_outbox(client: AsyncClient, tenant, gate)
     delivered = asyncio.Event()
 
     async def _listen() -> None:
-        async with aiomqtt.Client("localhost", 1883) as m:
+        from app.config import settings
+
+        async with aiomqtt.Client(settings.mqtt_host, settings.mqtt_port) as m:
             await m.subscribe("tenants/+/sites/+/gates/+/command")
             async for raw in m.messages:
                 delivered.payload = _json.loads(raw.payload)

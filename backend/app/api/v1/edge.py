@@ -12,10 +12,18 @@ from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy import select
 
 from app.api.deps import forbidden, unauthorized
+from app.core.errors import bad_request
 from app.database import platform_session
 from app.models import ApiCredential, RegisteredVehicle, TenantAccessRule
-from app.schemas.resources import EdgeRuleEntry, EdgeVehicleEntry, EdgeWhitelistOut
+from app.schemas.resources import (
+    EdgeRuleEntry,
+    EdgeVehicleEntry,
+    EdgeWhitelistOut,
+    PresignIn,
+    PresignOut,
+)
 from app.services.credential_service import authenticate_api_key
+from app.services.storage import presign_upload
 
 router = APIRouter(prefix="/edge", tags=["edge"])
 
@@ -104,3 +112,22 @@ async def edge_rules(tenant_id: uuid.UUID, cred: ApiCredential = Depends(edge_ct
             .all()
         )
     return [EdgeRuleEntry.model_validate(r) for r in rows]
+
+
+_EDGE_UPLOAD_KINDS = {"zone-snapshot", "parking-map", "plate", "overview"}
+
+
+@router.post("/tenants/{tenant_id}/uploads/presign", response_model=PresignOut)
+async def edge_presign_upload(
+    tenant_id: uuid.UUID,
+    body: PresignIn,
+    cred: ApiCredential = Depends(edge_ctx),
+) -> PresignOut:
+    """Presigned PUT for edge uploads (monitor-camera zone snapshots, etc.).
+
+    The edge PUTs the file to `uploadUrl`, then references `objectKey` in the
+    MQTT detection payload (`snapshotKey`).
+    """
+    if body.kind not in _EDGE_UPLOAD_KINDS:
+        raise bad_request(f"kind must be one of {sorted(_EDGE_UPLOAD_KINDS)}")
+    return PresignOut(**presign_upload(tenant_id, body.kind, body.content_type))

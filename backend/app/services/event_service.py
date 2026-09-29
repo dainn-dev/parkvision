@@ -228,6 +228,12 @@ async def record_access_event(
                     )
                 )
             )
+    if direction == EventDirection.EXIT and plate_number:
+        # Lazy import: parking_service already imports normalize_plate from
+        # this module at top level — a top-level import here would cycle.
+        from app.services.parking_service import close_presence_for_plate
+
+        await close_presence_for_plate(db, tenant_id=tenant_id, plate_number=plate_number)
     await db.flush()
     return event
 

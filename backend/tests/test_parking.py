@@ -336,3 +336,163 @@ async def test_sweep_marks_stale_then_expired(tenant, level_zone, admin_engine):
         s2 = (await db.get(VehiclePresence, p2.id)).status
         s3 = (await db.get(VehiclePresence, p3.id)).status
         assert (s1, s2, s3) == ("stale", "exited", "parked")
+
+
+# ---------- mqtt bridge detection ----------
+
+
+@pytest_asyncio.fixture
+async def monitor_cam(tenant, level_zone, admin_engine):
+    from app.models import Camera, CameraZoneCoverage
+
+    tid = level_zone["tenant_id"]
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        cam = Camera(
+            tenant_id=tid,
+            site_id=level_zone["site_id"],
+            name="Cam-B2",
+            stream_url="rtsp://10.0.0.9/1",
+            purpose="monitor",
+            status="active",
+        )
+        db.add(cam)
+        await db.flush()
+        db.add(CameraZoneCoverage(tenant_id=tid, camera_id=cam.id, zone_id=level_zone["zone_a"].id))
+        db.add(CameraZoneCoverage(tenant_id=tid, camera_id=cam.id, zone_id=level_zone["zone_b"].id))
+        await db.commit()
+        return cam
+
+
+@pytest.mark.asyncio
+async def test_handle_detection_parks_and_publishes(tenant, level_zone, monitor_cam, monkeypatch):
+    from app.realtime import mqtt_bridge
+
+    published = []
+
+    async def fake_publish(t, m):
+        published.append((t, m))
+
+    monkeypatch.setattr(mqtt_bridge, "publish_ws", fake_publish)
+
+    await mqtt_bridge.handle_detection(
+        str(level_zone["tenant_id"]),
+        str(level_zone["site_id"]),
+        str(monitor_cam.id),
+        {"type": "vehicle_parked", "plateNumber": "30A-999.99", "zoneCode": "S03"},
+    )
+
+    assert len(published) == 1
+    tid, frame = published[0]
+    assert tid == str(level_zone["tenant_id"])
+    assert frame["type"] == "vehicle_location"
+    assert frame["eventType"] == "parked"
+    assert frame["presence"]["zoneCode"] == "S03"
+    assert frame["presence"]["plateNumber"] == "30A-999.99"
+
+
+@pytest.mark.asyncio
+async def test_handle_detection_relocate_and_left(tenant, level_zone, monitor_cam, monkeypatch):
+    from app.realtime import mqtt_bridge
+
+    published = []
+
+    async def fake_publish(t, m):
+        published.append(m)
+
+    monkeypatch.setattr(mqtt_bridge, "publish_ws", fake_publish)
+    tid, sid, cid = (
+        str(level_zone["tenant_id"]),
+        str(level_zone["site_id"]),
+        str(monitor_cam.id),
+    )
+
+    await mqtt_bridge.handle_detection(
+        tid, sid, cid, {"type": "vehicle_parked", "plateNumber": "30A-777.77", "zoneCode": "S03"}
+    )
+    await mqtt_bridge.handle_detection(
+        tid, sid, cid, {"type": "vehicle_parked", "plateNumber": "30A-777.77", "zoneCode": "S04"}
+    )
+    await mqtt_bridge.handle_detection(tid, sid, cid, {"type": "vehicle_left", "plateNumber": "30A-777.77"})
+
+    types = [m["eventType"] for m in published]
+    assert types == ["parked", "relocated", "exited"]
+
+
+@pytest.mark.asyncio
+async def test_handle_detection_zone_snapshot_updates_camera(
+    tenant, level_zone, monitor_cam, monkeypatch, admin_engine
+):
+    from app.models import Camera
+    from app.realtime import mqtt_bridge
+
+    async def fake_publish(t, m):
+        pass
+
+    monkeypatch.setattr(mqtt_bridge, "publish_ws", fake_publish)
+
+    await mqtt_bridge.handle_detection(
+        str(level_zone["tenant_id"]),
+        str(level_zone["site_id"]),
+        str(monitor_cam.id),
+        {"type": "zone_snapshot", "snapshotKey": "k/zone-snap.jpg"},
+    )
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        cam = await db.get(Camera, monitor_cam.id)
+        assert cam.last_snapshot_key == "k/zone-snap.jpg"
+        assert cam.snapshot_captured_at is not None
+
+
+@pytest.mark.asyncio
+async def test_handle_detection_unknown_camera_ignored(tenant, level_zone, monkeypatch):
+    from app.realtime import mqtt_bridge
+
+    published = []
+
+    async def fake_publish(t, m):
+        published.append(m)
+
+    monkeypatch.setattr(mqtt_bridge, "publish_ws", fake_publish)
+
+    await mqtt_bridge.handle_detection(
+        str(level_zone["tenant_id"]),
+        str(level_zone["site_id"]),
+        str(uuid.uuid4()),
+        {"type": "vehicle_parked", "plateNumber": "30A-000.00"},
+    )
+    assert published == []
+
+
+# ---------- gate exit closes presence ----------
+
+
+@pytest.mark.asyncio
+async def test_exit_access_event_closes_presence(tenant, level_zone, admin_engine):
+    from app.core.enums import EventDirection
+    from app.services.event_service import record_access_event
+    from app.services.parking_service import locate_presence
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        await _detect(db, level_zone, level_zone["zone_a"], plate="51G-888.88")
+        await db.commit()
+
+        await record_access_event(
+            db,
+            tenant_id=level_zone["tenant_id"],
+            site_id=level_zone["site_id"],
+            gate_id=None,
+            lane_id=None,
+            plate_number="51G-888.88",
+            direction=EventDirection.EXIT,
+            source="anpr",
+            force_decision="allow",
+            force_reason="test",
+        )
+        await db.commit()
+
+        assert (
+            await locate_presence(db, tenant_id=level_zone["tenant_id"], plate_number="51G-888.88")
+        ) is None
