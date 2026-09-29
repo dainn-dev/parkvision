@@ -356,3 +356,45 @@ async def test_edge_config_rejects_sync_only_key(client: AsyncClient, tenant, ad
         await db.commit()
     res = await client.get("/api/v1/edge/config", headers={"X-Api-Key": "pk_synconlykey"})
     assert res.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_revoke_device_token_kills_rest_access(
+    client: AsyncClient, tenant, activation_setup
+):
+    """Tenant admin revokes the device credential; /edge/config must 401 after."""
+    s = activation_setup
+    act = await client.post("/api/v1/edge/activate", json={"code": s["code"]})
+    assert act.status_code == 200, act.text
+    token = act.json()["api"]["token"]
+
+    ok = await client.get("/api/v1/edge/config", headers={"X-Api-Key": token})
+    assert ok.status_code == 200, ok.text
+
+    await login(client, tenant["email"], tenant["password"])
+    rev = await client.post(
+        f"/api/v1/tenants/{s['tenant_id']}/devices/{s['device_id']}/revoke-token",
+        headers=csrf(client),
+    )
+    assert rev.status_code == 200, rev.text
+
+    dead = await client.get("/api/v1/edge/config", headers={"X-Api-Key": token})
+    assert dead.status_code == 401
+
+    wl = await client.get(
+        f"/api/v1/edge/tenants/{s['tenant_id']}/whitelist", headers={"X-Api-Key": token}
+    )
+    assert wl.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_revoke_token_requires_write_role_and_tenant_scope(
+    client: AsyncClient, tenant, other_tenant, activation_setup
+):
+    s = activation_setup
+    await login(client, other_tenant["email"], other_tenant["password"])
+    cross = await client.post(
+        f"/api/v1/tenants/{other_tenant['tenant_id']}/devices/{s['device_id']}/revoke-token",
+        headers=csrf(client),
+    )
+    assert cross.status_code == 404
