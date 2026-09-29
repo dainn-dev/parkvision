@@ -15,6 +15,7 @@ import {
 } from "../lib/tauri";
 import GatePanel from "../components/GatePanel";
 import EventFeed from "../components/EventFeed";
+import BarrierSettingsScreen from "./BarrierSettingsScreen";
 
 export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) {
   const [status, setStatus] = useState<EdgeStatus | null>(null);
@@ -26,6 +27,7 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
     Record<string, { jpeg?: string; state?: string; detail?: string }>
   >({});
   const [toast, setToast] = useState<string | null>(null);
+  const [barrierGateId, setBarrierGateId] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
   const notify = useCallback((msg: string) => {
@@ -129,6 +131,9 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
               }
               camLive={cameras}
               onAction={act}
+              onBarrierSettings={
+                cfg ? () => setBarrierGateId(g.gateId) : undefined
+              }
             />
           ))}
           {s && s.gates.length === 0 && (
@@ -148,6 +153,15 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
           </div>
         </aside>
       </div>
+
+      {cfg && barrierGateId && (
+        <BarrierSettingsScreen
+          cfg={cfg}
+          gate={cfg.gates.find((g) => g.gateId === barrierGateId)!}
+          onSaved={setCfg}
+          onClose={() => setBarrierGateId(null)}
+        />
+      )}
 
       {toast && (
         <div className="fixed bottom-4 right-4 rounded-lg bg-zinc-800 px-4 py-2 text-sm shadow-lg">

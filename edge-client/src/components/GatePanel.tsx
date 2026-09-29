@@ -21,6 +21,7 @@ interface Props {
   cameras: CameraBinding[];
   camLive: Record<string, CamLiveInfo>;
   onAction: (fn: () => Promise<unknown>, ok: string) => void;
+  onBarrierSettings?: () => void;
 }
 
 const CAM_STATE_LABEL: Record<string, string> = {
@@ -48,7 +49,7 @@ function cameraHost(url: string): string {
   }
 }
 
-export default function GatePanel({ gate, cameras, camLive, onAction }: Props) {
+export default function GatePanel({ gate, cameras, camLive, onAction, onBarrierSettings }: Props) {
   const isLocked = gate.gateState === "locked";
   const isFault = gate.gateState === "fault";
   const gid = gate.gateId;
@@ -87,7 +88,18 @@ export default function GatePanel({ gate, cameras, camLive, onAction }: Props) {
             Mất kết nối relay
           </span>
         )}
-        <GateStateBadge state={gate.gateState} />
+        <span className="flex items-center gap-1.5">
+          <GateStateBadge state={gate.gateState} />
+          {onBarrierSettings && (
+            <button
+              onClick={onBarrierSettings}
+              title="Cài đặt barrier"
+              className="rounded px-1.5 py-0.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+            >
+              ⚙
+            </button>
+          )}
+        </span>
       </div>
 
       {/* Camera tiles — live JPEG frames streamed from the ANPR worker via
