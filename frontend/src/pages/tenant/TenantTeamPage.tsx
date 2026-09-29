@@ -12,8 +12,10 @@ import {
 } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { InviteMemberModal } from '../../components/tenant/InviteMemberModal';
+import { useTranslation } from 'react-i18next';
 
 export const TenantTeamPage: React.FC = () => {
+  const { t } = useTranslation('tenant');
   const { tenantMembers, tenantSites, deleteTenantMember } = usePlatform();
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
@@ -24,14 +26,14 @@ export const TenantTeamPage: React.FC = () => {
           <div className="flex items-center gap-2.5">
             <Users className="w-6 h-6 text-[#58a6ff]" />
             <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
-              Tenant Team & Access RBAC
+              {t('Tenant Team & Access RBAC')}
             </h1>
             <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#21262d] border border-[#30363d] text-[#58a6ff]">
-              {tenantMembers.length} Active Operators
+              {t('{{count}} Active Operators', { count: tenantMembers.length })}
             </span>
           </div>
           <p className="text-xs text-[#8b949e] mt-1">
-            Manage site operators, security guards, gate controllers, and audit viewers
+            {t('Manage site operators, security guards, gate controllers, and audit viewers')}
           </p>
         </div>
 
@@ -41,7 +43,7 @@ export const TenantTeamPage: React.FC = () => {
           className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm"
         >
           <UserPlus className="w-4 h-4" />
-          Invite Team Member
+          {t('Invite Team Member')}
         </Button>
       </div>
 
@@ -50,13 +52,13 @@ export const TenantTeamPage: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px]">
               <tr>
-                <th className="py-3 px-4">Member Name</th>
-                <th className="py-3 px-4">Email</th>
-                <th className="py-3 px-4">Portal Role</th>
-                <th className="py-3 px-4">Site Facilities Access</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Joined Date</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-3 px-4">{t('Member Name')}</th>
+                <th className="py-3 px-4">{t('Email')}</th>
+                <th className="py-3 px-4">{t('Portal Role')}</th>
+                <th className="py-3 px-4">{t('Site Facilities Access')}</th>
+                <th className="py-3 px-4">{t('Status')}</th>
+                <th className="py-3 px-4">{t('Joined Date')}</th>
+                <th className="py-3 px-4 text-right">{t('Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]/60 font-medium">
@@ -83,8 +85,8 @@ export const TenantTeamPage: React.FC = () => {
 
                   <td className="py-3.5 px-4 text-[#c9d1d9]">
                     {member.siteAccess.includes('ALL') || member.siteAccess.length >= tenantSites.length
-                      ? 'All Facility Sites'
-                      : `${member.siteAccess.length} Assigned Sites`}
+                      ? t('All Facility Sites')
+                      : t('{{count}} Assigned Sites', { count: member.siteAccess.length })}
                   </td>
 
                   <td className="py-3.5 px-4">
@@ -102,7 +104,7 @@ export const TenantTeamPage: React.FC = () => {
                     <button
                       onClick={() => deleteTenantMember(member.id)}
                       className="p-1.5 rounded hover:bg-[#da3633]/20 text-[#8b949e] hover:text-[#f85149] transition-colors cursor-pointer"
-                      title="Remove Member"
+                      title={t('Remove Member')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

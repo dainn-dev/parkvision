@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { usePlatform } from '../../context/PlatformContext';
 import { Building2, X, MapPin, Camera, DoorOpen, HardDrive, Clock, Check } from 'lucide-react';
 import { Button, Input } from '../ui';
+import { useTranslation } from 'react-i18next';
 
 interface CreateSiteModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface CreateSiteModalProps {
 
 export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClose }) => {
   const { addTenantSite } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -73,8 +75,8 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">Add New Site Facility</h3>
-              <p className="text-xs text-[#8b949e]">Deploy ANPR access gates and edge controllers for a new location</p>
+              <h3 className="text-base font-bold text-white tracking-tight">{t('Add New Site Facility')}</h3>
+              <p className="text-xs text-[#8b949e]">{t('Deploy ANPR access gates and edge controllers for a new location')}</p>
             </div>
           </div>
 
@@ -91,10 +93,10 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Site Name <span className="text-[#f85149]">*</span>
+                {t('Site Name')} <span className="text-[#f85149]">*</span>
               </label>
               <Input
-                placeholder="e.g. West Campus Innovation Hub"
+                placeholder={t('e.g. West Campus Innovation Hub')}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
@@ -104,10 +106,10 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
 
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Site Code Identifier
+                {t('Site Code Identifier')}
               </label>
               <Input
-                placeholder="e.g. SITE-WEST-01"
+                placeholder={t('e.g. SITE-WEST-01')}
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                 className="bg-[#161b22] border-[#30363d] text-white font-mono"
@@ -117,10 +119,10 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
 
           <div>
             <label className="block text-[#c9d1d9] font-medium mb-1.5">
-              Physical Street Address <span className="text-[#f85149]">*</span>
+              {t('Physical Street Address')} <span className="text-[#f85149]">*</span>
             </label>
             <Input
-              placeholder="e.g. 88 Vo Van Kiet Blvd, District 5, Ho Chi Minh City"
+              placeholder={t('e.g. 88 Vo Van Kiet Blvd, District 5, Ho Chi Minh City')}
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               required
@@ -131,10 +133,10 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Operating Schedule
+                {t('Operating Schedule')}
               </label>
               <Input
-                placeholder="e.g. 24/7 Operations"
+                placeholder={t('e.g. 24/7 Operations')}
                 value={formData.operatingHours}
                 onChange={(e) => setFormData({ ...formData, operatingHours: e.target.value })}
                 className="bg-[#161b22] border-[#30363d] text-white"
@@ -143,7 +145,7 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
 
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Vehicle Capacity
+                {t('Vehicle Capacity')}
               </label>
               <Input
                 type="number"
@@ -156,7 +158,7 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
 
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Number of Lanes
+                {t('Number of Lanes')}
               </label>
               <Input
                 type="number"
@@ -172,12 +174,12 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
           <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
             <h4 className="text-white font-semibold text-xs flex items-center gap-2">
               <HardDrive className="w-3.5 h-3.5 text-[#58a6ff]" />
-              Provisioned Hardware Gateways
+              {t('Provisioned Hardware Gateways')}
             </h4>
 
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block text-[#8b949e] text-[11px] mb-1">ANPR Cameras</label>
+                <label className="block text-[#8b949e] text-[11px] mb-1">{t('ANPR Cameras')}</label>
                 <Input
                   type="number"
                   value={formData.cameraCount}
@@ -187,7 +189,7 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
               </div>
 
               <div>
-                <label className="block text-[#8b949e] text-[11px] mb-1">Barrier Gates</label>
+                <label className="block text-[#8b949e] text-[11px] mb-1">{t('Barrier Gates')}</label>
                 <Input
                   type="number"
                   value={formData.gateCount}
@@ -197,7 +199,7 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
               </div>
 
               <div>
-                <label className="block text-[#8b949e] text-[11px] mb-1">Edge Compute Nodes</label>
+                <label className="block text-[#8b949e] text-[11px] mb-1">{t('Edge Compute Nodes')}</label>
                 <Input
                   type="number"
                   value={formData.edgeDeviceCount}
@@ -211,10 +213,10 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Site Manager Name
+                {t('Site Manager Name')}
               </label>
               <Input
-                placeholder="e.g. Tran Van B"
+                placeholder={t('e.g. Tran Van B')}
                 value={formData.managerName}
                 onChange={(e) => setFormData({ ...formData, managerName: e.target.value })}
                 className="bg-[#161b22] border-[#30363d] text-white"
@@ -223,7 +225,7 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
 
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Manager Contact Phone
+                {t('Manager Contact Phone')}
               </label>
               <Input
                 placeholder="+84 90 123 4567"
@@ -242,7 +244,7 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
               onClick={onClose}
               className="text-xs"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               type="submit"
@@ -251,7 +253,7 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
               className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
-              Provision & Create Site
+              {t('Provision & Create Site')}
             </Button>
           </div>
         </form>

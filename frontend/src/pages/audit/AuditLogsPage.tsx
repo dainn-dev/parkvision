@@ -28,8 +28,10 @@ import {
   DiffViewer,
   JsonViewer
 } from '../../components/ui';
+import { useTranslation } from 'react-i18next';
 
 export const AuditLogsPage: React.FC = () => {
+  const { t } = useTranslation('audit');
   const { auditLogs, addToast } = usePlatform();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -85,8 +87,8 @@ export const AuditLogsPage: React.FC = () => {
 
     addToast({
       type: 'success',
-      title: 'Audit Trail Exported',
-      description: `Downloaded ${filteredLogs.length} matching audit logs in ${exportFormat} format.`
+      title: t('Audit Trail Exported'),
+      description: t('Downloaded {{count}} matching audit logs in {{format}} format.', { count: filteredLogs.length, format: exportFormat })
     });
 
     setIsExportModalOpen(false);
@@ -98,10 +100,10 @@ export const AuditLogsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            <FileText className="w-5 h-5 text-emerald-400" /> Platform Governance Audit Logs
+            <FileText className="w-5 h-5 text-emerald-400" /> {t('Platform Governance Audit Logs')}
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Immutable, append-only record of administrative actions, credential rotations, and tenant lifecycle changes.
+            {t('Immutable, append-only record of administrative actions, credential rotations, and tenant lifecycle changes.')}
           </p>
         </div>
 
@@ -110,7 +112,7 @@ export const AuditLogsPage: React.FC = () => {
           icon={Download}
           onClick={() => setIsExportModalOpen(true)}
         >
-          Export Audit Trail
+          {t('Export Audit Trail')}
         </Button>
       </div>
 
@@ -118,7 +120,7 @@ export const AuditLogsPage: React.FC = () => {
       <Card className="p-4 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="w-full md:w-80">
           <Input
-            placeholder="Search audit action, actor email, IP..."
+            placeholder={t('Search audit action, actor email, IP...')}
             icon={Search}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -130,13 +132,13 @@ export const AuditLogsPage: React.FC = () => {
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
             options={[
-              { value: 'ALL', label: 'All Event Categories' },
-              { value: 'AUTHENTICATION', label: 'Authentication' },
-              { value: 'TENANT_MANAGEMENT', label: 'Tenant Management' },
-              { value: 'PLATFORM_ADMIN', label: 'Platform Admins' },
-              { value: 'SECURITY', label: 'Security & Threats' },
-              { value: 'CONFIGURATION', label: 'Configuration' },
-              { value: 'MONITORING', label: 'Monitoring Incidents' }
+              { value: 'ALL', label: t('All Event Categories') },
+              { value: 'AUTHENTICATION', label: t('Authentication') },
+              { value: 'TENANT_MANAGEMENT', label: t('Tenant Management') },
+              { value: 'PLATFORM_ADMIN', label: t('Platform Admins') },
+              { value: 'SECURITY', label: t('Security & Threats') },
+              { value: 'CONFIGURATION', label: t('Configuration') },
+              { value: 'MONITORING', label: t('Monitoring Incidents') }
             ]}
           />
 
@@ -144,10 +146,10 @@ export const AuditLogsPage: React.FC = () => {
             value={resultFilter}
             onChange={(e) => setResultFilter(e.target.value)}
             options={[
-              { value: 'ALL', label: 'All Results' },
-              { value: 'SUCCESS', label: 'Success Only' },
-              { value: 'FAILED', label: 'Failed Only' },
-              { value: 'DENIED', label: 'Denied Only' }
+              { value: 'ALL', label: t('All Results') },
+              { value: 'SUCCESS', label: t('Success Only') },
+              { value: 'FAILED', label: t('Failed Only') },
+              { value: 'DENIED', label: t('Denied Only') }
             ]}
           />
         </div>
@@ -159,20 +161,20 @@ export const AuditLogsPage: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
               <tr>
-                <th className="py-3.5 px-4">Timestamp (UTC)</th>
-                <th className="py-3.5 px-4">Actor</th>
-                <th className="py-3.5 px-4">Action Event</th>
-                <th className="py-3.5 px-4">Target Resource</th>
-                <th className="py-3.5 px-4">Result</th>
-                <th className="py-3.5 px-4">Source IP</th>
-                <th className="py-3.5 px-4 text-right">Details</th>
+                <th className="py-3.5 px-4">{t('Timestamp (UTC)')}</th>
+                <th className="py-3.5 px-4">{t('Actor')}</th>
+                <th className="py-3.5 px-4">{t('Action Event')}</th>
+                <th className="py-3.5 px-4">{t('Target Resource')}</th>
+                <th className="py-3.5 px-4">{t('Result')}</th>
+                <th className="py-3.5 px-4">{t('Source IP')}</th>
+                <th className="py-3.5 px-4 text-right">{t('Details')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/80 text-slate-200">
               {paginatedLogs.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-500">
-                    No matching audit events found.
+                    {t('No matching audit events found.')}
                   </td>
                 </tr>
               ) : (
@@ -236,26 +238,26 @@ export const AuditLogsPage: React.FC = () => {
         <Modal
           isOpen={Boolean(selectedAuditModal)}
           onClose={() => setSelectedAuditModal(null)}
-          title={`Audit Event Detail: ${selectedAuditModal.action}`}
-          subtitle={`Event Reference ID: ${selectedAuditModal.id}`}
+          title={t('Audit Event Detail: {{action}}', { action: selectedAuditModal.action })}
+          subtitle={t('Event Reference ID: {{id}}', { id: selectedAuditModal.id })}
           maxWidth="2xl"
         >
           <div className="space-y-4 text-xs">
             <div className="grid grid-cols-2 gap-3 p-4 bg-slate-950 rounded-xl border border-slate-800 font-mono">
-              <div><span className="text-slate-500">Timestamp:</span> {new Date(selectedAuditModal.timestamp).toISOString()}</div>
-              <div><span className="text-slate-500">Category:</span> {selectedAuditModal.category}</div>
-              <div><span className="text-slate-500">Actor Email:</span> {selectedAuditModal.actorEmail}</div>
-              <div><span className="text-slate-500">Actor Role:</span> {selectedAuditModal.actorType}</div>
-              <div><span className="text-slate-500">Source IP:</span> <span className="text-amber-300">{selectedAuditModal.ipAddress}</span></div>
-              <div><span className="text-slate-500">Source Type:</span> {selectedAuditModal.source}</div>
-              <div><span className="text-slate-500">Request ID:</span> {selectedAuditModal.requestId}</div>
-              <div><span className="text-slate-500">Trace ID:</span> {selectedAuditModal.traceId}</div>
+              <div><span className="text-slate-500">{t('Timestamp:')}</span> {new Date(selectedAuditModal.timestamp).toISOString()}</div>
+              <div><span className="text-slate-500">{t('Category:')}</span> {selectedAuditModal.category}</div>
+              <div><span className="text-slate-500">{t('Actor Email:')}</span> {selectedAuditModal.actorEmail}</div>
+              <div><span className="text-slate-500">{t('Actor Role:')}</span> {selectedAuditModal.actorType}</div>
+              <div><span className="text-slate-500">{t('Source IP:')}</span> <span className="text-amber-300">{selectedAuditModal.ipAddress}</span></div>
+              <div><span className="text-slate-500">{t('Source Type:')}</span> {selectedAuditModal.source}</div>
+              <div><span className="text-slate-500">{t('Request ID:')}</span> {selectedAuditModal.requestId}</div>
+              <div><span className="text-slate-500">{t('Trace ID:')}</span> {selectedAuditModal.traceId}</div>
             </div>
 
             {selectedAuditModal.changes && selectedAuditModal.changes.length > 0 && (
               <div className="space-y-2">
                 <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">
-                  Recorded Field Changes
+                  {t('Recorded Field Changes')}
                 </h4>
                 <DiffViewer changes={selectedAuditModal.changes} />
               </div>
@@ -263,7 +265,7 @@ export const AuditLogsPage: React.FC = () => {
 
             <div className="flex justify-end pt-2">
               <Button variant="ghost" size="sm" onClick={() => setSelectedAuditModal(null)}>
-                Close
+                {t('Close')}
               </Button>
             </div>
           </div>
@@ -274,26 +276,26 @@ export const AuditLogsPage: React.FC = () => {
       <Modal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        title="Export Governance Audit Logs"
-        subtitle={`Exporting ${filteredLogs.length} matching audit log records`}
+        title={t('Export Governance Audit Logs')}
+        subtitle={t('Exporting {{count}} matching audit log records', { count: filteredLogs.length })}
       >
         <div className="space-y-4 text-xs">
           <Select
-            label="Export Format"
+            label={t('Export Format')}
             value={exportFormat}
             onChange={(e) => setExportFormat(e.target.value as any)}
             options={[
-              { value: 'CSV', label: 'CSV (Comma Separated Spreadsheet)' },
-              { value: 'JSON', label: 'JSON (Raw Structural Payload)' }
+              { value: 'CSV', label: t('CSV (Comma Separated Spreadsheet)') },
+              { value: 'JSON', label: t('JSON (Raw Structural Payload)') }
             ]}
           />
 
           <div className="flex justify-end gap-3 pt-3">
             <Button variant="ghost" size="sm" onClick={() => setIsExportModalOpen(false)}>
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button variant="primary" size="sm" icon={Download} onClick={handleExport}>
-              Download Export
+              {t('Download Export')}
             </Button>
           </div>
         </div>

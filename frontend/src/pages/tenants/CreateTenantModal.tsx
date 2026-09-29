@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { Modal, Input, Select, Switch, Button, Badge } from '../../components/ui';
 import { Building2, UserCheck, ShieldCheck, Check } from 'lucide-react';
 import { usePlatform } from '../../context/PlatformContext';
+import { useTranslation } from 'react-i18next';
 
 export const CreateTenantModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
 }> = ({ isOpen, onClose }) => {
+  const { t } = useTranslation('platform');
   const { createTenant } = usePlatform();
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -40,18 +42,18 @@ export const CreateTenantModal: React.FC<{
 
   const validateStep1 = () => {
     const newErr: Record<string, string> = {};
-    if (!orgName.trim()) newErr.orgName = 'Organization name is required';
-    if (!orgCode.trim()) newErr.orgCode = 'Tenant code is required';
-    if (!orgEmail.trim() || !orgEmail.includes('@')) newErr.orgEmail = 'Valid contact email is required';
+    if (!orgName.trim()) newErr.orgName = t('Organization name is required');
+    if (!orgCode.trim()) newErr.orgCode = t('Tenant code is required');
+    if (!orgEmail.trim() || !orgEmail.includes('@')) newErr.orgEmail = t('Valid contact email is required');
     setErrors(newErr);
     return Object.keys(newErr).length === 0;
   };
 
   const validateStep2 = () => {
     const newErr: Record<string, string> = {};
-    if (!adminName.trim()) newErr.adminName = 'Administrator full name is required';
-    if (!adminEmail.trim() || !adminEmail.includes('@')) newErr.adminEmail = 'Valid admin email is required';
-    if (!adminPassword || adminPassword.length < 10) newErr.adminPassword = 'Password must be at least 10 characters';
+    if (!adminName.trim()) newErr.adminName = t('Administrator full name is required');
+    if (!adminEmail.trim() || !adminEmail.includes('@')) newErr.adminEmail = t('Valid admin email is required');
+    if (!adminPassword || adminPassword.length < 10) newErr.adminPassword = t('Password must be at least 10 characters');
     setErrors(newErr);
     return Object.keys(newErr).length === 0;
   };
@@ -96,30 +98,30 @@ export const CreateTenantModal: React.FC<{
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Provision Enterprise Tenant Organization"
-      subtitle="Configure organization identity and primary tenant administrator"
+      title={t('Provision Enterprise Tenant Organization')}
+      subtitle={t('Configure organization identity and primary tenant administrator')}
       maxWidth="2xl"
     >
       {/* Step Stepper Indicator */}
       <div className="grid grid-cols-3 gap-2 mb-6 border-b border-slate-800 pb-4">
         <div className={`p-2.5 rounded-xl border text-center transition-all ${step === 1 ? 'bg-indigo-950/80 border-indigo-500 text-indigo-300' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
-          <span className="text-[10px] font-bold block uppercase tracking-wider">Step 1</span>
+          <span className="text-[10px] font-bold block uppercase tracking-wider">{t('Step 1')}</span>
           <span className="text-xs font-semibold flex items-center justify-center gap-1 mt-0.5">
-            <Building2 className="w-3.5 h-3.5" /> Organization
+            <Building2 className="w-3.5 h-3.5" /> {t('Organization')}
           </span>
         </div>
 
         <div className={`p-2.5 rounded-xl border text-center transition-all ${step === 2 ? 'bg-indigo-950/80 border-indigo-500 text-indigo-300' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
-          <span className="text-[10px] font-bold block uppercase tracking-wider">Step 2</span>
+          <span className="text-[10px] font-bold block uppercase tracking-wider">{t('Step 2')}</span>
           <span className="text-xs font-semibold flex items-center justify-center gap-1 mt-0.5">
-            <UserCheck className="w-3.5 h-3.5" /> Tenant Admin
+            <UserCheck className="w-3.5 h-3.5" /> {t('Tenant Admin')}
           </span>
         </div>
 
         <div className={`p-2.5 rounded-xl border text-center transition-all ${step === 3 ? 'bg-indigo-950/80 border-indigo-500 text-indigo-300' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
-          <span className="text-[10px] font-bold block uppercase tracking-wider">Step 3</span>
+          <span className="text-[10px] font-bold block uppercase tracking-wider">{t('Step 3')}</span>
           <span className="text-xs font-semibold flex items-center justify-center gap-1 mt-0.5">
-            <ShieldCheck className="w-3.5 h-3.5" /> Confirm & Provision
+            <ShieldCheck className="w-3.5 h-3.5" /> {t('Confirm & Provision')}
           </span>
         </div>
       </div>
@@ -128,8 +130,8 @@ export const CreateTenantModal: React.FC<{
       {step === 1 && (
         <div className="space-y-4">
           <Input
-            label="Organization Name *"
-            placeholder="e.g. ABC Parking Logistics Enterprise"
+            label={t('Organization Name *')}
+            placeholder={t('e.g. ABC Parking Logistics Enterprise')}
             value={orgName}
             onChange={(e) => handleOrgNameChange(e.target.value)}
             error={errors.orgName}
@@ -137,16 +139,16 @@ export const CreateTenantModal: React.FC<{
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
-              label="Tenant Identifier Code *"
-              placeholder="e.g. ABC-PARKING"
+              label={t('Tenant Identifier Code *')}
+              placeholder={t('e.g. ABC-PARKING')}
               value={orgCode}
               onChange={(e) => setOrgCode(e.target.value.toUpperCase())}
               error={errors.orgCode}
-              helperText="Unique uppercase identifier used for routing & storage isolation"
+              helperText={t('Unique uppercase identifier used for routing & storage isolation')}
             />
 
             <Select
-              label="Default Timezone"
+              label={t('Default Timezone')}
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
               options={[
@@ -160,7 +162,7 @@ export const CreateTenantModal: React.FC<{
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
-              label="Contact Email *"
+              label={t('Contact Email *')}
               type="email"
               placeholder="contact@organization.com"
               value={orgEmail}
@@ -169,7 +171,7 @@ export const CreateTenantModal: React.FC<{
             />
 
             <Input
-              label="Phone Number"
+              label={t('Phone Number')}
               placeholder="+84 28 3800 0000"
               value={orgPhone}
               onChange={(e) => setOrgPhone(e.target.value)}
@@ -182,19 +184,19 @@ export const CreateTenantModal: React.FC<{
       {step === 2 && (
         <div className="space-y-4">
           <div className="p-3 bg-indigo-950/40 border border-indigo-800/50 rounded-xl text-xs text-indigo-200">
-            This account will be assigned <strong>TENANT_ADMIN</strong> role for governance over this tenant organization.
+            {t('This account will be assigned')} <strong>TENANT_ADMIN</strong> {t('role for governance over this tenant organization.')}
           </div>
 
           <Input
-            label="Administrator Full Name *"
-            placeholder="e.g. Nguyen Van Minh"
+            label={t('Administrator Full Name *')}
+            placeholder={t('e.g. Nguyen Van Minh')}
             value={adminName}
             onChange={(e) => setAdminName(e.target.value)}
             error={errors.adminName}
           />
 
           <Input
-            label="Administrator Email *"
+            label={t('Administrator Email *')}
             type="email"
             placeholder="admin@organization.com"
             value={adminEmail}
@@ -203,18 +205,18 @@ export const CreateTenantModal: React.FC<{
           />
 
           <Input
-            label="Initial Password *"
+            label={t('Initial Password *')}
             type="password"
             placeholder="••••••••••••"
             value={adminPassword}
             onChange={(e) => setAdminPassword(e.target.value)}
             error={errors.adminPassword}
-            helperText="Minimum 8 characters with numbers & symbols"
+            helperText={t('Minimum 8 characters with numbers & symbols')}
           />
 
           <Switch
-            label="Require Password Reset on First Login"
-            description="Forces the tenant admin to configure a new secret during initial authentication"
+            label={t('Require Password Reset on First Login')}
+            description={t('Forces the tenant admin to configure a new secret during initial authentication')}
             checked={forcePasswordChange}
             onChange={setForcePasswordChange}
           />
@@ -226,25 +228,25 @@ export const CreateTenantModal: React.FC<{
         <div className="space-y-4 text-xs">
           <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
             <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
-              Organization Summary
+              {t('Organization Summary')}
             </h4>
             <div className="grid grid-cols-2 gap-2 text-slate-300">
-              <div><span className="text-slate-500">Name:</span> {orgName}</div>
-              <div><span className="text-slate-500">Code:</span> <code className="text-amber-300">{orgCode}</code></div>
-              <div><span className="text-slate-500">Email:</span> {orgEmail}</div>
-              <div><span className="text-slate-500">Timezone:</span> {timezone}</div>
+              <div><span className="text-slate-500">{t('Name:')}</span> {orgName}</div>
+              <div><span className="text-slate-500">{t('Code:')}</span> <code className="text-amber-300">{orgCode}</code></div>
+              <div><span className="text-slate-500">{t('Email:')}</span> {orgEmail}</div>
+              <div><span className="text-slate-500">{t('Timezone:')}</span> {timezone}</div>
             </div>
           </div>
 
           <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
             <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
-              Primary Administrator Summary
+              {t('Primary Administrator Summary')}
             </h4>
             <div className="grid grid-cols-2 gap-2 text-slate-300">
-              <div><span className="text-slate-500">Full Name:</span> {adminName}</div>
-              <div><span className="text-slate-500">Email:</span> {adminEmail}</div>
-              <div><span className="text-slate-500">Role:</span> TENANT_ADMIN</div>
-              <div><span className="text-slate-500">Force Password Reset:</span> {forcePasswordChange ? 'Yes' : 'No'}</div>
+              <div><span className="text-slate-500">{t('Full Name:')}</span> {adminName}</div>
+              <div><span className="text-slate-500">{t('Email:')}</span> {adminEmail}</div>
+              <div><span className="text-slate-500">{t('Role:')}</span> TENANT_ADMIN</div>
+              <div><span className="text-slate-500">{t('Force Password Reset:')}</span> {forcePasswordChange ? t('Yes') : t('No')}</div>
             </div>
           </div>
         </div>
@@ -254,21 +256,21 @@ export const CreateTenantModal: React.FC<{
       <div className="flex items-center justify-between pt-4 border-t border-slate-800">
         {step > 1 ? (
           <Button variant="outline" size="sm" onClick={() => setStep((step - 1) as any)}>
-            Back
+            {t('Back')}
           </Button>
         ) : (
           <Button variant="ghost" size="sm" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
         )}
 
         {step < 3 ? (
           <Button variant="primary" size="sm" onClick={handleNext}>
-            Continue →
+            {t('Continue')} →
           </Button>
         ) : (
           <Button variant="success" size="sm" icon={Check} onClick={handleSubmit}>
-            Confirm & Provision
+            {t('Confirm & Provision')}
           </Button>
         )}
       </div>

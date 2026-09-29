@@ -4,6 +4,7 @@ import { TenantSite } from '../../types/tenant';
 import { CameraHealth } from '../../types/platform';
 import { Camera, X, Check } from 'lucide-react';
 import { Button, Input } from '../ui';
+import { useTranslation } from 'react-i18next';
 
 interface CameraFormModalProps {
   site: TenantSite;
@@ -17,6 +18,7 @@ const SELECT_CLS =
 
 export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, isOpen, onClose }) => {
   const { createTenantCamera, updateTenantCamera, tenantLanes, edgeDevices, parkingMap, setCameraCoverage } = usePlatform();
+  const { t } = useTranslation('tenant');
   const isEdit = camera !== null;
   const [coverageZoneIds, setCoverageZoneIds] = useState<Set<string>>(new Set());
 
@@ -115,9 +117,9 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
             </div>
             <div>
               <h3 className="text-base font-bold text-white tracking-tight">
-                {isEdit ? 'Edit Camera' : 'Register ANPR Camera'}
+                {isEdit ? t('Edit Camera') : t('Register ANPR Camera')}
               </h3>
-              <p className="text-xs text-[#8b949e]">{site.name} — video stream endpoint & lane assignment</p>
+              <p className="text-xs text-[#8b949e]">{t('{{site}} — video stream endpoint & lane assignment', { site: site.name })}</p>
             </div>
           </div>
 
@@ -134,10 +136,10 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Camera Name <span className="text-[#f85149]">*</span>
+                {t('Camera Name')} <span className="text-[#f85149]">*</span>
               </label>
               <Input
-                placeholder="e.g. Entry Lane A Plate Cam"
+                placeholder={t('e.g. Entry Lane A Plate Cam')}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
@@ -146,9 +148,9 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">Camera Code</label>
+              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Camera Code')}</label>
               <Input
-                placeholder="e.g. CAM-IN-01"
+                placeholder={t('e.g. CAM-IN-01')}
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                 className="bg-[#161b22] border-[#30363d] text-white font-mono"
@@ -158,42 +160,42 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
 
           <div>
             <label className="block text-[#c9d1d9] font-medium mb-1.5">
-              Stream URL <span className="text-[#f85149]">*</span>
+              {t('Stream URL')} <span className="text-[#f85149]">*</span>
             </label>
             <Input
-              placeholder="rtsp://user:pass@192.168.1.10:554/stream1"
+              placeholder={t('rtsp://user:pass@192.168.1.10:554/stream1')}
               value={formData.streamUrl}
               onChange={(e) => setFormData({ ...formData, streamUrl: e.target.value })}
               required
               className="bg-[#161b22] border-[#30363d] text-white font-mono"
             />
             <p className="text-[10px] text-[#8b949e] mt-1">
-              rtsp://, rtsps:// or http(s):// — credentials in the URL are stored with the camera.
+              {t('rtsp://, rtsps:// or http(s):// — credentials in the URL are stored with the camera.')}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">Purpose</label>
+              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Purpose')}</label>
               <select
                 value={formData.purpose}
                 onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
                 className={SELECT_CLS}
               >
-                <option value="plate">Plate close-up (ANPR)</option>
-                <option value="overview">Overview / context</option>
-                <option value="monitor">Camera giám sát khu đỗ</option>
+                <option value="plate">{t('Plate close-up (ANPR)')}</option>
+                <option value="overview">{t('Overview / context')}</option>
+                <option value="monitor">{t('Parking zone monitor')}</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">Lane</label>
+              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Lane')}</label>
               <select
                 value={formData.laneId}
                 onChange={(e) => setFormData({ ...formData, laneId: e.target.value })}
                 className={SELECT_CLS}
               >
-                <option value="">— none —</option>
+                <option value="">{t('— none —')}</option>
                 {siteLanes.map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.name}
@@ -203,13 +205,13 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">Edge Device</label>
+              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Edge Device')}</label>
               <select
                 value={formData.edgeDeviceId}
                 onChange={(e) => setFormData({ ...formData, edgeDeviceId: e.target.value })}
                 className={SELECT_CLS}
               >
-                <option value="">— none —</option>
+                <option value="">{t('— none —')}</option>
                 {siteDevices.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.deviceName}
@@ -221,29 +223,29 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
 
           {isEdit && (
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">Status</label>
+              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Status')}</label>
               <select
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                 className={SELECT_CLS}
               >
-                <option value="provisioning">Provisioning (awaiting edge)</option>
-                <option value="active">Active</option>
-                <option value="disabled">Disabled</option>
+                <option value="provisioning">{t('Provisioning (awaiting edge)')}</option>
+                <option value="active">{t('Active')}</option>
+                <option value="disabled">{t('Disabled')}</option>
               </select>
             </div>
           )}
 
           {formData.purpose === 'monitor' && (
             <div className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] space-y-2">
-              <h4 className="text-white font-semibold text-xs">Phạm vi khu vực đỗ (zone coverage)</h4>
+              <h4 className="text-white font-semibold text-xs">{t('Parking zone coverage')}</h4>
               {siteZones.length === 0 ? (
                 <p className="text-[11px] text-[#8b949e] italic">
-                  Site chưa có khu vực đỗ — tạo zone trong Sơ Đồ Bãi Xe trước.
+                  {t('This site has no parking zones yet — create them in the Parking Map first.')}
                 </p>
               ) : !isEdit ? (
                 <p className="text-[11px] text-[#8b949e] italic">
-                  Lưu camera trước, sau đó mở lại để gán khu vực phụ trách.
+                  {t('Save the camera first, then reopen it to assign covered zones.')}
                 </p>
               ) : (
                 <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
@@ -269,7 +271,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
 
           {isEdit && camera.lastSnapshotUrl && (
             <div className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] space-y-2">
-              <h4 className="text-white font-semibold text-xs">Snapshot gần nhất</h4>
+              <h4 className="text-white font-semibold text-xs">{t('Latest snapshot')}</h4>
               <img
                 src={camera.lastSnapshotUrl}
                 alt="Last camera snapshot"
@@ -277,16 +279,16 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
               />
               {camera.snapshotCapturedAt && (
                 <p className="text-[10px] text-[#8b949e] font-mono">
-                  Captured: {new Date(camera.snapshotCapturedAt).toLocaleString()}
+                  {t('Captured')}: {new Date(camera.snapshotCapturedAt).toLocaleString()}
                 </p>
               )}
             </div>
           )}
 
           <div>
-            <label className="block text-[#c9d1d9] font-medium mb-1.5">Notes</label>
+            <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Notes')}</label>
             <Input
-              placeholder="Mounting position, model, serial…"
+              placeholder={t('Mounting position, model, serial…')}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               className="bg-[#161b22] border-[#30363d] text-white"
@@ -296,7 +298,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
           {/* Footer actions */}
           <div className="pt-4 border-t border-[#30363d] flex items-center justify-end gap-3">
             <Button type="button" variant="outline" onClick={onClose} className="text-xs">
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               type="submit"
@@ -305,7 +307,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
               className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
-              {isEdit ? 'Save Camera' : 'Register Camera'}
+              {isEdit ? t('Save Camera') : t('Register Camera')}
             </Button>
           </div>
         </form>

@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { Button, Badge } from '../../components/ui';
 import { PublicViewType } from '../../components/layout/PublicNavbar';
+import { useTranslation } from 'react-i18next';
 
 interface LandingPageProps {
   onNavigate: (view: PublicViewType) => void;
@@ -59,58 +60,58 @@ interface DemoScenario {
 const DEMO_SCENARIOS: DemoScenario[] = [
   {
     id: 'vip',
-    name: 'Xe VIP / Ban Lãnh Đạo',
-    category: 'Thành viên VIP',
+    name: 'VIP / Executive Vehicle',
+    category: 'VIP Member',
     plate: '51A-888.88',
-    vehicleType: 'Mercedes-Benz S450 (Đen)',
-    owner: 'Nguyễn Văn Hùng (Tổng Giám Đốc)',
+    vehicleType: 'Mercedes-Benz S450 (Black)',
+    owner: 'Nguyen Van Hung (CEO)',
     status: 'ALLOWED',
     latencyMs: 58,
     confidence: 99.4,
     winningRule: '#1 - VIP FAST-TRACK PASS (24/7)',
-    reason: 'Phương tiện thuộc Danh mục Cán bộ Cấp cao. Barrier mở tự động toàn quyền.',
+    reason: 'Vehicle belongs to the Senior Staff category. Barrier opens fully automatically.',
     imageThumbnail: 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=300&auto=format&fit=crop&q=60'
   },
   {
     id: 'employee',
-    name: 'Xe Cán Bộ Nhân Viên (Ca Ngày)',
-    category: 'Nhân viên tòa nhà',
+    name: 'Employee Vehicle (Day Shift)',
+    category: 'Building Staff',
     plate: '29A-123.45',
-    vehicleType: 'Mazda CX-5 (Trắng)',
-    owner: 'Trần Thị Mai (Phòng Tài Chính)',
+    vehicleType: 'Mazda CX-5 (White)',
+    owner: 'Tran Thi Mai (Finance Dept.)',
     status: 'ALLOWED',
     latencyMs: 74,
     confidence: 98.7,
     winningRule: '#4 - EMPLOYEE SHIFT ACCESS (06:00 - 20:00)',
-    reason: 'Đúng khung giờ làm việc và thẻ tháng còn hạn sử dụng. Barrier mở.',
+    reason: 'Within working hours and monthly pass still valid. Barrier opens.',
     imageThumbnail: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=300&auto=format&fit=crop&q=60'
   },
   {
     id: 'visitor',
-    name: 'Xe Khách Chưa Đăng Ký',
-    category: 'Khách vãng lai',
+    name: 'Unregistered Visitor Vehicle',
+    category: 'Casual Visitor',
     plate: '43B-999.01',
-    vehicleType: 'Toyota Vios (Bạc)',
-    owner: 'Chưa có thông tin chủ sở hữu',
+    vehicleType: 'Toyota Vios (Silver)',
+    owner: 'No owner information available',
     status: 'DENIED',
     latencyMs: 82,
     confidence: 97.2,
     winningRule: '#99 - DEFAULT CATCH-ALL RESTRICTION',
-    reason: 'Biển số chưa được đăng ký trong hệ thống nội bộ. Yêu cầu bảo vệ kiểm tra vé giấy.',
+    reason: 'Plate not registered in the internal system. Guard must check a paper ticket.',
     imageThumbnail: 'https://images.unsplash.com/photo-1590362891991-f776e747a588?w=300&auto=format&fit=crop&q=60'
   },
   {
     id: 'blacklist',
-    name: 'Phương Tiện Bị Cảnh Báo An Ninh',
-    category: 'Danh sách đen (Blacklist)',
+    name: 'Security-Flagged Vehicle',
+    category: 'Blacklist',
     plate: '30G-666.99',
-    vehicleType: 'Ford Ranger (Đỏ)',
-    owner: 'Cảnh báo: Vi phạm nội quy đỗ xe nhiều lần',
+    vehicleType: 'Ford Ranger (Red)',
+    owner: 'Alert: Repeated parking violations',
     status: 'CRITICAL_BLOCK',
     latencyMs: 46,
     confidence: 99.8,
     winningRule: '#0 - SECURITY ENFORCEMENT BLOCKLIST',
-    reason: 'Phương tiện nằm trong danh sách cấm ra vào. Hệ thống khóa cứng barrier và phát chuông báo an ninh.',
+    reason: 'Vehicle is on the access blocklist. The system hard-locks the barrier and sounds a security alarm.',
     imageThumbnail: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=300&auto=format&fit=crop&q=60'
   }
 ];
@@ -119,6 +120,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onNavigate,
   onSelectPlan
 }) => {
+  const { t } = useTranslation('landing');
   // Live Simulator state
   const [selectedScenario, setSelectedScenario] = useState<DemoScenario>(DEMO_SCENARIOS[0]);
   const [customPlateInput, setCustomPlateInput] = useState('');
@@ -160,48 +162,48 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       if (isBlocked) {
         setSelectedScenario({
           id: 'custom-block',
-          name: `Xe Kiểm Tra: ${customPlateInput}`,
-          category: 'Cảnh báo An Ninh',
+          name: `${customPlateInput}`,
+          category: 'Security Alert',
           plate: customPlateInput.toUpperCase(),
-          vehicleType: 'Phương tiện nghi vấn',
-          owner: 'Nghi ngờ biển số giả mạo',
+          vehicleType: 'Suspicious vehicle',
+          owner: 'Suspected forged license plate',
           status: 'CRITICAL_BLOCK',
           latencyMs: 52,
           confidence: 96.5,
           winningRule: '#0 - SUSPICIOUS VEHICLE BLOCKLIST',
-          reason: 'Biển số có dấu hiệu bất thường, hệ thống tự động chặn và phát báo động.',
+          reason: 'Plate shows abnormal signs; the system auto-blocks and raises an alarm.',
           imageThumbnail: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=300&auto=format&fit=crop&q=60'
         });
         setBarrierState('LOCKED');
       } else if (isKnownVip) {
         setSelectedScenario({
           id: 'custom-vip',
-          name: `Xe Kiểm Tra: ${customPlateInput}`,
-          category: 'Thành viên Cấp Phép',
+          name: `${customPlateInput}`,
+          category: 'Authorized Member',
           plate: customPlateInput.toUpperCase(),
           vehicleType: 'Sedan / SUV',
-          owner: 'Khách Đã Đăng Ký Trước (Pre-registered)',
+          owner: 'Pre-registered Guest',
           status: 'ALLOWED',
           latencyMs: 68,
           confidence: 99.1,
           winningRule: '#3 - PRE-APPROVED VISITOR ACCESS',
-          reason: 'Biển số hợp lệ, barrier tự động mở cho xe lưu thông.',
+          reason: 'Valid plate; the barrier opens automatically for passage.',
           imageThumbnail: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=300&auto=format&fit=crop&q=60'
         });
         setBarrierState('UP');
       } else {
         setSelectedScenario({
           id: 'custom-unregistered',
-          name: `Xe Kiểm Tra: ${customPlateInput}`,
-          category: 'Chưa Đăng Ký',
+          name: `${customPlateInput}`,
+          category: 'Unregistered',
           plate: customPlateInput.toUpperCase(),
-          vehicleType: 'Phương tiện vãng lai',
-          owner: 'Khách chưa đăng ký',
+          vehicleType: 'Casual vehicle',
+          owner: 'Unregistered guest',
           status: 'DENIED',
           latencyMs: 85,
           confidence: 98.0,
           winningRule: '#99 - UNREGISTERED GATE RESTRICTION',
-          reason: 'Không tìm thấy vé tháng hợp lệ. Yêu cầu thanh toán vé lượt hoặc kiểm tra thủ công.',
+          reason: 'No valid monthly pass found. Requires a single-ride ticket or manual check.',
           imageThumbnail: 'https://images.unsplash.com/photo-1590362891991-f776e747a588?w=300&auto=format&fit=crop&q=60'
         });
         setBarrierState('DOWN');
@@ -213,88 +215,88 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     {
       id: 'starter',
       name: 'Starter',
-      badge: 'Bãi Xe & Chung Cư Nhỏ',
+      badge: 'Small Lots & Condos',
       price: '1.990.000',
-      period: 'tháng',
-      description: 'Dành cho các bãi đỗ xe đơn lẻ, chung cư mini hoặc trụ sở công ty quy mô vừa và nhỏ.',
+      period: 'month',
+      description: 'For standalone parking lots, mini condos or small-to-medium company offices.',
       features: [
-        'Tối đa 2 Làn Barrier (1 Vào - 1 Ra)',
-        'Quản lý 1 Cơ sở (Site)',
-        'Sức chứa tối đa 500 phương tiện',
-        'Camera ANPR nhận diện biển số OCR AI',
-        'Động cơ luật ra vào cơ bản',
-        'Lưu trữ lịch sử sự kiện 30 ngày',
-        'Hỗ trợ kỹ thuật qua Email & Zalo'
+        'Up to 2 Barrier Lanes (1 In - 1 Out)',
+        'Manage 1 Site',
+        'Capacity up to 500 vehicles',
+        'ANPR camera with AI OCR plate recognition',
+        'Basic access rules engine',
+        '30-day event history retention',
+        'Technical support via Email & Zalo'
       ],
       popular: false,
-      ctaText: 'Bắt đầu dùng thử Starter'
+      ctaText: 'Start Starter Trial'
     },
     {
       id: 'business',
       name: 'Business',
-      badge: 'Phổ biến nhất ★',
+      badge: 'Most Popular ★',
       price: '4.990.000',
-      period: 'tháng',
-      description: 'Giải pháp hoàn hảo cho Tòa nhà văn phòng hạng A-B, trung tâm thương mại và khu dân cư cao cấp.',
+      period: 'month',
+      description: 'The perfect solution for grade A-B office buildings, shopping malls and premium residential areas.',
       features: [
-        'Tối đa 8 Làn Barrier đa chiều',
-        'Quản lý tới 3 Cơ sở (Sites) đồng thời',
-        'Sức chứa tới 3.000 phương tiện',
-        'Deterministic Policy Engine (Độ ưu tiên #1 - #9999)',
-        'Chống bám đuôi (Tailgating) & Anti-passback',
-        'Cơ chế Failover Offline tại trạm khi mất Internet',
-        'Tích hợp Webhook (Telegram/Slack) & API mở',
-        'Lưu trữ hình ảnh & sự kiện 1 năm',
-        'Hỗ trợ kỹ thuật 24/7 qua Hotline riêng'
+        'Up to 8 multi-direction Barrier Lanes',
+        'Manage up to 3 Sites simultaneously',
+        'Capacity up to 3,000 vehicles',
+        'Deterministic Policy Engine (Priority #1 - #9999)',
+        'Anti-Tailgating & Anti-passback',
+        'On-site Offline Failover when Internet drops',
+        'Webhook integration (Telegram/Slack) & Open API',
+        '1-year image & event retention',
+        '24/7 dedicated Hotline support'
       ],
       popular: true,
-      ctaText: 'Đăng ký dùng thử Business'
+      ctaText: 'Start Business Trial'
     },
     {
       id: 'enterprise',
       name: 'Enterprise',
-      badge: 'Chuỗi & KCN Logistics',
-      price: 'Liên hệ',
-      period: 'báo giá riêng',
-      description: 'Dành cho Tập đoàn quản lý chuỗi tòa nhà, Khu công nghiệp, Bệnh viện lớn và Trung tâm Logistics.',
+      badge: 'Chains & Logistics Parks',
+      price: 'Contact us',
+      period: 'custom quote',
+      description: 'For corporations managing building chains, industrial parks, large hospitals and logistics centers.',
       features: [
-        'Không giới hạn số Làn Barrier & Cổng ra vào',
-        'Không giới hạn Cơ sở và số lượng xe lưu kho',
-        'Cơ sở dữ liệu riêng biệt (Dedicated RLS DB)',
-        'Tích hợp sâu hệ thống BMS, SAP, Oracle ERP, VietQR',
-        'Cam kết SLA 99.99% Uptime có bồi hoàn',
-        'Tùy biến thuật toán OCR biển số chuyên dụng',
-        'Kỹ sư hỗ trợ cài đặt & bảo trì tận nơi On-site'
+        'Unlimited Barrier Lanes & access gates',
+        'Unlimited Sites and stored vehicles',
+        'Dedicated isolated database (Dedicated RLS DB)',
+        'Deep integration with BMS, SAP, Oracle ERP, VietQR',
+        'Compensated 99.99% Uptime SLA commitment',
+        'Customized dedicated plate OCR algorithms',
+        'On-site installation & maintenance engineers'
       ],
       popular: false,
-      ctaText: 'Tư vấn giải pháp Enterprise'
+      ctaText: 'Enterprise Consultation'
     }
   ];
 
   const faqs = [
     {
-      q: 'Hệ thống ANPR Cloud có yêu cầu phải thay thế cổng barrier hiện có không?',
-      a: 'Hoàn toàn không. ANPR Cloud được thiết kế để tương thích 100% với các thương hiệu barrier phổ biến hiện nay như Bisen, FAAC, CAME, MAG, ZKTeco, Wonsun... Chúng tôi chỉ cần kết nối bộ điều khiển Edge Relay nhỏ gọn vào cổng tín hiệu Relay Open/Close của barrier hiện tại của bạn trong vòng chưa tới 15 phút.'
+      q: 'Does ANPR Cloud require replacing my existing barrier gates?',
+      a: 'Absolutely not. ANPR Cloud is designed to be 100% compatible with popular barrier brands such as Bisen, FAAC, CAME, MAG, ZKTeco, Wonsun... We only need to connect a compact Edge Relay controller to the Relay Open/Close signal port of your existing barrier in under 15 minutes.'
     },
     {
-      q: 'Nếu đường truyền cáp quang hoặc Internet bị mất thì barrier có mở được không?',
-      a: 'Có, barrier vẫn đóng mở hoàn toàn bình thường. Thiết bị Edge Gateway tại mỗi trạm bãi xe luôn đồng bộ một bản sao cơ sở dữ liệu biển số hợp lệ và luật ra vào (Offline Cache). Khi mất mạng, Edge AI tự xử lý nhận diện OCR và kích hoạt relay mở barrier cục bộ. Khi có mạng trở lại, dữ liệu sự kiện sẽ tự động đẩy ngược lên Cloud.'
+      q: 'If the fiber optic line or Internet goes down, can the barrier still open?',
+      a: 'Yes, the barrier continues to open and close completely normally. The Edge Gateway at each parking site always syncs a copy of the valid license plate database and access rules (Offline Cache). When the network drops, Edge AI processes OCR recognition locally and triggers the barrier relay on-site. Once connectivity returns, event data is automatically pushed back to the Cloud.'
     },
     {
-      q: 'Tốc độ nhận diện biển số và mở barrier là bao nhiêu?',
-      a: 'Toàn trình từ lúc phương tiện chạm vạch dừng (Loop Detector kích hoạt camera), chụp ảnh, chạy mô hình Deep Learning OCR đọc chuỗi ký tự biển số, đến khi rơ-le barrier nâng cần chỉ mất từ 50ms đến 90ms (chưa tới 0.1 giây), đảm bảo phương tiện lưu thông mượt mà không bị gián đoạn.'
+      q: 'How fast is license plate recognition and barrier opening?',
+      a: 'The entire pipeline — from the vehicle touching the stop line (Loop Detector triggering the camera), capturing the image, running the Deep Learning OCR model to read the plate, to the barrier relay lifting — takes only 50ms to 90ms (under 0.1 seconds), ensuring smooth, uninterrupted vehicle flow.'
     },
     {
-      q: 'Hệ thống có nhận diện được biển số bị mờ, bùn đất, biển số xe máy hoặc trời mưa ban đêm không?',
-      a: 'Có. Mô hình ANPR của chúng tôi được huấn luyện đặc biệt trên tập dữ liệu hàng triệu biển số xe tại Việt Nam (bao gồm biển trắng dân sự, biển vàng xe kinh doanh, biển xanh cơ quan, biển đỏ quân đội, biển số xe điện, biển xe máy 2 hàng và biển ngoại giao). Kết hợp với camera IP chuyên dụng có đèn hồng ngoại (IR) hoặc LED Strobe, độ chính xác duy trì trên 99.5% ngay cả trong điều kiện mưa bão hay đêm tối.'
+      q: 'Can the system recognize blurred plates, muddy plates, motorbike plates, or plates in rainy night conditions?',
+      a: 'Yes. Our ANPR model is specially trained on a dataset of millions of Vietnamese license plates (including white civilian plates, yellow commercial plates, blue government plates, red military plates, electric vehicle plates, two-line motorbike plates and diplomatic plates). Combined with dedicated IP cameras featuring infrared (IR) or LED Strobe lighting, accuracy stays above 99.5% even in storms or darkness.'
     },
     {
-      q: 'Dữ liệu hình ảnh biển số xe có được bảo mật theo quy định pháp luật không?',
-      a: 'Chúng tôi tuân thủ nghiêm ngặt Nghị định 13/2023/NĐ-CP của Chính phủ về bảo vệ dữ liệu cá nhân. Toàn bộ hình ảnh biển số và log ra vào được mã hóa AES-256 trên Cloud Storage, đường truyền bảo vệ bằng chuẩn TLS 1.3. Doanh nghiệp (Tenant) hoàn toàn làm chủ dữ liệu của mình và có thể yêu cầu xóa dữ liệu bất kỳ lúc nào.'
+      q: 'Is license plate image data secured under legal regulations?',
+      a: 'We strictly comply with Government Decree 13/2023/ND-CP on personal data protection. All plate images and access logs are encrypted with AES-256 on Cloud Storage, with transport protected by TLS 1.3. Your organization (Tenant) fully owns its data and can request deletion at any time.'
     },
     {
-      q: 'Chi phí triển khai ban đầu và thời gian hoàn tất là bao lâu?',
-      a: 'Nếu cơ sở đã có sẵn camera IP và barrier, bạn chỉ cần trang bị bộ Edge Gateway với chi phí rất tiết kiệm. Thời gian cấu hình toàn bộ hệ thống trên Cloud và cắm nối phần cứng chỉ mất từ 2 đến 4 giờ làm việc. Bạn cũng được dùng thử miễn phí 14 ngày đầy đủ tính năng trước khi quyết định ký hợp đồng.'
+      q: 'What is the initial deployment cost and completion time?',
+      a: 'If your site already has IP cameras and barriers, you only need the Edge Gateway at a very affordable cost. Configuring the entire Cloud system and plugging in hardware takes just 2 to 4 working hours. You also get a full-featured 14-day free trial before deciding to sign a contract.'
     }
   ];
 
@@ -315,25 +317,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-ping" />
               <span className="w-2 h-2 rounded-full bg-[#3fb950] -ml-4" />
               <span className="text-xs font-mono font-semibold text-[#58a6ff]">
-                Nền Tảng ANPR Cloud SaaS Thế Hệ Mới
+                {t('Next-Gen ANPR Cloud SaaS Platform')}
               </span>
               <span className="text-[#8b949e] text-xs">|</span>
               <span className="text-xs text-[#c9d1d9] font-medium hidden sm:inline">
-                Tự động hóa Barrier & Nhận diện Biển số AI
+                {t('Barrier Automation & AI License Plate Recognition')}
               </span>
             </div>
 
             {/* Main Headline */}
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.15]">
-              Kiểm Soát Ra Vào Thông Minh <br className="hidden sm:block" />
+              {t('Smart Access Control')} <br className="hidden sm:block" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#58a6ff] via-[#79c0ff] to-[#a371f7]">
-                Tự Động Mở Barrier Qua Biển Số
+                {t('Barriers Open Automatically on License Plates')}
               </span>
             </h1>
 
             {/* Sub-headline */}
             <p className="text-base sm:text-lg text-[#8b949e] max-w-2xl mx-auto leading-relaxed">
-              Giải pháp đám mây toàn diện cho Tòa nhà, Chung cư, Bãi xe và Khu công nghiệp. Nhận diện biển số trong <strong className="text-white">&lt;100ms</strong>, chống quay vòng vé, phân quyền thông minh và vận hành tự động 24/7.
+              {t('A comprehensive cloud solution for Buildings, Condos, Parking Lots and Industrial Parks. Plate recognition in')} <strong className="text-white">&lt;100ms</strong>, {t('anti-ticket-looping, smart authorization and fully automated 24/7 operation.')}
             </p>
 
             {/* Action Buttons */}
@@ -342,7 +344,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 onClick={() => onNavigate('register')}
                 className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#58a6ff] hover:bg-[#388bfd] text-slate-950 font-bold text-sm sm:text-base shadow-xl shadow-[#58a6ff]/25 transition-all flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02]"
               >
-                <span>Dùng thử miễn phí 14 ngày</span>
+                <span>{t('Start 14-day Free Trial')}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
 
@@ -354,20 +356,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-[#161b22] hover:bg-[#21262d] text-white font-semibold text-sm sm:text-base border border-[#30363d] transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Sparkles className="w-4 h-4 text-[#58a6ff]" />
-                <span>Trải nghiệm Live Demo</span>
+                <span>{t('Try the Live Demo')}</span>
               </button>
             </div>
 
             {/* Trust Micro-Bullets */}
             <div className="pt-4 flex flex-wrap items-center justify-center gap-6 text-xs text-[#8b949e]">
               <span className="flex items-center gap-1.5 text-[#c9d1d9]">
-                <CheckCircle2 className="w-4 h-4 text-[#3fb950]" /> Không cần thẻ từ rườm rà
+                <CheckCircle2 className="w-4 h-4 text-[#3fb950]" /> {t('No clunky RFID cards needed')}
               </span>
               <span className="flex items-center gap-1.5 text-[#c9d1d9]">
-                <CheckCircle2 className="w-4 h-4 text-[#3fb950]" /> Tương thích mọi loại Barrier
+                <CheckCircle2 className="w-4 h-4 text-[#3fb950]" /> {t('Compatible with all barrier types')}
               </span>
               <span className="flex items-center gap-1.5 text-[#c9d1d9]">
-                <CheckCircle2 className="w-4 h-4 text-[#3fb950]" /> Hoạt động offline khi mất mạng
+                <CheckCircle2 className="w-4 h-4 text-[#3fb950]" /> {t('Keeps working offline during outages')}
               </span>
             </div>
           </div>
@@ -376,26 +378,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
             <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 text-center shadow-lg">
               <div className="text-2xl sm:text-3xl font-black text-[#58a6ff] font-mono">99.8%</div>
-              <div className="text-xs font-bold text-white mt-1">Độ chính xác OCR</div>
-              <p className="text-[11px] text-[#8b949e] mt-0.5">Biển số ô tô, xe máy, xe điện</p>
+              <div className="text-xs font-bold text-white mt-1">{t('OCR Accuracy')}</div>
+              <p className="text-[11px] text-[#8b949e] mt-0.5">{t('Car, motorbike & e-vehicle plates')}</p>
             </div>
 
             <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 text-center shadow-lg">
               <div className="text-2xl sm:text-3xl font-black text-[#3fb950] font-mono">&lt;100ms</div>
-              <div className="text-xs font-bold text-white mt-1">Tốc độ mở Barrier</div>
-              <p className="text-[11px] text-[#8b949e] mt-0.5">Từ lúc quét đến khi nâng cần</p>
+              <div className="text-xs font-bold text-white mt-1">{t('Barrier Open Speed')}</div>
+              <p className="text-[11px] text-[#8b949e] mt-0.5">{t('From scan to arm lift')}</p>
             </div>
 
             <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 text-center shadow-lg">
               <div className="text-2xl sm:text-3xl font-black text-[#d29922] font-mono">90%</div>
-              <div className="text-xs font-bold text-white mt-1">Giảm ùn tắc cổng</div>
-              <p className="text-[11px] text-[#8b949e] mt-0.5">Lưu thông tốc độ cao giờ cao điểm</p>
+              <div className="text-xs font-bold text-white mt-1">{t('Less Gate Congestion')}</div>
+              <p className="text-[11px] text-[#8b949e] mt-0.5">{t('High-speed flow at peak hours')}</p>
             </div>
 
             <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 text-center shadow-lg">
               <div className="text-2xl sm:text-3xl font-black text-[#a371f7] font-mono">99.9%</div>
-              <div className="text-xs font-bold text-white mt-1">SLA Uptime Đảm Bảo</div>
-              <p className="text-[11px] text-[#8b949e] mt-0.5">Dự phòng Edge Offline 100%</p>
+              <div className="text-xs font-bold text-white mt-1">{t('Guaranteed SLA Uptime')}</div>
+              <p className="text-[11px] text-[#8b949e] mt-0.5">{t('100% Edge offline failover')}</p>
             </div>
           </div>
         </div>
@@ -411,10 +413,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <Sparkles className="w-3.5 h-3.5" /> Interactive Demo Sandbox
             </div>
             <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-              Trải Nghiệm Động Cơ Nhận Diện & Quyết Định Barrier
+              {t('Experience the Recognition Engine & Barrier Decisions')}
             </h2>
             <p className="text-sm text-[#8b949e]">
-              Chọn một phương tiện mẫu hoặc tự nhập biển số xe để xem cách camera ANPR phân tích, đối soát chính sách luật và ra lệnh mở hoặc khóa barrier trong tích tắc.
+              {t('Pick a sample vehicle or enter any license plate to see how the ANPR camera analyzes, matches access policies, and opens or locks the barrier instantly.')}
             </p>
           </div>
 
@@ -426,9 +428,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
                     <Car className="w-4 h-4 text-[#58a6ff]" />
-                    Chọn Tình Huống Xe Tiếp Cận Cổng:
+                    {t('Pick a Vehicle Scenario at the Gate:')}
                   </h3>
-                  <span className="text-[10px] text-[#8b949e] font-mono">4 mẫu thử</span>
+                  <span className="text-[10px] text-[#8b949e] font-mono">{t('4 samples')}</span>
                 </div>
 
                 {/* Scenarios List */}
@@ -451,25 +453,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                           }`} />
                           <div className="min-w-0">
                             <div className="text-xs font-bold truncate flex items-center gap-2">
-                              <span>{scenario.name}</span>
+                              <span>{t(scenario.name)}</span>
                               {scenario.status === 'ALLOWED' && (
-                                <Badge variant="emerald" size="sm" className="text-[9px]">Mở Barrier</Badge>
+                                <Badge variant="emerald" size="sm" className="text-[9px]">{t('Barrier Open')}</Badge>
                               )}
                               {scenario.status === 'DENIED' && (
-                                <Badge variant="amber" size="sm" className="text-[9px]">Chặn Lại</Badge>
+                                <Badge variant="amber" size="sm" className="text-[9px]">{t('Blocked')}</Badge>
                               )}
                               {scenario.status === 'CRITICAL_BLOCK' && (
-                                <Badge variant="red" size="sm" className="text-[9px]">Báo Động</Badge>
+                                <Badge variant="red" size="sm" className="text-[9px]">{t('Alarm')}</Badge>
                               )}
                             </div>
                             <div className="text-[11px] font-mono text-[#8b949e] mt-0.5">
-                              Biển số: <span className="text-white font-bold">{scenario.plate}</span> • {scenario.vehicleType}
+                              {t('Plate:')} <span className="text-white font-bold">{scenario.plate}</span> • {t(scenario.vehicleType)}
                             </div>
                           </div>
                         </div>
 
                         <span className="text-xs font-mono font-bold text-[#58a6ff] shrink-0">
-                          {isSelected ? 'Đang chọn' : 'Thử'}
+                          {isSelected ? t('Selected') : t('Try')}
                         </span>
                       </div>
                     );
@@ -480,14 +482,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <div className="pt-3 border-t border-[#30363d]">
                   <form onSubmit={handleCustomScan} className="space-y-2">
                     <label className="text-[11px] font-semibold text-[#8b949e] block">
-                      Hoặc nhập biển số xe bất kỳ để kiểm tra:
+                      {t('Or enter any license plate to test:')}
                     </label>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
                         value={customPlateInput}
                         onChange={(e) => setCustomPlateInput(e.target.value)}
-                        placeholder="Ví dụ: 59X1-88899"
+                        placeholder={t('e.g. 59X1-88899')}
                         className="flex-1 px-3 py-2 bg-[#0d0e12] border border-[#30363d] rounded-xl text-xs font-mono font-bold text-white uppercase focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff]"
                       />
                       <button
@@ -500,7 +502,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         ) : (
                           <Sparkles className="w-3.5 h-3.5 text-[#58a6ff]" />
                         )}
-                        <span>Quét</span>
+                        <span>{t('Scan')}</span>
                       </button>
                     </div>
                   </form>
@@ -516,7 +518,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-[#f85149] animate-pulse" />
                     <span className="text-xs font-bold text-white font-mono uppercase">
-                      Làn 01 - Cổng Chính (INBOUND ANPR CAM 4K)
+                      {t('Lane 01 - Main Gate (INBOUND ANPR CAM 4K)')}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-xs font-mono">
@@ -544,7 +546,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       <div className="w-full h-0.5 bg-[#58a6ff] shadow-[0_0_15px_#58a6ff] animate-pulse" />
                       <div className="mt-4 px-3 py-1 rounded bg-[#0d0e12]/90 border border-[#58a6ff] text-[#58a6ff] text-xs font-mono font-bold flex items-center gap-2">
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Đang xử lý Deep Learning OCR...</span>
+                        <span>{t('Processing Deep Learning OCR...')}</span>
                       </div>
                     </div>
                   )}
@@ -557,7 +559,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       </div>
                       <div className="text-left text-xs font-mono">
                         <div className="text-[#58a6ff] font-bold">OCR: {selectedScenario.confidence}%</div>
-                        <div className="text-[#8b949e] text-[10px]">Độ trễ: {selectedScenario.latencyMs}ms</div>
+                        <div className="text-[#8b949e] text-[10px]">{t('Latency: {{ms}}ms', { ms: selectedScenario.latencyMs })}</div>
                       </div>
                     </div>
                   )}
@@ -565,13 +567,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   {/* Physical Barrier Arm Simulation Indicator */}
                   <div className="absolute top-4 right-4 bg-[#0d0e12]/90 border border-[#30363d] rounded-xl p-3 backdrop-blur-md flex items-center gap-3">
                     <div className="text-right">
-                      <div className="text-[10px] text-[#8b949e] font-mono">TRẠNG THÁI BARRIER:</div>
+                      <div className="text-[10px] text-[#8b949e] font-mono">{t('BARRIER STATUS:')}</div>
                       <div className={`text-xs font-black font-mono ${
                         barrierState === 'UP' ? 'text-[#3fb950]' : barrierState === 'LOCKED' ? 'text-[#f85149]' : 'text-[#d29922]'
                       }`}>
-                        {barrierState === 'UP' && 'CẦN ĐÃ NÂNG (CHO VÀO)'}
-                        {barrierState === 'DOWN' && 'CẦN ĐANG ĐÓNG (CHỜ)'}
-                        {barrierState === 'LOCKED' && 'KHÓA CỨNG (AN NINH)'}
+                        {barrierState === 'UP' && t('ARM RAISED (ENTRY ALLOWED)')}
+                        {barrierState === 'DOWN' && t('ARM DOWN (WAITING)')}
+                        {barrierState === 'LOCKED' && t('HARD LOCKED (SECURITY)')}
                       </div>
                     </div>
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold ${
@@ -590,38 +592,38 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <div className="p-5 bg-[#161b22] space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
-                      <div className="text-[11px] font-mono text-[#8b949e]">QUY TẮC CHIẾN THẮNG (WINNING ACCESS RULE):</div>
+                      <div className="text-[11px] font-mono text-[#8b949e]">{t('WINNING ACCESS RULE:')}</div>
                       <div className="text-xs font-bold text-white font-mono mt-0.5">
-                        {selectedScenario.winningRule}
+                        {t(selectedScenario.winningRule)}
                       </div>
                     </div>
                     <div>
                       {selectedScenario.status === 'ALLOWED' && (
                         <Badge variant="emerald" size="md" className="font-bold">
-                          QUYẾT ĐỊNH: CHO PHÉP VÀO
+                          {t('DECISION: ENTRY ALLOWED')}
                         </Badge>
                       )}
                       {selectedScenario.status === 'DENIED' && (
                         <Badge variant="amber" size="md" className="font-bold">
-                          QUYẾT ĐỊNH: TỪ CHỐI TỰ ĐỘNG
+                          {t('DECISION: AUTO-DENIED')}
                         </Badge>
                       )}
                       {selectedScenario.status === 'CRITICAL_BLOCK' && (
                         <Badge variant="red" size="md" className="font-bold">
-                          BÁO ĐỘNG: PHÁT HIỆN VI PHẠM
+                          {t('ALARM: VIOLATION DETECTED')}
                         </Badge>
                       )}
                     </div>
                   </div>
 
                   <p className="text-xs text-[#c9d1d9] bg-[#0d0e12] p-3 rounded-xl border border-[#30363d] leading-relaxed">
-                    <strong className="text-white">Chi tiết đánh giá:</strong> {selectedScenario.reason} (Chủ xe: {selectedScenario.owner})
+                    <strong className="text-white">{t('Evaluation details:')}</strong> {t(selectedScenario.reason)} ({t('Owner:')} {t(selectedScenario.owner)})
                   </p>
 
                   <div className="pt-2 flex flex-wrap items-center justify-between text-[11px] text-[#8b949e] font-mono">
-                    <span>Edge Relay: Kích hoạt tức thì</span>
-                    <span>Anti-passback: Hợp lệ</span>
-                    <span>Dung lượng bãi xe: Còn 48/200 chỗ</span>
+                    <span>{t('Edge Relay: Instant trigger')}</span>
+                    <span>{t('Anti-passback: Valid')}</span>
+                    <span>{t('Lot capacity: 48/200 spots left')}</span>
                   </div>
                 </div>
               </div>
@@ -636,13 +638,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <section id="features" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto space-y-3 mb-16">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#58a6ff]/10 text-[#58a6ff] text-xs font-mono font-semibold border border-[#58a6ff]/30">
-            <Layers className="w-3.5 h-3.5" /> Năng Lực Nền Tảng Vượt Trội
+            <Layers className="w-3.5 h-3.5" /> {t('Outstanding Platform Capabilities')}
           </div>
           <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-            Mọi Công Cụ Bạn Cần Để Tự Động Hóa Bãi Xe
+            {t('Every Tool You Need to Automate Your Parking')}
           </h2>
           <p className="text-sm text-[#8b949e]">
-            Loại bỏ hoàn toàn thẻ từ vật lý dễ bị sao chép hoặc thất lạc. Kiểm soát luồng xe chính xác từng giây với AI và cơ chế bảo mật đa tầng.
+            {t('Eliminate physical RFID cards that are easily cloned or lost. Control vehicle flow to the second with AI and multi-layered security.')}
           </p>
         </div>
 
@@ -654,13 +656,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <Camera className="w-6 h-6" />
             </div>
             <h3 className="text-base font-bold text-white tracking-tight">
-              Nhận Diện Biển Số OCR Đa Điều Kiện
+              {t('All-Condition OCR Plate Recognition')}
             </h3>
             <p className="text-xs text-[#8b949e] leading-relaxed">
-              Mô hình Deep Learning tối ưu riêng cho biển số Việt Nam (biển trắng, vàng, xanh, đỏ, biển xe điện và xe máy). Nhận diện chính xác 99.8% cả ban đêm hoặc góc chụp nghiêng 45°.
+              {t('A Deep Learning model optimized for Vietnamese plates (white, yellow, blue, red, EV and motorbike plates). 99.8% accuracy at night or at a 45° capture angle.')}
             </p>
             <div className="pt-2 flex items-center gap-2 text-[11px] font-mono text-[#58a6ff]">
-              <span>Tốc độ xử lý: ~60ms</span>
+              <span>{t('Processing speed: ~60ms')}</span>
             </div>
           </div>
 
@@ -670,13 +672,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <Zap className="w-6 h-6" />
             </div>
             <h3 className="text-base font-bold text-white tracking-tight">
-              Động Cơ Luật Ra Vào Deterministic
+              {t('Deterministic Access Rules Engine')}
             </h3>
             <p className="text-xs text-[#8b949e] leading-relaxed">
-              Tùy biến chính sách không giới hạn: phân quyền theo nhóm VIP, Cán bộ, Nhà thầu hoặc Khách; thiết lập khung giờ theo ngày trong tuần và tự động phát hiện xung đột quy tắc.
+              {t('Unlimited custom policies: authorize by VIP, Staff, Contractor or Visitor groups; set weekday time windows and auto-detect rule conflicts.')}
             </p>
             <div className="pt-2 flex items-center gap-2 text-[11px] font-mono text-[#3fb950]">
-              <span>Độ ưu tiên từ #1 đến #9999</span>
+              <span>{t('Priority levels #1 to #9999')}</span>
             </div>
           </div>
 
@@ -686,13 +688,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <ShieldAlert className="w-6 h-6" />
             </div>
             <h3 className="text-base font-bold text-white tracking-tight">
-              Chống Gian Lận & Cảnh Báo An Ninh
+              {t('Anti-Fraud & Security Alerts')}
             </h3>
             <p className="text-xs text-[#8b949e] leading-relaxed">
-              Tự động phát hiện hành vi bám đuôi (Tailgating), quay vòng vé xe trái phép (Anti-passback) và nhận diện phương tiện thuộc danh sách đen để khóa cứng barrier ngay tức thì.
+              {t('Automatically detects tailgating, illegal ticket looping (Anti-passback) and recognizes blacklisted vehicles to hard-lock the barrier instantly.')}
             </p>
             <div className="pt-2 flex items-center gap-2 text-[11px] font-mono text-[#f85149]">
-              <span>Bảo vệ doanh thu & chống thất thoát</span>
+              <span>{t('Protects revenue & prevents leakage')}</span>
             </div>
           </div>
 
@@ -702,13 +704,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <Building2 className="w-6 h-6" />
             </div>
             <h3 className="text-base font-bold text-white tracking-tight">
-              Quản Lý Đa Điểm & Sức Chứa (Capacity)
+              {t('Multi-Site Management & Capacity')}
             </h3>
             <p className="text-xs text-[#8b949e] leading-relaxed">
-              Theo dõi đồng thời hàng chục bãi xe và tòa nhà trên một màn hình quản trị duy nhất. Tự động cảnh báo và đóng cổng khi khu vực đỗ xe đã đạt ngưỡng giới hạn tối đa.
+              {t('Monitor dozens of parking lots and buildings on a single admin screen. Auto-alert and close gates when a parking zone reaches its maximum threshold.')}
             </p>
             <div className="pt-2 flex items-center gap-2 text-[11px] font-mono text-[#d29922]">
-              <span>Cập nhật số chỗ trống Real-time</span>
+              <span>{t('Real-time available spot updates')}</span>
             </div>
           </div>
 
@@ -718,13 +720,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <Server className="w-6 h-6" />
             </div>
             <h3 className="text-base font-bold text-white tracking-tight">
-              Offline-First: Vận Hành Bền Bỉ Khi Mất Mạng
+              {t('Offline-First: Resilient During Outages')}
             </h3>
             <p className="text-xs text-[#8b949e] leading-relaxed">
-              Edge Gateway tại cổng lưu trữ bộ nhớ đệm cục bộ. Nếu đường truyền Internet cáp quang bị đứt, cổng barrier vẫn nhận diện và mở cho xe hợp lệ, sau đó tự đồng bộ khi có mạng lại.
+              {t('The Edge Gateway at the gate keeps a local cache. If the fiber Internet drops, the barrier still recognizes and opens for valid vehicles, then syncs when back online.')}
             </p>
             <div className="pt-2 flex items-center gap-2 text-[11px] font-mono text-[#a371f7]">
-              <span>Uptime 99.9% không lo tắc đường</span>
+              <span>{t('99.9% uptime, no road blockage')}</span>
             </div>
           </div>
 
@@ -734,13 +736,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <Smartphone className="w-6 h-6" />
             </div>
             <h3 className="text-base font-bold text-white tracking-tight">
-              Tích Hợp Mở (Open API & VietQR)
+              {t('Open Integrations (Open API & VietQR)')}
             </h3>
             <p className="text-xs text-[#8b949e] leading-relaxed">
-              Dễ dàng kết nối với phần mềm quản lý tòa nhà (BMS), ERP, hệ thống nhân sự chấm công và cổng thanh toán tự động VietQR, MoMo giúp cư dân thanh toán tiền gửi xe siêu tốc.
+              {t('Easily connects to building management software (BMS), ERP, HR attendance systems and automated payment gateways like VietQR and MoMo for lightning-fast parking payments.')}
             </p>
             <div className="pt-2 flex items-center gap-2 text-[11px] font-mono text-[#58a6ff]">
-              <span>RESTful API & Webhooks</span>
+              <span>{t('RESTful API & Webhooks')}</span>
             </div>
           </div>
         </div>
@@ -753,13 +755,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto space-y-3 mb-16">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#3fb950]/10 text-[#3fb950] text-xs font-mono font-semibold border border-[#3fb950]/30">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Triển Khai Trong 4 Giờ
+              <CheckCircle2 className="w-3.5 h-3.5" /> {t('Deployed in 4 Hours')}
             </div>
             <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-              3 Bước Đơn Giản Để Bắt Đầu Vận Hành
+              {t('3 Simple Steps to Go Live')}
             </h2>
             <p className="text-sm text-[#8b949e]">
-              Không cần mua sắm hệ thống cồng kềnh hay thay đổi kết cấu hạ tầng sẵn có của bạn.
+              {t('No bulky systems to buy or changes to your existing infrastructure required.')}
             </p>
           </div>
 
@@ -769,11 +771,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="w-10 h-10 rounded-xl bg-[#58a6ff] text-slate-950 font-black text-base flex items-center justify-center">
                 1
               </div>
-              <h3 className="text-base font-bold text-white">Kết Nối Camera & Barrier Hiện Có</h3>
+              <h3 className="text-base font-bold text-white">{t('Connect Existing Cameras & Barriers')}</h3>
               <p className="text-xs text-[#8b949e] leading-relaxed">
-                Kỹ thuật viên cắm bộ điều khiển Edge Gateway nhỏ gọn vào cổng tín hiệu Relay của barrier và kết nối tới Camera IP có sẵn qua chuẩn ONVIF / RTSP.
+                {t('Our technicians plug the compact Edge Gateway controller into the barrier\'s Relay signal port and link to your existing IP cameras via ONVIF / RTSP.')}
               </p>
-              <div className="text-[11px] font-mono text-[#58a6ff]">Thời gian: 30 - 60 phút</div>
+              <div className="text-[11px] font-mono text-[#58a6ff]">{t('Time: 30 - 60 minutes')}</div>
             </div>
 
             {/* Step 2 */}
@@ -781,11 +783,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="w-10 h-10 rounded-xl bg-[#3fb950] text-slate-950 font-black text-base flex items-center justify-center">
                 2
               </div>
-              <h3 className="text-base font-bold text-white">Khởi Tạo Tổ Chức & Cấu Hình Luật</h3>
+              <h3 className="text-base font-bold text-white">{t('Set Up Organization & Access Rules')}</h3>
               <p className="text-xs text-[#8b949e] leading-relaxed">
-                Đăng ký tài khoản Tenant trên Cloud, tải lên danh sách biển số xe bằng file Excel, phân nhóm thành viên và thiết lập khung giờ cho phép ra vào theo ý muốn.
+                {t('Register a Tenant account on the Cloud, upload the vehicle plate list via Excel, group members and configure allowed access time windows as you like.')}
               </p>
-              <div className="text-[11px] font-mono text-[#3fb950]">Thời gian: 15 phút</div>
+              <div className="text-[11px] font-mono text-[#3fb950]">{t('Time: 15 minutes')}</div>
             </div>
 
             {/* Step 3 */}
@@ -793,11 +795,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="w-10 h-10 rounded-xl bg-[#d29922] text-slate-950 font-black text-base flex items-center justify-center">
                 3
               </div>
-              <h3 className="text-base font-bold text-white">Vận Hành Tự Động & Giám Sát Từ Xa</h3>
+              <h3 className="text-base font-bold text-white">{t('Automated Operation & Remote Monitoring')}</h3>
               <p className="text-xs text-[#8b949e] leading-relaxed">
-                Hệ thống tự động kích hoạt đóng mở barrier 24/7. Ban quản lý theo dõi báo cáo lưu lượng, hình ảnh bằng chứng và nhận cảnh báo an ninh mọi lúc mọi nơi.
+                {t('The system automatically opens and closes barriers 24/7. Management tracks traffic reports, evidence photos and receives security alerts anytime, anywhere.')}
               </p>
-              <div className="text-[11px] font-mono text-[#d29922]">Hoạt động liên tục 24/7</div>
+              <div className="text-[11px] font-mono text-[#d29922]">{t('Runs continuously 24/7')}</div>
             </div>
           </div>
         </div>
@@ -809,13 +811,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <section id="solutions" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto space-y-3 mb-16">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#a371f7]/10 text-[#a371f7] text-xs font-mono font-semibold border border-[#a371f7]/30">
-            <Building2 className="w-3.5 h-3.5" /> Giải Pháp Đa Dạng
+            <Building2 className="w-3.5 h-3.5" /> {t('Diverse Solutions')}
           </div>
           <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-            Tối Ưu Cho Mọi Mô Hình Doanh Nghiệp
+            {t('Optimized for Every Business Model')}
           </h2>
           <p className="text-sm text-[#8b949e]">
-            Được tùy biến linh hoạt để giải quyết triệt để bài toán kiểm soát giao thông nội bộ của từng lĩnh vực.
+            {t('Flexibly customized to thoroughly solve internal traffic control for each industry.')}
           </p>
         </div>
 
@@ -825,12 +827,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <Building2 className="w-6 h-6" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-base font-bold text-white">Tòa Nhà Văn Phòng & TTTM</h3>
+              <h3 className="text-base font-bold text-white">{t('Office Buildings & Shopping Malls')}</h3>
               <p className="text-xs text-[#8b949e] leading-relaxed">
-                Giải quyết dứt điểm cảnh ùn tắc giờ cao điểm sáng - chiều. Ưu tiên lối đi riêng cho xe VIP/Lãnh đạo, kiểm soát chặt chẽ xe khách đăng ký trước qua cổng bảo vệ.
+                {t('Eliminate morning and evening rush-hour congestion. Dedicated fast lanes for VIP/executive vehicles and strict control of pre-registered guest vehicles at the security gate.')}
               </p>
               <div className="text-xs font-medium text-[#58a6ff] flex items-center gap-1 pt-1">
-                <Check className="w-3.5 h-3.5" /> Giảm 90% thời gian chờ tại cổng
+                <Check className="w-3.5 h-3.5" /> {t('Cuts gate waiting time by 90%')}
               </div>
             </div>
           </div>
@@ -840,12 +842,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <Users className="w-6 h-6" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-base font-bold text-white">Chung Cư Cao Cấp & Khu Đô Thị</h3>
+              <h3 className="text-base font-bold text-white">{t('Premium Apartments & Urban Areas')}</h3>
               <p className="text-xs text-[#8b949e] leading-relaxed">
-                Quản lý vé xe tháng của cư dân minh bạch. Cư dân không lo mất thẻ gửi xe, tự động cảnh báo khi có phương tiện lạ đỗ quá giờ quy định trong khuôn viên.
+                {t('Transparent management of residents\' monthly parking passes. Residents never worry about lost cards, with automatic alerts when unknown vehicles overstay within the premises.')}
               </p>
               <div className="text-xs font-medium text-[#3fb950] flex items-center gap-1 pt-1">
-                <Check className="w-3.5 h-3.5" /> Nâng tầm đẳng cấp tiện ích thông minh
+                <Check className="w-3.5 h-3.5" /> {t('Elevates smart amenity standards')}
               </div>
             </div>
           </div>
@@ -855,12 +857,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <Car className="w-6 h-6" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-base font-bold text-white">Khu Công Nghiệp & Trung Tâm Logistics</h3>
+              <h3 className="text-base font-bold text-white">{t('Industrial Parks & Logistics Centers')}</h3>
               <p className="text-xs text-[#8b949e] leading-relaxed">
-                Nhận diện chính xác biển số xe tải bẩn, container và xe công vụ. Tích hợp trạm cân điện tử, ghi nhận giờ giao nhận hàng và ngăn chặn thất thoát nguyên vật liệu.
+                {t('Accurately recognizes dirty truck plates, containers and utility vehicles. Integrates electronic weigh stations, logs cargo times and prevents material loss.')}
               </p>
               <div className="text-xs font-medium text-[#d29922] flex items-center gap-1 pt-1">
-                <Check className="w-3.5 h-3.5" /> Kiểm toán lịch sử vào/ra có bằng chứng ảnh 4K
+                <Check className="w-3.5 h-3.5" /> {t('Entry/exit audit trail with 4K photo evidence')}
               </div>
             </div>
           </div>
@@ -870,12 +872,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <Smartphone className="w-6 h-6" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-base font-bold text-white">Bãi Đỗ Xe Thu Phí Tự Động VietQR</h3>
+              <h3 className="text-base font-bold text-white">{t('Automated VietQR Paid Parking Lots')}</h3>
               <p className="text-xs text-[#8b949e] leading-relaxed">
-                Tự động tính cước theo block giờ, hiển thị mã QR động trên màn hình LED ngoài cổng để tài xế quét chuyển khoản ngân hàng, barrier tự mở ngay khi nhận thanh toán.
+                {t('Automatically bills by time blocks, shows a dynamic QR code on the outdoor LED gate screen for drivers to scan and pay by bank transfer — the barrier opens instantly on payment.')}
               </p>
               <div className="text-xs font-medium text-[#a371f7] flex items-center gap-1 pt-1">
-                <Check className="w-3.5 h-3.5" /> Giảm 100% rủi ro thất thoát tiền mặt
+                <Check className="w-3.5 h-3.5" /> {t('Eliminates 100% of cash-leakage risk')}
               </div>
             </div>
           </div>
@@ -889,13 +891,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto space-y-3 mb-16">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#58a6ff]/10 text-[#58a6ff] text-xs font-mono font-semibold border border-[#58a6ff]/30">
-              <BarChart3 className="w-3.5 h-3.5" /> Bảng Giá Minh Bạch
+              <BarChart3 className="w-3.5 h-3.5" /> {t('Transparent Pricing')}
             </div>
             <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-              Lựa Chọn Gói Dịch Vụ Phù Hợp
+              {t('Choose the Right Service Plan')}
             </h2>
             <p className="text-sm text-[#8b949e]">
-              Không phí ẩn. Dùng thử miễn phí 14 ngày không cần nhập thẻ tín dụng. Hỗ trợ lắp đặt nhanh chóng.
+              {t('No hidden fees. Free 14-day trial with no credit card required. Fast installation support.')}
             </p>
           </div>
 
@@ -911,31 +913,31 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               >
                 {plan.popular && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#58a6ff] text-slate-950 text-[11px] font-bold tracking-wide uppercase shadow-md">
-                    Gói Phổ Biến Nhất
+                    {t('Most Popular Plan')}
                   </div>
                 )}
 
                 <div className="space-y-5">
                   <div className="space-y-1">
-                    <span className="text-xs font-mono text-[#58a6ff] font-semibold">{plan.badge}</span>
+                    <span className="text-xs font-mono text-[#58a6ff] font-semibold">{t(plan.badge)}</span>
                     <h3 className="text-2xl font-black text-white">{plan.name}</h3>
-                    <p className="text-xs text-[#8b949e] leading-relaxed pt-1">{plan.description}</p>
+                    <p className="text-xs text-[#8b949e] leading-relaxed pt-1">{t(plan.description)}</p>
                   </div>
 
                   <div className="pt-2 pb-4 border-y border-[#30363d] flex items-baseline gap-1">
-                    <span className="text-3xl sm:text-4xl font-black text-white font-mono">{plan.price}</span>
-                    <span className="text-xs text-[#8b949e] font-mono">vnđ/{plan.period}</span>
+                    <span className="text-3xl sm:text-4xl font-black text-white font-mono">{t(plan.price)}</span>
+                    <span className="text-xs text-[#8b949e] font-mono">{t('vnd/{{period}}', { period: t(plan.period) })}</span>
                   </div>
 
                   <div className="space-y-2.5">
                     <div className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                      Quyền lợi bao gồm:
+                      {t('Included benefits:')}
                     </div>
                     <ul className="space-y-2 text-xs text-[#c9d1d9]">
                       {plan.features.map((feat, idx) => (
                         <li key={idx} className="flex items-start gap-2">
                           <Check className="w-4 h-4 text-[#3fb950] shrink-0 mt-0.5" />
-                          <span>{feat}</span>
+                          <span>{t(feat)}</span>
                         </li>
                       ))}
                     </ul>
@@ -954,7 +956,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         : 'bg-[#21262d] hover:bg-[#30363d] text-white border border-[#30363d]'
                     }`}
                   >
-                    <span>{plan.ctaText}</span>
+                    <span>{t(plan.ctaText)}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -970,13 +972,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto space-y-3 mb-16">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#3fb950]/10 text-[#3fb950] text-xs font-mono font-semibold border border-[#3fb950]/30">
-            <Star className="w-3.5 h-3.5" /> Khách Hàng Tin Tưởng
+            <Star className="w-3.5 h-3.5" /> {t('Trusted by Customers')}
           </div>
           <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-            Được Đánh Giá Cao Bởi Các Đơn Vị Quản Lý
+            {t('Highly Rated by Property Managers')}
           </h2>
           <p className="text-sm text-[#8b949e]">
-            Hơn 250+ cơ sở tòa nhà và khu công nghiệp đã tự động hóa barrier ra vào với ANPR Cloud.
+            {t('Over 250+ building sites and industrial parks have automated their access barriers with ANPR Cloud.')}
           </p>
         </div>
 
@@ -988,15 +990,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               ))}
             </div>
             <p className="text-xs text-[#c9d1d9] leading-relaxed italic">
-              "Trước đây mỗi sáng vào giờ cao điểm, hàng dài ô tô xếp hàng bấm thẻ từ gây ùn ứ ra tận mặt đường lớn. Từ ngày lắp ANPR Cloud, xe vừa tới vạch là barrier đã mở, tài xế không cần hạ kính xe trời mưa."
+              "{t('Before, every morning rush hour, long lines of cars queued to tap RFID cards, clogging the main road. Since installing ANPR Cloud, the barrier opens the moment a car reaches the line — drivers never roll down their windows in the rain.')}"
             </p>
             <div className="pt-2 border-t border-[#30363d] flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-[#58a6ff]/20 text-[#58a6ff] font-bold flex items-center justify-center text-xs">
                 LH
               </div>
               <div>
-                <h4 className="text-xs font-bold text-white">Ông Lê Hoàng Quân</h4>
-                <p className="text-[10px] text-[#8b949e]">Trưởng Ban Quản Lý Tòa Nhà Sunrise Tower</p>
+                <h4 className="text-xs font-bold text-white">{t('Mr. Le Hoang Quan')}</h4>
+                <p className="text-[10px] text-[#8b949e]">{t('Head of Management, Sunrise Tower')}</p>
               </div>
             </div>
           </div>
@@ -1008,15 +1010,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               ))}
             </div>
             <p className="text-xs text-[#c9d1d9] leading-relaxed italic">
-              "Tính năng quy tắc ưu tiên (Rule Engine) cực kỳ thông minh. Chúng tôi dễ dàng cấp quyền riêng cho xe container của các nhà thầu theo khung giờ giao nhận, chặn hoàn toàn các xe đi trái phép vào ban đêm."
+              "{t('The priority rules engine is incredibly smart. We easily grant dedicated access for contractor container trucks during delivery windows, completely blocking unauthorized vehicles at night.')}"
             </p>
             <div className="pt-2 border-t border-[#30363d] flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-[#3fb950]/20 text-[#3fb950] font-bold flex items-center justify-center text-xs">
                 VD
               </div>
               <div>
-                <h4 className="text-xs font-bold text-white">Bà Vũ Thùy Dung</h4>
-                <p className="text-[10px] text-[#8b949e]">Giám đốc Vận hành KCN Tân Phú Trung</p>
+                <h4 className="text-xs font-bold text-white">{t('Ms. Vu Thuy Dung')}</h4>
+                <p className="text-[10px] text-[#8b949e]">{t('Operations Director, Tan Phu Trung IP')}</p>
               </div>
             </div>
           </div>
@@ -1028,15 +1030,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               ))}
             </div>
             <p className="text-xs text-[#c9d1d9] leading-relaxed italic">
-              "Điều tôi ấn tượng nhất là cơ chế dự phòng Offline. Có đợt nhà mạng bị đứt cáp quang nhưng barrier vẫn mở mượt mà cho cư dân, bảo vệ không phải ra quay cần thủ công một lần nào."
+              "{t('What impressed me most is the offline failover. Once the ISP cut the fiber line but barriers still opened smoothly for residents — guards never had to crank the arm manually even once.')}"
             </p>
             <div className="pt-2 border-t border-[#30363d] flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-[#a371f7]/20 text-[#a371f7] font-bold flex items-center justify-center text-xs">
                 NT
               </div>
               <div>
-                <h4 className="text-xs font-bold text-white">Ông Nguyễn Thành Nam</h4>
-                <p className="text-[10px] text-[#8b949e]">Chỉ Huy Đội An Ninh Khu Đô Thị Sala</p>
+                <h4 className="text-xs font-bold text-white">{t('Mr. Nguyen Thanh Nam')}</h4>
+                <p className="text-[10px] text-[#8b949e]">{t('Security Team Lead, Sala Urban Area')}</p>
               </div>
             </div>
           </div>
@@ -1050,13 +1052,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center space-y-3 mb-12">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#d29922]/10 text-[#d29922] text-xs font-mono font-semibold border border-[#d29922]/30">
-              <HelpCircle className="w-3.5 h-3.5" /> Giải Đáp Chuyên Sâu
+              <HelpCircle className="w-3.5 h-3.5" /> {t('In-Depth Answers')}
             </div>
             <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-              Các Câu Hỏi Thường Gặp
+              {t('Frequently Asked Questions')}
             </h2>
             <p className="text-sm text-[#8b949e]">
-              Nếu bạn cần thêm tư vấn kỹ thuật chuyên sâu, đội ngũ kỹ sư của chúng tôi luôn sẵn sàng hỗ trợ 24/7.
+              {t('Need deeper technical consulting? Our engineering team is ready to support 24/7.')}
             </p>
           </div>
 
@@ -1072,7 +1074,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     onClick={() => setOpenFaqIndex(isOpen ? null : index)}
                     className="w-full px-5 py-4 text-left flex items-center justify-between gap-4 cursor-pointer hover:bg-[#21262d]/50"
                   >
-                    <span className="text-sm font-bold text-white tracking-tight">{faq.q}</span>
+                    <span className="text-sm font-bold text-white tracking-tight">{t(faq.q)}</span>
                     {isOpen ? (
                       <ChevronUp className="w-4 h-4 text-[#58a6ff] shrink-0" />
                     ) : (
@@ -1081,7 +1083,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </button>
                   {isOpen && (
                     <div className="px-5 pb-5 pt-1 text-xs text-[#8b949e] leading-relaxed border-t border-[#30363d]/50">
-                      {faq.a}
+                      {t(faq.a)}
                     </div>
                   )}
                 </div>
@@ -1097,10 +1099,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <section className="py-20 relative overflow-hidden text-center">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 relative z-10">
           <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
-            Nâng Cấp Bãi Đỗ Xe Thông Minh Ngay Hôm Nay
+            {t('Upgrade to a Smart Parking Lot Today')}
           </h2>
           <p className="text-sm sm:text-base text-[#8b949e] max-w-xl mx-auto">
-            Đăng ký dùng thử 14 ngày không giới hạn tính năng. Đội ngũ chuyên gia ANPR Cloud sẽ hỗ trợ thiết lập cổng và kiểm tra kỹ thuật miễn phí.
+            {t('Sign up for an unlimited-feature 14-day trial. Our ANPR Cloud experts will help set up your gates and run a free technical check.')}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
@@ -1108,14 +1110,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               onClick={() => onNavigate('register')}
               className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#58a6ff] hover:bg-[#388bfd] text-slate-950 font-bold text-sm sm:text-base shadow-xl shadow-[#58a6ff]/30 transition-all flex items-center justify-center gap-2 cursor-pointer hover:scale-105"
             >
-              <span>Tạo tài khoản Tenant dùng thử</span>
+              <span>{t('Create a Trial Tenant Account')}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
             <button
               onClick={() => onNavigate('login')}
               className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-[#161b22] hover:bg-[#21262d] text-white font-semibold text-sm sm:text-base border border-[#30363d] transition-all cursor-pointer"
             >
-              Đăng nhập tài khoản sẵn có
+              {t('Sign in to an existing account')}
             </button>
           </div>
         </div>

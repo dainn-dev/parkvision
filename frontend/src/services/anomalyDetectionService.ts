@@ -6,6 +6,10 @@ import {
   SiteAnomalyAggregate
 } from '../types/anomaly';
 import { BarrierGateItem, TenantSiteBarrierLocation } from '../types/barrier';
+import i18n from '../i18n';
+
+const tt = (key: string, opts?: Record<string, unknown>) =>
+  i18n.t(key, { ns: 'monitoring', ...opts });
 
 /**
  * Machine Learning-based Statistical & Heuristic Monitoring Engine
@@ -161,20 +165,20 @@ export class BarrierAnomalyDetector {
 
     // Determine primary anomaly type
     let primaryType: AnomalyType = 'UNUSUALLY_HIGH_FREQUENCY';
-    let title = `Tần suất truy cập bất thường: ${currentReq.toFixed(1)} req/phút (Z = +${zScore.toFixed(2)}σ)`;
-    let hypothesis = 'Lưu lượng yêu cầu dồn dập vượt quá ngưỡng phân phối thống kê tự nhiên của bãi đỗ.';
-    let recommendedAction = 'Bật chế độ Rate Limiting tự động tại Edge Gateway và rà soát tín hiệu cuộn cảm.';
+    let title = tt('Abnormal access frequency: {{req}} req/min (Z = +{{z}}σ)', { req: currentReq.toFixed(1), z: zScore.toFixed(2) });
+    let hypothesis = tt('Request traffic burst exceeds the natural statistical distribution threshold of the lot.');
+    let recommendedAction = tt('Enable automatic Rate Limiting at the Edge Gateway and review induction-loop signals.');
 
     if (isOffHours && currentReq > 10) {
       primaryType = 'OFF_HOURS_SURGE';
-      title = `Đột biến lưu lượng ngoài giờ hoạt động (${currentHour}:00 - ${currentReq.toFixed(0)} req/phút)`;
-      hypothesis = 'Lưu lượng xuất hiện trong khung giờ thấp điểm/đóng cửa, có dấu hiệu đột nhập hoặc xe dồn.';
-      recommendedAction = 'Kích hoạt camera giám sát góc rộng và thông báo khẩn cấp tới đội bảo vệ trực ca.';
+      title = tt('After-hours traffic surge ({{hour}}:00 - {{req}} req/min)', { hour: currentHour, req: currentReq.toFixed(0) });
+      hypothesis = tt('Traffic detected during off-peak/closed hours, indicating possible intrusion or vehicle queuing.');
+      recommendedAction = tt('Activate wide-angle CCTV and send an emergency alert to the on-duty security team.');
     } else if (capacitySaturationRatio > 1.3) {
       primaryType = 'UNUSUALLY_HIGH_FREQUENCY';
-      title = `Lưu lượng yêu cầu vượt giới hạn vật lý của cơ cấu cần (${currentReq.toFixed(0)} > ${baseline.maxPhysicalCapacityPerMin}/phút)`;
-      hypothesis = 'Tần suất gửi lệnh vượt quá tốc độ đáp ứng tối đa của rơ-le servo (0.6s - 1.2s/chu kỳ).';
-      recommendedAction = 'Đưa cần vào chế độ giữ MỞ tạm thời (Free-Flow) để tránh quá nhiệt cháy cuộn dây motor.';
+      title = tt('Request rate exceeds the physical limit of the barrier mechanism ({{req}} > {{cap}}/min)', { req: currentReq.toFixed(0), cap: baseline.maxPhysicalCapacityPerMin });
+      hypothesis = tt('Command frequency exceeds the maximum servo relay response speed (0.6s - 1.2s/cycle).');
+      recommendedAction = tt('Hold the arm OPEN temporarily (Free-Flow) to prevent motor coil overheating.');
     }
 
     const featureVector: BarrierFeatureVector = {
@@ -199,18 +203,18 @@ export class BarrierAnomalyDetector {
       siteName: gate.siteName,
       tenantId: gate.tenantId,
       tenantName: gate.tenantName,
-      detectedAt: 'Vừa phát hiện',
+      detectedAt: tt('Just detected'),
       anomalyScore,
       severity,
       primaryType,
       title,
-      description: `Mô hình heuristic ghi nhận tốc độ yêu cầu truy cập tăng vọt ${(burstRatio * 100).toFixed(0)}% so với baseline chuẩn (${baseline.meanReqPerMin} req/m). Xác suất ngẫu nhiên p < 0.001.`,
+      description: tt('Heuristic model recorded access request rate spiking {{pct}}% over standard baseline ({{mean}} req/m). Random probability p < 0.001.', { pct: (burstRatio * 100).toFixed(0), mean: baseline.meanReqPerMin }),
       hypothesis,
       recommendedAction,
       features: featureVector,
       mitigationStatus: 'ACTIVE',
       historicalWindow: {
-        timestamps: ['-10m', '-8m', '-6m', '-4m', '-2m', 'Hiện tại'],
+        timestamps: ['-10m', '-8m', '-6m', '-4m', '-2m', tt('Now')],
         observedFreq: [
           Math.max(2, Math.round(baseline.meanReqPerMin * 0.9)),
           Math.round(baseline.meanReqPerMin * 1.05),
@@ -231,11 +235,11 @@ export class BarrierAnomalyDetector {
   /**
    * Mitigate an anomaly (e.g. by applying rate limiting or cooldown)
    */
-  public mitigateAnomaly(gateId: string, actionNote: string = 'Đã kích hoạt Rate Limiting'): boolean {
+  public mitigateAnomaly(gateId: string, actionNote: string = tt('Rate Limiting activated')): boolean {
     const existing = this.activeAnomalies.get(gateId);
     if (existing) {
       existing.mitigationStatus = 'MITIGATED';
-      existing.recommendedAction = `${existing.recommendedAction} [ĐÃ XỬ LÝ: ${actionNote}]`;
+      existing.recommendedAction = `${existing.recommendedAction} ${tt('[RESOLVED: {{note}}]', { note: actionNote })}`;
       this.activeAnomalies.delete(gateId);
       this.notify();
       return true;

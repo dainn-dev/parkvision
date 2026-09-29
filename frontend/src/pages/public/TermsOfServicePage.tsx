@@ -13,12 +13,14 @@ import {
   Key
 } from 'lucide-react';
 import { PublicViewType } from '../../components/layout/PublicNavbar';
+import { useTranslation } from 'react-i18next';
 
 interface TermsOfServicePageProps {
   onNavigate: (view: PublicViewType) => void;
 }
 
 export const TermsOfServicePage: React.FC<TermsOfServicePageProps> = ({ onNavigate }) => {
+  const { t } = useTranslation('landing');
   return (
     <div className="w-full bg-[#0d0e12] text-[#c9d1d9] font-sans antialiased py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -29,21 +31,21 @@ export const TermsOfServicePage: React.FC<TermsOfServicePageProps> = ({ onNaviga
             className="inline-flex items-center gap-2 text-xs font-semibold text-[#58a6ff] hover:text-[#79c0ff] cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Quay lại Trang Chủ</span>
+            <span>{t('Back to Home')}</span>
           </button>
-          <span className="text-xs text-[#8b949e] font-mono">Hiệu lực từ: 01/01/2026</span>
+          <span className="text-xs text-[#8b949e] font-mono">{t('Effective from: 01/01/2026')}</span>
         </div>
 
         {/* Header Title */}
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-6 sm:p-8 space-y-3 shadow-xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#3fb950]/10 border border-[#3fb950]/30 text-[#3fb950] text-xs font-mono font-semibold">
-            <Scale className="w-4 h-4" /> Thỏa Thuận Sử Dụng Nền Tảng B2B
+            <Scale className="w-4 h-4" /> {t('B2B Platform Usage Agreement')}
           </div>
           <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-            Điều Khoản Sử Dụng Dịch Vụ (Terms of Service)
+            {t('Terms of Service')}
           </h1>
           <p className="text-xs sm:text-sm text-[#8b949e] leading-relaxed">
-            Văn bản này cấu thành thỏa thuận pháp lý ràng buộc giữa Khách hàng Doanh nghiệp / Tổ chức đăng ký dịch vụ (sau đây gọi là "Tenant") và Công ty Cổ phần Giải pháp An ninh Số Toàn Cầu (sau đây gọi là "ANPR Cloud" hoặc "Chúng tôi").
+            {t('This document constitutes a legally binding agreement between the Business Customer / Organization registering for the service (hereinafter "Tenant") and Global Digital Security Solutions JSC (hereinafter "ANPR Cloud" or "We").')}
           </p>
         </div>
 
@@ -53,13 +55,13 @@ export const TermsOfServicePage: React.FC<TermsOfServicePageProps> = ({ onNaviga
           <section className="space-y-3 bg-[#161b22] border border-[#30363d] rounded-2xl p-6">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Key className="w-5 h-5 text-[#58a6ff]" />
-              1. Định Nghĩa Thuật Ngữ
+              {t('1. Definitions')}
             </h2>
             <ul className="space-y-2 text-[#8b949e]">
-              <li><strong className="text-white">"Nền Tảng ANPR Cloud":</strong> Dịch vụ phần mềm dạng dịch vụ (SaaS) cung cấp tính năng nhận diện biển số xe AI, động cơ đánh giá quy tắc ra vào và điều khiển relay barrier qua mạng.</li>
-              <li><strong className="text-white">"Edge Gateway":</strong> Thiết bị phần cứng máy tính mini chuyên dụng được lắp đặt tại cơ sở bãi xe của Tenant để giao tiếp với camera IP và rơ-le barrier.</li>
-              <li><strong className="text-white">"Tenant Administrator":</strong> Cá nhân được Tenant chỉ định làm người quản lý cao nhất của tài khoản tổ chức, có quyền mời người dùng, cấu hình bãi xe và thanh toán.</li>
-              <li><strong className="text-white">"Làn Cổng (Gate Lane)":</strong> Điểm kiểm soát vật lý bao gồm 01 camera ANPR và 01 cần barrier điều khiển.</li>
+              <li><strong className="text-white">{t('"ANPR Cloud Platform":')}</strong> {t('A Software-as-a-Service (SaaS) offering AI license plate recognition, an access-rule evaluation engine and remote barrier relay control.')}</li>
+              <li><strong className="text-white">{t('"Edge Gateway":')}</strong> {t('A dedicated mini-computer hardware device installed at the Tenant\'s parking facility to interface with IP cameras and the barrier relay.')}</li>
+              <li><strong className="text-white">{t('"Tenant Administrator":')}</strong> {t('The individual designated by the Tenant as the top-level manager of the organization account, authorized to invite users, configure the lot and handle billing.')}</li>
+              <li><strong className="text-white">{t('"Gate Lane":')}</strong> {t('A physical control point consisting of 01 ANPR camera and 01 controlled barrier arm.')}</li>
             </ul>
           </section>
 
@@ -67,13 +69,13 @@ export const TermsOfServicePage: React.FC<TermsOfServicePageProps> = ({ onNaviga
           <section className="space-y-3 bg-[#161b22] border border-[#30363d] rounded-2xl p-6">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-[#3fb950]" />
-              2. Quyền Sử Dụng & Chương Trình Dùng Thử 14 Ngày
+              {t('2. Usage Rights & 14-Day Trial Program')}
             </h2>
             <p>
-              Khi đăng ký tài khoản Tenant mới, Quý khách được cấp quyền truy cập dùng thử miễn phí trong vòng <strong>14 ngày</strong> với đầy đủ tính năng của gói dịch vụ đã chọn (không yêu cầu nhập thẻ thanh toán trước).
+              {t('When registering a new Tenant account, you are granted free trial access for')} <strong>{t('14 days')}</strong> {t('with the full features of the selected service plan (no payment card required upfront).')}
             </p>
             <p className="text-[#8b949e]">
-              Sau thời gian 14 ngày, nếu Tenant không chọn gói thuê bao định kỳ, hệ thống sẽ tạm dừng gửi lệnh điều khiển tự động tới barrier (bảo vệ vẫn có thể mở barrier bằng nút bấm cơ học tại chỗ). Toàn bộ dữ liệu cấu hình được bảo lưu trong 60 ngày tiếp theo.
+              {t('After 14 days, if the Tenant does not select a subscription plan, the system will suspend automatic control commands to the barrier (guards can still open it via the on-site mechanical push button). All configuration data is preserved for the next 60 days.')}
             </p>
           </section>
 
@@ -81,12 +83,12 @@ export const TermsOfServicePage: React.FC<TermsOfServicePageProps> = ({ onNaviga
           <section className="space-y-3 bg-[#161b22] border border-[#30363d] rounded-2xl p-6">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <DollarSign className="w-5 h-5 text-[#d29922]" />
-              3. Cước Phí Dịch Vụ, Hạn Ngạch & Thanh Toán
+              {t('3. Service Fees, Quotas & Payment')}
             </h2>
             <ul className="list-disc list-inside space-y-1.5 pl-2 text-[#8b949e]">
-              <li><strong>Mô hình thuê bao:</strong> Cước dịch vụ được tính theo chu kỳ Hàng tháng hoặc Hàng năm dựa trên số lượng Làn Cổng (Gates) và Hạn ngạch số lượng phương tiện lưu kho.</li>
-              <li><strong>Hóa đơn VAT:</strong> ANPR Cloud xuất hóa đơn giá trị gia tăng điện tử hợp lệ theo đúng quy định của Tổng cục Thuế Việt Nam sau mỗi kỳ thanh toán.</li>
-              <li><strong>Thời hạn thanh toán:</strong> Hóa đơn định kỳ cần được thanh toán trong vòng 07 ngày làm việc kể từ ngày phát hành thông báo cước.</li>
+              <li><strong>{t('Subscription model:')}</strong> {t('Service fees are billed Monthly or Annually based on the number of Gate Lanes and the stored-vehicle quota.')}</li>
+              <li><strong>{t('VAT invoices:')}</strong> {t('ANPR Cloud issues valid electronic VAT invoices per Vietnam General Department of Taxation regulations after each billing cycle.')}</li>
+              <li><strong>{t('Payment terms:')}</strong> {t('Recurring invoices must be paid within 07 business days from the billing notice date.')}</li>
             </ul>
           </section>
 
@@ -94,13 +96,13 @@ export const TermsOfServicePage: React.FC<TermsOfServicePageProps> = ({ onNaviga
           <section className="space-y-3 bg-[#161b22] border border-[#30363d] rounded-2xl p-6">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Building2 className="w-5 h-5 text-[#a371f7]" />
-              4. Trách Nhiệm Của Khách Hàng (Tenant)
+              {t('4. Customer (Tenant) Responsibilities')}
             </h2>
-            <p>Để đảm bảo hệ thống vận hành trơn tru, Tenant có trách nhiệm:</p>
+            <p>{t('To ensure smooth system operation, the Tenant is responsible for:')}</p>
             <ul className="list-disc list-inside space-y-1.5 pl-2 text-[#8b949e]">
-              <li>Bảo dưỡng định kỳ phần cứng tại bãi xe: vệ sinh ống kính camera IP, kiểm tra cảm biến an toàn (vòng từ loop detector hoặc cảm biến quang chống đập cần barrier).</li>
-              <li>Bảo mật tài khoản: kích hoạt xác thực hai yếu tố (2FA) cho toàn bộ nhân viên quản trị và bảo vệ trực cổng.</li>
-              <li>Đảm bảo tính hợp pháp của danh sách phương tiện và số điện thoại chủ xe khi nạp vào hệ thống.</li>
+              <li>{t('Periodic hardware maintenance at the lot: cleaning IP camera lenses, checking safety sensors (loop detector coils or photocell anti-crush sensors for the barrier arm).')}</li>
+              <li>{t('Account security: enabling two-factor authentication (2FA) for all admin staff and gate guards.')}</li>
+              <li>{t('Ensuring the legality of the vehicle list and owner phone numbers uploaded to the system.')}</li>
             </ul>
           </section>
 
@@ -108,10 +110,10 @@ export const TermsOfServicePage: React.FC<TermsOfServicePageProps> = ({ onNaviga
           <section className="space-y-3 bg-[#161b22] border border-[#30363d] rounded-2xl p-6">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <ShieldAlert className="w-5 h-5 text-[#f85149]" />
-              5. Giới Hạn Trách Nhiệm & Sự Kiện Bất Khả Kháng
+              {t('5. Limitation of Liability & Force Majeure')}
             </h2>
             <p className="text-[#8b949e]">
-              ANPR Cloud không chịu trách nhiệm đối với các thiệt hại vật chất hoặc va chạm phương tiện phát sinh do lỗi cơ khí phần cứng của barrier (ví dụ: gãy cần barrier do gió bão, đứt lò xo trợ lực, hỏng động cơ điện) hoặc hành vi cố tình vượt barrier của người điều khiển phương tiện khi đèn báo chưa bật xanh.
+              {t('ANPR Cloud is not liable for property damage or vehicle collisions caused by mechanical hardware failures of the barrier (e.g., arm broken by storms, snapped assist springs, motor failure) or by drivers intentionally bypassing the barrier before the green signal.')}
             </p>
           </section>
 
@@ -119,10 +121,10 @@ export const TermsOfServicePage: React.FC<TermsOfServicePageProps> = ({ onNaviga
           <section className="space-y-3 bg-[#161b22] border border-[#30363d] rounded-2xl p-6">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Server className="w-5 h-5 text-[#58a6ff]" />
-              6. Luật Điều Chỉnh & Giải Quyết Tranh Chấp
+              {t('6. Governing Law & Dispute Resolution')}
             </h2>
             <p className="text-[#8b949e]">
-              Thỏa thuận này được điều chỉnh và giải thích theo pháp luật nước Cộng hòa Xã hội Chủ nghĩa Việt Nam. Mọi tranh chấp phát sinh trước hết sẽ được thương lượng trên tinh thần hòa giải và hợp tác. Nếu không giải quyết được trong vòng 30 ngày, tranh chấp sẽ được đưa ra Trung tâm Trọng tài Quốc tế Việt Nam (VIAC) hoặc Tòa án có thẩm quyền tại TP. Hồ Chí Minh.
+              {t('This agreement is governed by and construed under the laws of the Socialist Republic of Vietnam. Disputes shall first be negotiated in a spirit of conciliation and cooperation. If unresolved within 30 days, the dispute will be referred to the Vietnam International Arbitration Centre (VIAC) or a competent court in Ho Chi Minh City.')}
             </p>
           </section>
         </div>
@@ -133,21 +135,21 @@ export const TermsOfServicePage: React.FC<TermsOfServicePageProps> = ({ onNaviga
             onClick={() => onNavigate('landing')}
             className="px-5 py-2.5 rounded-xl bg-[#21262d] hover:bg-[#30363d] text-white text-xs font-semibold border border-[#30363d] cursor-pointer"
           >
-            ← Trở về Trang Chủ
+            ← {t('Back to Home')}
           </button>
           <div className="flex items-center gap-3">
             <button
               onClick={() => onNavigate('privacy')}
               className="text-xs text-[#58a6ff] hover:underline cursor-pointer"
             >
-              Chính Sách Bảo Mật →
+              {t('Privacy Policy')} →
             </button>
             <span className="text-[#8b949e]">•</span>
             <button
               onClick={() => onNavigate('sla')}
               className="text-xs text-[#58a6ff] hover:underline cursor-pointer"
             >
-              Cam Kết SLA 99.9% →
+              {t('99.9% SLA Commitment')} →
             </button>
           </div>
         </div>

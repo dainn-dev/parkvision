@@ -3,6 +3,7 @@ import { Shapes, X, Check, Trash2, Camera } from 'lucide-react';
 import { usePlatform } from '../../../context/PlatformContext';
 import { Button, Input } from '../../ui';
 import { tenantApi, type MapLevelOut, type MapZoneOut, type ZoneBounds } from '../../../services/api';
+import { useTranslation } from 'react-i18next';
 
 interface ZoneEditorSheetProps {
   level: MapLevelOut;
@@ -29,6 +30,7 @@ export const ZoneEditorSheet: React.FC<ZoneEditorSheetProps> = ({
     refreshParkingMap,
     addToast,
   } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const isEdit = zone !== null;
   const [name, setName] = useState('');
@@ -118,10 +120,10 @@ export const ZoneEditorSheet: React.FC<ZoneEditorSheetProps> = ({
         })
       );
       refreshParkingMap();
-      addToast({ type: 'success', title: isEdit ? 'Zone updated' : 'Zone added', description: name.trim() });
+      addToast({ type: 'success', title: isEdit ? t('Zone updated') : t('Zone added'), description: name.trim() });
       onClose();
     } catch (err) {
-      addToast({ type: 'error', title: 'Failed to save zone', description: err instanceof Error ? err.message : String(err) });
+      addToast({ type: 'error', title: t('Failed to save zone'), description: err instanceof Error ? err.message : String(err) });
     } finally {
       setIsSaving(false);
     }
@@ -145,9 +147,9 @@ export const ZoneEditorSheet: React.FC<ZoneEditorSheetProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-white tracking-tight">
-                {isEdit ? 'Chỉnh sửa khu vực' : 'Thêm khu vực đỗ xe'}
+                {isEdit ? t('Edit zone') : t('Add parking zone')}
               </h3>
-              <p className="text-xs text-[#8b949e]">{level.name} — vùng đỗ trên sơ đồ</p>
+              <p className="text-xs text-[#8b949e]">{level.name} — {t('parking zone on map')}</p>
             </div>
           </div>
           <button
@@ -162,10 +164,10 @@ export const ZoneEditorSheet: React.FC<ZoneEditorSheetProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Tên khu vực <span className="text-[#f85149]">*</span>
+                {t('Zone name')} <span className="text-[#f85149]">*</span>
               </label>
               <Input
-                placeholder="e.g. Khu A — gần thang máy"
+                placeholder={t('e.g. Zone A — near elevator')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -173,7 +175,7 @@ export const ZoneEditorSheet: React.FC<ZoneEditorSheetProps> = ({
               />
             </div>
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">Mã khu vực</label>
+              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Zone code')}</label>
               <Input
                 placeholder="e.g. A1"
                 value={code}
@@ -182,7 +184,7 @@ export const ZoneEditorSheet: React.FC<ZoneEditorSheetProps> = ({
               />
             </div>
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">Sức chứa (xe)</label>
+              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Capacity (vehicles)')}</label>
               <Input
                 type="number"
                 min={0}
@@ -203,11 +205,11 @@ export const ZoneEditorSheet: React.FC<ZoneEditorSheetProps> = ({
           <div className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] space-y-2">
             <h4 className="text-white font-semibold text-xs flex items-center gap-2">
               <Camera className="w-3.5 h-3.5 text-[#58a6ff]" />
-              Camera giám sát phụ trách khu vực
+              {t('Monitor cameras covering this zone')}
             </h4>
             {monitorCameras.length === 0 ? (
               <p className="text-[11px] text-[#8b949e] italic">
-                Chưa có camera nào ở khu vực này với purpose "monitor".
+                {t('No monitor-purpose cameras at this site yet.')}
               </p>
             ) : (
               <div className="space-y-1.5 max-h-40 overflow-y-auto">
@@ -229,7 +231,7 @@ export const ZoneEditorSheet: React.FC<ZoneEditorSheetProps> = ({
               </div>
             )}
             <p className="text-[10px] text-[#8b949e]">
-              Camera monitor được chọn sẽ ghi nhận xe đỗ/di chuyển trong khu vực này.
+              {t('Selected monitor cameras will record parked/moving vehicles in this zone.')}
             </p>
           </div>
 
@@ -243,13 +245,13 @@ export const ZoneEditorSheet: React.FC<ZoneEditorSheetProps> = ({
                   className="text-xs text-[#f85149] border-[#f85149]/40 hover:bg-[#f85149]/10 gap-1.5"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  Xóa
+                  {t('Delete')}
                 </Button>
               )}
             </div>
             <div className="flex items-center gap-3">
               <Button type="button" variant="outline" onClick={onClose} className="text-xs">
-                Hủy
+                {t('Cancel')}
               </Button>
               <Button
                 type="submit"
@@ -258,7 +260,7 @@ export const ZoneEditorSheet: React.FC<ZoneEditorSheetProps> = ({
                 className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
               >
                 <Check className="w-3.5 h-3.5" />
-                {isEdit ? 'Lưu khu vực' : 'Tạo khu vực'}
+                {isEdit ? t('Save zone') : t('Create zone')}
               </Button>
             </div>
           </div>

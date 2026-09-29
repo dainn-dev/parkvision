@@ -52,6 +52,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Button, Badge, Card } from '../ui';
+import { useTranslation } from 'react-i18next';
 
 export interface InAppBarrierToast {
   id: string;
@@ -99,13 +100,14 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     simulateNewAccessEvent,
     isTenantRefreshing,
   } = usePlatform();
+  const { t } = useTranslation('monitoring');
 
   // Active view: 'd3-map' | 'grid'
   const [viewMode, setViewMode] = useState<'d3-map' | 'grid'>('d3-map');
 
   // Live stream pause toggle — when paused the map renders REST state only.
   const [isLiveTelemetryActive, setIsLiveTelemetryActive] = useState<boolean>(true);
-  const [lastLiveEventText, setLastLiveEventText] = useState<string>('Hệ thống giám sát thời gian thực đang hoạt động');
+  const [lastLiveEventText, setLastLiveEventText] = useState<string>('Real-time monitoring system is active');
 
   // Commands awaiting backend ack — disables the button while pending.
   const [pendingCommands, setPendingCommands] = useState<Record<string, { command: string; issuedAt: number }>>({});
@@ -197,7 +199,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
           alertId: alert.id,
           type: alert.type,
           severity: alert.severity,
-          title: alert.type === 'STUCK' ? 'BARRIER BỊ KẸT CẦN' : 'BARRIER MẤT TÍN HIỆU',
+          title: alert.type === 'STUCK' ? t('BARRIER ARM STUCK') : t('BARRIER SIGNAL LOST'),
           message: alert.message,
           siteId: alert.siteId,
           siteName: alert.siteName,
@@ -210,7 +212,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
         };
         setInAppToasts((prev) => [...prev, toast].slice(-6));
         playAlertSound(alert.type);
-        setLastLiveEventText(`Sự cố mới: ${alert.gateName} — ${alert.message.slice(0, 90)}`);
+        setLastLiveEventText(`${t('New incident:')} ${alert.gateName} — ${alert.message.slice(0, 90)}`);
       });
   }, [alerts]);
 
@@ -236,14 +238,14 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
         alertId: anom.id,
         type: 'ML_ANOMALY',
         severity: anom.severity === 'CRITICAL' || anom.severity === 'HIGH' ? 'CRITICAL' : 'WARNING',
-        title: 'PHÁT HIỆN BẤT THƯỜNG ML',
+        title: t('ML ANOMALY DETECTED'),
         message: anom.title,
         siteId: anom.siteId,
         siteName: anom.siteName,
         gateId: anom.gateId,
         gateCode: anom.gateCode,
         gateName: anom.gateName,
-        timestamp: 'Vừa xong',
+        timestamp: t('Just now'),
         createdAt: Date.now(),
         durationMs: 15000,
         anomalyScore: anom.anomalyScore,
@@ -262,7 +264,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     if (!latest || latest.id === lastAccessEventIdRef.current) return;
     lastAccessEventIdRef.current = latest.id;
     setLastLiveEventText(
-      `Lượt ${latest.direction === 'IN' ? 'vào' : 'ra'}: ${latest.plate || '—'} @ ${latest.gateName || latest.gateId} · ${relTime(latest.timestamp)}`
+      `${latest.direction === 'IN' ? t('Entry:') : t('Exit:')} ${latest.plate || '—'} @ ${latest.gateName || latest.gateId} · ${relTime(latest.timestamp)}`
     );
   }, [accessEvents]);
 
@@ -510,17 +512,17 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     const labelGroup = container.append('g').attr('class', 'region-labels').attr('opacity', 0.4);
     labelGroup.append('text')
       .attr('x', 320).attr('y', 140)
-      .text('BẮC BỘ')
+      .text(t('NORTHERN REGION'))
       .attr('fill', '#8b949e').attr('font-size', '11px').attr('font-weight', 'bold').attr('letter-spacing', '2px');
 
     labelGroup.append('text')
       .attr('x', 380).attr('y', 330)
-      .text('TRUNG BỘ')
+      .text(t('CENTRAL REGION'))
       .attr('fill', '#8b949e').attr('font-size', '11px').attr('font-weight', 'bold').attr('letter-spacing', '2px');
 
     labelGroup.append('text')
       .attr('x', 370).attr('y', 510)
-      .text('NAM BỘ')
+      .text(t('SOUTHERN REGION'))
       .attr('fill', '#8b949e').attr('font-size', '11px').attr('font-weight', 'bold').attr('letter-spacing', '2px');
 
     // 5. Connection vectors between tenant sites (inter-facility telemetry links)
@@ -652,7 +654,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
 
       // Label background pill
       const labelText = site.name.length > 22 ? site.name.substring(0, 22) + '...' : site.name;
-      const barrierCounterText = `${site.openGateCount}/${site.totalGateCount} Mở`;
+      const barrierCounterText = `${site.openGateCount}/${site.totalGateCount} ${t('Open')}`;
 
       labelCard.append('rect')
         .attr('x', 0)
@@ -798,7 +800,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     const site = sites.find(s => s.id === siteId);
     const gate = site?.gates.find(g => g.id === gateId);
     if (!gate || gate.health === 'OFFLINE') {
-      addToast({ type: 'warning', title: 'Cổng đang offline', description: 'Không thể gửi lệnh khi mất kết nối telemetry.' });
+      addToast({ type: 'warning', title: t('Gate is offline'), description: t('Cannot send command while telemetry is disconnected.') });
       return;
     }
 
@@ -913,8 +915,8 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
       setInAppToasts(prev => prev.filter(t => t.gateId !== gateId || t.type !== 'ML_ANOMALY'));
       addToast({
         type: 'success',
-        title: 'Đã Giảm Thiểu Bất Thường ML Thành Công',
-        description: `${actionNote}. Mô hình heuristic đã đưa cổng về trạng thái danh định.`
+        title: t('ML Anomaly Mitigated Successfully'),
+        description: `${actionNote}. ${t('Heuristic model returned the gate to nominal state.')}`
       });
       pushAuditLog(
         'MONITORING',
@@ -970,15 +972,15 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     }
 
     const actionText = actionType === 'REBOOT'
-      ? 'Khởi động lại rơ-le'
+      ? t('Relay reboot')
       : actionType === 'FORCE_OPEN'
-      ? 'Nâng cần cưỡng bức'
-      : 'Điều phối kỹ thuật viên';
+      ? t('Force arm raise')
+      : t('Technician dispatched');
 
     addToast({
       type: 'success',
-      title: `Đã ghi nhận xử lý: ${alert.gateName}`,
-      description: `${actionText}. Sự cố đã được đánh dấu resolved trên hệ thống.`
+      title: `${t('Resolution logged:')} ${alert.gateName}`,
+      description: `${actionText}. ${t('Incident marked resolved on the system.')}`
     });
 
     pushAuditLog(
@@ -1012,8 +1014,8 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
 
     addToast({
       type: 'success',
-      title: `Đã gửi yêu cầu khắc phục ${openAlerts.length} sự cố`,
-      description: 'Các lệnh reboot rơ-le đã được gửi tới Edge Controller tương ứng.'
+      title: t('Remediation requested for {{count}} incidents', { count: openAlerts.length }),
+      description: t('Relay reboot commands sent to the respective Edge Controllers.')
     });
 
     pushAuditLog(
@@ -1021,7 +1023,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
       'ALL_BARRIER_INCIDENTS_RESOLVED',
       'SYSTEM',
       'BARRIER_MONITOR',
-      'Toàn bộ Barrier',
+      t('All barriers'),
       'Platform'
     );
   };
@@ -1074,7 +1076,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                         </span>
                         {isMlAnomaly && (
                           <span className="text-[10px] font-mono text-purple-200 bg-purple-950/80 px-1.5 py-0.2 rounded border border-purple-700/60 font-bold">
-                            Score {toast.anomalyScore}
+                            {t('Score')} {toast.anomalyScore}
                           </span>
                         )}
                         <span className="text-[10px] text-[#8b949e] font-mono">{toast.timestamp}</span>
@@ -1109,7 +1111,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                     className="py-1 px-2.5 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
                   >
                     <MapPin className="w-3.5 h-3.5 text-[#58a6ff]" />
-                    <span>Xem Vị Trí Map</span>
+                    <span>{t('View on Map')}</span>
                   </button>
 
                   <div className="flex items-center gap-1.5">
@@ -1125,17 +1127,17 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                           className="py-1 px-2.5 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/50 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           <Activity className="w-3.5 h-3.5" />
-                          <span>Phân Tích ML</span>
+                          <span>{t('Analyze ML')}</span>
                         </button>
                         <button
                           onClick={() => {
-                            handleMitigateAnomaly(toast.gateId, 'Kích hoạt Edge Rate-Limiting tự động');
+                            handleMitigateAnomaly(toast.gateId, t('Auto edge rate-limiting activated'));
                             dismissInAppToast(toast.id);
                           }}
                           className="py-1 px-2.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           <Zap className="w-3.5 h-3.5" />
-                          <span>Giảm Thiểu</span>
+                          <span>{t('Mitigate')}</span>
                         </button>
                       </>
                     ) : (
@@ -1147,7 +1149,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                         className="py-1 px-2.5 rounded-lg bg-[#3fb950]/20 hover:bg-[#3fb950]/30 text-[#3fb950] border border-[#3fb950]/30 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
                       >
                         <Zap className="w-3.5 h-3.5" />
-                        <span>Khắc Phục Nhanh</span>
+                        <span>{t('Quick Fix')}</span>
                       </button>
                     )}
                   </div>
@@ -1172,8 +1174,8 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                     <ShieldAlert className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white">Trung Tâm Cảnh Báo & Xử Lý Sự Cố</h3>
-                    <p className="text-xs text-[#8b949e]">Giám sát thời gian thực lỗi kẹt cần cơ học & mất kết nối telemetry</p>
+                    <h3 className="text-base font-bold text-white">{t('Alert & Incident Resolution Center')}</h3>
+                    <p className="text-xs text-[#8b949e]">{t('Real-time monitoring of mechanical arm jams & telemetry loss')}</p>
                   </div>
                 </div>
 
@@ -1188,17 +1190,17 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
               {/* Stats strip */}
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
                 <div className="bg-[#0d1117] p-2.5 rounded-xl border border-[#30363d]">
-                  <span className="text-[#8b949e] text-[10px] block uppercase font-semibold">Tổng Sự Cố</span>
+                  <span className="text-[#8b949e] text-[10px] block uppercase font-semibold">{t('Total Incidents')}</span>
                   <span className="text-white font-mono font-bold text-base tabular-nums mt-0.5 block">{alerts.length}</span>
                 </div>
                 <div className="bg-[#0d1117] p-2.5 rounded-xl border border-[#30363d]">
-                  <span className="text-[#f85149] text-[10px] block uppercase font-semibold">Kẹt Cần (Stuck)</span>
+                  <span className="text-[#f85149] text-[10px] block uppercase font-semibold">{t('Arm Stuck')}</span>
                   <span className="text-[#f85149] font-mono font-bold text-base tabular-nums mt-0.5 block">
                     {alerts.filter(a => a.type === 'STUCK').length}
                   </span>
                 </div>
                 <div className="bg-[#0d1117] p-2.5 rounded-xl border border-[#30363d]">
-                  <span className="text-[#e3b341] text-[10px] block uppercase font-semibold">Mất Kết Nối (Offline)</span>
+                  <span className="text-[#e3b341] text-[10px] block uppercase font-semibold">{t('Offline')}</span>
                   <span className="text-[#e3b341] font-mono font-bold text-base tabular-nums mt-0.5 block">
                     {alerts.filter(a => a.type === 'OFFLINE').length}
                   </span>
@@ -1214,9 +1216,9 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                     <CheckCircle2 className="w-6 h-6" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-white text-sm">Hệ Thống Đang Hoạt Động Ổn Định</h4>
+                    <h4 className="font-bold text-white text-sm">{t('System Operating Normally')}</h4>
                     <p className="text-xs text-[#8b949e] mt-1 max-w-xs mx-auto">
-                      Không phát hiện barrier kẹt cần hay mất tín hiệu telemetry nào trên toàn bộ các cơ sở.
+                      {t('No stuck barriers or telemetry signal loss detected across all sites.')}
                     </p>
                   </div>
 
@@ -1234,7 +1236,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <Badge variant={isStuck ? 'red' : 'amber'} size="sm" dot>
-                            {isStuck ? 'KẸT CẦN (STUCK)' : 'MẤT KẾT NỐI (OFFLINE)'}
+                            {isStuck ? t('ARM STUCK') : t('OFFLINE')}
                           </Badge>
                           <span className="text-[11px] text-[#8b949e] font-mono">{alert.timestamp}</span>
                         </div>
@@ -1252,13 +1254,13 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
 
                       <div className="text-xs p-2.5 rounded-lg bg-[#161b22] border border-[#30363d]/60 text-[#c9d1d9] space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-[#8b949e]">Hiện trạng:</span>
+                          <span className="text-[#8b949e]">{t('Status:')}</span>
                           <span className={`font-mono font-bold ${isStuck ? 'text-[#f85149]' : 'text-[#e3b341]'}`}>
-                            {isStuck ? `Kẹt tại góc ${alert.armAngleDeg || 42}° · Motor ${alert.motorTempC || 54.8}°C` : 'Telemetry heartbeat timeout'}
+                            {isStuck ? t('Stuck at {{angle}}° · Motor {{temp}}°C', { angle: alert.armAngleDeg || 42, temp: alert.motorTempC || 54.8 }) : t('Telemetry heartbeat timeout')}
                           </span>
                         </div>
                         <div className="text-[11px] text-[#8b949e] pt-1 border-t border-[#30363d]/40">
-                          <span className="font-semibold text-white">Khuyến nghị:</span> {alert.suggestedAction}
+                          <span className="font-semibold text-white">{t('Recommended:')}</span> {alert.suggestedAction}
                         </div>
                       </div>
 
@@ -1269,7 +1271,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                           className="py-1.5 px-2 rounded-lg bg-[#3fb950]/20 hover:bg-[#3fb950]/30 text-[#3fb950] border border-[#3fb950]/30 text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                         >
                           <Power className="w-3.5 h-3.5" />
-                          <span>Reset Rơ-le</span>
+                          <span>{t('Reset Relay')}</span>
                         </button>
 
                         <button
@@ -1277,7 +1279,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                           className="py-1.5 px-2 rounded-lg bg-[#58a6ff]/20 hover:bg-[#58a6ff]/30 text-[#58a6ff] border border-[#58a6ff]/30 text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                         >
                           <ArrowUpRight className="w-3.5 h-3.5" />
-                          <span>Nâng Cưỡng Bức</span>
+                          <span>{t('Force Raise')}</span>
                         </button>
 
                         <button
@@ -1288,7 +1290,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                           className="py-1.5 px-2 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-white text-xs font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                         >
                           <MapPin className="w-3.5 h-3.5 text-[#58a6ff]" />
-                          <span>Định Vị Map</span>
+                          <span>{t('Locate on Map')}</span>
                         </button>
                       </div>
                     </div>
@@ -1303,7 +1305,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                 onClick={() => setIsIncidentsDrawerOpen(false)}
                 className="px-4 py-2 rounded-xl bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-xs font-semibold cursor-pointer"
               >
-                Đóng
+                {t('Close')}
               </button>
 
               {alerts.length > 0 && (
@@ -1312,7 +1314,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                   className="px-4 py-2 rounded-xl bg-[#3fb950] hover:bg-[#2ea043] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-950/40"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Khắc Phục Tất Cả ({alerts.length})</span>
+                  <span>{t('Resolve All')} ({alerts.length})</span>
                 </button>
               )}
             </div>
@@ -1325,37 +1327,37 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
       {/* ========================================================================= */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
         <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3">
-          <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">Tổng Cơ Sở / Trạm</div>
+          <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">{t('Total Sites / Stations')}</div>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-xl font-bold font-mono text-white tabular-nums">{metrics.totalSites}</span>
-            <span className="text-[10px] text-[#58a6ff] font-mono">Toàn quốc</span>
+            <span className="text-[10px] text-[#58a6ff] font-mono">{t('Nationwide')}</span>
           </div>
         </div>
 
         <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3">
-          <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">Tổng Barrier Gates</div>
+          <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">{t('Total Barrier Gates')}</div>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-xl font-bold font-mono text-[#58a6ff] tabular-nums">{metrics.totalGates}</span>
-            <span className="text-[10px] text-[#8b949e]">làn cổng</span>
+            <span className="text-[10px] text-[#8b949e]">{t('gate lanes')}</span>
           </div>
         </div>
 
         <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3">
-          <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">Barrier Đang Nâng (Open)</div>
+          <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">{t('Barriers Raised (Open)')}</div>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-xl font-bold font-mono text-[#3fb950] tabular-nums">{metrics.openGates}</span>
             <span className="inline-flex items-center gap-1 text-[10px] text-[#3fb950]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-ping" />
-              Đang lưu thông
+              {t('Flowing')}
             </span>
           </div>
         </div>
 
         <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3">
-          <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">Barrier Đang Hạ (Nominal)</div>
+          <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">{t('Barriers Lowered (Nominal)')}</div>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-xl font-bold font-mono text-white tabular-nums">{metrics.closedGates}</span>
-            <span className="text-[10px] text-[#8b949e]">sẵn sàng</span>
+            <span className="text-[10px] text-[#8b949e]">{t('ready')}</span>
           </div>
         </div>
 
@@ -1371,7 +1373,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
           }`}
         >
           <div className="flex items-center justify-between">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-[#8b949e]">Sự Cố & Cảnh Báo</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-[#8b949e]">{t('Incidents & Alerts')}</div>
             {(metrics.stuckGates > 0 || metrics.offlineGates > 0) && (
               <span className="w-2 h-2 rounded-full bg-[#f85149] animate-ping" />
             )}
@@ -1383,10 +1385,10 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
               {metrics.stuckGates + metrics.offlineGates + metrics.warningGates}
             </span>
             <span className="text-[10px] font-mono text-[#f85149]">
-              {metrics.stuckGates > 0 ? `${metrics.stuckGates} kẹt` : ''}
+              {metrics.stuckGates > 0 ? `${metrics.stuckGates} ${t('stuck')}` : ''}
               {metrics.stuckGates > 0 && metrics.offlineGates > 0 ? ' · ' : ''}
-              {metrics.offlineGates > 0 ? `${metrics.offlineGates} off` : ''}
-              {metrics.stuckGates === 0 && metrics.offlineGates === 0 ? 'Ổn định' : ''}
+              {metrics.offlineGates > 0 ? `${metrics.offlineGates} ${t('off')}` : ''}
+              {metrics.stuckGates === 0 && metrics.offlineGates === 0 ? t('Stable') : ''}
             </span>
           </div>
         </div>
@@ -1418,16 +1420,16 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
           </div>
           <div className="mt-1 flex items-baseline justify-between">
             <span className={`text-xl font-bold font-mono tabular-nums ${anomalies.length > 0 ? 'text-purple-300' : 'text-slate-200'}`}>
-              {anomalies.length} Dị Thường
+              {anomalies.length} {t('Anomalies')}
             </span>
             <span className="text-[10px] font-mono text-purple-400">
-              {anomalies.length > 0 ? `${anomalies[0].features.currentReqPerMin} req/m` : 'Học máy AI'}
+              {anomalies.length > 0 ? `${anomalies[0].features.currentReqPerMin} req/m` : t('AI ML')}
             </span>
           </div>
         </div>
 
         <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3">
-          <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">Sức Chứa Đỗ Xe</div>
+          <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">{t('Parking Occupancy')}</div>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-xl font-bold font-mono text-[#e6edf3] tabular-nums">{metrics.occupancyRate}%</span>
             <span className="text-[10px] text-[#8b949e] font-mono">{metrics.totalOccupancy}/{metrics.totalCapacity}</span>
@@ -1452,7 +1454,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                 }`}
               >
                 <MapIcon className="w-3.5 h-3.5" />
-                <span>Bản đồ Tương tác D3.js</span>
+                <span>{t('D3.js Interactive Map')}</span>
               </button>
 
               <button
@@ -1464,7 +1466,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                 }`}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
-                <span>Bố cục Lưới Trực quan</span>
+                <span>{t('Visual Grid Layout')}</span>
               </button>
             </div>
 
@@ -1476,10 +1478,10 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                   ? 'bg-purple-600/20 border-purple-500/60 text-purple-300 shadow-md shadow-purple-950/30'
                   : 'bg-[#0d1117] border-[#30363d] text-[#8b949e] hover:text-[#c9d1d9]'
               }`}
-              title="Bật/Tắt Lớp phủ trực quan dị thường Heuristic Machine Learning"
+              title={t('Toggle ML heuristic anomaly overlay')}
             >
               <Activity className="w-3.5 h-3.5 text-purple-400" />
-              <span>Lớp Phủ ML Anomaly</span>
+              <span>{t('ML Anomaly Overlay')}</span>
               {anomalies.length > 0 && (
                 <span className="px-1.5 py-0.2 bg-purple-500 text-white rounded-full text-[10px] font-bold">
                   {anomalies.length}
@@ -1507,18 +1509,18 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                   </span>
                   <ShieldAlert className="w-3.5 h-3.5 text-[#f85149]" />
                   <span className="font-mono tabular-nums font-bold text-red-300">
-                    {metrics.stuckGates + metrics.offlineGates} Cảnh Báo
+                    {metrics.stuckGates + metrics.offlineGates} {t('Alerts')}
                   </span>
                   <span className="text-[10px] text-red-200/70 font-normal hidden sm:inline">
-                    ({metrics.stuckGates > 0 ? `${metrics.stuckGates} Kẹt` : ''}
+                    ({metrics.stuckGates > 0 ? `${metrics.stuckGates} ${t('Stuck')}` : ''}
                     {metrics.stuckGates > 0 && metrics.offlineGates > 0 ? ' · ' : ''}
-                    {metrics.offlineGates > 0 ? `${metrics.offlineGates} Off` : ''})
+                    {metrics.offlineGates > 0 ? `${metrics.offlineGates} ${t('Off')}` : ''})
                   </span>
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#3fb950]" />
-                  <span>0 Cảnh Báo Sự Cố</span>
+                  <span>{t('0 Incident Alerts')}</span>
                 </>
               )}
             </button>
@@ -1532,7 +1534,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                   playAlertSound('STUCK');
                 }
               }}
-              title={isAudioMuted ? 'Bật âm thanh chuông cảnh báo' : 'Tắt âm thanh chuông cảnh báo'}
+              title={isAudioMuted ? t('Enable alert chime') : t('Mute alert chime')}
               className={`p-1.5 rounded-xl border transition-colors cursor-pointer text-xs ${
                 isAudioMuted
                   ? 'bg-[#0d1117] border-[#30363d] text-[#8b949e] hover:text-white'
@@ -1546,11 +1548,11 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             {(metrics.stuckGates > 0 || metrics.offlineGates > 0 || alerts.length > 0) && (
               <button
                 onClick={() => resolveAllIncidents()}
-                title="Khắc phục tất cả sự cố kẹt cần và offline"
+                title={t('Resolve all stuck and offline incidents')}
                 className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-[#3fb950]/15 hover:bg-[#3fb950]/25 text-[#3fb950] border border-[#3fb950]/30 transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Khắc Phục ({alerts.filter(a => !a.resolved).length})</span>
+                <span>{t('Resolve')} ({alerts.filter(a => !a.resolved).length})</span>
               </button>
             )}
 
@@ -1558,7 +1560,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             {isTenantRefreshing && (
               <span className="flex items-center gap-1.5 text-[11px] text-[#8b949e] font-mono">
                 <RefreshCw className="w-3 h-3 animate-spin" />
-                Đang đồng bộ…
+                {t('Syncing…')}
               </span>
             )}
 
@@ -1570,7 +1572,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
               onClick={() => setIsLiveTelemetryActive(!isLiveTelemetryActive)}
               className="text-xs shrink-0 cursor-pointer"
             >
-              {isLiveTelemetryActive ? 'Tạm dừng Stream' : 'Bật Live Telemetry'}
+              {isLiveTelemetryActive ? t('Pause Stream') : t('Enable Live Telemetry')}
             </Button>
           </div>
         </div>
@@ -1582,7 +1584,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]" />
             <input
               type="text"
-              placeholder="Tìm theo tên cơ sở, mã cổng, địa chỉ..."
+              placeholder={t('Search by site name, gate code, address...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg pl-8 pr-3 py-1.5 text-xs text-[#c9d1d9] placeholder-[#8b949e] focus:outline-hidden focus:border-[#58a6ff]"
@@ -1595,7 +1597,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             onChange={(e) => setTenantFilter(e.target.value)}
             className="bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-1.5 text-xs text-[#c9d1d9] focus:outline-hidden focus:border-[#58a6ff] cursor-pointer"
           >
-            <option value="ALL">Tất cả Doanh Nghiệp (All Tenants)</option>
+            <option value="ALL">{t('All Tenants')}</option>
             {tenantOptions.map(t => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
@@ -1607,13 +1609,13 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             onChange={(e) => setStatusFilter(e.target.value)}
             className="bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-1.5 text-xs text-[#c9d1d9] focus:outline-hidden focus:border-[#58a6ff] cursor-pointer"
           >
-            <option value="ALL">Mọi trạng thái Barrier (Tất cả)</option>
-            <option value="STUCK">🚨 Barrier kẹt cần (STUCK)</option>
-            <option value="OFFLINE">⚠️ Mất kết nối telemetry (OFFLINE)</option>
-            <option value="OPEN">Barrier đang nâng (OPEN)</option>
-            <option value="CLOSED">Barrier đang hạ (CLOSED)</option>
-            <option value="WARNING">Có cảnh báo / Lỗi cảm biến</option>
-            <option value="LOCKED">Đang khóa cưỡng bức</option>
+            <option value="ALL">{t('All Barrier Statuses')}</option>
+            <option value="STUCK">{t('Barrier arm stuck (STUCK)')}</option>
+            <option value="OFFLINE">{t('Telemetry offline (OFFLINE)')}</option>
+            <option value="OPEN">{t('Barrier raised (OPEN)')}</option>
+            <option value="CLOSED">{t('Barrier lowered (CLOSED)')}</option>
+            <option value="WARNING">{t('Warnings / Sensor fault')}</option>
+            <option value="LOCKED">{t('Force locked')}</option>
           </select>
 
           {/* Region Quick Jump */}
@@ -1624,7 +1626,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                 regionFilter === 'ALL' ? 'bg-[#58a6ff]/20 text-[#58a6ff] border border-[#58a6ff]/30' : 'bg-[#0d1117] text-[#8b949e] hover:text-[#c9d1d9]'
               }`}
             >
-              Toàn quốc
+              {t('Nationwide')}
             </button>
             <button
               onClick={() => handleRegionJump('NORTH')}
@@ -1632,7 +1634,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                 regionFilter === 'NORTH' ? 'bg-[#58a6ff]/20 text-[#58a6ff] border border-[#58a6ff]/30' : 'bg-[#0d1117] text-[#8b949e] hover:text-[#c9d1d9]'
               }`}
             >
-              Bắc
+              {t('North')}
             </button>
             <button
               onClick={() => handleRegionJump('CENTRAL')}
@@ -1640,7 +1642,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                 regionFilter === 'CENTRAL' ? 'bg-[#58a6ff]/20 text-[#58a6ff] border border-[#58a6ff]/30' : 'bg-[#0d1117] text-[#8b949e] hover:text-[#c9d1d9]'
               }`}
             >
-              Trung
+              {t('Central')}
             </button>
             <button
               onClick={() => handleRegionJump('SOUTH')}
@@ -1648,7 +1650,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                 regionFilter === 'SOUTH' ? 'bg-[#58a6ff]/20 text-[#58a6ff] border border-[#58a6ff]/30' : 'bg-[#0d1117] text-[#8b949e] hover:text-[#c9d1d9]'
               }`}
             >
-              Nam
+              {t('South')}
             </button>
           </div>
         </div>
@@ -1664,7 +1666,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             {/* Map Floating Controls */}
             <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-[#161b22]/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-[#30363d] text-xs shadow-lg">
               <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse" />
-              <span className="font-semibold text-white">Bản Đồ Tactical Telemetry</span>
+              <span className="font-semibold text-white">{t('Tactical Telemetry Map')}</span>
               <span className="text-[#8b949e]">· D3 Vector Engine</span>
             </div>
 
@@ -1672,21 +1674,21 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             <div className="absolute top-4 right-4 z-10 flex flex-col gap-1 bg-[#161b22]/90 backdrop-blur-md p-1 rounded-xl border border-[#30363d] shadow-lg">
               <button
                 onClick={handleZoomIn}
-                title="Phóng to"
+                title={t('Zoom in')}
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-[#c9d1d9] hover:bg-[#21262d] hover:text-white transition-colors cursor-pointer"
               >
                 <ZoomIn className="w-4 h-4" />
               </button>
               <button
                 onClick={handleZoomOut}
-                title="Thu nhỏ"
+                title={t('Zoom out')}
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-[#c9d1d9] hover:bg-[#21262d] hover:text-white transition-colors cursor-pointer"
               >
                 <ZoomOut className="w-4 h-4" />
               </button>
               <button
                 onClick={handleResetZoom}
-                title="Đặt lại góc nhìn"
+                title={t('Reset view')}
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-[#c9d1d9] hover:bg-[#21262d] hover:text-white transition-colors cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -1707,18 +1709,18 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
               <div className="flex items-center gap-4">
                 <span className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#3fb950]" />
-                  <span>Hoạt động bình thường</span>
+                  <span>{t('Operating normally')}</span>
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#e3b341]" />
-                  <span>Cảnh báo / Độ trễ cao</span>
+                  <span>{t('Warning / High latency')}</span>
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#f85149]" />
-                  <span>Khóa khẩn cấp / Mất kết nối</span>
+                  <span>{t('Emergency lock / Offline')}</span>
                 </span>
               </div>
-              <span className="text-[10px] font-mono">Dùng con lăn chuột để zoom, giữ chuột trái để di chuyển bản đồ</span>
+              <span className="text-[10px] font-mono">{t('Use mouse wheel to zoom, hold left click to pan')}</span>
             </div>
           </div>
 
@@ -1735,7 +1737,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                         variant={activeSelectedSite.overallHealth === 'HEALTHY' ? 'emerald' : activeSelectedSite.overallHealth === 'WARNING' ? 'amber' : 'red'}
                         size="sm"
                       >
-                        {activeSelectedSite.overallHealth}
+                        {t(activeSelectedSite.overallHealth)}
                       </Badge>
                     </div>
                     <p className="text-xs text-[#8b949e] mt-0.5">{activeSelectedSite.address}</p>
@@ -1755,9 +1757,9 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                 {/* Gates Overview for this site */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-[#e6edf3]">Danh Sách Barrier ({activeSelectedSite.gates.length} làn)</span>
+                    <span className="font-semibold text-[#e6edf3]">{t('Barrier List')} ({activeSelectedSite.gates.length} {t('lanes')})</span>
                     <span className="font-mono text-[#3fb950] font-bold">
-                      {activeSelectedSite.openGateCount} Đang Nâng
+                      {activeSelectedSite.openGateCount} {t('Raised')}
                     </span>
                   </div>
 
@@ -1789,7 +1791,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                             size="sm"
                             dot={isStuck || isOffline}
                           >
-                            {isStuck ? 'KẸT CẦN (STUCK)' : isOffline ? 'MẤT KẾT NỐI (OFFLINE)' : gate.status === 'OPEN' ? 'CẦN NÂNG' : gate.status === 'LOCKED' ? 'KHÓA' : 'CẦN HẠ'}
+                            {isStuck ? t('ARM STUCK') : isOffline ? t('OFFLINE') : gate.status === 'OPEN' ? t('RAISED') : gate.status === 'LOCKED' ? t('LOCKED') : t('LOWERED')}
                           </Badge>
                         </div>
 
@@ -1819,21 +1821,21 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                             </div>
 
                             <div className="text-[11px] space-y-0.5">
-                              <div className="text-[#8b949e]">Góc mở: <span className={`font-mono font-bold ${isStuck ? 'text-[#f85149]' : 'text-white'}`}>{gate.armAngleDeg}°</span></div>
-                              <div className="text-[#8b949e]">Vòng quay hôm nay: <span className="text-[#58a6ff] font-mono tabular-nums">{gate.dailyCycles}</span></div>
+                              <div className="text-[#8b949e]">{t('Arm angle:')} <span className={`font-mono font-bold ${isStuck ? 'text-[#f85149]' : 'text-white'}`}>{gate.armAngleDeg}°</span></div>
+                              <div className="text-[#8b949e]">{t('Cycles today:')} <span className="text-[#58a6ff] font-mono tabular-nums">{gate.dailyCycles}</span></div>
                             </div>
                           </div>
 
                           {/* ANPR & Loop Detector indicators */}
                           <div className="text-right text-[10px] space-y-1">
                             <div className="flex items-center justify-end gap-1.5">
-                              <span className="text-[#8b949e]">Vòng từ (Loop):</span>
+                              <span className="text-[#8b949e]">{t('Loop detector:')}</span>
                               <span className={`px-1.5 py-0.2 rounded font-mono ${gate.loopDetectorActive ? 'bg-[#3fb950]/20 text-[#3fb950]' : 'bg-[#21262d] text-[#8b949e]'}`}>
-                                {gate.loopDetectorActive ? 'CÓ XE' : 'TRỐNG'}
+                                {gate.loopDetectorActive ? t('VEHICLE') : t('CLEAR')}
                               </span>
                             </div>
                             <div className="flex items-center justify-end gap-1.5">
-                              <span className="text-[#8b949e]">Xe gần nhất:</span>
+                              <span className="text-[#8b949e]">{t('Last plate:')}</span>
                               <span className="font-mono font-bold text-white">{gate.lastPlate}</span>
                             </div>
                           </div>
@@ -1843,21 +1845,21 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                         {isStuck && (
                           <div className="text-[10px] p-2 rounded bg-red-500/10 border border-red-500/30 text-red-300 flex items-start gap-1.5">
                             <AlertOctagon className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#f85149]" />
-                            <span>Phát hiện cần dừng tại góc {gate.armAngleDeg}°. Motor rơ-le ngắt quá dòng. Nhấn Reset Rơ-le hoặc Nâng Cưỡng Bức.</span>
+                            <span>{t('Arm stopped at {{angle}}°. Relay motor tripped on overcurrent. Press Reset Relay or Force Raise.', { angle: gate.armAngleDeg })}</span>
                           </div>
                         )}
 
                         {isOffline && (
                           <div className="text-[10px] p-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-start gap-1.5">
                             <WifiOff className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#e3b341]" />
-                            <span>Mất tín hiệu telemetry từ Edge Gateway. Đang thử kết nối lại heartbeat...</span>
+                            <span>{t('Telemetry signal lost from Edge Gateway. Retrying heartbeat...')}</span>
                           </div>
                         )}
 
                         {!isStuck && !isOffline && gate.warningNote && (
                           <div className="text-[10px] p-2 rounded bg-[#d29922]/10 border border-[#d29922]/30 text-[#e3b341] flex items-start gap-1.5">
                             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                            <span>{gate.warningNote}</span>
+                            <span>{t(gate.warningNote)}</span>
                           </div>
                         )}
 
@@ -1874,7 +1876,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                 className="py-1 px-2 rounded-lg bg-[#3fb950]/20 hover:bg-[#3fb950]/30 text-[#3fb950] border border-[#3fb950]/30 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                               >
                                 <Power className="w-3.5 h-3.5" />
-                                <span>Reset Rơ-le</span>
+                                <span>{t('Reset Relay')}</span>
                               </button>
 
                               <button
@@ -1886,7 +1888,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                 className="py-1 px-2 rounded-lg bg-[#58a6ff]/20 hover:bg-[#58a6ff]/30 text-[#58a6ff] border border-[#58a6ff]/30 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                               >
                                 <ArrowUpRight className="w-3.5 h-3.5" />
-                                <span>Nâng Ép</span>
+                                <span>{t('Force Up')}</span>
                               </button>
                             </>
                           ) : isOffline ? (
@@ -1900,7 +1902,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                 className="py-1 px-2 rounded-lg bg-[#58a6ff]/20 hover:bg-[#58a6ff]/30 text-[#58a6ff] border border-[#58a6ff]/30 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                               >
                                 <RefreshCw className="w-3.5 h-3.5" />
-                                <span>Re-link</span>
+                                <span>{t('Re-link')}</span>
                               </button>
 
                               <button
@@ -1908,7 +1910,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                 className="py-1 px-2 rounded-lg bg-[#f85149]/20 hover:bg-[#f85149]/30 text-[#f85149] border border-[#f85149]/30 text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                               >
                                 <Lock className="w-3.5 h-3.5" />
-                                <span>Khóa</span>
+                                <span>{t('Lock')}</span>
                               </button>
                             </>
                           ) : gate.status === 'OPEN' ? (
@@ -1918,7 +1920,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                               className="py-1 px-2 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-white text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               <ArrowDownRight className="w-3.5 h-3.5 text-[#58a6ff]" />
-                              <span>{pendingCommands[gate.id] ? 'Đang gửi…' : 'Hạ Cần'}</span>
+                              <span>{pendingCommands[gate.id] ? t('Sending…') : t('Lower Arm')}</span>
                             </button>
                           ) : (
                             <button
@@ -1927,7 +1929,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                               className="py-1 px-2 rounded-lg bg-[#3fb950]/20 hover:bg-[#3fb950]/30 text-[#3fb950] border border-[#3fb950]/30 text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               <ArrowUpRight className="w-3.5 h-3.5" />
-                              <span>{pendingCommands[gate.id] ? 'Đang gửi…' : 'Nâng Cần'}</span>
+                              <span>{pendingCommands[gate.id] ? t('Sending…') : t('Raise Arm')}</span>
                             </button>
                           )}
 
@@ -1942,7 +1944,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                               }`}
                             >
                               {gate.status === 'LOCKED' ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                              <span>{gate.status === 'LOCKED' ? 'Gỡ Khóa' : 'Khóa'}</span>
+                              <span>{gate.status === 'LOCKED' ? t('Unlock') : t('Lock')}</span>
                             </button>
                           )}
 
@@ -1951,7 +1953,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                             className="py-1 px-2 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] hover:text-white text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                           >
                             <Eye className="w-3.5 h-3.5" />
-                            <span>Chi Tiết</span>
+                            <span>{t('Details')}</span>
                           </button>
                         </div>
                       </div>
@@ -1965,9 +1967,9 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                   <MapPin className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-white text-sm">Chưa Chọn Cơ Sở Nào</h4>
+                  <h4 className="font-bold text-white text-sm">{t('No Site Selected')}</h4>
                   <p className="text-xs text-[#8b949e] mt-1 max-w-xs">
-                    Nhấp vào một điểm ghim trên bản đồ D3.js bên trái hoặc danh sách bên dưới để xem trực quan các cần barrier và gửi lệnh điều khiển.
+                    {t('Click a pin on the D3.js map on the left or the list below to visualize barriers and send commands.')}
                   </p>
                 </div>
                 {filteredSites.length > 0 && (
@@ -1977,7 +1979,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                     onClick={() => setSelectedSiteId(filteredSites[0].id)}
                     className="text-xs mt-2"
                   >
-                    Chọn cơ sở đầu tiên: {filteredSites[0].name}
+                    {t('Select first site:')} {filteredSites[0].name}
                   </Button>
                 )}
               </div>
@@ -2013,10 +2015,10 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                         size="sm"
                         dot
                       >
-                        {siteHasStuck ? 'CÓ SỰ CỐ KẸT' : siteHasOffline ? 'OFFLINE' : site.overallHealth}
+                        {siteHasStuck ? t('STUCK INCIDENT') : siteHasOffline ? t('OFFLINE') : t(site.overallHealth)}
                       </Badge>
                       {siteHasStuck && (
-                        <span className="text-[10px] text-[#f85149] font-mono animate-pulse">🚨 CẦN XỬ LÝ</span>
+                        <span className="text-[10px] text-[#f85149] font-mono animate-pulse">{t('🚨 ACTION REQUIRED')}</span>
                       )}
                     </div>
                     <span className="text-[10px] text-[#58a6ff] font-mono bg-[#21262d] px-2 py-0.5 rounded-md border border-[#30363d]">
@@ -2028,15 +2030,15 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                   <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
                     <span>{site.tenantName}</span>
                     <span>·</span>
-                    <span className="font-mono text-[#e6edf3]">{site.currentOccupancy}/{site.capacity} xe</span>
+                    <span className="font-mono text-[#e6edf3]">{site.currentOccupancy}/{site.capacity} {t('vehicles')}</span>
                   </div>
                 </div>
 
                 {/* Barrier Gates Grid inside this Site */}
                 <div className="space-y-2.5 flex-1">
                   <div className="text-[11px] font-semibold text-[#8b949e] uppercase tracking-wider flex items-center justify-between">
-                    <span>Trạng thái Làn Barrier</span>
-                    <span className="font-mono text-[#3fb950] font-bold">{site.openGateCount}/{site.totalGateCount} Mở</span>
+                    <span>{t('Barrier Lane Status')}</span>
+                    <span className="font-mono text-[#3fb950] font-bold">{site.openGateCount}/{site.totalGateCount} {t('Open')}</span>
                   </div>
 
                   <div className="space-y-2">
@@ -2067,18 +2069,18 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                               size="sm"
                               dot={isStuck || isOffline}
                             >
-                              {isStuck ? 'KẸT CẦN' : isOffline ? 'OFFLINE' : gate.status === 'OPEN' ? 'NÂNG' : gate.status === 'LOCKED' ? 'KHÓA' : 'HẠ'}
+                              {isStuck ? t('STUCK') : isOffline ? t('OFFLINE') : gate.status === 'OPEN' ? t('RAISED') : gate.status === 'LOCKED' ? t('LOCKED') : t('LOWERED')}
                             </Badge>
                           </div>
 
                           {/* Micro Visual Status Bar */}
                           <div className="flex items-center justify-between text-[10px] text-[#8b949e] bg-[#161b22] px-2.5 py-1.5 rounded-lg border border-[#30363d]/50">
                             <div className="flex items-center gap-1.5">
-                              <span>Góc cần:</span>
+                              <span>{t('Arm angle:')}</span>
                               <span className={`font-mono font-bold ${isStuck ? 'text-[#f85149]' : 'text-white'}`}>{gate.armAngleDeg}°</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                              <span>Xe gần nhất:</span>
+                              <span>{t('Last plate:')}</span>
                               <span className="font-mono text-[#58a6ff] font-semibold">{gate.lastPlate}</span>
                             </div>
                           </div>
@@ -2096,7 +2098,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                   className="py-1 px-1.5 rounded-md bg-[#3fb950]/20 text-[#3fb950] hover:bg-[#3fb950]/30 border border-[#3fb950]/30 text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                                 >
                                   <Power className="w-3 h-3" />
-                                  <span>Reset</span>
+                                  <span>{t('Reset')}</span>
                                 </button>
                                 <button
                                   onClick={() => {
@@ -2107,14 +2109,14 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                   className="py-1 px-1.5 rounded-md bg-[#58a6ff]/20 text-[#58a6ff] hover:bg-[#58a6ff]/30 border border-[#58a6ff]/30 text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                                 >
                                   <ArrowUpRight className="w-3 h-3" />
-                                  <span>Nâng Ép</span>
+                                  <span>{t('Force Up')}</span>
                                 </button>
                                 <button
                                   onClick={() => setSelectedGate(gate)}
                                   className="py-1 px-1.5 rounded-md bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-[10px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                                 >
                                   <Eye className="w-3 h-3" />
-                                  <span>Xem Lỗi</span>
+                                  <span>{t('View Error')}</span>
                                 </button>
                               </>
                             ) : isOffline ? (
@@ -2128,21 +2130,21 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                   className="py-1 px-1.5 rounded-md bg-[#58a6ff]/20 text-[#58a6ff] hover:bg-[#58a6ff]/30 border border-[#58a6ff]/30 text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                                 >
                                   <RefreshCw className="w-3 h-3" />
-                                  <span>Re-link</span>
+                                  <span>{t('Re-link')}</span>
                                 </button>
                                 <button
                                   onClick={() => handleEmergencyLock(site.id, gate.id)}
                                   className="py-1 px-1.5 rounded-md bg-[#f85149]/20 text-[#f85149] hover:bg-[#f85149]/30 border border-[#f85149]/30 text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                                 >
                                   <Lock className="w-3 h-3" />
-                                  <span>Khóa</span>
+                                  <span>{t('Lock')}</span>
                                 </button>
                                 <button
                                   onClick={() => setSelectedGate(gate)}
                                   className="py-1 px-1.5 rounded-md bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-[10px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                                 >
                                   <Eye className="w-3 h-3" />
-                                  <span>Chi Tiết</span>
+                                  <span>{t('Details')}</span>
                                 </button>
                               </>
                             ) : (
@@ -2156,7 +2158,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                       : 'bg-[#3fb950]/20 text-[#3fb950] hover:bg-[#3fb950]/30 border border-[#3fb950]/30'
                                   }`}
                                 >
-                                  {pendingCommands[gate.id] ? 'Đang gửi…' : gate.status === 'OPEN' ? 'Hạ cần' : 'Nâng cần'}
+                                  {pendingCommands[gate.id] ? t('Sending…') : gate.status === 'OPEN' ? t('Lower arm') : t('Raise arm')}
                                 </button>
 
                                 <button
@@ -2168,7 +2170,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                       : 'bg-[#f85149]/20 text-[#f85149] hover:bg-[#f85149]/30 border border-[#f85149]/30'
                                   }`}
                                 >
-                                  {gate.status === 'LOCKED' ? 'Gỡ khóa' : 'Khóa'}
+                                  {gate.status === 'LOCKED' ? t('Unlock') : t('Lock')}
                                 </button>
 
                                 <button
@@ -2176,7 +2178,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                   className="py-1 px-1.5 rounded-md bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-[10px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                                 >
                                   <Car className="w-3 h-3 text-[#58a6ff]" />
-                                  <span>Ghi Xe (Test)</span>
+                                  <span>{t('Record Vehicle (Test)')}</span>
                                 </button>
                               </>
                             )}
@@ -2199,7 +2201,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                   }}
                   className="text-xs text-[#58a6ff] hover:text-[#79c0ff] font-semibold flex items-center gap-1 cursor-pointer"
                 >
-                  <span>Xem trên Bản đồ</span>
+                  <span>{t('View on Map')}</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -2223,7 +2225,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                     variant={selectedGate.status === 'STUCK' ? 'red' : selectedGate.health === 'OFFLINE' ? 'amber' : selectedGate.status === 'OPEN' ? 'emerald' : selectedGate.status === 'LOCKED' ? 'red' : 'blue'}
                     dot={selectedGate.status === 'STUCK' || selectedGate.health === 'OFFLINE'}
                   >
-                    {selectedGate.status === 'STUCK' ? 'KẸT CẦN (STUCK)' : selectedGate.health === 'OFFLINE' ? 'OFFLINE' : selectedGate.status}
+                    {selectedGate.status === 'STUCK' ? t('ARM STUCK') : selectedGate.health === 'OFFLINE' ? t('OFFLINE') : t(selectedGate.status)}
                   </Badge>
                 </div>
                 <p className="text-xs text-[#8b949e] mt-1 font-mono">{selectedGate.code} · {selectedGate.siteName}</p>
@@ -2242,10 +2244,10 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
               <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-xs space-y-2">
                 <div className="flex items-center gap-2 text-[#f85149] font-bold">
                   <AlertOctagon className="w-4 h-4 animate-pulse" />
-                  <span>SỰ CỐ CƠ HỌC: CẦN BARRIER BỊ KẸT TẠI {selectedGate.armAngleDeg}°</span>
+                  <span>{t('MECHANICAL INCIDENT: BARRIER ARM STUCK AT {{angle}}°', { angle: selectedGate.armAngleDeg })}</span>
                 </div>
                 <p className="text-red-200/90 text-[11px] leading-relaxed">
-                  Cảm biến vị trí trục khuỷu phát hiện tay cần dừng bất thường khi rơ-le đang đóng. Rơ-le quá tải đã tự ngắt để bảo vệ cuộn dây động cơ servo.
+                  {t('Crankshaft position sensor detected abnormal arm stop while relay was engaged. Overload relay auto-tripped to protect the servo motor coil.')}
                 </p>
                 <div className="flex items-center gap-2 pt-1">
                   <button
@@ -2257,7 +2259,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                     className="px-3 py-1.5 rounded-lg bg-[#3fb950] hover:bg-[#2ea043] text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
                   >
                     <Power className="w-3.5 h-3.5" />
-                    <span>Reset Rơ-le & Căn Chỉnh Vị Trí Cần</span>
+                    <span>{t('Reset Relay & Realign Arm')}</span>
                   </button>
                   <button
                     onClick={() => {
@@ -2268,7 +2270,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                     className="px-3 py-1.5 rounded-lg bg-[#58a6ff]/20 hover:bg-[#58a6ff]/30 text-[#58a6ff] border border-[#58a6ff]/30 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
                   >
                     <ArrowUpRight className="w-3.5 h-3.5" />
-                    <span>Nâng Cưỡng Bức</span>
+                    <span>{t('Force Raise')}</span>
                   </button>
                 </div>
               </div>
@@ -2278,10 +2280,10 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
               <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
                 <div className="flex items-center gap-2 text-[#e3b341] font-bold">
                   <WifiOff className="w-4 h-4 animate-pulse" />
-                  <span>CẢNH BÁO MẤT TÍN HIỆU TELEMETRY (EDGE OFFLINE)</span>
+                  <span>{t('TELEMETRY SIGNAL LOST WARNING (EDGE OFFLINE)')}</span>
                 </div>
                 <p className="text-amber-200/90 text-[11px] leading-relaxed">
-                  Không nhận được gói tin MQTT telemetry và luồng RTSP camera trong hơn 15 giây.
+                  {t('No MQTT telemetry packets or RTSP camera stream for over 15 seconds.')}
                 </p>
                 <div className="pt-1">
                   <button
@@ -2293,7 +2295,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                     className="px-3 py-1.5 rounded-lg bg-[#e3b341] hover:bg-[#d29922] text-slate-950 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Tái Khởi Động Telemetry Socket</span>
+                    <span>{t('Restart Telemetry Socket')}</span>
                   </button>
                 </div>
               </div>
@@ -2302,46 +2304,46 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             {/* Hardware Telemetry Parameters */}
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="bg-[#0d1117] p-3 rounded-xl border border-[#30363d]">
-                <span className="text-[#8b949e] block text-[10px] uppercase font-semibold">Cơ cấu Truyền động</span>
+                <span className="text-[#8b949e] block text-[10px] uppercase font-semibold">{t('Drive Mechanism')}</span>
                 <span className="text-white font-bold font-mono text-sm mt-0.5 block">{selectedGate.barrierType}</span>
-                <span className="text-[10px] text-[#3fb950] mt-1 block">Tốc độ nâng: 0.6s servo</span>
+                <span className="text-[10px] text-[#3fb950] mt-1 block">{t('Lift speed: 0.6s servo')}</span>
               </div>
 
               <div className="bg-[#0d1117] p-3 rounded-xl border border-[#30363d]">
-                <span className="text-[#8b949e] block text-[10px] uppercase font-semibold">Nhiệt độ Động cơ</span>
+                <span className="text-[#8b949e] block text-[10px] uppercase font-semibold">{t('Motor Temperature')}</span>
                 <span className="text-white font-bold font-mono text-sm mt-0.5 block">{selectedGate.motorTempC} °C</span>
-                <span className="text-[10px] text-[#8b949e] mt-1 block">Ngưỡng cảnh báo: 65°C</span>
+                <span className="text-[10px] text-[#8b949e] mt-1 block">{t('Warning threshold: 65°C')}</span>
               </div>
 
               <div className="bg-[#0d1117] p-3 rounded-xl border border-[#30363d]">
-                <span className="text-[#8b949e] block text-[10px] uppercase font-semibold">Cảm biến Vòng từ (Loop Coil)</span>
+                <span className="text-[#8b949e] block text-[10px] uppercase font-semibold">{t('Loop Coil Sensor')}</span>
                 <span className={`font-mono font-bold text-sm mt-0.5 block ${selectedGate.loopDetectorActive ? 'text-[#3fb950]' : 'text-[#8b949e]'}`}>
-                  {selectedGate.loopDetectorActive ? 'PHÁT HIỆN XE TRÊN VÒNG' : 'KHÔNG CÓ XE'}
+                  {selectedGate.loopDetectorActive ? t('VEHICLE ON LOOP') : t('NO VEHICLE')}
                 </span>
-                <span className="text-[10px] text-[#8b949e] mt-1 block">Tần số: 38.2 kHz (Nominal)</span>
+                <span className="text-[10px] text-[#8b949e] mt-1 block">{t('Frequency: 38.2 kHz (Nominal)')}</span>
               </div>
 
               <div className="bg-[#0d1117] p-3 rounded-xl border border-[#30363d]">
-                <span className="text-[#8b949e] block text-[10px] uppercase font-semibold">Nguồn Điện Hoạt Động</span>
+                <span className="text-[#8b949e] block text-[10px] uppercase font-semibold">{t('Power Source')}</span>
                 <span className="text-white font-bold font-mono text-sm mt-0.5 block">{selectedGate.powerSource}</span>
-                <span className="text-[10px] text-[#58a6ff] mt-1 block">Pin UPS dự phòng: {selectedGate.upsBatteryPercent}%</span>
+                <span className="text-[10px] text-[#58a6ff] mt-1 block">{t('UPS backup battery:')} {selectedGate.upsBatteryPercent}%</span>
               </div>
             </div>
 
             {/* Last Vehicle Scan Preview */}
             <div className="bg-[#0d1117] p-4 rounded-xl border border-[#30363d] space-y-2">
-              <span className="text-[10px] uppercase font-bold text-[#8b949e] tracking-wider block">Lượt xe quét gần nhất</span>
+              <span className="text-[10px] uppercase font-bold text-[#8b949e] tracking-wider block">{t('Last Vehicle Scan')}</span>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="px-3 py-1 bg-white text-slate-950 font-mono font-extrabold text-sm rounded border-2 border-slate-900 shadow-sm">
                     {selectedGate.lastPlate}
                   </div>
                   <div>
-                    <div className="text-xs text-[#e6edf3] font-medium">Độ chính xác OCR: <span className="font-mono text-[#3fb950] font-bold">{(selectedGate.lastConfidence * 100).toFixed(1)}%</span></div>
-                    <div className="text-[10px] text-[#8b949e]">Thời gian: {selectedGate.lastPassageTime}</div>
+                    <div className="text-xs text-[#e6edf3] font-medium">{t('OCR accuracy:')} <span className="font-mono text-[#3fb950] font-bold">{(selectedGate.lastConfidence * 100).toFixed(1)}%</span></div>
+                    <div className="text-[10px] text-[#8b949e]">{t('Time:')} {t(selectedGate.lastPassageTime)}</div>
                   </div>
                 </div>
-                <Badge variant="emerald" size="sm">HỢP LỆ</Badge>
+                <Badge variant="emerald" size="sm">{t('VALID')}</Badge>
               </div>
             </div>
 
@@ -2352,7 +2354,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                 size="sm"
                 onClick={() => setSelectedGate(null)}
               >
-                Đóng
+                {t('Close')}
               </Button>
               <Button
                 variant="primary"
@@ -2362,7 +2364,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                   setSelectedGate(null);
                 }}
               >
-                Ghi Lượt Xe Thử (Test)
+                {t('Record Test Passage')}
               </Button>
             </div>
           </div>

@@ -21,6 +21,10 @@ import type {
   OperationalIncident,
 } from '../types/platform';
 import type { LaneOut } from '../services/api';
+import i18n from '../i18n';
+
+const tt = (key: string, opts?: Record<string, unknown>) =>
+  i18n.t(key, { ns: 'monitoring', ...opts });
 
 const VIETNAM_DEFAULT_COORDS = { lat: 10.7769, lng: 106.7009 }; // HCMC
 
@@ -73,14 +77,14 @@ const str = (v: unknown): string | undefined =>
   typeof v === 'string' && v.length > 0 ? v : undefined;
 
 const formatRelative = (iso: string | undefined): string => {
-  if (!iso) return 'Chưa có';
+  if (!iso) return tt('None yet');
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return iso;
   const diff = Date.now() - t;
-  if (diff < 60_000) return `${Math.max(1, Math.round(diff / 1000))} giây trước`;
-  if (diff < 3_600_000) return `${Math.round(diff / 60_000)} phút trước`;
-  if (diff < 86_400_000) return `${Math.round(diff / 3_600_000)} giờ trước`;
-  return new Date(t).toLocaleString('vi-VN');
+  if (diff < 60_000) return tt('{{n}} seconds ago', { n: Math.max(1, Math.round(diff / 1000)) });
+  if (diff < 3_600_000) return tt('{{n}} minutes ago', { n: Math.round(diff / 60_000) });
+  if (diff < 86_400_000) return tt('{{n}} hours ago', { n: Math.round(diff / 3_600_000) });
+  return new Date(t).toLocaleString();
 };
 
 const todayStart = new Date();
@@ -152,7 +156,7 @@ export const buildBarrierSites = (input: BuildBarrierSitesInput): TenantSiteBarr
         stuckSince: status === 'STUCK' ? formatRelative(worstIncident?.startedAt ?? g.lastHeartbeat) : undefined,
         stuckReason: stuckIncident?.description,
         offlineSince: health === 'OFFLINE' ? formatRelative(offlineIncident?.startedAt ?? g.lastHeartbeat) : undefined,
-        offlineReason: offlineIncident?.description ?? (health === 'OFFLINE' ? 'Mất heartbeat với Edge Gateway' : undefined),
+        offlineReason: offlineIncident?.description ?? (health === 'OFFLINE' ? tt('Lost heartbeat with Edge Gateway') : undefined),
       };
     });
 
@@ -225,8 +229,8 @@ export const buildBarrierAlerts = (
         armAngleDeg: gate?.armAngleDeg,
         motorTempC: gate?.motorTempC,
         suggestedAction: isOffline
-          ? 'Kiểm tra nguồn UPS và khởi động lại dịch vụ Edge Gateway'
-          : 'Kiểm tra cơ cấu cần và cảm biến dòng motor tại hiện trường',
+          ? tt('Check UPS power and restart the Edge Gateway service')
+          : tt('Inspect the arm mechanism and motor current sensor on site'),
         resolved: false,
         acknowledged: i.status === 'ACKNOWLEDGED',
       };

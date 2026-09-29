@@ -35,8 +35,10 @@ import { CreateEditRuleModal } from '../../components/tenant/rules/CreateEditRul
 import { RuleSimulatorModal } from '../../components/tenant/rules/RuleSimulatorModal';
 import { RulePriorityReorderModal } from '../../components/tenant/rules/RulePriorityReorderModal';
 import { RuleDeleteConfirmDialog } from '../../components/tenant/rules/RuleDeleteConfirmDialog';
+import { useTranslation } from 'react-i18next';
 
 export const TenantRulesPage: React.FC = () => {
+  const { t } = useTranslation('tenant');
   const {
     tenantAccessRules,
     tenantSites,
@@ -148,14 +150,14 @@ export const TenantRulesPage: React.FC = () => {
             <div>
               <div className="flex items-center gap-2.5">
                 <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
-                  Automated Access Policy Rules
+                  {t('Automated Access Policy Rules')}
                 </h1>
                 <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#21262d] border border-[#30363d] text-[#58a6ff]">
-                  {tenantAccessRules.length} Total Rules
+                  {t('{{count}} Total Rules', { count: tenantAccessRules.length })}
                 </span>
               </div>
               <p className="text-xs text-[#8b949e] mt-0.5">
-                Deterministic priority-ordered policy rules evaluated by edge ANPR barrier controllers
+                {t('Deterministic priority-ordered policy rules evaluated by edge ANPR barrier controllers')}
               </p>
             </div>
           </div>
@@ -164,18 +166,18 @@ export const TenantRulesPage: React.FC = () => {
           <div className="flex items-center gap-2.5 pt-2 flex-wrap text-xs">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#238636]/15 border border-[#238636]/30 text-[#3fb950] font-semibold">
               <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
-              {activeCount} Active (Enforcing)
+              {t('{{count}} Active (Enforcing)', { count: activeCount })}
             </span>
 
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#da3633]/15 border border-[#da3633]/30 text-[#f85149] font-semibold">
               <ShieldAlert className="w-3.5 h-3.5" />
-              {blocklistCount} Blocklists (DENY)
+              {t('{{count}} Blocklists (DENY)', { count: blocklistCount })}
             </span>
 
             {draftCount > 0 && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#d29922]/15 border border-[#d29922]/30 text-[#e3b341] font-semibold">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#e3b341]" />
-                {draftCount} Draft Policies
+                {t('{{count}} Draft Policies', { count: draftCount })}
               </span>
             )}
           </div>
@@ -190,7 +192,7 @@ export const TenantRulesPage: React.FC = () => {
             className="text-xs border-[#1f6feb]/40 bg-[#1f6feb]/10 text-[#58a6ff] hover:bg-[#1f6feb]/20 gap-1.5"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#58a6ff]" />
-            Test & Simulate Rule
+            {t('Test & Simulate Rule')}
           </Button>
 
           <Button
@@ -200,7 +202,7 @@ export const TenantRulesPage: React.FC = () => {
             className="text-xs border-[#30363d] text-[#c9d1d9] hover:bg-[#21262d] gap-1.5"
           >
             <ArrowUpDown className="w-3.5 h-3.5" />
-            Reorder Priorities
+            {t('Reorder Priorities')}
           </Button>
 
           <Button
@@ -210,7 +212,7 @@ export const TenantRulesPage: React.FC = () => {
             className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm font-semibold"
           >
             <Plus className="w-4 h-4" />
-            Create Access Rule
+            {t('Create Access Rule')}
           </Button>
         </div>
       </div>
@@ -220,14 +222,14 @@ export const TenantRulesPage: React.FC = () => {
         <div className="flex items-center gap-2.5">
           <Layers className="w-4 h-4 text-[#58a6ff] shrink-0" />
           <span>
-            <strong>Deterministic Evaluation:</strong> Edge controllers process active rules strictly from top to bottom (Priority #1 to #999). As soon as an entry matches target, facility, and time window, evaluation halts and the barrier executes the action.
+            <strong>{t('Deterministic Evaluation:')}</strong> {t('Edge controllers process active rules strictly from top to bottom (Priority #1 to #999). As soon as an entry matches target, facility, and time window, evaluation halts and the barrier executes the action.')}
           </span>
         </div>
         <button
           onClick={() => setIsReorderModalOpen(true)}
           className="text-[#58a6ff] hover:underline whitespace-nowrap font-medium text-[11px] cursor-pointer"
         >
-          Adjust Sequence &rarr;
+          {t('Adjust Sequence')} &rarr;
         </button>
       </div>
 
@@ -238,7 +240,7 @@ export const TenantRulesPage: React.FC = () => {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]" />
           <input
             type="text"
-            placeholder="Search by rule name, code, plate, or target..."
+            placeholder={t('Search by rule name, code, plate, or target...')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-[#0d0e12] border border-[#30363d] rounded-lg pl-9 pr-3 py-2 text-white placeholder-[#8b949e] focus:outline-hidden focus:border-[#58a6ff]"
@@ -253,12 +255,12 @@ export const TenantRulesPage: React.FC = () => {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-white"
           >
-            <option value="ALL">All Statuses</option>
-            <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
-            <option value="DRAFT">Draft</option>
-            <option value="SCHEDULED">Scheduled</option>
-            <option value="EXPIRED">Expired</option>
+            <option value="ALL">{t('All Statuses')}</option>
+            <option value="ACTIVE">{t('Active')}</option>
+            <option value="INACTIVE">{t('Inactive')}</option>
+            <option value="DRAFT">{t('Draft')}</option>
+            <option value="SCHEDULED">{t('Scheduled')}</option>
+            <option value="EXPIRED">{t('Expired')}</option>
           </select>
 
           {/* Action */}
@@ -267,9 +269,9 @@ export const TenantRulesPage: React.FC = () => {
             onChange={(e) => setActionFilter(e.target.value)}
             className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-white"
           >
-            <option value="ALL">All Actions</option>
-            <option value="ALLOW">ALLOW (Permit)</option>
-            <option value="DENY">DENY (Block)</option>
+            <option value="ALL">{t('All Actions')}</option>
+            <option value="ALLOW">{t('ALLOW (Permit)')}</option>
+            <option value="DENY">{t('DENY (Block)')}</option>
           </select>
 
           {/* Target */}
@@ -278,14 +280,14 @@ export const TenantRulesPage: React.FC = () => {
             onChange={(e) => setTargetFilter(e.target.value)}
             className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-white"
           >
-            <option value="ALL">All Targets</option>
-            <option value="MEMBER_GROUP">Member Group</option>
-            <option value="LICENSE_PLATE">License Plate</option>
-            <option value="SPECIFIC_VEHICLE">Specific Vehicle</option>
-            <option value="MEMBER">Individual Member</option>
-            <option value="VEHICLE_GROUP">Vehicle Group</option>
-            <option value="VISITOR">Visitor / Guest</option>
-            <option value="ALL_VEHICLES">All Vehicles</option>
+            <option value="ALL">{t('All Targets')}</option>
+            <option value="MEMBER_GROUP">{t('Member Group')}</option>
+            <option value="LICENSE_PLATE">{t('License Plate')}</option>
+            <option value="SPECIFIC_VEHICLE">{t('Specific Vehicle')}</option>
+            <option value="MEMBER">{t('Individual Member')}</option>
+            <option value="VEHICLE_GROUP">{t('Vehicle Group')}</option>
+            <option value="VISITOR">{t('Visitor / Guest')}</option>
+            <option value="ALL_VEHICLES">{t('All Vehicles')}</option>
           </select>
 
           {/* View Mode Toggle */}
@@ -297,7 +299,7 @@ export const TenantRulesPage: React.FC = () => {
                   ? 'bg-[#21262d] text-white'
                   : 'text-[#8b949e] hover:text-white'
               }`}
-              title="Card Grid View"
+              title={t('Card Grid View')}
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
@@ -308,7 +310,7 @@ export const TenantRulesPage: React.FC = () => {
                   ? 'bg-[#21262d] text-white'
                   : 'text-[#8b949e] hover:text-white'
               }`}
-              title="Dense Table View"
+              title={t('Dense Table View')}
             >
               <List className="w-4 h-4" />
             </button>
@@ -322,9 +324,9 @@ export const TenantRulesPage: React.FC = () => {
           <div className="w-12 h-12 rounded-2xl bg-[#21262d] border border-[#30363d] text-[#8b949e] flex items-center justify-center mx-auto">
             <Filter className="w-6 h-6" />
           </div>
-          <h3 className="text-base font-bold text-white">No Matching Access Rules Found</h3>
+          <h3 className="text-base font-bold text-white">{t('No Matching Access Rules Found')}</h3>
           <p className="text-xs text-[#8b949e] max-w-sm mx-auto">
-            No rules match the selected search criteria or filter combinations. Try resetting filters or create a new rule.
+            {t('No rules match the selected search criteria or filter combinations. Try resetting filters or create a new rule.')}
           </p>
           <Button
             variant="outline"
@@ -338,7 +340,7 @@ export const TenantRulesPage: React.FC = () => {
             }}
             className="text-xs border-[#30363d] text-[#58a6ff] hover:bg-[#21262d]"
           >
-            Clear All Filters
+            {t('Clear All Filters')}
           </Button>
         </div>
       ) : viewMode === 'cards' ? (
@@ -362,11 +364,11 @@ export const TenantRulesPage: React.FC = () => {
                         }`}
                       >
                         {isAllow ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
-                        {rule.action}
+                        {t(rule.action)}
                       </span>
 
                       <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#21262d] border border-[#30363d] text-[#58a6ff]">
-                        Priority #{rule.priority}
+                        {t('Priority #{{num}}', { num: rule.priority })}
                       </span>
                     </div>
 
@@ -380,7 +382,7 @@ export const TenantRulesPage: React.FC = () => {
                       }`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                      {rule.status}
+                      {t(rule.status)}
                     </span>
                   </div>
 
@@ -395,20 +397,20 @@ export const TenantRulesPage: React.FC = () => {
                   {/* Target Entity Box */}
                   <div className="mt-3 p-2.5 rounded-xl bg-[#0d0e12] border border-[#30363d]/60 text-xs space-y-1">
                     <div className="flex items-center justify-between text-[11px] text-[#8b949e]">
-                      <span>Target:</span>
+                      <span>{t('Target:')}</span>
                       <span className="font-mono font-medium text-[#58a6ff]">{rule.target?.type || rule.type}</span>
                     </div>
                     <div className="font-semibold text-white truncate">
                       {rule.target?.type === 'LICENSE_PLATE' && rule.target.licensePlate ? (
                         <span className="font-mono text-[#f0883e]">{rule.target.licensePlate}</span>
                       ) : rule.target?.type === 'MEMBER_GROUP' && rule.target.memberGroup ? (
-                        <span>Group: {rule.target.memberGroup}</span>
+                        <span>{t('Group:')} {rule.target.memberGroup}</span>
                       ) : rule.target?.type === 'SPECIFIC_VEHICLE' && rule.target.vehicleName ? (
                         <span>{rule.target.vehicleName}</span>
                       ) : rule.target?.type === 'ALL_VEHICLES' ? (
-                        <span>All Vehicles</span>
+                        <span>{t('All Vehicles')}</span>
                       ) : (
-                        <span>{rule.target?.memberName || 'General Fleet Policy'}</span>
+                        <span>{rule.target?.memberName || t('General Fleet Policy')}</span>
                       )}
                     </div>
                   </div>
@@ -417,19 +419,19 @@ export const TenantRulesPage: React.FC = () => {
                   <div className="space-y-2 mt-3 text-xs">
                     <div className="flex items-center gap-2 text-[#8b949e]">
                       <Clock className="w-3.5 h-3.5 text-[#e3b341] shrink-0" />
-                      <span className="truncate">{rule.schedule?.summaryText || '24/7 Always Active'}</span>
+                      <span className="truncate">{rule.schedule?.summaryText || t('24/7 Always Active')}</span>
                     </div>
 
                     <div className="flex items-center gap-2 text-[#8b949e]">
                       <Building2 className="w-3.5 h-3.5 text-[#58a6ff] shrink-0" />
                       <span className="truncate">
                         {rule.scope?.allSites || rule.sites?.includes('ALL_SITES') || rule.sites?.includes('ALL')
-                          ? 'All Facilities'
-                          : `${(rule.scope?.siteNames || []).join(', ') || `${rule.sites?.length || 1} Site(s)`}`}
+                          ? t('All Facilities')
+                          : `${(rule.scope?.siteNames || []).join(', ') || t('{{count}} Site(s)', { count: rule.sites?.length || 1 })}`}
                         {' · '}
                         {rule.scope?.allGates || rule.gates?.includes('ALL_GATES') || rule.gates?.includes('ALL')
-                          ? 'All Gates'
-                          : `${rule.scope?.gateIds?.length || 1} Gate(s)`}
+                          ? t('All Gates')
+                          : t('{{count}} Gate(s)', { count: rule.scope?.gateIds?.length || 1 })}
                       </span>
                     </div>
                   </div>
@@ -441,7 +443,7 @@ export const TenantRulesPage: React.FC = () => {
                     onClick={() => setSelectedRuleForDrawer(rule)}
                     className="text-[#58a6ff] hover:underline flex items-center gap-1 font-medium cursor-pointer"
                   >
-                    View Details
+                    {t('View Details')}
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
 
@@ -449,7 +451,7 @@ export const TenantRulesPage: React.FC = () => {
                     <button
                       onClick={() => handleOpenSimulator(rule)}
                       className="p-1.5 rounded hover:bg-[#1f6feb]/20 text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
-                      title="Test in Simulator"
+                      title={t('Test in Simulator')}
                     >
                       <Play className="w-3.5 h-3.5" />
                     </button>
@@ -457,7 +459,7 @@ export const TenantRulesPage: React.FC = () => {
                     <button
                       onClick={() => handleOpenEditModal(rule)}
                       className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
-                      title="Edit Rule"
+                      title={t('Edit Rule')}
                     >
                       <Edit className="w-3.5 h-3.5" />
                     </button>
@@ -465,7 +467,7 @@ export const TenantRulesPage: React.FC = () => {
                     <button
                       onClick={() => duplicateTenantAccessRule(rule.id)}
                       className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
-                      title="Duplicate Rule"
+                      title={t('Duplicate Rule')}
                     >
                       <Copy className="w-3.5 h-3.5" />
                     </button>
@@ -477,7 +479,7 @@ export const TenantRulesPage: React.FC = () => {
                           ? 'text-[#8b949e] hover:text-[#e3b341] hover:bg-[#e3b341]/10'
                           : 'text-[#8b949e] hover:text-[#3fb950] hover:bg-[#3fb950]/10'
                       }`}
-                      title={rule.status === 'ACTIVE' ? 'Deactivate Rule' : 'Activate Rule'}
+                      title={rule.status === 'ACTIVE' ? t('Deactivate Rule') : t('Activate Rule')}
                     >
                       <Power className="w-3.5 h-3.5" />
                     </button>
@@ -485,7 +487,7 @@ export const TenantRulesPage: React.FC = () => {
                     <button
                       onClick={() => setRuleToDelete(rule)}
                       className="p-1.5 rounded hover:bg-[#da3633]/20 text-[#8b949e] hover:text-[#f85149] transition-colors cursor-pointer"
-                      title="Delete Rule"
+                      title={t('Delete Rule')}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -502,14 +504,14 @@ export const TenantRulesPage: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-[#0d0e12] border-b border-[#30363d] text-[#8b949e]">
                 <tr>
-                  <th className="py-3 px-4 font-semibold">Priority</th>
-                  <th className="py-3 px-4 font-semibold">Action</th>
-                  <th className="py-3 px-4 font-semibold">Rule Name & Code</th>
-                  <th className="py-3 px-4 font-semibold">Target Entity</th>
-                  <th className="py-3 px-4 font-semibold">Facility & Gates</th>
-                  <th className="py-3 px-4 font-semibold">Operating Schedule</th>
-                  <th className="py-3 px-4 font-semibold">Status</th>
-                  <th className="py-3 px-4 font-semibold text-right">Actions</th>
+                  <th className="py-3 px-4 font-semibold">{t('Priority')}</th>
+                  <th className="py-3 px-4 font-semibold">{t('Action')}</th>
+                  <th className="py-3 px-4 font-semibold">{t('Rule Name & Code')}</th>
+                  <th className="py-3 px-4 font-semibold">{t('Target Entity')}</th>
+                  <th className="py-3 px-4 font-semibold">{t('Facility & Gates')}</th>
+                  <th className="py-3 px-4 font-semibold">{t('Operating Schedule')}</th>
+                  <th className="py-3 px-4 font-semibold">{t('Status')}</th>
+                  <th className="py-3 px-4 font-semibold text-right">{t('Actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]/60">
@@ -536,7 +538,7 @@ export const TenantRulesPage: React.FC = () => {
                           }`}
                         >
                           {isAllow ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
-                          {rule.action}
+                          {t(rule.action)}
                         </span>
                       </td>
 
@@ -552,23 +554,23 @@ export const TenantRulesPage: React.FC = () => {
                           {rule.target?.type || rule.type}
                         </span>
                         <span className="text-white font-medium">
-                          {rule.target?.licensePlate || rule.target?.memberGroup || rule.target?.vehicleName || 'All Vehicles'}
+                          {rule.target?.licensePlate || rule.target?.memberGroup || rule.target?.vehicleName || t('All Vehicles')}
                         </span>
                       </td>
 
                       <td className="py-3 px-4 text-[#c9d1d9]">
                         <div>
                           {rule.scope?.allSites || rule.sites?.includes('ALL_SITES') || rule.sites?.includes('ALL')
-                            ? 'All Facilities'
-                            : (rule.scope?.siteNames || []).join(', ') || 'Targeted Site'}
+                            ? t('All Facilities')
+                            : (rule.scope?.siteNames || []).join(', ') || t('Targeted Site')}
                         </div>
                         <div className="text-[11px] text-[#8b949e]">
-                          {rule.scope?.allGates || rule.gates?.includes('ALL_GATES') ? 'All Gates' : `${rule.scope?.gateIds?.length || 1} Gate(s)`}
+                          {rule.scope?.allGates || rule.gates?.includes('ALL_GATES') ? t('All Gates') : t('{{count}} Gate(s)', { count: rule.scope?.gateIds?.length || 1 })}
                         </div>
                       </td>
 
                       <td className="py-3 px-4 text-[#c9d1d9] font-medium max-w-xs truncate">
-                        {rule.schedule?.summaryText || '24/7 Always Active'}
+                        {rule.schedule?.summaryText || t('24/7 Always Active')}
                       </td>
 
                       <td className="py-3 px-4">
@@ -580,7 +582,7 @@ export const TenantRulesPage: React.FC = () => {
                           }`}
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                          {rule.status}
+                          {t(rule.status)}
                         </span>
                       </td>
 
@@ -589,21 +591,21 @@ export const TenantRulesPage: React.FC = () => {
                           <button
                             onClick={() => handleOpenSimulator(rule)}
                             className="p-1.5 rounded hover:bg-[#1f6feb]/20 text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
-                            title="Test Rule"
+                            title={t('Test Rule')}
                           >
                             <Play className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleOpenEditModal(rule)}
                             className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
-                            title="Edit"
+                            title={t('Edit')}
                           >
                             <Edit className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => setRuleToDelete(rule)}
                             className="p-1.5 rounded hover:bg-[#da3633]/20 text-[#8b949e] hover:text-[#f85149] transition-colors cursor-pointer"
-                            title="Delete"
+                            title={t('Delete')}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

@@ -3,6 +3,7 @@ import { VehicleType } from '../../../types/tenant';
 import { usePlatform } from '../../../context/PlatformContext';
 import { X, Check, UploadCloud, FileSpreadsheet, AlertCircle } from 'lucide-react';
 import { Button } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface ImportVehiclesModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ export const ImportVehiclesModal: React.FC<ImportVehiclesModalProps> = ({
   onClose
 }) => {
   const { importTenantVehicles } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const SAMPLE_CSV = `Make,Model,Type,Plate,Color,Year,OwnerName
 Toyota,Corolla Altis,CAR,51H-123.45,Silver,2023,Nguyen Van A
@@ -99,8 +101,8 @@ Ford,Transit Delivery,VAN,51D-334.56,White,2021,Contractor Lead`;
               <UploadCloud className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">Bulk Import Vehicles</h3>
-              <p className="text-xs text-[#8b949e]">Import multiple vehicles via CSV format</p>
+              <h3 className="text-base font-bold text-white tracking-tight">{t('Bulk Import Vehicles')}</h3>
+              <p className="text-xs text-[#8b949e]">{t('Import multiple vehicles via CSV format')}</p>
             </div>
           </div>
 
@@ -116,14 +118,14 @@ Ford,Transit Delivery,VAN,51D-334.56,White,2021,Contractor Lead`;
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-[#c9d1d9] font-medium">
-                CSV Data (Comma Separated)
+                {t('CSV Data (Comma Separated)')}
               </label>
               <button
                 type="button"
                 onClick={() => setRawText(SAMPLE_CSV)}
                 className="text-[11px] text-[#58a6ff] hover:underline cursor-pointer"
               >
-                Reset to Sample Template
+                {t('Reset to Sample Template')}
               </button>
             </div>
             <textarea
@@ -140,10 +142,10 @@ Ford,Transit Delivery,VAN,51D-334.56,White,2021,Contractor Lead`;
                 <Check className="w-4 h-4" />
               </div>
               <div className="text-xs">
-                <span className="font-bold text-white">Import Complete:</span> {resultSummary.imported} vehicles imported successfully.
+                <span className="font-bold text-white">{t('Import Complete:')}</span> {t('{{count}} vehicles imported successfully.', { count: resultSummary.imported })}
                 {resultSummary.duplicates > 0 && (
                   <span className="text-[#e3b341] block text-[11px]">
-                    {resultSummary.duplicates} skipped because plates already exist.
+                    {t('{{count}} skipped because plates already exist.', { count: resultSummary.duplicates })}
                   </span>
                 )}
               </div>
@@ -157,7 +159,7 @@ Ford,Transit Delivery,VAN,51D-334.56,White,2021,Contractor Lead`;
               onClick={onClose}
               className="text-xs"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               type="button"
@@ -167,7 +169,7 @@ Ford,Transit Delivery,VAN,51D-334.56,White,2021,Contractor Lead`;
               className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              Process & Import Vehicles
+              {t('Process & Import Vehicles')}
             </Button>
           </div>
         </div>

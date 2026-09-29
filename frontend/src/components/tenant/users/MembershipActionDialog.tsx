@@ -12,6 +12,7 @@ import {
   Info
 } from 'lucide-react';
 import { Button } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface MembershipActionDialogProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
   actionType
 }) => {
   const { suspendTenantMembership, activateTenantMembership, endTenantMembership } = usePlatform();
+  const { t } = useTranslation('tenant');
   const [suspendReason, setSuspendReason] = useState(
     'Temporary pass suspension pending compliance / invoice review.'
   );
@@ -38,7 +40,7 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
     setFormError(null);
     if (actionType === 'SUSPEND') {
       if (!suspendReason.trim()) {
-        setFormError('Please specify a reason for suspending this membership.');
+        setFormError(t('Please specify a reason for suspending this membership.'));
         return;
       }
       suspendTenantMembership(user.id, suspendReason.trim());
@@ -53,11 +55,11 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
   const getTitle = () => {
     switch (actionType) {
       case 'SUSPEND':
-        return 'Suspend Member Access';
+        return t('Suspend Member Access');
       case 'ACTIVATE':
-        return 'Reactivate Member Access';
+        return t('Reactivate Member Access');
       case 'END':
-        return 'End Membership Profile';
+        return t('End Membership Profile');
     }
   };
 
@@ -83,9 +85,9 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
             <div>
               <h2 className="text-base font-bold text-white tracking-tight">{getTitle()}</h2>
               <p className="text-xs text-[#8b949e]">
-                {actionType === 'SUSPEND' && 'Temporarily block automatic gate access'}
-                {actionType === 'ACTIVATE' && 'Restore vehicle whitelist access privileges'}
-                {actionType === 'END' && 'Permanently retire membership and release passes'}
+                {actionType === 'SUSPEND' && t('Temporarily block automatic gate access')}
+                {actionType === 'ACTIVATE' && t('Restore vehicle whitelist access privileges')}
+                {actionType === 'END' && t('Permanently retire membership and release passes')}
               </p>
             </div>
           </div>
@@ -123,7 +125,7 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
             <div className="text-right">
               <div className="text-[11px] text-[#8b949e] flex items-center gap-1 justify-end">
                 <Car className="w-3 h-3 text-[#58a6ff]" />
-                <span>{user.membership.vehicles.length} Vehicles</span>
+                <span>{t('{{count}} Vehicles', { count: user.membership.vehicles.length })}</span>
               </div>
               <span
                 className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5 ${
@@ -134,7 +136,7 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
                     : 'bg-[#8b949e]/15 text-[#8b949e] border border-[#8b949e]/30'
                 }`}
               >
-                {user.membership.status}
+                {t(user.membership.status)}
               </span>
             </div>
           </div>
@@ -143,12 +145,12 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
             <div className="space-y-3">
               <div>
                 <label className="block text-[#8b949e] font-semibold mb-1">
-                  Reason for Suspension <span className="text-[#f85149]">*</span>
+                  {t('Reason for Suspension')} <span className="text-[#f85149]">*</span>
                 </label>
                 <textarea
                   rows={3}
                   required
-                  placeholder="Provide detailed explanation for this suspension..."
+                  placeholder={t('Provide detailed explanation for this suspension...')}
                   value={suspendReason}
                   onChange={(e) => setSuspendReason(e.target.value)}
                   className="w-full bg-[#0d0e12] border border-[#30363d] rounded-xl px-3 py-2 text-white placeholder-[#8b949e]/60 focus:border-[#d29922] focus:outline-hidden resize-none"
@@ -158,7 +160,7 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
               <div className="p-3 bg-[#161b22] border border-[#30363d] rounded-xl text-[11px] text-[#8b949e] flex items-start gap-2">
                 <Info className="w-4 h-4 text-[#58a6ff] shrink-0 mt-0.5" />
                 <span>
-                  The user can still sign in to check their status, but their linked license plates will be rejected at all automated gates with a <strong className="text-white">&quot;MEMBERSHIP_SUSPENDED&quot;</strong> notice.
+                  {t('The user can still sign in to check their status, but their linked license plates will be rejected at all automated gates with a')} <strong className="text-white">&quot;MEMBERSHIP_SUSPENDED&quot;</strong> {t('notice.')}
                 </span>
               </div>
             </div>
@@ -167,12 +169,12 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
           {actionType === 'ACTIVATE' && (
             <div className="space-y-3">
               <p className="text-[#c9d1d9] leading-relaxed">
-                Restore full access for <strong className="text-white">{user.membership.fullName}</strong>?
+                {t('Restore full access for')} <strong className="text-white">{user.membership.fullName}</strong>?
               </p>
               <div className="p-3 bg-[#238636]/10 border border-[#238636]/30 rounded-xl text-[11px] text-[#3fb950] flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>
-                  All {user.membership.vehicles.length} registered vehicle plates will be immediately re-synced with the edge ANPR gateway policies.
+                  {t('All {{count}} registered vehicle plates will be immediately re-synced with the edge ANPR gateway policies.', { count: user.membership.vehicles.length })}
                 </span>
               </div>
             </div>
@@ -181,12 +183,12 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
           {actionType === 'END' && (
             <div className="space-y-3">
               <p className="text-[#c9d1d9] leading-relaxed">
-                Are you sure you want to end membership for <strong className="text-white">{user.membership.fullName}</strong>?
+                {t('Are you sure you want to end membership for')} <strong className="text-white">{user.membership.fullName}</strong>?
               </p>
               <div className="p-3 bg-[#f85149]/10 border border-[#f85149]/30 rounded-xl text-[11px] text-[#ff7b72] flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>
-                  This marks the membership as Ended and expires all linked vehicle gate passes. Historical logs will remain intact.
+                  {t('This marks the membership as Ended and expires all linked vehicle gate passes. Historical logs will remain intact.')}
                 </span>
               </div>
             </div>
@@ -196,7 +198,7 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
         {/* Footer */}
         <div className="p-4 border-t border-[#30363d] bg-[#0d0e12]/80 flex items-center justify-end gap-2.5">
           <Button variant="secondary" onClick={onClose} className="text-xs">
-            Cancel
+            {t('Cancel')}
           </Button>
           {actionType === 'SUSPEND' && (
             <Button
@@ -206,7 +208,7 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
               className="text-xs bg-[#d29922] hover:bg-[#e3b341] text-black font-bold gap-1.5 shadow-sm"
             >
               <Ban className="w-3.5 h-3.5" />
-              Confirm Suspension
+              {t('Confirm Suspension')}
             </Button>
           )}
           {actionType === 'ACTIVATE' && (
@@ -217,7 +219,7 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
               className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white font-bold gap-1.5 shadow-sm"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              Reactivate Membership
+              {t('Reactivate Membership')}
             </Button>
           )}
           {actionType === 'END' && (
@@ -228,7 +230,7 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
               className="text-xs bg-[#da3633] hover:bg-[#f85149] text-white font-bold gap-1.5 shadow-sm"
             >
               <StopCircle className="w-3.5 h-3.5" />
-              End Membership
+              {t('End Membership')}
             </Button>
           )}
         </div>

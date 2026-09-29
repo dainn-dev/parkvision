@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Button, Badge } from '../ui';
 import { usePlatform } from '../../context/PlatformContext';
+import { useTranslation } from 'react-i18next';
 
 export interface MfaFlowModalProps {
   isOpen: boolean;
@@ -41,6 +42,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
   onSuccess
 }) => {
   const { addToast, pushAuditLog } = usePlatform();
+  const { t } = useTranslation('security');
 
   // Step flow state: 1: Method, 2: Setup/QR, 3: Verify OTP, 4: Recovery Codes, 5: Complete
   const [step, setStep] = useState<number>(mode === 'challenge' ? 3 : 1);
@@ -143,7 +145,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
   const handleVerifyOtp = () => {
     const fullCode = otpDigits.join('');
     if (fullCode.length < 6) {
-      setVerificationError('Please enter all 6 digits of your authenticator code.');
+      setVerificationError(t('Please enter all 6 digits of your authenticator code.'));
       return;
     }
 
@@ -156,20 +158,20 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
 
       // Any 6-digit code except starting with '000000' is considered valid for demo
       if (fullCode === '000000') {
-        setVerificationError('Invalid passkey code or expired TOTP window. Please check your device time.');
+        setVerificationError(t('Invalid passkey code or expired TOTP window. Please check your device time.'));
         addToast({
           type: 'error',
-          title: 'MFA Verification Failed',
-          description: 'The provided code was rejected by the authentication server.'
+          title: t('MFA Verification Failed'),
+          description: t('The provided code was rejected by the authentication server.')
         });
       } else {
         addToast({
           type: 'success',
-          title: 'MFA Verification Successful',
-          description: mode === 'challenge' ? 'Identity verified. Access session elevated.' : 'TOTP Authenticator successfully configured!'
+          title: t('MFA Verification Successful'),
+          description: mode === 'challenge' ? t('Identity verified. Access session elevated.') : t('TOTP Authenticator successfully configured!')
         });
 
-        pushAuditLog('SECURITY', mode === 'challenge' ? 'MFA_CHALLENGE_SUCCESS' : 'MFA_ENROLLED', 'USER', 'mfa-session', 'TOTP Authentication Verified');
+        pushAuditLog('SECURITY', mode === 'challenge' ? 'MFA_CHALLENGE_SUCCESS' : 'MFA_ENROLLED', 'USER', 'mfa-session', t('TOTP Authentication Verified'));
 
         if (mode === 'challenge') {
           if (onSuccess) onSuccess();
@@ -191,8 +193,8 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
     setTimeout(() => setIsCopiedSecret(false), 2000);
     addToast({
       type: 'info',
-      title: 'Secret Copied',
-      description: 'Secret key copied to clipboard.'
+      title: t('Secret Copied'),
+      description: t('Secret key copied to clipboard.')
     });
   };
 
@@ -203,8 +205,8 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
     setTimeout(() => setIsCopiedCodes(false), 2000);
     addToast({
       type: 'info',
-      title: 'Recovery Codes Copied',
-      description: 'All 8 recovery codes saved to clipboard.'
+      title: t('Recovery Codes Copied'),
+      description: t('All 8 recovery codes saved to clipboard.')
     });
   };
 
@@ -221,8 +223,8 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
     setHasSavedCodes(true);
     addToast({
       type: 'success',
-      title: 'Recovery File Downloaded',
-      description: 'Saved vehicle-platform-mfa-recovery-codes.txt to downloads.'
+      title: t('Recovery File Downloaded'),
+      description: t('Saved vehicle-platform-mfa-recovery-codes.txt to downloads.')
     });
   };
 
@@ -232,8 +234,8 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
     onClose();
     addToast({
       type: 'success',
-      title: 'MFA Enforced',
-      description: 'Multi-factor authentication is now active on your account.'
+      title: t('MFA Enforced'),
+      description: t('Multi-factor authentication is now active on your account.')
     });
   };
 
@@ -255,19 +257,19 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-white text-base">
                   {mode === 'enroll'
-                    ? 'Multi-Factor Setup'
+                    ? t('Multi-Factor Setup')
                     : mode === 'challenge'
-                    ? 'MFA Security Challenge'
-                    : `Reset MFA for ${targetAdminName || 'Administrator'}`}
+                    ? t('MFA Security Challenge')
+                    : t('Reset MFA for {{name}}', { name: targetAdminName || t('Administrator') })}
                 </h3>
                 <Badge variant="blue" size="sm">FIDO/TOTP</Badge>
               </div>
               <p className="text-xs text-[#8b949e]">
                 {mode === 'enroll'
-                  ? 'Protect your platform account with 2-factor authentication'
+                  ? t('Protect your platform account with 2-factor authentication')
                   : mode === 'challenge'
-                  ? 'Enter your 6-digit TOTP code from your authenticator app'
-                  : 'Generate a new authenticator binding URL for this account'}
+                  ? t('Enter your 6-digit TOTP code from your authenticator app')
+                  : t('Generate a new authenticator binding URL for this account')}
               </p>
             </div>
           </div>
@@ -282,13 +284,13 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
         {/* Step Progress Bar (For Enrollment) */}
         {mode === 'enroll' && (
           <div className="px-6 py-2.5 bg-[#0d0e12]/60 border-b border-[#30363d] flex items-center justify-between text-xs text-[#8b949e] shrink-0 font-mono">
-            <span className={step >= 1 ? 'text-[#58a6ff] font-bold' : ''}>1. Method</span>
+            <span className={step >= 1 ? 'text-[#58a6ff] font-bold' : ''}>1. {t('Method')}</span>
             <span>→</span>
-            <span className={step >= 2 ? 'text-[#58a6ff] font-bold' : ''}>2. Scan QR</span>
+            <span className={step >= 2 ? 'text-[#58a6ff] font-bold' : ''}>2. {t('Scan QR')}</span>
             <span>→</span>
-            <span className={step >= 3 ? 'text-[#58a6ff] font-bold' : ''}>3. Verify</span>
+            <span className={step >= 3 ? 'text-[#58a6ff] font-bold' : ''}>3. {t('Verify')}</span>
             <span>→</span>
-            <span className={step >= 4 ? 'text-[#58a6ff] font-bold' : ''}>4. Backup</span>
+            <span className={step >= 4 ? 'text-[#58a6ff] font-bold' : ''}>4. {t('Backup')}</span>
           </div>
         )}
 
@@ -298,7 +300,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
           {mode === 'enroll' && step === 1 && (
             <div className="space-y-4">
               <p className="text-xs text-[#c9d1d9]">
-                Choose your primary two-factor authentication method. We strongly recommend using an Authenticator App (TOTP) or Hardware Security Key.
+                {t('Choose your primary two-factor authentication method. We strongly recommend using an Authenticator App (TOTP) or Hardware Security Key.')}
               </p>
 
               <div className="space-y-2.5">
@@ -316,11 +318,11 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-sm text-white">Authenticator App (TOTP)</h4>
-                      <Badge variant="emerald" size="sm">RECOMMENDED</Badge>
+                      <h4 className="font-bold text-sm text-white">{t('Authenticator App (TOTP)')}</h4>
+                      <Badge variant="emerald" size="sm">{t('RECOMMENDED')}</Badge>
                     </div>
                     <p className="text-xs text-[#8b949e] mt-1">
-                      Use Google Authenticator, 1Password, Authy, or Microsoft Authenticator for dynamic 30s passcodes.
+                      {t('Use Google Authenticator, 1Password, Authy, or Microsoft Authenticator for dynamic 30s passcodes.')}
                     </p>
                   </div>
                 </button>
@@ -339,11 +341,11 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-sm text-white">FIDO2 / Hardware Security Key</h4>
-                      <Badge variant="purple" size="sm">HIGH SECURITY</Badge>
+                      <h4 className="font-bold text-sm text-white">{t('FIDO2 / Hardware Security Key')}</h4>
+                      <Badge variant="purple" size="sm">{t('HIGH SECURITY')}</Badge>
                     </div>
                     <p className="text-xs text-[#8b949e] mt-1">
-                      Use physical YubiKey, Apple TouchID / FaceID passkeys, or WebAuthn hardware tokens.
+                      {t('Use physical YubiKey, Apple TouchID / FaceID passkeys, or WebAuthn hardware tokens.')}
                     </p>
                   </div>
                 </button>
@@ -362,11 +364,11 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-sm text-white">SMS Cellular Backup OTP</h4>
-                      <Badge variant="amber" size="sm">FALLBACK</Badge>
+                      <h4 className="font-bold text-sm text-white">{t('SMS Cellular Backup OTP')}</h4>
+                      <Badge variant="amber" size="sm">{t('FALLBACK')}</Badge>
                     </div>
                     <p className="text-xs text-[#8b949e] mt-1">
-                      Receive single-use passcode via SMS message to +84 (***) *** 888.
+                      {t('Receive single-use passcode via SMS message to +84 (***) *** 888.')}
                     </p>
                   </div>
                 </button>
@@ -378,7 +380,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                   icon={ArrowRight}
                   onClick={() => setStep(2)}
                 >
-                  Continue to Pairing
+                  {t('Continue to Pairing')}
                 </Button>
               </div>
             </div>
@@ -390,7 +392,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
               <div className="p-3 bg-[#0d0e12] border border-[#30363d] rounded-xl flex items-center gap-3">
                 <QrCode className="w-5 h-5 text-[#58a6ff] shrink-0" />
                 <p>
-                  Scan the QR code below using your authenticator application, or manually enter the secret key.
+                  {t('Scan the QR code below using your authenticator application, or manually enter the secret key.')}
                 </p>
               </div>
 
@@ -440,7 +442,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                 <div className="flex-1 space-y-3 text-left w-full">
                   <div>
                     <label className="text-[11px] text-[#8b949e] uppercase font-mono font-semibold block mb-1">
-                      Manual Secret Key
+                      {t('Manual Secret Key')}
                     </label>
                     <div className="flex items-center gap-2">
                       <code className="flex-1 bg-[#161b22] px-3 py-2 rounded-lg border border-[#30363d] font-mono text-sm text-[#58a6ff] font-bold tracking-wider">
@@ -452,18 +454,18 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                         onClick={handleCopySecret}
                         icon={isCopiedSecret ? Check : Copy}
                       >
-                        {isCopiedSecret ? 'Copied' : 'Copy'}
+                        {isCopiedSecret ? t('Copied') : t('Copy')}
                       </Button>
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <p className="text-[11px] text-[#8b949e]">Account identifier:</p>
+                    <p className="text-[11px] text-[#8b949e]">{t('Account identifier:')}</p>
                     <p className="font-mono text-xs text-white">anh.nh@kyanon.digital</p>
                   </div>
 
                   <div className="space-y-1">
-                    <p className="text-[11px] text-[#8b949e]">Issuer domain:</p>
+                    <p className="text-[11px] text-[#8b949e]">{t('Issuer domain:')}</p>
                     <p className="font-mono text-xs text-white">VehiclePlatform Operational Governance</p>
                   </div>
                 </div>
@@ -471,10 +473,10 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
 
               <div className="flex items-center justify-between pt-2">
                 <Button variant="ghost" onClick={() => setStep(1)}>
-                  Back
+                  {t('Back')}
                 </Button>
                 <Button variant="primary" icon={ArrowRight} onClick={() => setStep(3)}>
-                  I've Scanned the Code
+                  {t("I've Scanned the Code")}
                 </Button>
               </div>
             </div>
@@ -484,9 +486,9 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
           {(step === 3 || mode === 'challenge') && (
             <div className="space-y-5 text-xs text-[#c9d1d9]">
               <div className="text-center space-y-1">
-                <p className="font-semibold text-white text-sm">Enter 6-Digit Authenticator Passcode</p>
+                <p className="font-semibold text-white text-sm">{t('Enter 6-Digit Authenticator Passcode')}</p>
                 <p className="text-xs text-[#8b949e]">
-                  Open your TOTP app and enter the current generated 6-digit passcode.
+                  {t('Open your TOTP app and enter the current generated 6-digit passcode.')}
                 </p>
               </div>
 
@@ -518,10 +520,10 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
               <div className="flex items-center justify-between px-3 py-2 bg-[#0d0e12] border border-[#30363d] rounded-xl text-[11px] text-[#8b949e]">
                 <div className="flex items-center gap-2">
                   <Clock className="w-3.5 h-3.5 text-[#58a6ff]" />
-                  <span>Passcode validity window:</span>
+                  <span>{t('Passcode validity window:')}</span>
                 </div>
                 <div className="flex items-center gap-2 font-mono">
-                  <span className="font-bold text-white">{countdown}s remaining</span>
+                  <span className="font-bold text-white">{t('{{count}}s remaining', { count: countdown })}</span>
                   <div className="w-16 h-1.5 bg-[#21262d] rounded-full overflow-hidden">
                     <div
                       className="h-full bg-[#58a6ff] transition-all duration-1000"
@@ -546,20 +548,20 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                   onClick={handleFillDemoCode}
                   className="text-[#58a6ff] hover:underline flex items-center gap-1 font-mono cursor-pointer"
                 >
-                  <Sparkles className="w-3 h-3" /> Auto-fill test passcode (123456)
+                  <Sparkles className="w-3 h-3" /> {t('Auto-fill test passcode (123456)')}
                 </button>
-                <span className="text-[#8b949e] font-mono">Paste supported</span>
+                <span className="text-[#8b949e] font-mono">{t('Paste supported')}</span>
               </div>
 
               {/* Actions */}
               <div className="flex items-center justify-between pt-3 border-t border-[#30363d]">
                 {mode === 'enroll' ? (
                   <Button variant="ghost" onClick={() => setStep(2)}>
-                    Back
+                    {t('Back')}
                   </Button>
                 ) : (
                   <Button variant="ghost" onClick={onClose}>
-                    Cancel
+                    {t('Cancel')}
                   </Button>
                 )}
 
@@ -569,7 +571,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                   isLoading={isVerifying}
                   icon={ShieldCheck}
                 >
-                  {isVerifying ? 'Validating Token...' : 'Verify Passcode'}
+                  {isVerifying ? t('Validating Token...') : t('Verify Passcode')}
                 </Button>
               </div>
             </div>
@@ -581,9 +583,9 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
               <div className="p-4 bg-[#238636]/10 border border-[#3fb950]/30 rounded-xl flex items-center gap-3">
                 <CheckCircle2 className="w-6 h-6 text-[#3fb950] shrink-0" />
                 <div>
-                  <h4 className="font-bold text-white text-sm">Authenticator Verified Successfully!</h4>
+                  <h4 className="font-bold text-white text-sm">{t('Authenticator Verified Successfully!')}</h4>
                   <p className="text-xs text-[#8b949e]">
-                    Save these emergency recovery codes. If you lose access to your authenticator app, these codes are the only way to recover account access.
+                    {t('Save these emergency recovery codes. If you lose access to your authenticator app, these codes are the only way to recover account access.')}
                   </p>
                 </div>
               </div>
@@ -591,8 +593,8 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
               {/* 8 Recovery Codes Grid */}
               <div className="p-4 bg-[#0d0e12] rounded-xl border border-[#30363d] space-y-3">
                 <div className="flex items-center justify-between text-[11px] text-[#8b949e] border-b border-[#30363d] pb-2 font-mono">
-                  <span>SINGLE-USE EMERGENCY RECOVERY CODES</span>
-                  <Badge variant="amber" size="sm">KEEP SECURE</Badge>
+                  <span>{t('SINGLE-USE EMERGENCY RECOVERY CODES')}</span>
+                  <Badge variant="amber" size="sm">{t('KEEP SECURE')}</Badge>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 font-mono text-sm">
@@ -614,7 +616,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                     onClick={handleCopyRecoveryCodes}
                     icon={isCopiedCodes ? Check : Copy}
                   >
-                    {isCopiedCodes ? 'Copied All' : 'Copy All Codes'}
+                    {isCopiedCodes ? t('Copied All') : t('Copy All Codes')}
                   </Button>
                   <Button
                     variant="outline"
@@ -623,7 +625,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                     onClick={handleDownloadRecoveryCodes}
                     icon={Download}
                   >
-                    Download TXT
+                    {t('Download TXT')}
                   </Button>
                 </div>
               </div>
@@ -637,7 +639,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                   className="w-4 h-4 rounded border-[#30363d] text-[#58a6ff] focus:ring-[#58a6ff] cursor-pointer"
                 />
                 <span className="text-xs text-white">
-                  I have saved or printed these 8 recovery codes in a safe place.
+                  {t('I have saved or printed these 8 recovery codes in a safe place.')}
                 </span>
               </label>
 
@@ -649,7 +651,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                   onClick={handleCompleteEnrollment}
                   icon={ShieldCheck}
                 >
-                  Complete MFA Setup
+                  {t('Complete MFA Setup')}
                 </Button>
               </div>
             </div>
@@ -661,25 +663,25 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
               <div className="p-4 bg-[#da3633]/10 border border-[#f85149]/30 rounded-xl flex items-center gap-3">
                 <ShieldAlert className="w-6 h-6 text-[#f85149] shrink-0" />
                 <div>
-                  <h4 className="font-bold text-white text-sm">Reset MFA Secret Key</h4>
+                  <h4 className="font-bold text-white text-sm">{t('Reset MFA Secret Key')}</h4>
                   <p className="text-xs text-[#8b949e]">
-                    Target user: <strong className="text-white">{targetAdminName || 'Administrator'}</strong>
+                    {t('Target user:')} <strong className="text-white">{targetAdminName || t('Administrator')}</strong>
                   </p>
                 </div>
               </div>
 
               <p>
-                Resetting MFA will immediately revoke all paired TOTP devices and security keys for this administrator. The user will be prompted to re-enroll upon their next console sign-in.
+                {t('Resetting MFA will immediately revoke all paired TOTP devices and security keys for this administrator. The user will be prompted to re-enroll upon their next console sign-in.')}
               </p>
 
               <div className="p-3 bg-[#0d0e12] border border-[#30363d] rounded-xl font-mono text-[11px] space-y-1">
-                <p className="text-[#8b949e]">AUDIT ACTION:</p>
+                <p className="text-[#8b949e]">{t('AUDIT ACTION:')}</p>
                 <p className="text-[#f85149] font-bold">MFA_RESET_PERFORMED_BY_PLATFORM_GOVERNANCE</p>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#30363d]">
                 <Button variant="ghost" onClick={onClose}>
-                  Cancel
+                  {t('Cancel')}
                 </Button>
                 <Button
                   variant="danger"
@@ -687,15 +689,15 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                   onClick={() => {
                     addToast({
                       type: 'warning',
-                      title: 'MFA Secret Reset',
-                      description: `MFA credentials revoked for ${targetAdminName || 'admin'}. User must re-enroll.`
+                      title: t('MFA Secret Reset'),
+                      description: t('MFA credentials revoked for {{name}}. User must re-enroll.', { name: targetAdminName || 'admin' })
                     });
-                    pushAuditLog('SECURITY', 'MFA_RESET', 'ADMIN', targetAdminName || 'admin', 'MFA Secret Revoked');
+                    pushAuditLog('SECURITY', 'MFA_RESET', 'ADMIN', targetAdminName || 'admin', t('MFA Secret Revoked'));
                     if (onSuccess) onSuccess();
                     onClose();
                   }}
                 >
-                  Revoke & Reset Secret
+                  {t('Revoke & Reset Secret')}
                 </Button>
               </div>
             </div>

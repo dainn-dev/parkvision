@@ -1,5 +1,6 @@
 import React, { ReactNode } from 'react';
 import { LucideIcon, X, CheckCircle2, AlertTriangle, XCircle, Info, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // ==========================================
 // 1. BUTTON COMPONENT
@@ -517,6 +518,7 @@ export const Pagination: React.FC<PaginationProps> = ({
   className = '',
   compact = false
 }) => {
+  const { t } = useTranslation('common');
   const safeTotalPages = Math.max(1, totalPages);
   const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endItem = totalItems !== undefined ? Math.min(currentPage * pageSize, totalItems) : currentPage * pageSize;
@@ -544,20 +546,20 @@ export const Pagination: React.FC<PaginationProps> = ({
       <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-start">
         {totalItems !== undefined ? (
           <span>
-            Showing <strong className="text-[#c9d1d9]">{startItem}</strong> to{' '}
-            <strong className="text-[#c9d1d9]">{endItem}</strong> of{' '}
-            <strong className="text-[#c9d1d9]">{totalItems}</strong> entries
+            {t('Showing')} <strong className="text-[#c9d1d9]">{startItem}</strong> {t('to')}{' '}
+            <strong className="text-[#c9d1d9]">{endItem}</strong> {t('of')}{' '}
+            <strong className="text-[#c9d1d9]">{totalItems}</strong> {t('entries')}
           </span>
         ) : (
           <span>
-            Page <strong className="text-[#c9d1d9]">{currentPage}</strong> of{' '}
+            {t('Page')} <strong className="text-[#c9d1d9]">{currentPage}</strong> {t('of')}{' '}
             <strong className="text-[#c9d1d9]">{safeTotalPages}</strong>
           </span>
         )}
 
         {onPageSizeChange && (
           <div className="flex items-center gap-1.5 border-l border-[#30363d] pl-3">
-            <span className="text-[11px] text-[#8b949e]">Per page:</span>
+            <span className="text-[11px] text-[#8b949e]">{t('Per page:')}</span>
             <select
               value={pageSize}
               onChange={(e) => {
@@ -586,7 +588,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           onClick={() => onPageChange(currentPage - 1)}
           className="text-xs px-2.5 py-1 h-7 text-[#c9d1d9] bg-[#0d0e12] border-[#30363d] hover:border-[#58a6ff] disabled:opacity-40"
         >
-          Previous
+          {t('Previous')}
         </Button>
 
         {/* Page Numbers */}
@@ -632,7 +634,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           onClick={() => onPageChange(currentPage + 1)}
           className="text-xs px-2.5 py-1 h-7 text-[#c9d1d9] bg-[#0d0e12] border-[#30363d] hover:border-[#58a6ff] disabled:opacity-40"
         >
-          Next
+          {t('Next')}
         </Button>
       </div>
     </div>
@@ -652,8 +654,9 @@ export const JsonViewer: React.FC<{ data: any; title?: string }> = ({ data, titl
 );
 
 export const DiffViewer: React.FC<{ changes: { field: string; before: any; after: any }[] }> = ({ changes }) => {
+  const { t } = useTranslation('common');
   if (!changes || changes.length === 0) {
-    return <p className="text-xs text-[#8b949e] italic">No specific before/after field changes recorded.</p>;
+    return <p className="text-xs text-[#8b949e] italic">{t('No specific before/after field changes recorded.')}</p>;
   }
 
   return (
@@ -662,11 +665,11 @@ export const DiffViewer: React.FC<{ changes: { field: string; before: any; after
         <div key={idx} className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d] space-y-1">
           <div className="text-[#c9d1d9] font-semibold">{c.field}</div>
           <div className="flex items-center gap-2 text-[#f85149] bg-[#da3633]/10 px-2 py-1 rounded border border-[#da3633]/20">
-            <span className="text-[10px] uppercase tracking-wider font-bold text-[#f85149]">- BEFORE:</span>
+            <span className="text-[10px] uppercase tracking-wider font-bold text-[#f85149]">- {t('BEFORE:')}</span>
             <span>{JSON.stringify(c.before)}</span>
           </div>
           <div className="flex items-center gap-2 text-[#3fb950] bg-[#238636]/10 px-2 py-1 rounded border border-[#238636]/20">
-            <span className="text-[10px] uppercase tracking-wider font-bold text-[#3fb950]">+ AFTER:</span>
+            <span className="text-[10px] uppercase tracking-wider font-bold text-[#3fb950]">+ {t('AFTER:')}</span>
             <span>{JSON.stringify(c.after)}</span>
           </div>
         </div>

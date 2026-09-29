@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../ui';
 import { OperatingHoursSchedule, OperatingHoursDay } from '../../types/tenant';
+import { useTranslation } from 'react-i18next';
 
 interface EditOperatingHoursDialogProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
   schedule,
   onSave
 }) => {
+  const { t } = useTranslation('tenant');
   const [isOpen24_7, setIsOpen24_7] = useState<boolean>(schedule.isOpen24_7 || false);
   const [days, setDays] = useState<OperatingHoursDay[]>(schedule.days);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -134,10 +136,10 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
             </div>
             <div>
               <h3 className="text-base font-bold text-white tracking-tight">
-                Manage Operating Hours
+                {t('Manage Operating Hours')}
               </h3>
               <p className="text-xs text-[#8b949e]">
-                Set opening schedule for ANPR access gates and tenant facilities
+                {t('Set opening schedule for ANPR access gates and tenant facilities')}
               </p>
             </div>
           </div>
@@ -157,15 +159,15 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-white font-semibold text-xs flex items-center gap-2">
-                  <span>24/7 Continuous Operations</span>
+                  <span>{t('24/7 Continuous Operations')}</span>
                   {isOpen24_7 && (
                     <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40 font-mono">
-                      Active
+                      {t('Active')}
                     </span>
                   )}
                 </div>
                 <p className="text-[11px] text-[#8b949e] mt-0.5">
-                  Gates remain operational 24 hours every day without time-window restriction
+                  {t('Gates remain operational 24 hours every day without time-window restriction')}
                 </p>
               </div>
 
@@ -187,7 +189,7 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
             {!isOpen24_7 && (
               <div className="pt-2 border-t border-[#21262d] flex items-center justify-between">
                 <span className="text-[11px] text-[#8b949e]">
-                  Timezone:{' '}
+                  {t('Timezone:')}{' '}
                   <span className="text-white font-mono">
                     {schedule.timezone || 'Asia/Ho_Chi_Minh (UTC+07:00)'}
                   </span>
@@ -198,7 +200,7 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-[#58a6ff] hover:text-white transition-colors text-[11px] font-medium"
                 >
                   <Copy className="w-3.5 h-3.5" />
-                  Apply Mon to Fri
+                  {t('Apply Mon to Fri')}
                 </button>
               </div>
             )}
@@ -208,8 +210,8 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
           {!isOpen24_7 ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-[11px] text-[#8b949e] px-1 font-medium">
-                <span>Day of Week</span>
-                <span>Operating Time Window</span>
+                <span>{t('Day of Week')}</span>
+                <span>{t('Operating Time Window')}</span>
               </div>
 
               {DAYS_ORDER.map(({ day, label }) => {
@@ -243,7 +245,7 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
                           dayConfig.enabled ? 'text-white' : 'text-[#8b949e]'
                         }`}
                       >
-                        {label}
+                        {t(label)}
                       </label>
                     </div>
 
@@ -255,7 +257,7 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
                           onChange={(e) => handleTimeChange(day, 'open', e.target.value)}
                           className="bg-[#161b22] border border-[#30363d] rounded-lg px-2 py-1 text-white text-xs focus:border-[#58a6ff] focus:outline-hidden"
                         />
-                        <span className="text-[#8b949e]">to</span>
+                        <span className="text-[#8b949e]">{t('to')}</span>
                         <input
                           type="time"
                           value={dayConfig.close || '22:00'}
@@ -265,7 +267,7 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
                       </div>
                     ) : (
                       <span className="px-2 py-0.5 rounded-md bg-[#21262d] text-[#8b949e] text-[11px] font-medium">
-                        Closed / Inactive
+                        {t('Closed / Inactive')}
                       </span>
                     )}
                   </div>
@@ -277,10 +279,9 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
               <div className="w-12 h-12 rounded-full bg-[#238636]/15 text-[#3fb950] flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
-              <h4 className="text-white font-semibold text-sm">24/7 Mode Enabled</h4>
+              <h4 className="text-white font-semibold text-sm">{t('24/7 Mode Enabled')}</h4>
               <p className="text-xs text-[#8b949e] max-w-sm mx-auto">
-                This location is designated for round-the-clock automatic ANPR vehicle entry and
-                exit operations.
+                {t('This location is designated for round-the-clock automatic ANPR vehicle entry and exit operations.')}
               </p>
             </div>
           )}
@@ -295,7 +296,7 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
             onClick={onClose}
             className="text-xs border-[#30363d] text-[#8b949e] hover:text-white"
           >
-            Cancel
+            {t('Cancel')}
           </Button>
 
           <Button
@@ -307,7 +308,7 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
             className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 font-semibold"
           >
             <Save className="w-3.5 h-3.5" />
-            Save Operating Hours
+            {t('Save Operating Hours')}
           </Button>
         </div>
       </div>

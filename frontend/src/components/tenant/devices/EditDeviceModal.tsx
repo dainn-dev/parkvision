@@ -3,6 +3,7 @@ import { usePlatform } from '../../../context/PlatformContext';
 import { Server } from 'lucide-react';
 import { Button, Input, Modal, Select } from '../../ui';
 import { TenantEdgeDevice } from '../../../types/tenant';
+import { useTranslation } from 'react-i18next';
 
 interface EditDeviceModalProps {
   device: TenantEdgeDevice | null;
@@ -23,6 +24,7 @@ const EMPTY_FORM = {
 
 export const EditDeviceModal: React.FC<EditDeviceModalProps> = ({ device, isOpen, onClose }) => {
   const { tenantSites, updateTenantDevice } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [isLoading, setIsLoading] = useState(false);
@@ -68,7 +70,7 @@ export const EditDeviceModal: React.FC<EditDeviceModalProps> = ({ device, isOpen
     if (result.success) {
       onClose();
     } else {
-      setError(result.message || 'Failed to update device');
+      setError(result.message || t('Failed to update device'));
     }
   };
 
@@ -79,15 +81,15 @@ export const EditDeviceModal: React.FC<EditDeviceModalProps> = ({ device, isOpen
       title={
         <span className="flex items-center gap-2">
           <Server className="w-5 h-5 text-[#58a6ff]" />
-          Edit Edge Device
+          {t('Edit Edge Device')}
         </span>
       }
       subtitle={device ? `${device.name} · ${device.deviceKey}` : undefined}
       footer={
         <div className="flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose} type="button">Cancel</Button>
+          <Button variant="secondary" onClick={onClose} type="button">{t('Cancel')}</Button>
           <Button variant="primary" type="submit" form="edit-device-form" isLoading={isLoading}>
-            Save Changes
+            {t('Save Changes')}
           </Button>
         </div>
       }
@@ -100,30 +102,30 @@ export const EditDeviceModal: React.FC<EditDeviceModalProps> = ({ device, isOpen
         )}
 
         <Input
-          label="Device Name"
+          label={t('Device Name')}
           value={formData.name}
           onChange={set('name')}
           required
         />
 
         <Select
-          label="Site"
+          label={t('Site')}
           value={formData.siteId}
           onChange={set('siteId')}
           required
           options={[
-            { value: '', label: 'Select a site…' },
+            { value: '', label: t('Select a site…') },
             ...tenantSites.map((s) => ({ value: s.id, label: s.name }))
           ]}
         />
 
         <div className="grid grid-cols-2 gap-4">
-          <Input label="Serial Number" value={formData.deviceSerial} onChange={set('deviceSerial')} />
-          <Input label="Hardware Model" value={formData.hardwareModel} onChange={set('hardwareModel')} />
-          <Input label="MAC Address" value={formData.mac} onChange={set('mac')} />
-          <Input label="IP Address" value={formData.ipAddress} onChange={set('ipAddress')} />
-          <Input label="MQTT Client ID" value={formData.mqttClientId} onChange={set('mqttClientId')} />
-          <Input label="Firmware Version" value={formData.firmwareVersion} onChange={set('firmwareVersion')} />
+          <Input label={t('Serial Number')} value={formData.deviceSerial} onChange={set('deviceSerial')} />
+          <Input label={t('Hardware Model')} value={formData.hardwareModel} onChange={set('hardwareModel')} />
+          <Input label={t('MAC Address')} value={formData.mac} onChange={set('mac')} />
+          <Input label={t('IP Address')} value={formData.ipAddress} onChange={set('ipAddress')} />
+          <Input label={t('MQTT Client ID')} value={formData.mqttClientId} onChange={set('mqttClientId')} />
+          <Input label={t('Firmware Version')} value={formData.firmwareVersion} onChange={set('firmwareVersion')} />
         </div>
       </form>
     </Modal>

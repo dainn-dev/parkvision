@@ -58,8 +58,10 @@ import { SiteDetailDrawer } from '../../components/tenant/SiteDetailDrawer';
 import { AddVehicleModal } from '../../components/tenant/AddVehicleModal';
 import { InviteMemberModal } from '../../components/tenant/InviteMemberModal';
 import { CreateAccessRuleModal } from '../../components/tenant/CreateAccessRuleModal';
+import { useTranslation } from 'react-i18next';
 
 export const TenantDashboardPage: React.FC = () => {
+  const { t } = useTranslation('tenant');
   const {
     tenantSites,
     tenantSummary,
@@ -85,7 +87,7 @@ export const TenantDashboardPage: React.FC = () => {
   // 1 Tenant = 1 Site constraint: Get the single dedicated site
   const site: TenantSite = tenantSites[0] || {
     id: '',
-    name: 'No site configured',
+    name: t('No site configured'),
     code: '—',
     tenantId: '',
     tenantName: '',
@@ -105,7 +107,7 @@ export const TenantDashboardPage: React.FC = () => {
     currentOccupancy: 0,
     coordinates: { lat: 0, lng: 0 },
     createdAt: '',
-    description: 'Create a site to activate this dashboard.',
+    description: t('Create a site to activate this dashboard.'),
     managerName: '—',
     managerPhone: '—'
   };
@@ -150,7 +152,7 @@ export const TenantDashboardPage: React.FC = () => {
       gateId: gate.id,
       gateName: gate.gateName,
       barrierState: (gate.rawStatus ?? 'closed').toUpperCase(),
-      cameraName: lane?.cameraUrl ? 'ANPR Cam' : 'No camera',
+      cameraName: lane?.cameraUrl ? 'ANPR Cam' : t('No camera'),
       cameraStatus: gate.status,
       ocrAccuracy: lastEvent ? `${(lastEvent.plateConfidence * 100).toFixed(1)}%` : '-',
       lastEvent,
@@ -180,7 +182,7 @@ export const TenantDashboardPage: React.FC = () => {
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
-                Dedicated Facility · 100% Operational
+                {t('Dedicated Facility · 100% Operational')}
               </span>
             </div>
             <div className="flex items-center gap-4 text-xs text-[#8b949e] mt-1 flex-wrap">
@@ -196,7 +198,7 @@ export const TenantDashboardPage: React.FC = () => {
               <span className="hidden sm:inline-block text-[#30363d]">•</span>
               <span className="flex items-center gap-1 text-[#8b949e]">
                 <User className="w-3.5 h-3.5 text-[#8b949e]" />
-                Manager: {site.managerName} ({site.managerPhone})
+                {t('Manager:')} {site.managerName} ({site.managerPhone})
               </span>
             </div>
           </div>
@@ -212,7 +214,7 @@ export const TenantDashboardPage: React.FC = () => {
             className="text-xs bg-[#0d0e12] border-[#30363d] text-[#58a6ff] hover:bg-[#58a6ff]/10 hover:border-[#58a6ff]/50 gap-1.5 font-medium"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#58a6ff]" />
-            Simulate Event
+            {t('Simulate Event')}
           </Button>
 
           {/* Date Filter Dropdown */}
@@ -222,10 +224,10 @@ export const TenantDashboardPage: React.FC = () => {
               onChange={(e) => setTenantDateFilter(e.target.value)}
               className="appearance-none bg-[#0d0e12] border border-[#30363d] hover:border-[#58a6ff]/50 rounded-xl px-3.5 py-2 pr-8 text-xs font-medium text-[#c9d1d9] focus:outline-hidden focus:border-[#58a6ff] cursor-pointer transition-colors"
             >
-              <option value="today">Today (Live)</option>
-              <option value="yesterday">Yesterday</option>
-              <option value="7d">Last 7 days</option>
-              <option value="30d">Last 30 days</option>
+              <option value="today">{t('Today (Live)')}</option>
+              <option value="yesterday">{t('Yesterday')}</option>
+              <option value="7d">{t('Last 7 days')}</option>
+              <option value="30d">{t('Last 30 days')}</option>
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-[#8b949e] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
@@ -240,10 +242,10 @@ export const TenantDashboardPage: React.FC = () => {
               className="text-xs bg-[#0d0e12] border-[#30363d] text-[#c9d1d9] hover:text-white hover:border-[#58a6ff]/50 gap-1.5"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isTenantRefreshing ? 'animate-spin' : ''}`} />
-              Refresh
+              {t('Refresh')}
             </Button>
             <span className="text-[11px] text-[#8b949e] hidden xl:inline-block font-mono">
-              Sync: {lastUpdatedTime}
+              {t('Sync:')} {lastUpdatedTime}
             </span>
           </div>
         </div>
@@ -276,7 +278,7 @@ export const TenantDashboardPage: React.FC = () => {
               onClick={() => resolveTenantAlert(activeAlert.id)}
               className="text-xs text-[#8b949e] hover:text-white border-[#30363d]"
             >
-              Dismiss
+              {t('Dismiss')}
             </Button>
           </div>
         </div>
@@ -290,7 +292,7 @@ export const TenantDashboardPage: React.FC = () => {
           className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] hover:border-[#58a6ff]/50 transition-all cursor-pointer group flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#8b949e]">Facility Status</span>
+            <span className="text-xs font-semibold text-[#8b949e]">{t('Facility Status')}</span>
             <div className="w-7 h-7 rounded-lg bg-[#21262d] text-[#3fb950] flex items-center justify-center group-hover:scale-110 transition-transform">
               <Building2 className="w-4 h-4" />
             </div>
@@ -299,20 +301,20 @@ export const TenantDashboardPage: React.FC = () => {
           <div className="my-2">
             <div className="text-xl font-bold text-white flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#3fb950]" />
-              OPERATIONAL
+              {t('OPERATIONAL')}
             </div>
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-[#8b949e] pt-2 border-t border-[#30363d]/60">
-            <span className="text-[#3fb950] font-medium">{lanes.length}/{tenantLanes.length} Lanes Live</span>
-            <span className="text-[#58a6ff]">{tenantSites.length} Site{tenantSites.length === 1 ? '' : 's'}</span>
+            <span className="text-[#3fb950] font-medium">{t('{{live}}/{{total}} Lanes Live', { live: lanes.length, total: tenantLanes.length })}</span>
+            <span className="text-[#58a6ff]">{t('{{count}} Site(s)', { count: tenantSites.length })}</span>
           </div>
         </div>
 
         {/* Card 2: Parking Occupancy */}
         <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#8b949e]">Occupancy</span>
+            <span className="text-xs font-semibold text-[#8b949e]">{t('Occupancy')}</span>
             <div className="w-7 h-7 rounded-lg bg-[#21262d] text-[#58a6ff] flex items-center justify-center">
               <Car className="w-4 h-4" />
             </div>
@@ -321,7 +323,7 @@ export const TenantDashboardPage: React.FC = () => {
           <div className="my-1.5">
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-black text-white font-mono">{site.currentOccupancy}</span>
-              <span className="text-xs text-[#8b949e] font-mono">/ {site.capacity} slots</span>
+              <span className="text-xs text-[#8b949e] font-mono">/ {site.capacity} {t('slots')}</span>
             </div>
             {/* Visual occupancy bar */}
             <div className="w-full h-1.5 rounded-full bg-[#0d0e12] overflow-hidden mt-1.5 border border-[#30363d]">
@@ -333,15 +335,15 @@ export const TenantDashboardPage: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#30363d]/60">
-            <span className="text-[#58a6ff] font-medium">{occupancyPercent}% Filled</span>
-            <span className="text-[#3fb950] font-medium">{(site.capacity || 0) - (site.currentOccupancy || 0)} Free</span>
+            <span className="text-[#58a6ff] font-medium">{t('{{pct}}% Filled', { pct: occupancyPercent })}</span>
+            <span className="text-[#3fb950] font-medium">{t('{{count}} Free', { count: (site.capacity || 0) - (site.currentOccupancy || 0) })}</span>
           </div>
         </div>
 
         {/* Card 3: ANPR Cameras & Hardware */}
         <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#8b949e]">ANPR & Gates</span>
+            <span className="text-xs font-semibold text-[#8b949e]">{t('ANPR & Gates')}</span>
             <div className="w-7 h-7 rounded-lg bg-[#21262d] text-[#58a6ff] flex items-center justify-center">
               <Camera className="w-4 h-4" />
             </div>
@@ -354,8 +356,8 @@ export const TenantDashboardPage: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between text-[11px] pt-2 border-t border-[#30363d]/60">
-            <span className="text-[#3fb950] font-medium">{site.onlineGateCount} Gates Online</span>
-            <span className="text-[#58a6ff] font-medium">{site.onlineEdgeDeviceCount} Edge Nodes</span>
+            <span className="text-[#3fb950] font-medium">{t('{{count}} Gates Online', { count: site.onlineGateCount })}</span>
+            <span className="text-[#58a6ff] font-medium">{t('{{count}} Edge Nodes', { count: site.onlineEdgeDeviceCount })}</span>
           </div>
         </div>
 
@@ -365,7 +367,7 @@ export const TenantDashboardPage: React.FC = () => {
           className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] hover:border-[#58a6ff]/50 transition-all cursor-pointer group flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#8b949e]">Registered Fleet</span>
+            <span className="text-xs font-semibold text-[#8b949e]">{t('Registered Fleet')}</span>
             <div className="w-7 h-7 rounded-lg bg-[#21262d] text-[#58a6ff] flex items-center justify-center group-hover:scale-110 transition-transform">
               <Car className="w-4 h-4" />
             </div>
@@ -378,8 +380,8 @@ export const TenantDashboardPage: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between text-[11px] pt-2 border-t border-[#30363d]/60">
-            <span className="text-[#3fb950] font-medium">{tenantSummary.vehicles.active} Active</span>
-            <span className="text-[#58a6ff] font-medium">+{tenantSummary.vehicles.newThisMonth} this mo</span>
+            <span className="text-[#3fb950] font-medium">{t('{{count}} Active', { count: tenantSummary.vehicles.active })}</span>
+            <span className="text-[#58a6ff] font-medium">{t('+{{count}} this mo', { count: tenantSummary.vehicles.newThisMonth })}</span>
           </div>
         </div>
 
@@ -388,7 +390,7 @@ export const TenantDashboardPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-white flex items-center gap-1.5">
               <Activity className="w-3.5 h-3.5 text-[#58a6ff]" />
-              Today's Passes
+              {t("Today's Passes")}
             </span>
             <span className="text-[10px] font-mono text-[#3fb950] font-bold flex items-center gap-0.5">
               <TrendingUp className="w-3 h-3" /> +{tenantSummary.accessToday.percentChange}%
@@ -421,21 +423,21 @@ export const TenantDashboardPage: React.FC = () => {
             </div>
             <div>
               <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-                Facility Lanes & Barrier Gate Controllers
+                {t('Facility Lanes & Barrier Gate Controllers')}
                 <span className="text-[10px] font-mono font-bold px-2 py-0.2 rounded-full bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
-                  {lanes.length} Active
+                  {t('{{count}} Active', { count: lanes.length })}
                 </span>
               </h3>
               <p className="text-xs text-[#8b949e] mt-0.5">
-                Direct hardware telemetry and automated ANPR barrier relay trigger commands
+                {t('Direct hardware telemetry and automated ANPR barrier relay trigger commands')}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[#8b949e]">Interlock Protocol:</span>
+            <span className="text-xs text-[#8b949e]">{t('Interlock Protocol:')}</span>
             <span className="text-xs font-mono font-bold text-[#3fb950] bg-[#0d0e12] px-2.5 py-1 rounded-lg border border-[#30363d]">
-              Safety Loop Armed
+              {t('Safety Loop Armed')}
             </span>
           </div>
         </div>
@@ -454,7 +456,7 @@ export const TenantDashboardPage: React.FC = () => {
                     <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded ${
                       lane.direction === 'IN' ? 'bg-[#58a6ff]/20 text-[#58a6ff]' : 'bg-[#a371f7]/20 text-[#a371f7]'
                     }`}>
-                      {lane.direction === 'IN' ? '↓ INBOUND' : '↑ OUTBOUND'}
+                      {lane.direction === 'IN' ? t('↓ INBOUND') : t('↑ OUTBOUND')}
                     </span>
                     <h4 className="text-xs font-bold text-white">{lane.name.split('(')[0]}</h4>
                   </div>
@@ -463,7 +465,7 @@ export const TenantDashboardPage: React.FC = () => {
 
                 <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950]" />
-                  {lane.barrierState}
+                  {t(lane.barrierState)}
                 </span>
               </div>
 
@@ -481,14 +483,14 @@ export const TenantDashboardPage: React.FC = () => {
                     <HardDrive className="w-3 h-3 text-[#8b949e]" />
                     {lane.edgeNode}
                   </span>
-                  <span className="text-[#8b949e] font-mono">18ms Latency</span>
+                  <span className="text-[#8b949e] font-mono">18ms {t('Latency')}</span>
                 </div>
               </div>
 
               {/* Last Vehicle Throughput */}
               <div className="space-y-1 text-xs">
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-[#8b949e]">Last Vehicle:</span>
+                  <span className="text-[#8b949e]">{t('Last Vehicle:')}</span>
                   <span className="text-[10px] text-[#8b949e] font-mono">{lane.lastTime}</span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -496,7 +498,7 @@ export const TenantDashboardPage: React.FC = () => {
                     {lane.lastPlate}
                   </span>
                   <span className="text-[11px] text-[#3fb950] font-bold">
-                    ✓ Allowed
+                    ✓ {t('Allowed')}
                   </span>
                 </div>
               </div>
@@ -512,7 +514,7 @@ export const TenantDashboardPage: React.FC = () => {
                   className="flex-1 text-[11px] py-1.5 bg-[#238636]/15 hover:bg-[#238636]/30 text-[#3fb950] border-[#238636]/40 gap-1 justify-center"
                 >
                   <Unlock className="w-3 h-3" />
-                  Open Barrier
+                  {t('Open Barrier')}
                 </Button>
                 <Button
                   variant="outline"
@@ -521,7 +523,7 @@ export const TenantDashboardPage: React.FC = () => {
                     triggerGateCommand(lane.gateId, 'RESET');
                   }}
                   className="text-[11px] py-1.5 px-2 bg-[#161b22] text-[#8b949e] hover:text-white border-[#30363d]"
-                  title="Reset Controller"
+                  title={t('Reset Controller')}
                 >
                   <RotateCcw className="w-3 h-3" />
                 </Button>
@@ -538,26 +540,26 @@ export const TenantDashboardPage: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-white tracking-tight">Facility Traffic & ANPR Throughput</h3>
+                <h3 className="text-sm font-bold text-white tracking-tight">{t('Facility Traffic & ANPR Throughput')}</h3>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#21262d] text-[#8b949e]">
-                  Hourly Distribution
+                  {t('Hourly Distribution')}
                 </span>
               </div>
               <p className="text-xs text-[#8b949e] mt-0.5">
-                Real-time throughput comparison of Allowed vs. Denied vs. Unknown plates
+                {t('Real-time throughput comparison of Allowed vs. Denied vs. Unknown plates')}
               </p>
             </div>
 
             {/* Series Legend Indicators */}
             <div className="flex items-center gap-3 text-xs">
               <span className="flex items-center gap-1.5 text-[#3fb950] font-medium">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#3fb950]" /> Allowed
+                <span className="w-2.5 h-2.5 rounded-full bg-[#3fb950]" /> {t('Allowed')}
               </span>
               <span className="flex items-center gap-1.5 text-[#f85149] font-medium">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#f85149]" /> Denied
+                <span className="w-2.5 h-2.5 rounded-full bg-[#f85149]" /> {t('Denied')}
               </span>
               <span className="flex items-center gap-1.5 text-[#e3b341] font-medium">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#e3b341]" /> Unknown
+                <span className="w-2.5 h-2.5 rounded-full bg-[#e3b341]" /> {t('Unknown')}
               </span>
             </div>
           </div>
@@ -596,7 +598,7 @@ export const TenantDashboardPage: React.FC = () => {
                 <Area
                   type="monotone"
                   dataKey="allowed"
-                  name="Allowed"
+                  name={t('Allowed')}
                   stroke="#3fb950"
                   strokeWidth={2}
                   fillOpacity={1}
@@ -605,7 +607,7 @@ export const TenantDashboardPage: React.FC = () => {
                 <Area
                   type="monotone"
                   dataKey="denied"
-                  name="Denied"
+                  name={t('Denied')}
                   stroke="#f85149"
                   strokeWidth={2}
                   fillOpacity={1}
@@ -614,7 +616,7 @@ export const TenantDashboardPage: React.FC = () => {
                 <Area
                   type="monotone"
                   dataKey="unknown"
-                  name="Unknown"
+                  name={t('Unknown')}
                   stroke="#e3b341"
                   strokeWidth={1.5}
                   fillOpacity={1}
@@ -627,7 +629,7 @@ export const TenantDashboardPage: React.FC = () => {
           {/* Access Summary Bar below Chart */}
           <div className="grid grid-cols-3 gap-3 pt-3 border-t border-[#30363d]">
             <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-              <span className="text-[10px] text-[#8b949e] uppercase font-semibold block">Total Allowed</span>
+              <span className="text-[10px] text-[#8b949e] uppercase font-semibold block">{t('Total Allowed')}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className="text-base font-bold text-white font-mono">
                   {tenantSummary.accessToday.allowed.toLocaleString()}
@@ -639,7 +641,7 @@ export const TenantDashboardPage: React.FC = () => {
             </div>
 
             <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-              <span className="text-[10px] text-[#8b949e] uppercase font-semibold block">Total Denied</span>
+              <span className="text-[10px] text-[#8b949e] uppercase font-semibold block">{t('Total Denied')}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className="text-base font-bold text-white font-mono">
                   {tenantSummary.accessToday.denied.toLocaleString()}
@@ -651,7 +653,7 @@ export const TenantDashboardPage: React.FC = () => {
             </div>
 
             <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-              <span className="text-[10px] text-[#8b949e] uppercase font-semibold block">OCR Flagged Review</span>
+              <span className="text-[10px] text-[#8b949e] uppercase font-semibold block">{t('OCR Flagged Review')}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className="text-base font-bold text-white font-mono">
                   {tenantSummary.accessToday.unknown.toLocaleString()}
@@ -670,11 +672,11 @@ export const TenantDashboardPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
               <div className="flex items-center gap-2">
                 <Cpu className="w-4 h-4 text-[#58a6ff]" />
-                <h3 className="text-sm font-bold text-white tracking-tight">Edge AI & Telemetry</h3>
+                <h3 className="text-sm font-bold text-white tracking-tight">{t('Edge AI & Telemetry')}</h3>
               </div>
               <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full font-bold bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                100% HEALTHY
+                {t('100% HEALTHY')}
               </span>
             </div>
 
@@ -684,10 +686,10 @@ export const TenantDashboardPage: React.FC = () => {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[#8b949e] flex items-center gap-1.5">
-                    <Camera className="w-3.5 h-3.5 text-[#58a6ff]" /> ANPR Cameras
+                    <Camera className="w-3.5 h-3.5 text-[#58a6ff]" /> {t('ANPR Cameras')}
                   </span>
                   <span className="text-white font-mono font-semibold">
-                    {site.onlineCameraCount} / {site.cameraCount} Online
+                    {site.onlineCameraCount} / {site.cameraCount} {t('Online')}
                   </span>
                 </div>
                 <div className="w-full h-1.5 rounded-full bg-[#0d0e12] overflow-hidden border border-[#30363d]">
@@ -699,10 +701,10 @@ export const TenantDashboardPage: React.FC = () => {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[#8b949e] flex items-center gap-1.5">
-                    <DoorOpen className="w-3.5 h-3.5 text-[#58a6ff]" /> Automated Barriers
+                    <DoorOpen className="w-3.5 h-3.5 text-[#58a6ff]" /> {t('Automated Barriers')}
                   </span>
                   <span className="text-white font-mono font-semibold">
-                    {site.onlineGateCount} / {site.gateCount} Online
+                    {site.onlineGateCount} / {site.gateCount} {t('Online')}
                   </span>
                 </div>
                 <div className="w-full h-1.5 rounded-full bg-[#0d0e12] overflow-hidden border border-[#30363d]">
@@ -714,10 +716,10 @@ export const TenantDashboardPage: React.FC = () => {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[#8b949e] flex items-center gap-1.5">
-                    <HardDrive className="w-3.5 h-3.5 text-[#58a6ff]" /> Edge AI Gateways
+                    <HardDrive className="w-3.5 h-3.5 text-[#58a6ff]" /> {t('Edge AI Gateways')}
                   </span>
                   <span className="text-white font-mono font-semibold">
-                    {site.onlineEdgeDeviceCount} / {site.edgeDeviceCount} Active
+                    {site.onlineEdgeDeviceCount} / {site.edgeDeviceCount} {t('Active')}
                   </span>
                 </div>
                 <div className="w-full h-1.5 rounded-full bg-[#0d0e12] overflow-hidden border border-[#30363d]">
@@ -729,12 +731,12 @@ export const TenantDashboardPage: React.FC = () => {
             {/* Edge Compute Metrics */}
             <div className="grid grid-cols-2 gap-2 mt-4 text-[11px]">
               <div className="p-2 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                <span className="text-[#8b949e] block">Edge CPU Load</span>
-                <span className="text-white font-mono font-bold text-xs mt-0.5 block">34% (Normal)</span>
+                <span className="text-[#8b949e] block">{t('Edge CPU Load')}</span>
+                <span className="text-white font-mono font-bold text-xs mt-0.5 block">34% ({t('Normal')})</span>
               </div>
               <div className="p-2 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                <span className="text-[#8b949e] block">Avg OCR Speed</span>
-                <span className="text-[#3fb950] font-mono font-bold text-xs mt-0.5 block">380ms / plate</span>
+                <span className="text-[#8b949e] block">{t('Avg OCR Speed')}</span>
+                <span className="text-[#3fb950] font-mono font-bold text-xs mt-0.5 block">380ms / {t('plate')}</span>
               </div>
             </div>
           </div>
@@ -747,7 +749,7 @@ export const TenantDashboardPage: React.FC = () => {
               </span>
               <span className="text-[#3fb950] font-mono font-bold flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950]" />
-                18ms Latency
+                18ms {t('Latency')}
               </span>
             </div>
 
@@ -757,7 +759,7 @@ export const TenantDashboardPage: React.FC = () => {
               </span>
               <span className="text-[#3fb950] font-mono font-bold flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
-                Live Stream
+                {t('Live Stream')}
               </span>
             </div>
           </div>
@@ -770,10 +772,10 @@ export const TenantDashboardPage: React.FC = () => {
         <div className="lg:col-span-8 p-5 rounded-2xl bg-[#161b22] border border-[#30363d] space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <h3 className="text-sm font-bold text-white tracking-tight">Live Facility Access Stream</h3>
+              <h3 className="text-sm font-bold text-white tracking-tight">{t('Live Facility Access Stream')}</h3>
               <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
-                Live ANPR Captures
+                {t('Live ANPR Captures')}
               </span>
             </div>
 
@@ -784,7 +786,7 @@ export const TenantDashboardPage: React.FC = () => {
                 onClick={() => setTenantNavTab('access_events')}
                 className="text-xs bg-[#0d0e12] border-[#30363d] text-[#58a6ff] hover:text-white"
               >
-                View Full Log →
+                {t('View Full Log')} →
               </Button>
             </div>
           </div>
@@ -794,13 +796,13 @@ export const TenantDashboardPage: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-[#0d0e12] text-[#8b949e] border-y border-[#30363d] uppercase font-semibold text-[10px]">
                 <tr>
-                  <th className="py-2.5 px-3">Time</th>
-                  <th className="py-2.5 px-3">Plate</th>
-                  <th className="py-2.5 px-3">Gate & Lane</th>
-                  <th className="py-2.5 px-3">Owner / Role</th>
-                  <th className="py-2.5 px-3">Decision</th>
-                  <th className="py-2.5 px-3">OCR Conf</th>
-                  <th className="py-2.5 px-3 text-right">Inspect</th>
+                  <th className="py-2.5 px-3">{t('Time')}</th>
+                  <th className="py-2.5 px-3">{t('Plate')}</th>
+                  <th className="py-2.5 px-3">{t('Gate & Lane')}</th>
+                  <th className="py-2.5 px-3">{t('Owner / Role')}</th>
+                  <th className="py-2.5 px-3">{t('Decision')}</th>
+                  <th className="py-2.5 px-3">{t('OCR Conf')}</th>
+                  <th className="py-2.5 px-3 text-right">{t('Inspect')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]/50 font-medium">
@@ -823,12 +825,12 @@ export const TenantDashboardPage: React.FC = () => {
                     <td className="py-3 px-3 text-[#8b949e] whitespace-nowrap">
                       <span className="text-white">{event.gateName}</span>
                       <span className="text-[10px] text-[#8b949e] block font-mono">
-                        {event.direction === 'IN' ? '↓ Inbound' : '↑ Outbound'}
+                        {event.direction === 'IN' ? t('↓ Inbound') : t('↑ Outbound')}
                       </span>
                     </td>
 
                     <td className="py-3 px-3 text-[#c9d1d9] whitespace-nowrap">
-                      <div>{event.ownerName || 'Unregistered'}</div>
+                      <div>{event.ownerName || t('Unregistered')}</div>
                       <span className="text-[10px] text-[#8b949e] font-mono">{event.ownerType}</span>
                     </td>
 
@@ -846,7 +848,7 @@ export const TenantDashboardPage: React.FC = () => {
                         {event.decision === 'DENIED' && <XCircle className="w-3 h-3" />}
                         {event.decision === 'BLOCKED' && <XCircle className="w-3 h-3" />}
                         {event.decision === 'UNKNOWN' && <AlertTriangle className="w-3 h-3" />}
-                        {event.decision}
+                        {t(event.decision)}
                       </span>
                     </td>
 
@@ -870,7 +872,7 @@ export const TenantDashboardPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
               <div className="flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-[#58a6ff]" />
-                <h3 className="text-sm font-bold text-white tracking-tight">Facility Details</h3>
+                <h3 className="text-sm font-bold text-white tracking-tight">{t('Facility Details')}</h3>
               </div>
               <Button
                 variant="outline"
@@ -878,13 +880,13 @@ export const TenantDashboardPage: React.FC = () => {
                 onClick={handleOpenSite}
                 className="text-[11px] py-1 px-2.5 bg-[#0d0e12] border-[#30363d] text-[#58a6ff] hover:text-white"
               >
-                Inspect →
+                {t('Inspect')} →
               </Button>
             </div>
 
             <div className="space-y-3 mt-3 text-xs">
               <div className="p-3 rounded-xl bg-[#0d0e12] border border-[#30363d] space-y-1.5">
-                <span className="text-[10px] text-[#8b949e] uppercase font-semibold block">Facility Name & Code</span>
+                <span className="text-[10px] text-[#8b949e] uppercase font-semibold block">{t('Facility Name & Code')}</span>
                 <div className="text-white font-bold text-sm">{site.name}</div>
                 <div className="text-xs text-[#8b949e] flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-[#8b949e]" />
@@ -894,17 +896,17 @@ export const TenantDashboardPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                  <span className="text-[#8b949e] block">Operating Hours</span>
+                  <span className="text-[#8b949e] block">{t('Operating Hours')}</span>
                   <span className="text-white font-mono font-semibold mt-0.5 block">{site.operatingHours}</span>
                 </div>
                 <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                  <span className="text-[#8b949e] block">Capacity</span>
-                  <span className="text-white font-mono font-semibold mt-0.5 block">{site.capacity} Total Slots</span>
+                  <span className="text-[#8b949e] block">{t('Capacity')}</span>
+                  <span className="text-white font-mono font-semibold mt-0.5 block">{t('{{count}} Total Slots', { count: site.capacity })}</span>
                 </div>
               </div>
 
               <div className="p-3 rounded-xl bg-[#0d0e12] border border-[#30363d] space-y-1">
-                <span className="text-[10px] text-[#8b949e] uppercase font-semibold block">Facility Manager Contact</span>
+                <span className="text-[10px] text-[#8b949e] uppercase font-semibold block">{t('Facility Manager Contact')}</span>
                 <div className="text-white font-semibold flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-[#58a6ff]" />
                   {site.managerName}
@@ -924,7 +926,7 @@ export const TenantDashboardPage: React.FC = () => {
               className="w-full text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] justify-center py-2.5 gap-1.5"
             >
               <Settings className="w-3.5 h-3.5 text-[#58a6ff]" />
-              Manage Facility Hardware & Config
+              {t('Manage Facility Hardware & Config')}
             </Button>
           </div>
         </div>
@@ -932,7 +934,7 @@ export const TenantDashboardPage: React.FC = () => {
 
       {/* 7. QUICK ADMINISTRATIVE ACTIONS */}
       <div className="p-5 rounded-2xl bg-gradient-to-r from-[#161b22] via-[#161b22] to-[#1f6feb]/10 border border-[#30363d]">
-        <h3 className="text-sm font-bold text-white tracking-tight mb-3">Quick Actions</h3>
+        <h3 className="text-sm font-bold text-white tracking-tight mb-3">{t('Quick Actions')}</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Button
             variant="outline"
@@ -940,7 +942,7 @@ export const TenantDashboardPage: React.FC = () => {
             className="text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] py-3 gap-2 justify-center"
           >
             <Car className="w-4 h-4 text-[#58a6ff]" />
-            + Register Vehicle
+            {t('+ Register Vehicle')}
           </Button>
 
           <Button
@@ -949,7 +951,7 @@ export const TenantDashboardPage: React.FC = () => {
             className="text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] py-3 gap-2 justify-center"
           >
             <UserPlus className="w-4 h-4 text-[#3fb950]" />
-            + Invite Operator
+            {t('+ Invite Operator')}
           </Button>
 
           <Button
@@ -958,7 +960,7 @@ export const TenantDashboardPage: React.FC = () => {
             className="text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] py-3 gap-2 justify-center"
           >
             <ShieldCheck className="w-4 h-4 text-[#e3b341]" />
-            + Add Access Rule
+            {t('+ Add Access Rule')}
           </Button>
 
           <Button
@@ -967,7 +969,7 @@ export const TenantDashboardPage: React.FC = () => {
             className="text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] py-3 gap-2 justify-center"
           >
             <Building2 className="w-4 h-4 text-[#a371f7]" />
-            Facility Hardware Details
+            {t('Facility Hardware Details')}
           </Button>
         </div>
       </div>
@@ -984,8 +986,8 @@ export const TenantDashboardPage: React.FC = () => {
         onBlock={(evt) => {
           addToast({
             type: 'error',
-            title: 'Vehicle Blocked',
-            description: `Plate ${evt.plate} added to tenant security blacklist.`
+            title: t('Vehicle Blocked'),
+            description: t('Plate {{plate}} added to tenant security blacklist.', { plate: evt.plate })
           });
           setIsEventDrawerOpen(false);
         }}

@@ -3,6 +3,8 @@ import { usePlatform } from '../../../context/PlatformContext';
 import { AlertTriangle, PowerOff, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import { Button, Modal } from '../../ui';
 import { TenantEdgeDevice } from '../../../types/tenant';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../../i18n';
 
 interface DialogProps {
   device: TenantEdgeDevice | null;
@@ -25,7 +27,7 @@ const useAction = (isOpen: boolean) => {
     const result = await fn();
     setIsLoading(false);
     if (result.success) onClose();
-    else setError(result.message || 'Action failed');
+    else setError(result.message || i18n.t('Action failed', { ns: 'tenant' }));
     return result;
   };
   return { isLoading, error, run };
@@ -37,6 +39,7 @@ const ErrorBanner: React.FC<{ error: string | null }> = ({ error }) =>
   ) : null;
 
 export const RebootDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onClose }) => {
+  const { t } = useTranslation('tenant');
   const { rebootTenantDevice } = usePlatform();
   const { isLoading, error, run } = useAction(isOpen);
   const [sentCount, setSentCount] = useState<number | null>(null);
@@ -52,13 +55,13 @@ export const RebootDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onCl
       title={
         <span className="flex items-center gap-2">
           <RotateCcw className="w-5 h-5 text-[#e3b341]" />
-          Reboot Device
+          {t('Reboot Device')}
         </span>
       }
       subtitle={device?.name}
       footer={
         <div className="flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose} type="button">Cancel</Button>
+          <Button variant="secondary" onClick={onClose} type="button">{t('Cancel')}</Button>
           <Button
             variant="primary"
             isLoading={isLoading}
@@ -71,7 +74,7 @@ export const RebootDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onCl
               }
             }}
           >
-            Reboot
+            {t('Reboot')}
           </Button>
         </div>
       }
@@ -80,13 +83,13 @@ export const RebootDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onCl
         <ErrorBanner error={error} />
         {sentCount !== null ? (
           <div className="text-xs text-[#3fb950]">
-            Reboot command issued to {sentCount} gate{sentCount === 1 ? '' : 's'} bound to this device.
+            {t('Reboot command issued to {{count}} gate(s) bound to this device.', { count: sentCount })}
           </div>
         ) : (
           <div className="p-3.5 rounded-xl bg-[#d29922]/10 border border-[#d29922]/30 flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-[#e3b341] shrink-0 mt-0.5" />
             <div className="text-xs text-[#c9d1d9]">
-              A <strong className="text-white">reboot</strong> command will be sent to every barrier gate bound to this edge device.
+              {t('A')} <strong className="text-white">reboot</strong> {t('command will be sent to every barrier gate bound to this edge device.')}
             </div>
           </div>
         )}
@@ -96,6 +99,7 @@ export const RebootDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onCl
 };
 
 export const DecommissionDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onClose }) => {
+  const { t } = useTranslation('tenant');
   const { decommissionTenantDevice } = usePlatform();
   const { isLoading, error, run } = useAction(isOpen);
 
@@ -107,19 +111,19 @@ export const DecommissionDeviceDialog: React.FC<DialogProps> = ({ device, isOpen
       title={
         <span className="flex items-center gap-2">
           <PowerOff className="w-5 h-5 text-[#e3b341]" />
-          Decommission Device
+          {t('Decommission Device')}
         </span>
       }
       subtitle={device?.name}
       footer={
         <div className="flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose} type="button">Cancel</Button>
+          <Button variant="secondary" onClick={onClose} type="button">{t('Cancel')}</Button>
           <Button
             variant="danger"
             isLoading={isLoading}
             onClick={() => device && run(() => decommissionTenantDevice(device.id), onClose)}
           >
-            Decommission
+            {t('Decommission')}
           </Button>
         </div>
       }
@@ -129,7 +133,7 @@ export const DecommissionDeviceDialog: React.FC<DialogProps> = ({ device, isOpen
         <div className="p-3.5 rounded-xl bg-[#d29922]/10 border border-[#d29922]/30 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-[#e3b341] shrink-0 mt-0.5" />
           <div className="text-xs text-[#c9d1d9]">
-            The device will be marked <strong className="text-white">DECOMMISSIONED</strong> and any barrier gates bound to it will be unbound. Heartbeats from this device will no longer mark it online. It can be reactivated later.
+            {t('The device will be marked')} <strong className="text-white">DECOMMISSIONED</strong> {t('and any barrier gates bound to it will be unbound. Heartbeats from this device will no longer mark it online. It can be reactivated later.')}
           </div>
         </div>
       </div>
@@ -138,6 +142,7 @@ export const DecommissionDeviceDialog: React.FC<DialogProps> = ({ device, isOpen
 };
 
 export const ReactivateDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onClose }) => {
+  const { t } = useTranslation('tenant');
   const { reactivateTenantDevice } = usePlatform();
   const { isLoading, error, run } = useAction(isOpen);
 
@@ -149,19 +154,19 @@ export const ReactivateDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, 
       title={
         <span className="flex items-center gap-2">
           <RefreshCw className="w-5 h-5 text-[#3fb950]" />
-          Reactivate Device
+          {t('Reactivate Device')}
         </span>
       }
       subtitle={device?.name}
       footer={
         <div className="flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose} type="button">Cancel</Button>
+          <Button variant="secondary" onClick={onClose} type="button">{t('Cancel')}</Button>
           <Button
             variant="success"
             isLoading={isLoading}
             onClick={() => device && run(() => reactivateTenantDevice(device.id), onClose)}
           >
-            Reactivate
+            {t('Reactivate')}
           </Button>
         </div>
       }
@@ -169,7 +174,7 @@ export const ReactivateDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, 
       <div className="p-6 space-y-4">
         <ErrorBanner error={error} />
         <div className="text-xs text-[#c9d1d9]">
-          The device will return to <strong className="text-white">PROVISIONING</strong> status and can come back online once it heartbeats.
+          {t('The device will return to')} <strong className="text-white">PROVISIONING</strong> {t('status and can come back online once it heartbeats.')}
         </div>
       </div>
     </Modal>
@@ -177,6 +182,7 @@ export const ReactivateDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, 
 };
 
 export const DeleteDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onClose }) => {
+  const { t } = useTranslation('tenant');
   const { deleteTenantDevice } = usePlatform();
   const { isLoading, error, run } = useAction(isOpen);
 
@@ -188,19 +194,19 @@ export const DeleteDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onCl
       title={
         <span className="flex items-center gap-2">
           <Trash2 className="w-5 h-5 text-[#f85149]" />
-          Delete Device
+          {t('Delete Device')}
         </span>
       }
       subtitle={device?.name}
       footer={
         <div className="flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose} type="button">Cancel</Button>
+          <Button variant="secondary" onClick={onClose} type="button">{t('Cancel')}</Button>
           <Button
             variant="danger"
             isLoading={isLoading}
             onClick={() => device && run(() => deleteTenantDevice(device.id), onClose)}
           >
-            Delete Permanently
+            {t('Delete Permanently')}
           </Button>
         </div>
       }
@@ -210,7 +216,7 @@ export const DeleteDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onCl
         <div className="p-3.5 rounded-xl bg-[#f85149]/10 border border-[#f85149]/30 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-[#f85149] shrink-0 mt-0.5" />
           <div className="text-xs text-[#c9d1d9]">
-            This permanently removes the device record. Only <strong className="text-white">decommissioned</strong> devices with no bound gates can be deleted.
+            {t('This permanently removes the device record. Only')} <strong className="text-white">decommissioned</strong> {t('devices with no bound gates can be deleted.')}
           </div>
         </div>
       </div>

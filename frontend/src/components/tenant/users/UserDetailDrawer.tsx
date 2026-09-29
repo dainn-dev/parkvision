@@ -25,6 +25,7 @@ import {
   Lock
 } from 'lucide-react';
 import { Button } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface UserDetailDrawerProps {
   user: TenantUser | null;
@@ -46,6 +47,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
   onMembershipAction
 }) => {
   const { userAuditLogs, tenantUsers } = usePlatform();
+  const { t } = useTranslation('tenant');
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'MEMBERSHIP' | 'AUDIT'>('OVERVIEW');
 
   if (!isOpen || !user) return null;
@@ -63,19 +65,19 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
       case 'TENANT_ADMIN':
         return (
           <span className="font-mono text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#f85149]/15 border border-[#f85149]/30 text-[#ff7b72]">
-            Tenant Admin
+            {t('Tenant Admin')}
           </span>
         );
       case 'SITE_MANAGER':
         return (
           <span className="font-mono text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#d29922]/15 border border-[#d29922]/30 text-[#e3b341]">
-            Site Manager
+            {t('Site Manager')}
           </span>
         );
       case 'MEMBER':
         return (
           <span className="font-mono text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#58a6ff]/15 border border-[#58a6ff]/30 text-[#58a6ff]">
-            Member
+            {t('Member')}
           </span>
         );
     }
@@ -87,28 +89,28 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
         return (
           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
             <CheckCircle2 className="w-3 h-3" />
-            Active
+            {t('Active')}
           </span>
         );
       case 'INACTIVE':
         return (
           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#8b949e]/15 text-[#8b949e] border border-[#8b949e]/30">
             <UserX className="w-3 h-3" />
-            Inactive
+            {t('Inactive')}
           </span>
         );
       case 'PENDING':
         return (
           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#d29922]/15 text-[#d29922] border border-[#d29922]/30">
             <Clock className="w-3 h-3" />
-            Pending Invite
+            {t('Pending Invite')}
           </span>
         );
       case 'SUSPENDED':
         return (
           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#f85149]/15 text-[#ff7b72] border border-[#f85149]/30">
             <Ban className="w-3 h-3" />
-            Suspended
+            {t('Suspended')}
           </span>
         );
     }
@@ -155,7 +157,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
             className="text-xs py-1.5 px-3 bg-[#21262d] hover:bg-[#30363d] text-white gap-1.5 border border-[#30363d]"
           >
             <Shield className="w-3.5 h-3.5 text-[#58a6ff]" />
-            Change Role
+            {t('Change Role')}
           </Button>
 
           <Button
@@ -164,7 +166,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
             className="text-xs py-1.5 px-3 bg-[#21262d] hover:bg-[#30363d] text-white gap-1.5 border border-[#30363d]"
           >
             <Key className="w-3.5 h-3.5 text-[#e3b341]" />
-            Reset Password
+            {t('Reset Password')}
           </Button>
 
           <Button
@@ -179,12 +181,12 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
             {user.status === 'ACTIVE' ? (
               <>
                 <UserX className="w-3.5 h-3.5" />
-                Deactivate
+                {t('Deactivate')}
               </>
             ) : (
               <>
                 <UserCheck className="w-3.5 h-3.5" />
-                Reactivate
+                {t('Reactivate')}
               </>
             )}
           </Button>
@@ -201,7 +203,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
             }`}
           >
             <User className="w-3.5 h-3.5" />
-            Overview & Account
+            {t('Overview & Account')}
           </button>
 
           <button
@@ -213,7 +215,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            Membership & Vehicles
+            {t('Membership & Vehicles')}
             {user.membership?.vehicles && (
               <span className="ml-1 px-1.5 py-0.2 rounded-full bg-[#21262d] text-[10px] text-white">
                 {user.membership.vehicles.length}
@@ -230,7 +232,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
             }`}
           >
             <History className="w-3.5 h-3.5" />
-            Audit History
+            {t('Audit History')}
           </button>
         </div>
 
@@ -244,7 +246,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
                 <div className="p-3 bg-[#d29922]/15 border border-[#d29922]/30 rounded-xl text-[#e3b341] flex items-start gap-2.5">
                   <Lock className="w-4 h-4 shrink-0 mt-0.5 text-[#e3b341]" />
                   <div className="text-[11px]">
-                    <strong>Primary Organization Admin:</strong> This account is currently the sole active Tenant Admin. Demotion and deactivation are locked.
+                    <strong>{t('Primary Organization Admin:')}</strong> {t('This account is currently the sole active Tenant Admin. Demotion and deactivation are locked.')}
                   </div>
                 </div>
               )}
@@ -252,37 +254,37 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
               {/* Profile Card */}
               <div className="p-4 bg-[#0d0e12] border border-[#30363d] rounded-2xl space-y-3">
                 <div className="text-xs font-bold text-white uppercase tracking-wider text-[11px] text-[#8b949e]">
-                  User Profile & Authentication
+                  {t('User Profile & Authentication')}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
-                    <span className="text-[#8b949e] text-[11px]">Full Name</span>
+                    <span className="text-[#8b949e] text-[11px]">{t('Full Name')}</span>
                     <p className="font-semibold text-white mt-0.5">{user.name}</p>
                   </div>
 
                   <div>
-                    <span className="text-[#8b949e] text-[11px]">Email Address</span>
+                    <span className="text-[#8b949e] text-[11px]">{t('Email Address')}</span>
                     <p className="font-mono text-white mt-0.5">{user.email}</p>
                   </div>
 
                   <div>
-                    <span className="text-[#8b949e] text-[11px]">Username</span>
+                    <span className="text-[#8b949e] text-[11px]">{t('Username')}</span>
                     <p className="font-mono text-white mt-0.5">{user.username || '—'}</p>
                   </div>
 
                   <div>
-                    <span className="text-[#8b949e] text-[11px]">Phone</span>
+                    <span className="text-[#8b949e] text-[11px]">{t('Phone')}</span>
                     <p className="font-mono text-white mt-0.5">{user.phone || '—'}</p>
                   </div>
 
                   <div>
-                    <span className="text-[#8b949e] text-[11px]">Organization Role</span>
+                    <span className="text-[#8b949e] text-[11px]">{t('Organization Role')}</span>
                     <div className="mt-1">{getRoleBadge()}</div>
                   </div>
 
                   <div>
-                    <span className="text-[#8b949e] text-[11px]">Account Status</span>
+                    <span className="text-[#8b949e] text-[11px]">{t('Account Status')}</span>
                     <div className="mt-1">{getStatusBadge()}</div>
                   </div>
                 </div>
@@ -291,35 +293,35 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
               {/* System & Security Activity */}
               <div className="p-4 bg-[#0d0e12] border border-[#30363d] rounded-2xl space-y-3">
                 <div className="text-xs font-bold text-white uppercase tracking-wider text-[11px] text-[#8b949e]">
-                  Sign-In & System Telemetry
+                  {t('Sign-In & System Telemetry')}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
-                    <span className="text-[#8b949e] text-[11px]">Last Sign-In</span>
+                    <span className="text-[#8b949e] text-[11px]">{t('Last Sign-In')}</span>
                     <p className="font-mono text-white mt-0.5">
-                      {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'Never logged in'}
+                      {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : t('Never logged in')}
                     </p>
                   </div>
 
                   <div>
-                    <span className="text-[#8b949e] text-[11px]">Created Date</span>
+                    <span className="text-[#8b949e] text-[11px]">{t('Created Date')}</span>
                     <p className="font-mono text-white mt-0.5">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </p>
                   </div>
 
                   <div>
-                    <span className="text-[#8b949e] text-[11px]">Security Credentials</span>
+                    <span className="text-[#8b949e] text-[11px]">{t('Security Credentials')}</span>
                     <p className="text-[#3fb950] font-semibold mt-0.5 flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      Standard Password + MFA
+                      {t('Standard Password + MFA')}
                     </p>
                   </div>
 
                   <div>
-                    <span className="text-[#8b949e] text-[11px]">Organization Facility</span>
-                    <p className="text-white font-medium mt-0.5">Main Campus (Dedicated)</p>
+                    <span className="text-[#8b949e] text-[11px]">{t('Organization Facility')}</span>
+                    <p className="text-white font-medium mt-0.5">{t('Main Campus (Dedicated)')}</p>
                   </div>
                 </div>
               </div>
@@ -335,7 +337,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
                   <div className="p-4 bg-[#0d0e12] border border-[#30363d] rounded-2xl space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="text-xs font-bold text-white uppercase tracking-wider text-[11px] text-[#8b949e]">
-                        Facility Membership Profile
+                        {t('Facility Membership Profile')}
                       </div>
                       <div className="flex items-center gap-2">
                         {user.membership.status === 'ACTIVE' && (
@@ -345,7 +347,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
                             className="text-[11px] py-1 px-2.5 bg-[#d29922]/15 text-[#e3b341] border border-[#d29922]/30 hover:bg-[#d29922]/25"
                           >
                             <Ban className="w-3 h-3" />
-                            Suspend Access
+                            {t('Suspend Access')}
                           </Button>
                         )}
                         {user.membership.status === 'SUSPENDED' && (
@@ -355,7 +357,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
                             className="text-[11px] py-1 px-2.5 bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30 hover:bg-[#238636]/25"
                           >
                             <CheckCircle2 className="w-3 h-3" />
-                            Reactivate Access
+                            {t('Reactivate Access')}
                           </Button>
                         )}
                         {user.membership.status !== 'ENDED' && (
@@ -364,7 +366,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
                             onClick={() => onMembershipAction(user, 'END')}
                             className="text-[11px] py-1 px-2.5 bg-[#f85149]/10 text-[#ff7b72] border border-[#f85149]/30 hover:bg-[#f85149]/20"
                           >
-                            End Membership
+                            {t('End Membership')}
                           </Button>
                         )}
                       </div>
@@ -372,38 +374,38 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
 
                     {user.membership.suspendedReason && (
                       <div className="p-2.5 bg-[#d29922]/15 border border-[#d29922]/30 rounded-xl text-[#e3b341] text-[11px]">
-                        <strong>Suspension Reason:</strong> {user.membership.suspendedReason}
+                        <strong>{t('Suspension Reason:')}</strong> {user.membership.suspendedReason}
                       </div>
                     )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                       <div>
-                        <span className="text-[#8b949e] text-[11px]">Member ID Code</span>
+                        <span className="text-[#8b949e] text-[11px]">{t('Member ID Code')}</span>
                         <p className="font-mono font-bold text-[#58a6ff] mt-0.5">{user.membership.memberCode}</p>
                       </div>
 
                       <div>
-                        <span className="text-[#8b949e] text-[11px]">Membership Type</span>
-                        <p className="font-semibold text-white mt-0.5">{user.membership.type}</p>
+                        <span className="text-[#8b949e] text-[11px]">{t('Membership Type')}</span>
+                        <p className="font-semibold text-white mt-0.5">{t(user.membership.type)}</p>
                       </div>
 
                       <div>
-                        <span className="text-[#8b949e] text-[11px]">Department / Org Unit</span>
+                        <span className="text-[#8b949e] text-[11px]">{t('Department / Org Unit')}</span>
                         <p className="text-white mt-0.5">{user.membership.department || '—'}</p>
                       </div>
 
                       <div>
-                        <span className="text-[#8b949e] text-[11px]">Employee ID</span>
+                        <span className="text-[#8b949e] text-[11px]">{t('Employee ID')}</span>
                         <p className="font-mono text-white mt-0.5">{user.membership.employeeId || '—'}</p>
                       </div>
 
                       <div>
-                        <span className="text-[#8b949e] text-[11px]">Membership Status</span>
-                        <p className="font-semibold text-white mt-0.5">{user.membership.status}</p>
+                        <span className="text-[#8b949e] text-[11px]">{t('Membership Status')}</span>
+                        <p className="font-semibold text-white mt-0.5">{t(user.membership.status)}</p>
                       </div>
 
                       <div>
-                        <span className="text-[#8b949e] text-[11px]">Member Since</span>
+                        <span className="text-[#8b949e] text-[11px]">{t('Member Since')}</span>
                         <p className="font-mono text-white mt-0.5">
                           {new Date(user.membership.joinedAt).toLocaleDateString()}
                         </p>
@@ -415,14 +417,14 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
                   <div className="p-4 bg-[#0d0e12] border border-[#30363d] rounded-2xl space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="text-xs font-bold text-white uppercase tracking-wider text-[11px] text-[#8b949e]">
-                        Registered Vehicles & Whitelist Passes ({user.membership.vehicles.length})
+                        {t('Registered Vehicles & Whitelist Passes')} ({user.membership.vehicles.length})
                       </div>
                     </div>
 
                     {user.membership.vehicles.length === 0 ? (
                       <div className="p-4 bg-[#161b22] border border-[#30363d] rounded-xl text-center text-[#8b949e]">
                         <Car className="w-6 h-6 mx-auto mb-1.5 text-[#8b949e]" />
-                        <p>No vehicles currently registered for this member.</p>
+                        <p>{t('No vehicles currently registered for this member.')}</p>
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -455,7 +457,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
                                     : 'bg-[#8b949e]/15 text-[#8b949e] border border-[#8b949e]/30'
                                 }`}
                               >
-                                {v.status}
+                                {t(v.status)}
                               </span>
                             </div>
                           </div>
@@ -470,9 +472,9 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
                     <Layers className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-white text-sm">No Business Membership Profile</h3>
+                    <h3 className="font-bold text-white text-sm">{t('No Business Membership Profile')}</h3>
                     <p className="text-[#8b949e] text-xs max-w-sm mx-auto mt-1">
-                      This user account is configured for platform access only and does not have an active parking membership or linked vehicle pass.
+                      {t('This user account is configured for platform access only and does not have an active parking membership or linked vehicle pass.')}
                     </p>
                   </div>
                 </div>
@@ -484,13 +486,13 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
           {activeTab === 'AUDIT' && (
             <div className="space-y-3">
               <div className="text-xs font-bold text-white uppercase tracking-wider text-[11px] text-[#8b949e]">
-                Activity & Role Change Logs ({userLogs.length})
+                {t('Activity & Role Change Logs')} ({userLogs.length})
               </div>
 
               {userLogs.length === 0 ? (
                 <div className="p-6 bg-[#0d0e12] border border-[#30363d] rounded-2xl text-center text-[#8b949e]">
                   <History className="w-6 h-6 mx-auto mb-1.5 text-[#8b949e]" />
-                  <p>No audit trail records found for this user.</p>
+                  <p>{t('No audit trail records found for this user.')}</p>
                 </div>
               ) : (
                 <div className="space-y-2.5">
@@ -509,7 +511,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
                       </div>
                       <p className="text-white text-xs leading-relaxed">{log.description}</p>
                       <div className="text-[11px] text-[#8b949e]">
-                        Action triggered by: <strong className="text-[#c9d1d9]">{log.actorName}</strong>
+                        {t('Action triggered by:')} <strong className="text-[#c9d1d9]">{log.actorName}</strong>
                       </div>
                     </div>
                   ))}
@@ -522,7 +524,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
         {/* Drawer Footer */}
         <div className="p-4 border-t border-[#30363d] bg-[#0d0e12] flex items-center justify-end">
           <Button variant="secondary" onClick={onClose} className="text-xs">
-            Close
+            {t('Close')}
           </Button>
         </div>
       </div>

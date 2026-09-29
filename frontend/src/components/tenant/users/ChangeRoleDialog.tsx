@@ -12,6 +12,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { Button } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface ChangeRoleDialogProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ interface ChangeRoleDialogProps {
 
 export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onClose, user }) => {
   const { changeTenantUserRole, tenantUsers } = usePlatform();
+  const { t } = useTranslation('tenant');
   const [selectedRole, setSelectedRole] = useState<TenantUserRole>(user?.role || 'MEMBER');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -46,18 +48,18 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
     if (res.success) {
       onClose();
     } else {
-      setErrorMessage(res.message || 'Failed to update role.');
+      setErrorMessage(res.message || t('Failed to update role.'));
     }
   };
 
   const getRoleLabel = (role: TenantUserRole) => {
     switch (role) {
       case 'TENANT_ADMIN':
-        return 'Tenant Admin';
+        return t('Tenant Admin');
       case 'SITE_MANAGER':
-        return 'Site Manager';
+        return t('Site Manager');
       case 'MEMBER':
-        return 'Member';
+        return t('Member');
     }
   };
 
@@ -71,8 +73,8 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
               <Shield className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white tracking-tight">Change User Role</h2>
-              <p className="text-xs text-[#8b949e]">Modify organization permissions and access level</p>
+              <h2 className="text-base font-bold text-white tracking-tight">{t('Change User Role')}</h2>
+              <p className="text-xs text-[#8b949e]">{t('Modify organization permissions and access level')}</p>
             </div>
           </div>
           <button
@@ -96,7 +98,7 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
           </div>
 
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-[#8b949e]">Current:</span>
+            <span className="text-[#8b949e]">{t('Current:')}</span>
             <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[#21262d] border border-[#30363d] text-[#58a6ff]">
               {getRoleLabel(user.role)}
             </span>
@@ -117,16 +119,16 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
             <div className="p-3.5 bg-[#d29922]/15 border border-[#d29922]/30 rounded-xl text-[#e3b341] flex items-start gap-2.5">
               <Lock className="w-4 h-4 shrink-0 mt-0.5 text-[#e3b341]" />
               <div>
-                <div className="font-bold">Sole Active Tenant Administrator</div>
+                <div className="font-bold">{t('Sole Active Tenant Administrator')}</div>
                 <div className="text-[11px] text-[#e3b341]/90 mt-0.5 leading-relaxed">
-                  This user is currently the only active Tenant Admin in your organization. To change their role, you must first promote another active member to Tenant Admin.
+                  {t('This user is currently the only active Tenant Admin in your organization. To change their role, you must first promote another active member to Tenant Admin.')}
                 </div>
               </div>
             </div>
           )}
 
           <div className="space-y-2.5">
-            <label className="block text-[#8b949e] font-semibold">Select New Role</label>
+            <label className="block text-[#8b949e] font-semibold">{t('Select New Role')}</label>
 
             {/* Member Option */}
             <label
@@ -145,9 +147,9 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
                 className="mt-0.5 text-[#58a6ff] focus:ring-0"
               />
               <div className="flex-1">
-                <div className="font-bold text-white text-xs">Member</div>
+                <div className="font-bold text-white text-xs">{t('Member')}</div>
                 <div className="text-[11px] text-[#8b949e] mt-0.5">
-                  Business member profile, personal vehicle registration, and automatic whitelist gate entry passes.
+                  {t('Business member profile, personal vehicle registration, and automatic whitelist gate entry passes.')}
                 </div>
               </div>
             </label>
@@ -169,9 +171,9 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
                 className="mt-0.5 text-[#d29922] focus:ring-0"
               />
               <div className="flex-1">
-                <div className="font-bold text-[#d29922] text-xs">Site Manager</div>
+                <div className="font-bold text-[#d29922] text-xs">{t('Site Manager')}</div>
                 <div className="text-[11px] text-[#8b949e] mt-0.5">
-                  Operational supervision of location gates, lanes, live monitoring, gate overrides, and camera alerts.
+                  {t('Operational supervision of location gates, lanes, live monitoring, gate overrides, and camera alerts.')}
                 </div>
               </div>
             </label>
@@ -193,9 +195,9 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
                 className="mt-0.5 text-[#f85149] focus:ring-0"
               />
               <div className="flex-1">
-                <div className="font-bold text-[#f85149] text-xs">Tenant Admin</div>
+                <div className="font-bold text-[#f85149] text-xs">{t('Tenant Admin')}</div>
                 <div className="text-[11px] text-[#8b949e] mt-0.5">
-                  Unrestricted access across all organization settings, location configurations, user accounts, and billing.
+                  {t('Unrestricted access across all organization settings, location configurations, user accounts, and billing.')}
                 </div>
               </div>
             </label>
@@ -209,14 +211,14 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
                 <ArrowRight className="w-3.5 h-3.5 text-[#58a6ff]" />
                 <span className="font-bold text-white">{getRoleLabel(selectedRole)}</span>
               </div>
-              <span className="text-[11px] font-mono text-[#8b949e]">Audit log will record this change</span>
+              <span className="text-[11px] font-mono text-[#8b949e]">{t('Audit log will record this change')}</span>
             </div>
           )}
 
           {/* Footer */}
           <div className="pt-3 border-t border-[#30363d] flex items-center justify-end gap-2.5">
             <Button variant="secondary" onClick={onClose} className="text-xs">
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               type="submit"
@@ -225,7 +227,7 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
               className="text-xs bg-[#58a6ff] hover:bg-[#79b8ff] text-black font-bold gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              Confirm Role Change
+              {t('Confirm Role Change')}
             </Button>
           </div>
         </form>

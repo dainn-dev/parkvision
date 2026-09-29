@@ -46,8 +46,10 @@ import { Button, Card, Badge } from '../../components/ui';
 import { EditLocationSheet } from '../../components/tenant/EditLocationSheet';
 import { EditOperatingHoursDialog } from '../../components/tenant/EditOperatingHoursDialog';
 import { DeactivateLocationDialog } from '../../components/tenant/DeactivateLocationDialog';
+import { useTranslation } from 'react-i18next';
 
 export const TenantLocationPage: React.FC = () => {
+  const { t } = useTranslation('tenant');
   const {
     tenantLocation,
     tenantHealth,
@@ -80,8 +82,8 @@ export const TenantLocationPage: React.FC = () => {
     setCopiedField(fieldName);
     addToast({
       type: 'info',
-      title: 'Copied to Clipboard',
-      description: `${fieldName} copied.`
+      title: t('Copied to Clipboard'),
+      description: t('{{field}} copied.', { field: fieldName })
     });
     setTimeout(() => setCopiedField(null), 2000);
   };
@@ -90,8 +92,8 @@ export const TenantLocationPage: React.FC = () => {
   const getOperatingHoursSummary = () => {
     if (!location?.operatingHours || location.operatingHours.isOpen24_7) {
       return {
-        mode: '24/7 Mode',
-        description: 'Facility is open 24 hours / 7 days continuous'
+        mode: t('24/7 Mode'),
+        description: t('Facility is open 24 hours / 7 days continuous')
       };
     }
     const days = location.operatingHours.days || [];
@@ -99,12 +101,12 @@ export const TenantLocationPage: React.FC = () => {
     const sat = days.find((d) => d.day === 'SATURDAY');
     const sun = days.find((d) => d.day === 'SUNDAY');
 
-    const monText = mon?.enabled ? `${mon.open} – ${mon.close}` : 'Closed';
-    const satText = sat?.enabled ? `${sat.open} – ${sat.close}` : 'Closed';
-    const sunText = sun?.enabled ? `${sun.open} – ${sun.close}` : 'Closed';
+    const monText = mon?.enabled ? `${mon.open} – ${mon.close}` : t('Closed');
+    const satText = sat?.enabled ? `${sat.open} – ${sat.close}` : t('Closed');
+    const sunText = sun?.enabled ? `${sun.open} – ${sun.close}` : t('Closed');
 
     return {
-      mode: 'Scheduled Hours',
+      mode: t('Scheduled Hours'),
       monFri: monText,
       sat: satText,
       sun: sunText
@@ -124,7 +126,7 @@ export const TenantLocationPage: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-white tracking-tight">Location</h1>
+                <h1 className="text-xl font-bold text-white tracking-tight">{t('Location')}</h1>
                 <span className="px-2 py-0.5 rounded-full text-xs bg-[#21262d] text-[#c9d1d9] font-medium border border-[#30363d]">
                   {location.name}
                 </span>
@@ -133,7 +135,7 @@ export const TenantLocationPage: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-[#8b949e]">
-                Your organization's physical operating location, hardware topology, and schedule
+                {t("Your organization's physical operating location, hardware topology, and schedule")}
               </p>
             </div>
           </div>
@@ -148,7 +150,7 @@ export const TenantLocationPage: React.FC = () => {
             className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 font-semibold shadow-xs"
           >
             <Edit className="w-3.5 h-3.5" />
-            Edit Location
+            {t('Edit Location')}
           </Button>
 
           {/* Secondary Actions Dropdown */}
@@ -175,7 +177,7 @@ export const TenantLocationPage: React.FC = () => {
                     className="w-full px-3.5 py-2 text-left text-[#c9d1d9] hover:text-white hover:bg-[#21262d] flex items-center gap-2.5 transition-colors"
                   >
                     <Compass className="w-4 h-4 text-[#58a6ff]" />
-                    <span>{showInteractiveMap ? 'Hide Map View' : 'View on Map'}</span>
+                    <span>{showInteractiveMap ? t('Hide Map View') : t('View on Map')}</span>
                   </button>
 
                   <button
@@ -186,7 +188,7 @@ export const TenantLocationPage: React.FC = () => {
                     className="w-full px-3.5 py-2 text-left text-[#c9d1d9] hover:text-white hover:bg-[#21262d] flex items-center gap-2.5 transition-colors"
                   >
                     <Clock className="w-4 h-4 text-[#3fb950]" />
-                    <span>Manage Operating Hours</span>
+                    <span>{t('Manage Operating Hours')}</span>
                   </button>
 
                   <div className="border-t border-[#30363d] my-1" />
@@ -203,7 +205,7 @@ export const TenantLocationPage: React.FC = () => {
                     }`}
                   >
                     <Power className="w-4 h-4" />
-                    <span>{isActive ? 'Deactivate Location' : 'Activate Location'}</span>
+                    <span>{isActive ? t('Deactivate Location') : t('Activate Location')}</span>
                   </button>
                 </div>
               </>
@@ -229,16 +231,16 @@ export const TenantLocationPage: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-xs">
-                {isActive ? 'Active & Operational' : 'Location Deactivated'}
+                {isActive ? t('Active & Operational') : t('Location Deactivated')}
               </span>
               <span className="text-[10px] text-[#8b949e]">
-                Last updated: 10 seconds ago
+                {t('Last updated: 10 seconds ago')}
               </span>
             </div>
             <p className="text-xs text-[#8b949e]">
               {isActive
-                ? 'Location is fully operational and processing live ANPR camera access events across all lanes.'
-                : 'Automated ANPR gate operations are suspended. Hardware telemetry remains in diagnostic mode.'}
+                ? t('Location is fully operational and processing live ANPR camera access events across all lanes.')
+                : t('Automated ANPR gate operations are suspended. Hardware telemetry remains in diagnostic mode.')}
             </p>
           </div>
         </div>
@@ -254,7 +256,7 @@ export const TenantLocationPage: React.FC = () => {
           }`}
         >
           <Power className="w-3.5 h-3.5 mr-1.5" />
-          {isActive ? 'Deactivate' : 'Activate Location'}
+          {isActive ? t('Deactivate') : t('Activate Location')}
         </Button>
       </div>
 
@@ -266,7 +268,7 @@ export const TenantLocationPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
               <div className="flex items-center gap-2 text-white font-semibold text-xs">
                 <MapPin className="w-4 h-4 text-[#58a6ff]" />
-                <span>Location Information</span>
+                <span>{t('Location Information')}</span>
               </div>
               <Button
                 variant="ghost"
@@ -274,25 +276,25 @@ export const TenantLocationPage: React.FC = () => {
                 onClick={() => setIsEditLocationOpen(true)}
                 className="text-[11px] text-[#58a6ff] hover:text-white p-0 h-auto font-medium"
               >
-                Edit
+                {t('Edit')}
               </Button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">Location Name</span>
+                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Location Name')}</span>
                 <span className="text-white font-semibold">{location.name}</span>
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">Location Code</span>
+                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Location Code')}</span>
                 <span className="font-mono text-white bg-[#0d0e12] px-2 py-0.5 rounded border border-[#30363d]">
                   {location.code}
                 </span>
               </div>
 
               <div className="sm:col-span-2">
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">Physical Address</span>
+                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Physical Address')}</span>
                 <div className="flex items-start justify-between gap-2 bg-[#0d0e12] p-2.5 rounded-xl border border-[#30363d]">
                   <p className="text-white text-xs leading-relaxed">
                     {location.address.line1}
@@ -320,7 +322,7 @@ export const TenantLocationPage: React.FC = () => {
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">Timezone</span>
+                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Timezone')}</span>
                 <span className="text-white font-mono text-xs flex items-center gap-1.5">
                   <Globe className="w-3.5 h-3.5 text-[#8b949e]" />
                   {location.timezone} (UTC+07:00)
@@ -328,7 +330,7 @@ export const TenantLocationPage: React.FC = () => {
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">Coordinates</span>
+                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Coordinates')}</span>
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-white text-xs">
                     {(Number(location?.latitude) || 10.7769).toFixed(4)}, {(Number(location?.longitude) || 106.7009).toFixed(4)}
@@ -337,24 +339,24 @@ export const TenantLocationPage: React.FC = () => {
                     onClick={() => setShowInteractiveMap(!showInteractiveMap)}
                     className="text-[11px] text-[#58a6ff] hover:underline"
                   >
-                    {showInteractiveMap ? 'Hide map' : 'View on map'}
+                    {showInteractiveMap ? t('Hide map') : t('View on map')}
                   </button>
                 </div>
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">Slot Capacity</span>
+                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Slot Capacity')}</span>
                 <span className="text-white font-semibold text-xs">
-                  {location.capacity || 0} Vehicles
+                  {location.capacity || 0} {t('Vehicles')}
                 </span>
                 <span className="text-[10px] text-[#8b949e] ml-2">
-                  (Occupancy: {location.currentOccupancy || 0}{location.capacity ? ` / ${Math.round((location.currentOccupancy || 0) / location.capacity * 100)}%` : ''})
+                  ({t('Occupancy:')} {location.currentOccupancy || 0}{location.capacity ? ` / ${Math.round((location.currentOccupancy || 0) / location.capacity * 100)}%` : ''})
                 </span>
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">Facility Type</span>
-                <span className="text-white text-xs">Dedicated Headquarters Campus</span>
+                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Facility Type')}</span>
+                <span className="text-white text-xs">{t('Dedicated Headquarters Campus')}</span>
               </div>
             </div>
           </div>
@@ -365,7 +367,7 @@ export const TenantLocationPage: React.FC = () => {
               <div className="flex items-center justify-between text-[11px] text-[#8b949e]">
                 <span className="flex items-center gap-1.5 text-white font-medium">
                   <Compass className="w-3.5 h-3.5 text-[#e3b341]" />
-                  Geographic Location Overlay
+                  {t('Geographic Location Overlay')}
                 </span>
                 <span className="font-mono">
                   {location.latitude}, {location.longitude}
@@ -393,7 +395,7 @@ export const TenantLocationPage: React.FC = () => {
                 </div>
 
                 <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-black/80 text-[10px] text-[#8b949e] border border-[#30363d]">
-                  District 1, Ho Chi Minh City
+                  {t('District 1, Ho Chi Minh City')}
                 </div>
               </div>
             </div>
@@ -406,13 +408,13 @@ export const TenantLocationPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
               <div className="flex items-center gap-2 text-white font-semibold text-xs">
                 <Activity className="w-4 h-4 text-[#3fb950]" />
-                <span>System Health & Telemetry</span>
+                <span>{t('System Health & Telemetry')}</span>
               </div>
               <Badge
                 variant={isHealthy ? 'emerald' : 'amber'}
                 className="text-[10px] uppercase font-mono tracking-wider"
               >
-                ● {tenantHealth.overall}
+                ● {t(tenantHealth.overall)}
               </Badge>
             </div>
 
@@ -420,59 +422,59 @@ export const TenantLocationPage: React.FC = () => {
               <div className="py-2.5 flex items-center justify-between">
                 <span className="text-[#8b949e] flex items-center gap-2">
                   <Camera className="w-3.5 h-3.5 text-[#58a6ff]" />
-                  ANPR Cameras
+                  {t('ANPR Cameras')}
                 </span>
                 <span className="text-white font-mono font-medium">
-                  {tenantHealth.cameras.online} / {tenantHealth.cameras.total} Online
+                  {tenantHealth.cameras.online} / {tenantHealth.cameras.total} {t('Online')}
                 </span>
               </div>
 
               <div className="py-2.5 flex items-center justify-between">
                 <span className="text-[#8b949e] flex items-center gap-2">
                   <DoorOpen className="w-3.5 h-3.5 text-[#3fb950]" />
-                  Barrier Gate Relays
+                  {t('Barrier Gate Relays')}
                 </span>
                 <span className="text-white font-mono font-medium">
-                  {tenantHealth.gates.online} / {tenantHealth.gates.total} Online
+                  {tenantHealth.gates.online} / {tenantHealth.gates.total} {t('Online')}
                 </span>
               </div>
 
               <div className="py-2.5 flex items-center justify-between">
                 <span className="text-[#8b949e] flex items-center gap-2">
                   <Server className="w-3.5 h-3.5 text-[#e3b341]" />
-                  Edge OCR Nodes
+                  {t('Edge OCR Nodes')}
                 </span>
                 <span className="text-white font-mono font-medium">
-                  {tenantHealth.edgeDevices.online} / {tenantHealth.edgeDevices.total} Online
+                  {tenantHealth.edgeDevices.online} / {tenantHealth.edgeDevices.total} {t('Online')}
                 </span>
               </div>
 
               <div className="py-2.5 flex items-center justify-between">
                 <span className="text-[#8b949e] flex items-center gap-2">
                   <Radio className="w-3.5 h-3.5 text-[#a371f7]" />
-                  Cloud API Latency
+                  {t('Cloud API Latency')}
                 </span>
                 <span className="text-[#3fb950] font-mono text-xs">
-                  {tenantHealth.apiLatencyMs}ms (Optimal)
+                  {tenantHealth.apiLatencyMs}ms ({t('Optimal')})
                 </span>
               </div>
 
               <div className="py-2.5 flex items-center justify-between">
                 <span className="text-[#8b949e] flex items-center gap-2">
                   <Wifi className="w-3.5 h-3.5 text-[#58a6ff]" />
-                  Live Event Stream
+                  {t('Live Event Stream')}
                 </span>
                 <span className="text-[#3fb950] font-mono text-xs flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-ping" />
-                  WebSocket Active
+                  {t('WebSocket Active')}
                 </span>
               </div>
             </div>
           </div>
 
           <div className="p-3 rounded-xl bg-[#0d0e12] border border-[#30363d] flex items-center justify-between text-[11px]">
-            <span className="text-[#8b949e]">Status sync:</span>
-            <span className="text-white font-mono">Continuous Telemetry Poll</span>
+            <span className="text-[#8b949e]">{t('Status sync:')}</span>
+            <span className="text-white font-mono">{t('Continuous Telemetry Poll')}</span>
           </div>
         </div>
       </div>
@@ -482,10 +484,10 @@ export const TenantLocationPage: React.FC = () => {
         <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
           <div className="flex items-center gap-2 text-white font-semibold text-xs">
             <Server className="w-4 h-4 text-[#58a6ff]" />
-            <span>Infrastructure Hardware Summary</span>
+            <span>{t('Infrastructure Hardware Summary')}</span>
           </div>
           <span className="text-[11px] text-[#8b949e]">
-            Installed & configured hardware at this location
+            {t('Installed & configured hardware at this location')}
           </span>
         </div>
 
@@ -498,24 +500,24 @@ export const TenantLocationPage: React.FC = () => {
                   <Camera className="w-4 h-4" />
                 </div>
                 <Badge variant="emerald" className="text-[10px]">
-                  All Operational
+                  {t('All Operational')}
                 </Badge>
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e]">ANPR Cameras</span>
+                <span className="text-[11px] text-[#8b949e]">{t('ANPR Cameras')}</span>
                 <div className="flex items-baseline gap-2 mt-0.5">
                   <span className="text-xl font-bold text-white font-mono">
                     {tenantSummary.cameras.total}
                   </span>
                   <span className="text-xs text-[#3fb950] font-mono">
-                    {tenantSummary.cameras.online} online
+                    {tenantSummary.cameras.online} {t('online')}
                   </span>
                 </div>
               </div>
 
               <p className="text-[11px] text-[#8b949e]">
-                Dual-angle optical OCR cameras covering 4 inbound & outbound lanes.
+                {t('Dual-angle optical OCR cameras covering 4 inbound & outbound lanes.')}
               </p>
             </div>
 
@@ -523,7 +525,7 @@ export const TenantLocationPage: React.FC = () => {
               onClick={() => setTenantNavTab('cameras' as any)}
               className="mt-4 pt-3 border-t border-[#21262d] flex items-center justify-between text-xs text-[#58a6ff] hover:text-white font-medium group transition-colors"
             >
-              <span>Manage Cameras</span>
+              <span>{t('Manage Cameras')}</span>
               <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
@@ -536,24 +538,24 @@ export const TenantLocationPage: React.FC = () => {
                   <DoorOpen className="w-4 h-4" />
                 </div>
                 <Badge variant="emerald" className="text-[10px]">
-                  4 Relays Synced
+                  {t('4 Relays Synced')}
                 </Badge>
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e]">Barrier Gates</span>
+                <span className="text-[11px] text-[#8b949e]">{t('Barrier Gates')}</span>
                 <div className="flex items-baseline gap-2 mt-0.5">
                   <span className="text-xl font-bold text-white font-mono">
                     {tenantSummary.gates.total}
                   </span>
                   <span className="text-xs text-[#3fb950] font-mono">
-                    {tenantSummary.gates.online} online
+                    {tenantSummary.gates.online} {t('online')}
                   </span>
                 </div>
               </div>
 
               <p className="text-[11px] text-[#8b949e]">
-                High-speed motorized boom barriers with MQTT relay control & loop sensors.
+                {t('High-speed motorized boom barriers with MQTT relay control & loop sensors.')}
               </p>
             </div>
 
@@ -561,7 +563,7 @@ export const TenantLocationPage: React.FC = () => {
               onClick={() => setTenantNavTab('gates' as any)}
               className="mt-4 pt-3 border-t border-[#21262d] flex items-center justify-between text-xs text-[#3fb950] hover:text-white font-medium group transition-colors"
             >
-              <span>Manage Gates</span>
+              <span>{t('Manage Gates')}</span>
               <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
@@ -574,24 +576,24 @@ export const TenantLocationPage: React.FC = () => {
                   <Server className="w-4 h-4" />
                 </div>
                 <Badge variant="emerald" className="text-[10px]">
-                  3 Active Nodes
+                  {t('3 Active Nodes')}
                 </Badge>
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e]">Edge Gateways</span>
+                <span className="text-[11px] text-[#8b949e]">{t('Edge Gateways')}</span>
                 <div className="flex items-baseline gap-2 mt-0.5">
                   <span className="text-xl font-bold text-white font-mono">
                     {tenantHealth.edgeDevices.total}
                   </span>
                   <span className="text-xs text-[#3fb950] font-mono">
-                    {tenantHealth.edgeDevices.online} online
+                    {tenantHealth.edgeDevices.online} {t('online')}
                   </span>
                 </div>
               </div>
 
               <p className="text-[11px] text-[#8b949e]">
-                NVIDIA Jetson on-premise compute nodes running real-time license plate detection.
+                {t('NVIDIA Jetson on-premise compute nodes running real-time license plate detection.')}
               </p>
             </div>
 
@@ -599,7 +601,7 @@ export const TenantLocationPage: React.FC = () => {
               onClick={() => setTenantNavTab('edge-devices')}
               className="mt-4 pt-3 border-t border-[#21262d] flex items-center justify-between text-xs text-[#e3b341] hover:text-white font-medium group transition-colors"
             >
-              <span>Manage Edge Devices</span>
+              <span>{t('Manage Edge Devices')}</span>
               <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
@@ -614,7 +616,7 @@ export const TenantLocationPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
               <div className="flex items-center gap-2 text-white font-semibold text-xs">
                 <Clock className="w-4 h-4 text-[#3fb950]" />
-                <span>Operating Hours</span>
+                <span>{t('Operating Hours')}</span>
               </div>
               <Button
                 variant="ghost"
@@ -622,7 +624,7 @@ export const TenantLocationPage: React.FC = () => {
                 onClick={() => setIsEditHoursOpen(true)}
                 className="text-[11px] text-[#58a6ff] hover:text-white p-0 h-auto font-medium"
               >
-                Edit Hours
+                {t('Edit Hours')}
               </Button>
             </div>
 
@@ -630,32 +632,32 @@ export const TenantLocationPage: React.FC = () => {
               <div className="p-4 rounded-xl bg-[#238636]/10 border border-[#238636]/30 flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-[#3fb950] shrink-0" />
                 <div>
-                  <h4 className="text-white font-bold text-xs">24/7 Operations</h4>
+                  <h4 className="text-white font-bold text-xs">{t('24/7 Operations')}</h4>
                   <p className="text-[11px] text-[#8b949e]">
-                    Facility is open and processing registered vehicle entries around the clock.
+                    {t('Facility is open and processing registered vehicle entries around the clock.')}
                   </p>
                 </div>
               </div>
             ) : (
               <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                  <span className="font-semibold text-white">Monday – Friday</span>
+                  <span className="font-semibold text-white">{t('Monday – Friday')}</span>
                   <span className="font-mono text-[#3fb950]">
                     {hoursSummary.monFri || '07:00 – 22:00'}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                  <span className="font-semibold text-white">Saturday</span>
+                  <span className="font-semibold text-white">{t('Saturday')}</span>
                   <span className="font-mono text-[#e3b341]">
                     {hoursSummary.sat || '08:00 – 18:00'}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                  <span className="font-semibold text-white">Sunday</span>
+                  <span className="font-semibold text-white">{t('Sunday')}</span>
                   <span className="text-[#8b949e] font-medium">
-                    {hoursSummary.sun || 'Closed'}
+                    {hoursSummary.sun || t('Closed')}
                   </span>
                 </div>
               </div>
@@ -663,7 +665,7 @@ export const TenantLocationPage: React.FC = () => {
           </div>
 
           <div className="pt-2 text-[11px] text-[#8b949e] flex items-center justify-between">
-            <span>Enforced Timezone:</span>
+            <span>{t('Enforced Timezone:')}</span>
             <span className="text-white font-mono">{location.timezone}</span>
           </div>
         </div>
@@ -674,7 +676,7 @@ export const TenantLocationPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
               <div className="flex items-center gap-2 text-white font-semibold text-xs">
                 <Phone className="w-4 h-4 text-[#a371f7]" />
-                <span>Facility Contact Information</span>
+                <span>{t('Facility Contact Information')}</span>
               </div>
               <Button
                 variant="ghost"
@@ -682,13 +684,13 @@ export const TenantLocationPage: React.FC = () => {
                 onClick={() => setIsEditLocationOpen(true)}
                 className="text-[11px] text-[#58a6ff] hover:text-white p-0 h-auto font-medium"
               >
-                Edit
+                {t('Edit')}
               </Button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">Facility Lead</span>
+                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Facility Lead')}</span>
                 <span className="text-white font-semibold flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-[#8b949e]" />
                   {location.contactPerson || '—'}
@@ -696,7 +698,7 @@ export const TenantLocationPage: React.FC = () => {
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">Facility Phone</span>
+                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Facility Phone')}</span>
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-white">{location.phone}</span>
                   <button
@@ -713,7 +715,7 @@ export const TenantLocationPage: React.FC = () => {
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">Operations Email</span>
+                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Operations Email')}</span>
                 <div className="flex items-center gap-2">
                   <span className="text-white text-xs">{location.email}</span>
                   <button
@@ -730,7 +732,7 @@ export const TenantLocationPage: React.FC = () => {
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">Emergency Hotline</span>
+                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Emergency Hotline')}</span>
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[#f85149] font-semibold">
                     {location.emergencyContact || '+84 91 844 5566'}
@@ -753,7 +755,7 @@ export const TenantLocationPage: React.FC = () => {
           </div>
 
           <div className="p-3 rounded-xl bg-[#0d0e12] border border-[#30363d] text-[11px] text-[#8b949e]">
-            Hotline personnel receive automatic SMS & MQTT dispatch alerts on gate obstruction.
+            {t('Hotline personnel receive automatic SMS & MQTT dispatch alerts on gate obstruction.')}
           </div>
         </div>
       </div>
@@ -764,10 +766,10 @@ export const TenantLocationPage: React.FC = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-white font-semibold text-sm">
               <Activity className="w-4 h-4 text-[#58a6ff]" />
-              <h3>Access Overview & Traffic Telemetry</h3>
+              <h3>{t('Access Overview & Traffic Telemetry')}</h3>
             </div>
             <p className="text-xs text-[#8b949e]">
-              Hourly inbound & outbound ANPR optical recognition activity at {location.name}
+              {t('Hourly inbound & outbound ANPR optical recognition activity at {{name}}', { name: location.name })}
             </p>
           </div>
 
@@ -785,12 +787,12 @@ export const TenantLocationPage: React.FC = () => {
                   }`}
                 >
                   {range === 'today'
-                    ? 'Today'
+                    ? t('Today')
                     : range === 'yesterday'
-                    ? 'Yesterday'
+                    ? t('Yesterday')
                     : range === '7d'
-                    ? '7 Days'
-                    : '30 Days'}
+                    ? t('7 Days')
+                    : t('30 Days')}
                 </button>
               ))}
             </div>
@@ -801,7 +803,7 @@ export const TenantLocationPage: React.FC = () => {
               onClick={() => setTenantNavTab('access-events' as any)}
               className="text-xs border-[#30363d] text-[#58a6ff] hover:text-white gap-1.5"
             >
-              <span>View Access Events</span>
+              <span>{t('View Access Events')}</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </Button>
           </div>
@@ -810,15 +812,15 @@ export const TenantLocationPage: React.FC = () => {
         {/* 4 Access KPI Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="bg-[#0d0e12] border border-[#30363d] rounded-xl p-3.5">
-            <span className="text-[11px] text-[#8b949e]">Total Access Today</span>
+            <span className="text-[11px] text-[#8b949e]">{t('Total Access Today')}</span>
             <div className="text-xl font-bold text-white font-mono mt-0.5">
               {tenantSummary.accessToday.total.toLocaleString()}
             </div>
-            <span className="text-[10px] text-[#3fb950]">↑ +12.4% vs last week</span>
+            <span className="text-[10px] text-[#3fb950]">{t('↑ +12.4% vs last week')}</span>
           </div>
 
           <div className="bg-[#0d0e12] border border-[#30363d] rounded-xl p-3.5">
-            <span className="text-[11px] text-[#8b949e]">Allowed Access</span>
+            <span className="text-[11px] text-[#8b949e]">{t('Allowed Access')}</span>
             <div className="text-xl font-bold text-[#3fb950] font-mono mt-0.5">
               {tenantSummary.accessToday.allowed.toLocaleString()}
             </div>
@@ -827,24 +829,24 @@ export const TenantLocationPage: React.FC = () => {
                 (tenantSummary.accessToday.allowed / (tenantSummary.accessToday.total || 1)) *
                 100
               ).toFixed(1)}
-              % Success Rate
+              % {t('Success Rate')}
             </span>
           </div>
 
           <div className="bg-[#0d0e12] border border-[#30363d] rounded-xl p-3.5">
-            <span className="text-[11px] text-[#8b949e]">Denied Attempts</span>
+            <span className="text-[11px] text-[#8b949e]">{t('Denied Attempts')}</span>
             <div className="text-xl font-bold text-[#f85149] font-mono mt-0.5">
               {tenantSummary.accessToday.denied.toLocaleString()}
             </div>
-            <span className="text-[10px] text-[#f85149]">Unregistered / expired</span>
+            <span className="text-[10px] text-[#f85149]">{t('Unregistered / expired')}</span>
           </div>
 
           <div className="bg-[#0d0e12] border border-[#30363d] rounded-xl p-3.5">
-            <span className="text-[11px] text-[#8b949e]">Unknown / Review</span>
+            <span className="text-[11px] text-[#8b949e]">{t('Unknown / Review')}</span>
             <div className="text-xl font-bold text-[#e3b341] font-mono mt-0.5">
               {tenantSummary.accessToday.unknown.toLocaleString()}
             </div>
-            <span className="text-[10px] text-[#8b949e]">Low confidence OCR</span>
+            <span className="text-[10px] text-[#8b949e]">{t('Low confidence OCR')}</span>
           </div>
         </div>
 
@@ -896,7 +898,7 @@ export const TenantLocationPage: React.FC = () => {
               <Area
                 type="monotone"
                 dataKey="allowed"
-                name="Allowed Entries"
+                name={t('Allowed Entries')}
                 stroke="#3fb950"
                 strokeWidth={2}
                 fillOpacity={1}
@@ -905,7 +907,7 @@ export const TenantLocationPage: React.FC = () => {
               <Area
                 type="monotone"
                 dataKey="denied"
-                name="Denied / Blocked"
+                name={t('Denied / Blocked')}
                 stroke="#f85149"
                 strokeWidth={2}
                 fillOpacity={1}
@@ -924,28 +926,28 @@ export const TenantLocationPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
               <div className="flex items-center gap-2 text-white font-semibold text-xs">
                 <Car className="w-4 h-4 text-[#58a6ff]" />
-                <span>Registered Vehicles & Whitelist</span>
+                <span>{t('Registered Vehicles & Whitelist')}</span>
               </div>
               <Badge variant="slate" className="text-[10px] font-mono">
-                {tenantSummary.vehicles.total} Enrolled
+                {t('{{count}} Enrolled', { count: tenantSummary.vehicles.total })}
               </Badge>
             </div>
 
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="p-3 rounded-xl bg-[#0d0e12] border border-[#30363d]">
-                <span className="text-[10px] text-[#8b949e] block">Total</span>
+                <span className="text-[10px] text-[#8b949e] block">{t('Total')}</span>
                 <span className="text-lg font-bold text-white font-mono">
                   {tenantSummary.vehicles.total}
                 </span>
               </div>
               <div className="p-3 rounded-xl bg-[#0d0e12] border border-[#30363d]">
-                <span className="text-[10px] text-[#3fb950] block">Active Whitelist</span>
+                <span className="text-[10px] text-[#3fb950] block">{t('Active Whitelist')}</span>
                 <span className="text-lg font-bold text-[#3fb950] font-mono">
                   {tenantSummary.vehicles.active}
                 </span>
               </div>
               <div className="p-3 rounded-xl bg-[#0d0e12] border border-[#30363d]">
-                <span className="text-[10px] text-[#f85149] block">Blocked / Expired</span>
+                <span className="text-[10px] text-[#f85149] block">{t('Blocked / Expired')}</span>
                 <span className="text-lg font-bold text-[#f85149] font-mono">
                   {tenantSummary.vehicles.inactive}
                 </span>
@@ -953,8 +955,7 @@ export const TenantLocationPage: React.FC = () => {
             </div>
 
             <p className="text-xs text-[#8b949e] leading-relaxed">
-              Authorized employee vehicles, VIP pass-holders, and permanent delivery trucks mapped
-              to this location.
+              {t('Authorized employee vehicles, VIP pass-holders, and permanent delivery trucks mapped to this location.')}
             </p>
           </div>
 
@@ -964,7 +965,7 @@ export const TenantLocationPage: React.FC = () => {
             onClick={() => setTenantNavTab('vehicles')}
             className="w-full text-xs border-[#30363d] text-[#c9d1d9] hover:text-white justify-between"
           >
-            <span>View Vehicles Whitelist</span>
+            <span>{t('View Vehicles Whitelist')}</span>
             <ChevronRight className="w-3.5 h-3.5 text-[#8b949e]" />
           </Button>
         </div>
@@ -975,10 +976,10 @@ export const TenantLocationPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
               <div className="flex items-center gap-2 text-white font-semibold text-xs">
                 <ShieldCheck className="w-4 h-4 text-[#3fb950]" />
-                <span>Access Control Rules</span>
+                <span>{t('Access Control Rules')}</span>
               </div>
               <Badge variant="emerald" className="text-[10px]">
-                {tenantAccessRules.filter((r) => r.status === 'ACTIVE').length} Active Rules
+                {t('{{count}} Active Rules', { count: tenantAccessRules.filter((r) => r.status === 'ACTIVE').length })}
               </Badge>
             </div>
 
@@ -993,11 +994,11 @@ export const TenantLocationPage: React.FC = () => {
                     <span className="text-[10px] text-[#8b949e] block font-mono">
                       {typeof rule.schedule === 'string'
                         ? rule.schedule
-                        : rule.schedule?.summaryText || rule.schedule?.type || 'Always Active (24/7)'}
+                        : rule.schedule?.summaryText || rule.schedule?.type || t('Always Active (24/7)')}
                     </span>
                   </div>
                   <Badge variant={rule.status === 'ACTIVE' ? 'emerald' : 'slate'} className="text-[10px]">
-                    {rule.status}
+                    {t(rule.status)}
                   </Badge>
                 </div>
               ))}
@@ -1010,7 +1011,7 @@ export const TenantLocationPage: React.FC = () => {
             onClick={() => setTenantNavTab('access_rules' as any)}
             className="w-full text-xs border-[#30363d] text-[#c9d1d9] hover:text-white justify-between"
           >
-            <span>Manage Access Rules</span>
+            <span>{t('Manage Access Rules')}</span>
             <ChevronRight className="w-3.5 h-3.5 text-[#8b949e]" />
           </Button>
         </div>

@@ -28,6 +28,7 @@ import {
   AccessRuleDaySchedule
 } from '../../../types/tenant';
 import { Button, Input } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface CreateEditRuleModalProps {
   isOpen: boolean;
@@ -59,6 +60,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
     updateTenantAccessRule,
     detectRuleConflicts
   } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const isEditing = Boolean(ruleToEdit);
 
@@ -224,41 +226,41 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
   const validateStep = (step: number): boolean => {
     const errs: Record<string, string> = {};
     if (step === 1) {
-      if (!name.trim()) errs.name = 'Rule name is required';
-      if (!code.trim()) errs.code = 'Rule code is required';
+      if (!name.trim()) errs.name = t('Rule name is required');
+      if (!code.trim()) errs.code = t('Rule code is required');
     }
     if (step === 2) {
       if (targetType === 'LICENSE_PLATE' && !targetLicensePlate.trim()) {
-        errs.targetLicensePlate = 'License plate number is required';
+        errs.targetLicensePlate = t('License plate number is required');
       }
       if (targetType === 'SPECIFIC_VEHICLE' && !targetVehicleId) {
-        errs.targetVehicleId = 'Please select a registered vehicle';
+        errs.targetVehicleId = t('Please select a registered vehicle');
       }
       if (targetType === 'MEMBER' && !targetMemberId) {
-        errs.targetMemberId = 'Please select a member';
+        errs.targetMemberId = t('Please select a member');
       }
     }
     if (step === 3) {
       if (!allSites && selectedSiteIds.length === 0) {
-        errs.sites = 'Select at least one facility site';
+        errs.sites = t('Select at least one facility site');
       }
       if (!allGates && selectedGateIds.length === 0) {
-        errs.gates = 'Select at least one gate lane';
+        errs.gates = t('Select at least one gate lane');
       }
     }
     if (step === 4) {
       if (scheduleType === 'DATE_RANGE') {
-        if (!startDate) errs.startDate = 'Start date required';
-        if (!endDate) errs.endDate = 'End date required';
+        if (!startDate) errs.startDate = t('Start date required');
+        if (!endDate) errs.endDate = t('End date required');
       }
       if (scheduleType === 'WEEKLY') {
         const hasEnabled = weeklyDays.some(d => d.enabled);
-        if (!hasEnabled) errs.weeklyDays = 'Enable at least one active day of the week';
+        if (!hasEnabled) errs.weeklyDays = t('Enable at least one active day of the week');
       }
     }
     if (step === 5) {
       if (!priority || priority < 1) {
-        errs.priority = 'Priority must be at least 1';
+        errs.priority = t('Priority must be at least 1');
       }
     }
 
@@ -317,13 +319,13 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
     const selectedMember = tenantUsers.find(u => u.id === targetMemberId);
 
     // Human summary text for schedule
-    let scheduleSummary = 'Always (24/7)';
+    let scheduleSummary = t('Always (24/7)');
     if (scheduleType === 'WEEKLY') {
-      const enabledDays = weeklyDays.filter(d => d.enabled).map(d => d.day.slice(0, 3));
+      const enabledDays = weeklyDays.filter(d => d.enabled).map(d => t(d.day.slice(0, 3)));
       const firstWindow = weeklyDays.find(d => d.enabled && d.windows.length > 0)?.windows[0];
       scheduleSummary = `${enabledDays.join(', ')} · ${firstWindow?.start || '08:00'} - ${firstWindow?.end || '18:00'}`;
     } else if (scheduleType === 'DATE_RANGE') {
-      scheduleSummary = `${startDate} to ${endDate} (${startTime} - ${endTime})`;
+      scheduleSummary = `${startDate} ${t('to')} ${endDate} (${startTime} - ${endTime})`;
     }
 
     const rulePayload: Partial<TenantAccessRule> = {
@@ -349,11 +351,11 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
         allSites,
         siteIds: allSites ? ['ALL_SITES'] : selectedSiteIds,
         siteNames: allSites
-          ? ['All Facilities']
+          ? [t('All Facilities')]
           : tenantSites.filter(s => selectedSiteIds.includes(s.id)).map(s => s.name),
         allGates,
         gateIds: allGates ? ['ALL_GATES'] : selectedGateIds,
-        gateNames: allGates ? ['All Gates'] : selectedGateIds
+        gateNames: allGates ? [t('All Gates')] : selectedGateIds
       },
       schedule: {
         type: scheduleType,
@@ -384,12 +386,12 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
   };
 
   const steps = [
-    { num: 1, label: 'Basic Info' },
-    { num: 2, label: 'Target' },
-    { num: 3, label: 'Scope' },
-    { num: 4, label: 'Schedule' },
-    { num: 5, label: 'Action & Priority' },
-    { num: 6, label: 'Review' }
+    { num: 1, label: t('Basic Info') },
+    { num: 2, label: t('Target') },
+    { num: 3, label: t('Scope') },
+    { num: 4, label: t('Schedule') },
+    { num: 5, label: t('Action & Priority') },
+    { num: 6, label: t('Review') }
   ];
 
   return (
@@ -409,10 +411,10 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-white tracking-tight">
-                {isEditing ? `Edit Access Rule: ${ruleToEdit?.code}` : 'Create Access Policy Rule'}
+                {isEditing ? t('Edit Access Rule: {{code}}', { code: ruleToEdit?.code }) : t('Create Access Policy Rule')}
               </h3>
               <p className="text-xs text-[#8b949e]">
-                Configure automated ANPR camera barrier evaluation policies
+                {t('Configure automated ANPR camera barrier evaluation policies')}
               </p>
             </div>
           </div>
@@ -465,10 +467,10 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                    Rule Name <span className="text-[#f85149]">*</span>
+                    {t('Rule Name')} <span className="text-[#f85149]">*</span>
                   </label>
                   <Input
-                    placeholder="e.g. Employee Standard Parking Access"
+                    placeholder={t('e.g. Employee Standard Parking Access')}
                     value={name}
                     onChange={(e) => {
                       setName(e.target.value);
@@ -483,7 +485,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
                 <div>
                   <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                    Rule Code <span className="text-[#f85149]">*</span>
+                    {t('Rule Code')} <span className="text-[#f85149]">*</span>
                   </label>
                   <Input
                     placeholder="e.g. EMPLOYEE-PARKING"
@@ -497,13 +499,13 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[#c9d1d9] font-medium">Description</label>
+                  <label className="text-[#c9d1d9] font-medium">{t('Description')}</label>
                   <span className="text-[11px] text-[#8b949e]">{description.length}/500</span>
                 </div>
                 <textarea
                   rows={3}
                   maxLength={500}
-                  placeholder="Describe purpose of rule, edge trigger conditions, and authorized team members..."
+                  placeholder={t('Describe purpose of rule, edge trigger conditions, and authorized team members...')}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-3 text-white focus:outline-hidden focus:border-[#58a6ff]"
@@ -511,7 +513,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[#c9d1d9] font-medium mb-1.5">Initial Activation Status</label>
+                <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Initial Activation Status')}</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -524,8 +526,8 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                   >
                     <span className="w-2.5 h-2.5 rounded-full bg-[#3fb950]" />
                     <div>
-                      <div className="font-bold text-white">Active (Enforced)</div>
-                      <div className="text-[11px] text-[#8b949e]">Immediately deployed to camera edge controllers</div>
+                      <div className="font-bold text-white">{t('Active (Enforced)')}</div>
+                      <div className="text-[11px] text-[#8b949e]">{t('Immediately deployed to camera edge controllers')}</div>
                     </div>
                   </button>
 
@@ -540,8 +542,8 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                   >
                     <span className="w-2.5 h-2.5 rounded-full bg-[#e3b341]" />
                     <div>
-                      <div className="font-bold text-white">Draft Mode</div>
-                      <div className="text-[11px] text-[#8b949e]">Save policy configuration without active gate enforcement</div>
+                      <div className="font-bold text-white">{t('Draft Mode')}</div>
+                      <div className="text-[11px] text-[#8b949e]">{t('Save policy configuration without active gate enforcement')}</div>
                     </div>
                   </button>
                 </div>
@@ -552,16 +554,16 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
           {/* STEP 2: Target Entity */}
           {currentStep === 2 && (
             <div className="space-y-4 animate-in fade-in duration-150">
-              <label className="block text-[#c9d1d9] font-medium">Select Target Entity</label>
+              <label className="block text-[#c9d1d9] font-medium">{t('Select Target Entity')}</label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {[
-                  { type: 'MEMBER_GROUP', label: 'Member Group', icon: User, desc: 'Employees, VIP, Contractors' },
-                  { type: 'LICENSE_PLATE', label: 'License Plate', icon: Tag, desc: 'Specific license plate number' },
-                  { type: 'SPECIFIC_VEHICLE', label: 'Specific Vehicle', icon: Car, desc: 'Target vehicle in registry' },
-                  { type: 'MEMBER', label: 'Individual Member', icon: User, desc: 'Single registered person' },
-                  { type: 'VEHICLE_GROUP', label: 'Vehicle Group', icon: Layers, desc: 'Car, SUV, Truck, Van' },
-                  { type: 'VISITOR', label: 'Pre-Registered Visitor', icon: User, desc: 'Temporary guest pass' },
-                  { type: 'ALL_VEHICLES', label: 'All Vehicles', icon: ShieldCheck, desc: 'Broad facility rule' }
+                  { type: 'MEMBER_GROUP', label: t('Member Group'), icon: User, desc: t('Employees, VIP, Contractors') },
+                  { type: 'LICENSE_PLATE', label: t('License Plate'), icon: Tag, desc: t('Specific license plate number') },
+                  { type: 'SPECIFIC_VEHICLE', label: t('Specific Vehicle'), icon: Car, desc: t('Target vehicle in registry') },
+                  { type: 'MEMBER', label: t('Individual Member'), icon: User, desc: t('Single registered person') },
+                  { type: 'VEHICLE_GROUP', label: t('Vehicle Group'), icon: Layers, desc: t('Car, SUV, Truck, Van') },
+                  { type: 'VISITOR', label: t('Pre-Registered Visitor'), icon: User, desc: t('Temporary guest pass') },
+                  { type: 'ALL_VEHICLES', label: t('All Vehicles'), icon: ShieldCheck, desc: t('Broad facility rule') }
                 ].map((item) => {
                   const Icon = item.icon;
                   const isSelected = targetType === item.type;
@@ -593,7 +595,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                   <div className="flex items-start gap-2.5 p-3 rounded-lg bg-[#d29922]/10 border border-[#d29922]/30 text-[#e3b341]">
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold">Broad Policy Notice:</span> This rule will apply to every single detected vehicle entering matching gates. Ensure appropriate priority and schedule constraints.
+                      <span className="font-bold">{t('Broad Policy Notice:')}</span> {t('This rule will apply to every single detected vehicle entering matching gates. Ensure appropriate priority and schedule constraints.')}
                     </div>
                   </div>
                 )}
@@ -601,7 +603,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                 {targetType === 'LICENSE_PLATE' && (
                   <div>
                     <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                      Target License Plate <span className="text-[#f85149]">*</span>
+                      {t('Target License Plate')} <span className="text-[#f85149]">*</span>
                     </label>
                     <Input
                       placeholder="e.g. 51K-881.00"
@@ -617,34 +619,34 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
                 {targetType === 'MEMBER_GROUP' && (
                   <div>
-                    <label className="block text-[#c9d1d9] font-medium mb-1.5">Member Group Category</label>
+                    <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Member Group Category')}</label>
                     <select
                       value={targetMemberGroup}
                       onChange={(e) => setTargetMemberGroup(e.target.value)}
                       className="w-full bg-[#0d0e12] border border-[#30363d] rounded-lg p-2.5 text-white"
                     >
-                      <option value="EMPLOYEE">Employees & Corporate Staff</option>
-                      <option value="VIP">Executive & VIP Priority Pass</option>
-                      <option value="MANAGEMENT">Site Operations Management</option>
-                      <option value="SECURITY">Security & Enforcement Staff</option>
-                      <option value="CONTRACTOR">Contractor Logistics & Freight Vendors</option>
-                      <option value="VISITOR">Pre-Registered Visitors</option>
+                      <option value="EMPLOYEE">{t('Employees & Corporate Staff')}</option>
+                      <option value="VIP">{t('Executive & VIP Priority Pass')}</option>
+                      <option value="MANAGEMENT">{t('Site Operations Management')}</option>
+                      <option value="SECURITY">{t('Security & Enforcement Staff')}</option>
+                      <option value="CONTRACTOR">{t('Contractor Logistics & Freight Vendors')}</option>
+                      <option value="VISITOR">{t('Pre-Registered Visitors')}</option>
                     </select>
                   </div>
                 )}
 
                 {targetType === 'SPECIFIC_VEHICLE' && (
                   <div>
-                    <label className="block text-[#c9d1d9] font-medium mb-1.5">Select Registered Vehicle</label>
+                    <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Select Registered Vehicle')}</label>
                     <select
                       value={targetVehicleId}
                       onChange={(e) => setTargetVehicleId(e.target.value)}
                       className="w-full bg-[#0d0e12] border border-[#30363d] rounded-lg p-2.5 text-white"
                     >
-                      <option value="">-- Choose a vehicle --</option>
+                      <option value="">{t('-- Choose a vehicle --')}</option>
                       {tenantVehicles.map(v => (
                         <option key={v.id} value={v.id}>
-                          {v.currentPlate?.number} — {v.name} ({v.type}) · Owner: {v.member?.name || 'Unassigned'}
+                          {v.currentPlate?.number} — {v.name} ({v.type}) · {t('Owner:')} {v.member?.name || t('Unassigned')}
                         </option>
                       ))}
                     </select>
@@ -656,16 +658,16 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
                 {targetType === 'MEMBER' && (
                   <div>
-                    <label className="block text-[#c9d1d9] font-medium mb-1.5">Select Member</label>
+                    <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Select Member')}</label>
                     <select
                       value={targetMemberId}
                       onChange={(e) => setTargetMemberId(e.target.value)}
                       className="w-full bg-[#0d0e12] border border-[#30363d] rounded-lg p-2.5 text-white"
                     >
-                      <option value="">-- Choose a member --</option>
+                      <option value="">{t('-- Choose a member --')}</option>
                       {tenantUsers.map(u => (
                         <option key={u.id} value={u.id}>
-                          {u.name} ({u.email}) — Role: {u.role}
+                          {u.name} ({u.email}) — {t('Role:')} {u.role}
                         </option>
                       ))}
                     </select>
@@ -677,26 +679,26 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
                 {targetType === 'VEHICLE_GROUP' && (
                   <div>
-                    <label className="block text-[#c9d1d9] font-medium mb-1.5">Vehicle Group</label>
+                    <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Vehicle Group')}</label>
                     <select
                       value={targetVehicleGroup}
                       onChange={(e) => setTargetVehicleGroup(e.target.value)}
                       className="w-full bg-[#0d0e12] border border-[#30363d] rounded-lg p-2.5 text-white"
                     >
-                      <option value="CAR">Passenger Cars / Sedans</option>
-                      <option value="SUV">SUVs / Crossovers</option>
-                      <option value="TRUCK">Heavy Trucks / Flatbeds</option>
-                      <option value="VAN">Commercial Delivery Vans</option>
-                      <option value="SECURITY">Security Mobile Patrol Vehicles</option>
-                      <option value="COMPANY">Company Fleet Pool Vehicles</option>
+                      <option value="CAR">{t('Passenger Cars / Sedans')}</option>
+                      <option value="SUV">{t('SUVs / Crossovers')}</option>
+                      <option value="TRUCK">{t('Heavy Trucks / Flatbeds')}</option>
+                      <option value="VAN">{t('Commercial Delivery Vans')}</option>
+                      <option value="SECURITY">{t('Security Mobile Patrol Vehicles')}</option>
+                      <option value="COMPANY">{t('Company Fleet Pool Vehicles')}</option>
                     </select>
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-[#8b949e] text-[11px] mb-1">Target Notes / Audit Reason (Optional)</label>
+                  <label className="block text-[#8b949e] text-[11px] mb-1">{t('Target Notes / Audit Reason (Optional)')}</label>
                   <Input
-                    placeholder="e.g. Flagged for tailgating #SEC-9921 or Executive VIP fast-lane privilege"
+                    placeholder={t('e.g. Flagged for tailgating #SEC-9921 or Executive VIP fast-lane privilege')}
                     value={targetNotes}
                     onChange={(e) => setTargetNotes(e.target.value)}
                     className="bg-[#0d0e12] border-[#30363d] text-white"
@@ -714,7 +716,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 font-bold text-white">
                     <Building2 className="w-4 h-4 text-[#58a6ff]" />
-                    <span>Target Facilities (Sites)</span>
+                    <span>{t('Target Facilities (Sites)')}</span>
                   </div>
                   <label className="flex items-center gap-2 text-[#c9d1d9] cursor-pointer">
                     <input
@@ -723,7 +725,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                       onChange={(e) => setAllSites(e.target.checked)}
                       className="rounded border-[#30363d] bg-[#0d0e12] text-[#1f6feb] focus:ring-0"
                     />
-                    <span>Apply to All Facilities</span>
+                    <span>{t('Apply to All Facilities')}</span>
                   </label>
                 </div>
 
@@ -769,7 +771,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 font-bold text-white">
                     <ShieldCheck className="w-4 h-4 text-[#3fb950]" />
-                    <span>Target Gates & Lanes</span>
+                    <span>{t('Target Gates & Lanes')}</span>
                   </div>
                   <label className="flex items-center gap-2 text-[#c9d1d9] cursor-pointer">
                     <input
@@ -778,17 +780,17 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                       onChange={(e) => setAllGates(e.target.checked)}
                       className="rounded border-[#30363d] bg-[#0d0e12] text-[#1f6feb] focus:ring-0"
                     />
-                    <span>Apply to All Gates</span>
+                    <span>{t('Apply to All Gates')}</span>
                   </label>
                 </div>
 
                 {!allGates && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-[#30363d]/60">
                     {[
-                      { id: 'gate-mc-01', name: 'Entrance Gate 01 (Inbound Main)' },
-                      { id: 'gate-mc-02', name: 'Entrance Gate 02 VIP (FastTrack)' },
-                      { id: 'gate-mc-03', name: 'Exit Gate 01 (Outbound Main)' },
-                      { id: 'gate-cargo-01', name: 'Cargo Logistics Gate 01' }
+                      { id: 'gate-mc-01', name: t('Entrance Gate 01 (Inbound Main)') },
+                      { id: 'gate-mc-02', name: t('Entrance Gate 02 VIP (FastTrack)') },
+                      { id: 'gate-mc-03', name: t('Exit Gate 01 (Outbound Main)') },
+                      { id: 'gate-cargo-01', name: t('Cargo Logistics Gate 01') }
                     ].map(g => {
                       const isChecked = selectedGateIds.includes(g.id);
                       return (
@@ -828,9 +830,9 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
             <div className="space-y-4 animate-in fade-in duration-150">
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { type: 'ALWAYS', label: 'Always (24/7)', desc: 'Continuous unlimited access', icon: Clock },
-                  { type: 'WEEKLY', label: 'Weekly Schedule', desc: 'Working hours & day filters', icon: Calendar },
-                  { type: 'DATE_RANGE', label: 'Date Range', desc: 'Temporary pass window', icon: Calendar }
+                  { type: 'ALWAYS', label: t('Always (24/7)'), desc: t('Continuous unlimited access'), icon: Clock },
+                  { type: 'WEEKLY', label: t('Weekly Schedule'), desc: t('Working hours & day filters'), icon: Calendar },
+                  { type: 'DATE_RANGE', label: t('Date Range'), desc: t('Temporary pass window'), icon: Calendar }
                 ].map(item => {
                   const Icon = item.icon;
                   const isSelected = scheduleType === item.type;
@@ -856,7 +858,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
               {scheduleType === 'WEEKLY' && (
                 <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white">Daily Operating Windows</span>
+                    <span className="font-bold text-white">{t('Daily Operating Windows')}</span>
                     <Button
                       type="button"
                       variant="outline"
@@ -864,7 +866,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                       onClick={applyMondayToAllDays}
                       className="text-[11px] border-[#30363d] text-[#58a6ff] hover:bg-[#21262d]"
                     >
-                      Apply Monday Hours to Weekdays
+                      {t('Apply Monday Hours to Weekdays')}
                     </Button>
                   </div>
 
@@ -885,7 +887,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                             onChange={() => handleWeeklyDayToggle(d.day)}
                             className="rounded border-[#30363d] bg-[#0d0e12] text-[#1f6feb] focus:ring-0"
                           />
-                          <span className="font-bold text-white w-28">{d.day}</span>
+                          <span className="font-bold text-white w-28">{t(d.day)}</span>
                         </label>
 
                         {d.enabled ? (
@@ -896,7 +898,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                               onChange={(e) => handleWeeklyTimeChange(d.day, 'start', e.target.value)}
                               className="bg-[#161b22] border border-[#30363d] rounded px-2 py-1 text-white font-mono text-xs"
                             />
-                            <span className="text-[#8b949e]">to</span>
+                            <span className="text-[#8b949e]">{t('to')}</span>
                             <input
                               type="time"
                               value={d.windows[0]?.end || '21:00'}
@@ -905,7 +907,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                             />
                           </div>
                         ) : (
-                          <span className="text-xs text-[#8b949e] italic">Access Prohibited</span>
+                          <span className="text-xs text-[#8b949e] italic">{t('Access Prohibited')}</span>
                         )}
                       </div>
                     ))}
@@ -916,10 +918,10 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
               {scheduleType === 'DATE_RANGE' && (
                 <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
-                  <div className="font-bold text-white">Temporary Access Validity Window</div>
+                  <div className="font-bold text-white">{t('Temporary Access Validity Window')}</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[#8b949e] mb-1">Start Date & Time</label>
+                      <label className="block text-[#8b949e] mb-1">{t('Start Date & Time')}</label>
                       <div className="flex gap-2">
                         <Input
                           type="date"
@@ -938,7 +940,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-[#8b949e] mb-1">End Date & Time</label>
+                      <label className="block text-[#8b949e] mb-1">{t('End Date & Time')}</label>
                       <div className="flex gap-2">
                         <Input
                           type="date"
@@ -965,7 +967,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
           {currentStep === 5 && (
             <div className="space-y-4 animate-in fade-in duration-150">
               <div>
-                <label className="block text-[#c9d1d9] font-medium mb-1.5">Access Decision Action</label>
+                <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Access Decision Action')}</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -978,10 +980,10 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                   >
                     <div className="flex items-center gap-2 font-bold text-[#3fb950] text-sm">
                       <ShieldCheck className="w-5 h-5" />
-                      ALLOW (Permit Entry)
+                      {t('ALLOW (Permit Entry)')}
                     </div>
                     <p className="text-[11px] text-[#8b949e] mt-1">
-                      Barrier lifts automatically and access event is logged as ALLOWED.
+                      {t('Barrier lifts automatically and access event is logged as ALLOWED.')}
                     </p>
                   </button>
 
@@ -996,10 +998,10 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                   >
                     <div className="flex items-center gap-2 font-bold text-[#f85149] text-sm">
                       <ShieldAlert className="w-5 h-5" />
-                      DENY (Block Entry)
+                      {t('DENY (Block Entry)')}
                     </div>
                     <p className="text-[11px] text-[#8b949e] mt-1">
-                      Barrier remains closed; security guard receives immediate infraction alert.
+                      {t('Barrier remains closed; security guard receives immediate infraction alert.')}
                     </p>
                   </button>
                 </div>
@@ -1009,9 +1011,9 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
               <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="font-bold text-white text-xs">Evaluation Priority #</div>
+                    <div className="font-bold text-white text-xs">{t('Evaluation Priority #')}</div>
                     <div className="text-[11px] text-[#8b949e]">
-                      Lower numbers execute first. Priority 1 overrides Priority 50.
+                      {t('Lower numbers execute first. Priority 1 overrides Priority 50.')}
                     </div>
                   </div>
                   <div className="w-32">
@@ -1029,50 +1031,50 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
                 <div className="flex items-center gap-2 text-[11px] text-[#8b949e] pt-2 border-t border-[#30363d]/60">
                   <Info className="w-3.5 h-3.5 text-[#58a6ff]" />
-                  <span>Recommendation: Security Blocklists = 1–9 · VIP Passes = 10–29 · Staff = 30–60 · General = 70+</span>
+                  <span>{t('Recommendation: Security Blocklists = 1–9 · VIP Passes = 10–29 · Staff = 30–60 · General = 70+')}</span>
                 </div>
               </div>
 
               {/* Advanced Parameters */}
               <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
-                <div className="font-bold text-white text-xs">Edge Engine Verification Parameters</div>
+                <div className="font-bold text-white text-xs">{t('Edge Engine Verification Parameters')}</div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-[#8b949e] text-[11px] mb-1">Min OCR Confidence</label>
+                    <label className="block text-[#8b949e] text-[11px] mb-1">{t('Min OCR Confidence')}</label>
                     <select
                       value={minConfidence}
                       onChange={(e) => setMinConfidence(Number(e.target.value))}
                       className="w-full bg-[#0d0e12] border border-[#30363d] rounded p-2 text-white font-mono"
                     >
-                      <option value={80}>80% (Lenient)</option>
-                      <option value={85}>85% (Balanced)</option>
-                      <option value={90}>90% (Recommended)</option>
-                      <option value={95}>95% (Strict)</option>
+                      <option value={80}>80% ({t('Lenient')})</option>
+                      <option value={85}>85% ({t('Balanced')})</option>
+                      <option value={90}>90% ({t('Recommended')})</option>
+                      <option value={95}>95% ({t('Strict')})</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-[#8b949e] text-[11px] mb-1">De-dup Window (sec)</label>
+                    <label className="block text-[#8b949e] text-[11px] mb-1">{t('De-dup Window (sec)')}</label>
                     <select
                       value={duplicateWindowSeconds}
                       onChange={(e) => setDuplicateWindowSeconds(Number(e.target.value))}
                       className="w-full bg-[#0d0e12] border border-[#30363d] rounded p-2 text-white font-mono"
                     >
-                      <option value={3}>3 seconds</option>
-                      <option value={5}>5 seconds (Default)</option>
-                      <option value={10}>10 seconds</option>
-                      <option value={30}>30 seconds</option>
+                      <option value={3}>3 {t('seconds')}</option>
+                      <option value={5}>5 {t('seconds')} ({t('Default')})</option>
+                      <option value={10}>10 {t('seconds')}</option>
+                      <option value={30}>30 {t('seconds')}</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-[#8b949e] text-[11px] mb-1">Offline Fail Behavior</label>
+                    <label className="block text-[#8b949e] text-[11px] mb-1">{t('Offline Fail Behavior')}</label>
                     <select
                       value={failBehavior}
                       onChange={(e) => setFailBehavior(e.target.value as any)}
                       className="w-full bg-[#0d0e12] border border-[#30363d] rounded p-2 text-white font-mono"
                     >
-                      <option value="DENY">DENY (Secure)</option>
+                      <option value="DENY">DENY ({t('Secure')})</option>
                       <option value="SAFE_FALLBACK">SAFE_FALLBACK</option>
                     </select>
                   </div>
@@ -1089,7 +1091,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                 <div className="p-4 rounded-xl bg-[#d29922]/15 border border-[#d29922]/40 space-y-2">
                   <div className="flex items-center gap-2 font-bold text-[#e3b341]">
                     <AlertTriangle className="w-4 h-4" />
-                    <span>Rule Evaluation Conflict Warnings ({conflicts.length})</span>
+                    <span>{t('Rule Evaluation Conflict Warnings')} ({conflicts.length})</span>
                   </div>
                   <ul className="space-y-1 text-xs text-[#c9d1d9] pl-6 list-disc">
                     {conflicts.map((c, i) => (
@@ -1112,35 +1114,35 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                         ? 'bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40'
                         : 'bg-[#da3633]/20 text-[#f85149] border border-[#da3633]/40'
                     }`}>
-                      {action}
+                      {t(action)}
                     </span>
                     <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#21262d] text-[#58a6ff]">
-                      Priority #{priority}
+                      {t('Priority')} #{priority}
                     </span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
-                    <span className="text-[#8b949e] block text-[11px]">Target Entity</span>
+                    <span className="text-[#8b949e] block text-[11px]">{t('Target Entity')}</span>
                     <span className="font-semibold text-white">
-                      {targetType} {targetLicensePlate ? `(${targetLicensePlate})` : ''}
+                      {t(targetType)} {targetLicensePlate ? `(${targetLicensePlate})` : ''}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[#8b949e] block text-[11px]">Facility & Gate Scope</span>
+                    <span className="text-[#8b949e] block text-[11px]">{t('Facility & Gate Scope')}</span>
                     <span className="font-semibold text-white">
-                      {allSites ? 'All Facilities' : `${selectedSiteIds.length} Site(s)`} ·{' '}
-                      {allGates ? 'All Gates' : `${selectedGateIds.length} Gate(s)`}
+                      {allSites ? t('All Facilities') : `${selectedSiteIds.length} ${t('Site(s)')}`} ·{' '}
+                      {allGates ? t('All Gates') : `${selectedGateIds.length} ${t('Gate(s)')}`}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[#8b949e] block text-[11px]">Schedule Mode</span>
-                    <span className="font-semibold text-white">{scheduleType}</span>
+                    <span className="text-[#8b949e] block text-[11px]">{t('Schedule Mode')}</span>
+                    <span className="font-semibold text-white">{t(scheduleType)}</span>
                   </div>
                   <div>
-                    <span className="text-[#8b949e] block text-[11px]">Enforcement Status</span>
-                    <span className="font-semibold text-[#3fb950]">{status}</span>
+                    <span className="text-[#8b949e] block text-[11px]">{t('Enforcement Status')}</span>
+                    <span className="font-semibold text-[#3fb950]">{t(status)}</span>
                   </div>
                 </div>
 
@@ -1166,7 +1168,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                 className="text-xs border-[#30363d] text-[#c9d1d9] hover:bg-[#21262d] gap-1.5"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                Back
+                {t('Back')}
               </Button>
             )}
           </div>
@@ -1179,7 +1181,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
               disabled={isSubmitting}
               className="text-xs border-[#30363d] text-[#8b949e] hover:text-white"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
 
             {currentStep < 6 ? (
@@ -1189,7 +1191,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                 onClick={handleNext}
                 className="text-xs bg-[#1f6feb] hover:bg-[#388bfd] text-white gap-1.5"
               >
-                Continue
+                {t('Continue')}
                 <ArrowRight className="w-3.5 h-3.5" />
               </Button>
             ) : (
@@ -1201,7 +1203,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                   disabled={isSubmitting}
                   className="text-xs border-[#d29922]/40 text-[#e3b341] hover:bg-[#d29922]/15"
                 >
-                  Save as Draft
+                  {t('Save as Draft')}
                 </Button>
                 <Button
                   variant="primary"
@@ -1211,7 +1213,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                   className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm"
                 >
                   <Check className="w-4 h-4" />
-                  {isEditing ? 'Save & Synchronize' : 'Create & Activate'}
+                  {isEditing ? t('Save & Synchronize') : t('Create & Activate')}
                 </Button>
               </div>
             )}

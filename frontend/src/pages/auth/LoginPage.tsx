@@ -25,6 +25,8 @@ import {
 import { Button, Badge } from '../../components/ui';
 import { usePlatform } from '../../context/PlatformContext';
 import { PublicViewType } from '../../components/layout/PublicNavbar';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '../../components/common/LanguageSwitcher';
 
 interface LoginPageProps {
   onNavigate?: (view: PublicViewType) => void;
@@ -32,6 +34,7 @@ interface LoginPageProps {
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   const { login, addToast } = usePlatform();
+  const { t } = useTranslation('auth');
 
   // Login Form state
   const [email, setEmail] = useState('anh.nh@kyanon.digital');
@@ -78,8 +81,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
       setStep('credentials');
       addToast({
         type: 'info',
-        title: 'Đã chọn Tài khoản chưa bật MFA',
-        description: 'Mật khẩu sẽ đăng nhập trực tiếp vào hệ thống.'
+        title: t('Selected account without MFA'),
+        description: t('Password will sign you in directly.')
       });
     } else {
       setEmail('admin.mfa@vehicleplatform.io');
@@ -88,8 +91,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
       setStep('credentials');
       addToast({
         type: 'info',
-        title: 'Đã chọn Tài khoản ĐÃ BẬT MFA',
-        description: 'Yêu cầu nhập thêm mã TOTP 6 chữ số sau mật khẩu.'
+        title: t('Selected account WITH MFA enabled'),
+        description: t('A 6-digit TOTP code is required after the password.')
       });
     }
   };
@@ -98,7 +101,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      setErrorMessage('Vui lòng nhập đầy đủ Email và Mật khẩu.');
+      setErrorMessage(t('Please enter both Email and Password.'));
       return;
     }
 
@@ -108,7 +111,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     setIsLoading(false);
 
     if (!res.success) {
-      setErrorMessage(res.message ?? 'Email hoặc mật khẩu không chính xác.');
+      setErrorMessage(res.message ?? t('Incorrect email or password.'));
       return;
     }
     if (res.requiresMfa) {
@@ -116,15 +119,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
       setStep('mfa_challenge');
       addToast({
         type: 'warning',
-        title: 'MFA Required',
-        description: 'Mật khẩu hợp lệ. Vui lòng nhập mã TOTP từ ứng dụng Authenticator.'
+        title: t('MFA Required'),
+        description: t('Password accepted. Please enter the TOTP code from your Authenticator app.')
       });
       return;
     }
     addToast({
       type: 'success',
-      title: 'Đăng nhập thành công',
-      description: `Chào mừng ${email} quay trở lại bảng điều khiển.`
+      title: t('Signed in successfully'),
+      description: t('Welcome back, {{email}}.', { email })
     });
   };
 
@@ -176,7 +179,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     const code = otpDigits.join('');
 
     if (code.length < 6) {
-      setErrorMessage('Vui lòng nhập đủ 6 chữ số mã xác thực.');
+      setErrorMessage(t('Please enter all 6 verification digits.'));
       return;
     }
 
@@ -186,12 +189,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     const res = await login(email, password, code);
     setIsLoading(false);
     if (!res.success) {
-      setErrorMessage(res.message ?? 'Mã TOTP không chính xác hoặc đã hết hạn. Vui lòng thử lại.');
+      setErrorMessage(res.message ?? t('Invalid or expired TOTP code. Please try again.'));
     } else {
       addToast({
         type: 'success',
-        title: 'Xác thực MFA thành công',
-        description: 'Mã TOTP hợp lệ. Đang khởi tạo phiên làm việc bảo mật...'
+        title: t('MFA verified'),
+        description: t('Valid TOTP code. Initializing secure session...')
       });
     }
   };
@@ -200,7 +203,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   const handleBackupCodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!backupCode.trim()) {
-      setErrorMessage('Vui lòng nhập mã khôi phục dự phòng.');
+      setErrorMessage(t('Please enter a backup recovery code.'));
       return;
     }
 
@@ -212,11 +215,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     if (res.success) {
       addToast({
         type: 'success',
-        title: 'Đăng nhập bằng Mã khôi phục',
-        description: 'Đã xác thực bằng mã sao lưu khẩn cấp.'
+        title: t('Signed in with Recovery Code'),
+        description: t('Verified using an emergency backup code.')
       });
     } else {
-      setErrorMessage(res.message ?? 'Mã khôi phục không hợp lệ.');
+      setErrorMessage(res.message ?? t('Invalid recovery code.'));
     }
   };
 
@@ -235,15 +238,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             className="inline-flex items-center gap-1.5 text-[#8b949e] hover:text-white transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Về Trang Chủ</span>
+            <span>{t('Back to Home')}</span>
           </button>
-          <button
-            type="button"
-            onClick={() => onNavigate('register')}
-            className="text-[#58a6ff] hover:underline font-semibold cursor-pointer"
-          >
-            Đăng ký dùng thử 14 ngày →
-          </button>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            <button
+              type="button"
+              onClick={() => onNavigate('register')}
+              className="text-[#58a6ff] hover:underline font-semibold cursor-pointer"
+            >
+              {t('Sign up for a 14-day trial →')}
+            </button>
+          </div>
         </div>
       )}
 
@@ -263,13 +269,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             Vehicle Fleet Governance
           </h2>
           <p className="text-xs text-[#8b949e] mt-1 font-mono">
-            Hệ thống Quản trị Bảng điều khiển & An ninh Trung tâm
+            {t('Centralized Dashboard & Security Administration')}
           </p>
         </div>
 
         {/* Demo Account Quick Selector Pills */}
         <div className="p-3 bg-[#0d0e12]/80 border-b border-[#30363d] flex items-center justify-center gap-2 text-xs">
-          <span className="text-[11px] text-[#8b949e] font-mono mr-1">Thử nghiệm luồng:</span>
+          <span className="text-[11px] text-[#8b949e] font-mono mr-1">{t('Try a flow:')}</span>
           <button
             type="button"
             onClick={() => handleSelectPreset('mfa_off')}
@@ -279,7 +285,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                 : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:text-white hover:border-[#484f58]'
             }`}
           >
-            <User className="w-3 h-3" /> Chưa bật MFA
+            <User className="w-3 h-3" /> {t('MFA Disabled')}
           </button>
 
           <button
@@ -291,7 +297,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                 : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:text-white hover:border-[#484f58]'
             }`}
           >
-            <Shield className="w-3 h-3" /> Đã bật MFA (2FA)
+            <Shield className="w-3 h-3" /> {t('MFA Enabled (2FA)')}
           </button>
         </div>
 
@@ -302,7 +308,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             <form onSubmit={handleCredentialsSubmit} className="space-y-4">
               <div>
                 <label className="text-xs font-semibold text-[#c9d1d9] block mb-1.5">
-                  Địa chỉ Email Administrator
+                  {t('Administrator Email Address')}
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-[#8b949e] absolute left-3 top-3" />
@@ -319,7 +325,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
 
               <div>
                 <label className="text-xs font-semibold text-[#c9d1d9] block mb-1.5">
-                  Mật khẩu truy cập
+                  {t('Access Password')}
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-[#8b949e] absolute left-3 top-3" />
@@ -348,9 +354,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                     <Smartphone className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-white block">Tài khoản có bật MFA (TOTP)</span>
+                    <span className="text-xs font-bold text-white block">{t('Account has MFA (TOTP) enabled')}</span>
                     <span className="text-[10px] text-[#8b949e] block">
-                      {isMfaEnabledForAccount ? 'Yêu cầu mã 6 chữ số sau mật khẩu' : 'Đăng nhập trực tiếp chỉ với mật khẩu'}
+                      {isMfaEnabledForAccount ? t('A 6-digit code is required after the password') : t('Sign in directly with password only')}
                     </span>
                   </div>
                 </div>
@@ -380,7 +386,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                 isLoading={isLoading}
                 icon={ArrowRight}
               >
-                {isLoading ? 'Đang kiểm tra thông tin...' : 'Tiếp tục đăng nhập'}
+                {isLoading ? t('Verifying credentials...') : t('Continue to sign in')}
               </Button>
             </form>
           )}
@@ -390,11 +396,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             <div className="space-y-5 animate-in fade-in duration-200">
               <div className="text-center space-y-1">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#8250df]/20 text-[#a371f7] border border-[#8250df]/30 text-[11px] font-mono font-semibold">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Luồng bảo mật 2FA (TOTP)
+                  <ShieldCheck className="w-3.5 h-3.5" /> {t('2FA Security Flow (TOTP)')}
                 </div>
-                <h3 className="text-sm font-bold text-white pt-2">Nhập mã xác thực 6 chữ số</h3>
+                <h3 className="text-sm font-bold text-white pt-2">{t('Enter your 6-digit verification code')}</h3>
                 <p className="text-xs text-[#8b949e]">
-                  Mở ứng dụng Google Authenticator hoặc Authy trên điện thoại của bạn.
+                  {t('Open Google Authenticator or Authy on your phone.')}
                 </p>
               </div>
 
@@ -427,7 +433,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                 <div className="flex items-center justify-between px-3 py-2 bg-[#0d0e12] border border-[#30363d] rounded-xl text-[11px] text-[#8b949e]">
                   <div className="flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-[#58a6ff]" />
-                    <span>Thời gian đổi mã:</span>
+                    <span>{t('Code refreshes in:')}</span>
                   </div>
                   <div className="flex items-center gap-2 font-mono">
                     <span className="font-bold text-white">{countdown}s</span>
@@ -454,7 +460,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                     onClick={handleFillDemoCode}
                     className="text-[#58a6ff] hover:underline flex items-center gap-1 font-mono cursor-pointer"
                   >
-                    <Sparkles className="w-3 h-3" /> Tự động điền mã demo (123456)
+                    <Sparkles className="w-3 h-3" /> {t('Auto-fill demo code (123456)')}
                   </button>
                   <button
                     type="button"
@@ -464,7 +470,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                     }}
                     className="text-[#8b949e] hover:text-white hover:underline font-mono cursor-pointer"
                   >
-                    Dùng mã khôi phục
+                    {t('Use a recovery code')}
                   </button>
                 </div>
 
@@ -479,7 +485,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                     }}
                     icon={ChevronLeft}
                   >
-                    Quay lại
+                    {t('Back')}
                   </Button>
                   <Button
                     type="submit"
@@ -488,7 +494,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                     isLoading={isLoading}
                     icon={ShieldCheck}
                   >
-                    Xác nhận mã OTP
+                    {t('Verify OTP Code')}
                   </Button>
                 </div>
               </form>
@@ -500,11 +506,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             <form onSubmit={handleBackupCodeSubmit} className="space-y-4 animate-in fade-in duration-200">
               <div className="text-center space-y-1">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#d29922]/20 text-[#d29922] border border-[#d29922]/30 text-[11px] font-mono font-semibold">
-                  <Key className="w-3.5 h-3.5" /> Emergency Recovery Code
+                  <Key className="w-3.5 h-3.5" /> {t('Emergency Recovery Code')}
                 </div>
-                <h3 className="text-sm font-bold text-white pt-2">Nhập mã khôi phục khẩn cấp</h3>
+                <h3 className="text-sm font-bold text-white pt-2">{t('Enter an emergency recovery code')}</h3>
                 <p className="text-xs text-[#8b949e]">
-                  Nhập một trong 8 mã sao lưu 8 ký tự được cấp lúc kích hoạt 2FA.
+                  {t('Enter one of the 8 backup codes (8 characters) issued when 2FA was enabled.')}
                 </p>
               </div>
 
@@ -537,7 +543,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                   }}
                   icon={ChevronLeft}
                 >
-                  Trở lại TOTP
+                  {t('Back to TOTP')}
                 </Button>
                 <Button
                   type="submit"
@@ -546,7 +552,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                   isLoading={isLoading}
                   icon={CheckCircle2}
                 >
-                  Xác thực bằng Mã khôi phục
+                  {t('Verify with Recovery Code')}
                 </Button>
               </div>
             </form>
@@ -570,7 +576,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             onClick={() => onNavigate('privacy')}
             className="hover:text-white transition-colors cursor-pointer"
           >
-            Chính sách bảo mật
+            {t('Privacy Policy')}
           </button>
           <span>•</span>
           <button
@@ -578,7 +584,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             onClick={() => onNavigate('terms')}
             className="hover:text-white transition-colors cursor-pointer"
           >
-            Điều khoản dịch vụ
+            {t('Terms of Service')}
           </button>
           <span>•</span>
           <button
@@ -586,7 +592,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             onClick={() => onNavigate('sla')}
             className="hover:text-white transition-colors cursor-pointer"
           >
-            Cam kết SLA 99.9%
+            {t('99.9% SLA Commitment')}
           </button>
         </div>
       )}

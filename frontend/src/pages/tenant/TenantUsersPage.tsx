@@ -45,8 +45,10 @@ import { ResetPasswordDialog } from '../../components/tenant/users/ResetPassword
 import { MembershipActionDialog } from '../../components/tenant/users/MembershipActionDialog';
 import { UserDetailDrawer } from '../../components/tenant/users/UserDetailDrawer';
 import { ImportUsersModal } from '../../components/tenant/users/ImportUsersModal';
+import { useTranslation } from 'react-i18next';
 
 export const TenantUsersPage: React.FC = () => {
+  const { t } = useTranslation('tenant');
   const {
     tenantUsers,
     tenantInvitations,
@@ -233,7 +235,7 @@ export const TenantUsersPage: React.FC = () => {
   const handleExportCsv = () => {
     let csv = 'ID,Name,Email,Username,Phone,Role,Status,Member ID,Member Type,Member Status,Department,Vehicles\n';
     tenantUsers.forEach((u) => {
-      const vehiclesStr = u.membership?.vehicles.map((v) => `${v.plate} (${v.model})`).join('; ') || 'None';
+      const vehiclesStr = u.membership?.vehicles.map((v) => `${v.plate} (${v.model})`).join('; ') || t('None');
       csv += `"${u.id}","${u.name}","${u.email}","${u.username || ''}","${u.phone || ''}","${u.role}","${u.status}","${u.membership?.memberCode || ''}","${u.membership?.type || ''}","${u.membership?.status || ''}","${u.membership?.department || ''}","${vehiclesStr}"\n`;
     });
 
@@ -247,19 +249,19 @@ export const TenantUsersPage: React.FC = () => {
 
     addToast({
       type: 'success',
-      title: 'Users Exported',
-      description: 'Downloaded user and membership list as CSV.'
+      title: t('Users Exported'),
+      description: t('Downloaded user and membership list as CSV.')
     });
   };
 
   const getRoleLabel = (role: TenantUserRole) => {
     switch (role) {
       case 'TENANT_ADMIN':
-        return 'Tenant Admin';
+        return t('Tenant Admin');
       case 'SITE_MANAGER':
-        return 'Site Manager';
+        return t('Site Manager');
       case 'MEMBER':
-        return 'Member';
+        return t('Member');
     }
   };
 
@@ -271,14 +273,14 @@ export const TenantUsersPage: React.FC = () => {
           <div className="flex items-center gap-2.5">
             <Users className="w-6 h-6 text-[#58a6ff]" />
             <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
-              Users &amp; Member Management
+              {t('Users & Member Management')}
             </h1>
             <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#21262d] border border-[#30363d] text-[#58a6ff]">
-              {totalUsersCount} Total People
+              {t('{{count}} Total People', { count: totalUsersCount })}
             </span>
           </div>
           <p className="text-xs text-[#8b949e] mt-1">
-            Manage authentication accounts, organization roles, facility memberships, and vehicle access rights.
+            {t('Manage authentication accounts, organization roles, facility memberships, and vehicle access rights.')}
           </p>
         </div>
 
@@ -289,7 +291,7 @@ export const TenantUsersPage: React.FC = () => {
             className="text-xs bg-[#21262d] hover:bg-[#30363d] text-white gap-1.5 border border-[#30363d]"
           >
             <Upload className="w-3.5 h-3.5" />
-            Import CSV
+            {t('Import CSV')}
           </Button>
 
           <Button
@@ -298,7 +300,7 @@ export const TenantUsersPage: React.FC = () => {
             className="text-xs bg-[#21262d] hover:bg-[#30363d] text-white gap-1.5 border border-[#30363d]"
           >
             <Download className="w-3.5 h-3.5" />
-            Export Users
+            {t('Export Users')}
           </Button>
 
           <Button
@@ -307,7 +309,7 @@ export const TenantUsersPage: React.FC = () => {
             className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 font-bold shadow-sm"
           >
             <UserPlus className="w-4 h-4" />
-            Add User
+            {t('Add User')}
           </Button>
         </div>
       </div>
@@ -317,12 +319,12 @@ export const TenantUsersPage: React.FC = () => {
         {/* Total Users KPI */}
         <div className="p-4 bg-[#161b22] border border-[#30363d] rounded-2xl flex items-center justify-between">
           <div>
-            <span className="text-xs font-medium text-[#8b949e]">Total User Accounts</span>
+            <span className="text-xs font-medium text-[#8b949e]">{t('Total User Accounts')}</span>
             <div className="text-2xl font-bold text-white mt-1">{totalUsersCount}</div>
             <div className="flex items-center gap-2 text-[11px] text-[#8b949e] mt-1">
-              <span className="text-[#3fb950] font-semibold">{activeUsersCount} Active</span>
+              <span className="text-[#3fb950] font-semibold">{t('{{count}} Active', { count: activeUsersCount })}</span>
               <span>·</span>
-              <span>{inactiveUsersCount} Inactive</span>
+              <span>{t('{{count}} Inactive', { count: inactiveUsersCount })}</span>
             </div>
           </div>
           <div className="w-11 h-11 rounded-2xl bg-[#58a6ff]/15 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
@@ -333,14 +335,14 @@ export const TenantUsersPage: React.FC = () => {
         {/* Members KPI */}
         <div className="p-4 bg-[#161b22] border border-[#30363d] rounded-2xl flex items-center justify-between">
           <div>
-            <span className="text-xs font-medium text-[#8b949e]">Business Members</span>
+            <span className="text-xs font-medium text-[#8b949e]">{t('Business Members')}</span>
             <div className="text-2xl font-bold text-white mt-1">{membersWithProfile.length}</div>
             <div className="flex items-center gap-2 text-[11px] text-[#8b949e] mt-1">
-              <span className="text-[#3fb950] font-semibold">{activeMembersCount} Passes Active</span>
+              <span className="text-[#3fb950] font-semibold">{t('{{count}} Passes Active', { count: activeMembersCount })}</span>
               {suspendedMembersCount > 0 && (
                 <>
                   <span>·</span>
-                  <span className="text-[#d29922] font-semibold">{suspendedMembersCount} Suspended</span>
+                  <span className="text-[#d29922] font-semibold">{t('{{count}} Suspended', { count: suspendedMembersCount })}</span>
                 </>
               )}
             </div>
@@ -360,19 +362,19 @@ export const TenantUsersPage: React.FC = () => {
         >
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-medium text-[#8b949e]">Tenant Admins</span>
+              <span className="text-xs font-medium text-[#8b949e]">{t('Tenant Admins')}</span>
               {isSingleAdmin && (
                 <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#d29922]/20 text-[#e3b341]">
-                  Single Admin
+                  {t('Single Admin')}
                 </span>
               )}
             </div>
             <div className="text-2xl font-bold text-white mt-1">{activeAdmins.length}</div>
             <div className="text-[11px] text-[#8b949e] mt-1">
               {isSingleAdmin ? (
-                <span className="text-[#e3b341]">Protect with backup admin</span>
+                <span className="text-[#e3b341]">{t('Protect with backup admin')}</span>
               ) : (
-                <span>Distributed Governance</span>
+                <span>{t('Distributed Governance')}</span>
               )}
             </div>
           </div>
@@ -393,10 +395,10 @@ export const TenantUsersPage: React.FC = () => {
           className="p-4 bg-[#161b22] border border-[#30363d] rounded-2xl flex items-center justify-between cursor-pointer hover:border-[#58a6ff]/50 transition-colors"
         >
           <div>
-            <span className="text-xs font-medium text-[#8b949e]">Pending Invitations</span>
+            <span className="text-xs font-medium text-[#8b949e]">{t('Pending Invitations')}</span>
             <div className="text-2xl font-bold text-white mt-1">{pendingInvitations.length}</div>
             <div className="text-[11px] text-[#58a6ff] mt-1 flex items-center gap-1">
-              <span>Review pending invites</span>
+              <span>{t('Review pending invites')}</span>
               <ChevronRight className="w-3 h-3" />
             </div>
           </div>
@@ -412,9 +414,9 @@ export const TenantUsersPage: React.FC = () => {
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-[#e3b341] shrink-0 mt-0.5" />
             <div>
-              <h4 className="text-xs font-bold text-white">Single Administrator Advisory</h4>
+              <h4 className="text-xs font-bold text-white">{t('Single Administrator Advisory')}</h4>
               <p className="text-[11px] text-[#e3b341]/90 mt-0.5 leading-relaxed">
-                Your organization currently has only 1 active Tenant Admin (<span className="text-white font-semibold">{activeAdmins[0]?.name}</span>). To ensure continuous governance and avoid account lockouts, promote a second administrator.
+                {t('Your organization currently has only 1 active Tenant Admin')} (<span className="text-white font-semibold">{activeAdmins[0]?.name}</span>). {t('To ensure continuous governance and avoid account lockouts, promote a second administrator.')}
               </p>
             </div>
           </div>
@@ -423,7 +425,7 @@ export const TenantUsersPage: React.FC = () => {
             onClick={() => setIsAddUserOpen(true)}
             className="text-xs py-1.5 px-3 bg-[#d29922]/20 hover:bg-[#d29922]/30 text-[#e3b341] border border-[#d29922]/40 whitespace-nowrap shrink-0"
           >
-            + Add Backup Admin
+            {t('+ Add Backup Admin')}
           </Button>
         </div>
       )}
@@ -442,7 +444,7 @@ export const TenantUsersPage: React.FC = () => {
               }`}
             >
               <Users className="w-3.5 h-3.5" />
-              Users
+              {t('Users')}
               <span className="ml-1 px-1.5 py-0.2 rounded-full bg-black/20 text-[10px]">
                 {tenantUsers.length}
               </span>
@@ -457,7 +459,7 @@ export const TenantUsersPage: React.FC = () => {
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              Members &amp; Vehicles
+              {t('Members & Vehicles')}
               <span className="ml-1 px-1.5 py-0.2 rounded-full bg-black/20 text-[10px]">
                 {membersWithProfile.length}
               </span>
@@ -472,7 +474,7 @@ export const TenantUsersPage: React.FC = () => {
               }`}
             >
               <Mail className="w-3.5 h-3.5" />
-              Invitations
+              {t('Invitations')}
               {pendingInvitations.length > 0 && (
                 <span className="ml-1 px-1.5 py-0.2 rounded-full bg-black/30 text-[10px] font-bold">
                   {pendingInvitations.length}
@@ -489,7 +491,7 @@ export const TenantUsersPage: React.FC = () => {
               }`}
             >
               <History className="w-3.5 h-3.5" />
-              Audit Logs
+              {t('Audit Logs')}
             </button>
           </div>
         </div>
@@ -501,7 +503,7 @@ export const TenantUsersPage: React.FC = () => {
             <Search className="w-4 h-4 text-[#8b949e] absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search by name, email, member ID, plate..."
+              placeholder={t('Search by name, email, member ID, plate...')}
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full bg-[#0d0e12] border border-[#30363d] rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-[#8b949e]/60 focus:border-[#58a6ff] focus:outline-hidden"
@@ -520,50 +522,50 @@ export const TenantUsersPage: React.FC = () => {
           <div className="flex items-center gap-2.5 w-full md:w-auto flex-wrap">
             {/* Role Filter */}
             <div className="flex items-center gap-1 text-xs">
-              <span className="text-[#8b949e] text-[11px]">Role:</span>
+              <span className="text-[#8b949e] text-[11px]">{t('Role:')}</span>
               <select
                 value={roleFilter}
                 onChange={(e) => handleRoleFilterChange(e.target.value)}
                 className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-hidden focus:border-[#58a6ff]"
               >
-                <option value="ALL">All Roles</option>
-                <option value="TENANT_ADMIN">Tenant Admin</option>
-                <option value="SITE_MANAGER">Site Manager</option>
-                <option value="MEMBER">Member</option>
+                <option value="ALL">{t('All Roles')}</option>
+                <option value="TENANT_ADMIN">{t('Tenant Admin')}</option>
+                <option value="SITE_MANAGER">{t('Site Manager')}</option>
+                <option value="MEMBER">{t('Member')}</option>
               </select>
             </div>
 
             {/* Status Filter */}
             <div className="flex items-center gap-1 text-xs">
-              <span className="text-[#8b949e] text-[11px]">Status:</span>
+              <span className="text-[#8b949e] text-[11px]">{t('Status:')}</span>
               <select
                 value={statusFilter}
                 onChange={(e) => handleStatusFilterChange(e.target.value)}
                 className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-hidden focus:border-[#58a6ff]"
               >
-                <option value="ALL">All Statuses</option>
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-                <option value="PENDING">Pending</option>
-                <option value="SUSPENDED">Suspended</option>
+                <option value="ALL">{t('All Statuses')}</option>
+                <option value="ACTIVE">{t('Active')}</option>
+                <option value="INACTIVE">{t('Inactive')}</option>
+                <option value="PENDING">{t('Pending')}</option>
+                <option value="SUSPENDED">{t('Suspended')}</option>
               </select>
             </div>
 
             {/* Membership Type Filter (Only visible on Members tab or all) */}
             {activeTab === 'MEMBERS' && (
               <div className="flex items-center gap-1 text-xs">
-                <span className="text-[#8b949e] text-[11px]">Type:</span>
+                <span className="text-[#8b949e] text-[11px]">{t('Type:')}</span>
                 <select
                   value={membershipTypeFilter}
                   onChange={(e) => handleMembershipTypeFilterChange(e.target.value)}
                   className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-hidden focus:border-[#58a6ff]"
                 >
-                  <option value="ALL">All Types</option>
-                  <option value="EMPLOYEE">Employee</option>
-                  <option value="STAFF">Staff / Security</option>
-                  <option value="RESIDENT">Resident</option>
-                  <option value="CUSTOMER">Customer / VIP</option>
-                  <option value="OTHER">Other</option>
+                  <option value="ALL">{t('All Types')}</option>
+                  <option value="EMPLOYEE">{t('Employee')}</option>
+                  <option value="STAFF">{t('Staff / Security')}</option>
+                  <option value="RESIDENT">{t('Resident')}</option>
+                  <option value="CUSTOMER">{t('Customer / VIP')}</option>
+                  <option value="OTHER">{t('Other')}</option>
                 </select>
               </div>
             )}
@@ -574,7 +576,7 @@ export const TenantUsersPage: React.FC = () => {
                 onClick={handleClearFilters}
                 className="text-[11px] py-1 px-2.5 text-[#8b949e] hover:text-white"
               >
-                Clear Filters
+                {t('Clear Filters')}
               </Button>
             )}
           </div>
@@ -590,12 +592,12 @@ export const TenantUsersPage: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px] tracking-wider">
                 <tr>
-                  <th className="py-3 px-4">User</th>
-                  <th className="py-3 px-4">Role</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Business Membership</th>
-                  <th className="py-3 px-4">Last Sign-In</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4">{t('User')}</th>
+                  <th className="py-3 px-4">{t('Role')}</th>
+                  <th className="py-3 px-4">{t('Status')}</th>
+                  <th className="py-3 px-4">{t('Business Membership')}</th>
+                  <th className="py-3 px-4">{t('Last Sign-In')}</th>
+                  <th className="py-3 px-4 text-right">{t('Actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]/60 font-medium">
@@ -603,8 +605,8 @@ export const TenantUsersPage: React.FC = () => {
                   <tr>
                     <td colSpan={6} className="py-12 text-center text-[#8b949e]">
                       <Users className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/50" />
-                      <p className="font-semibold text-white">No users match the criteria</p>
-                      <p className="text-xs mt-1">Try adjusting search query or active filters</p>
+                      <p className="font-semibold text-white">{t('No users match the criteria')}</p>
+                      <p className="text-xs mt-1">{t('Try adjusting search query or active filters')}</p>
                     </td>
                   </tr>
                 ) : (
@@ -658,7 +660,7 @@ export const TenantUsersPage: React.FC = () => {
                           {user.status === 'ACTIVE' && <CheckCircle2 className="w-3 h-3" />}
                           {user.status === 'PENDING' && <Clock className="w-3 h-3" />}
                           {user.status === 'INACTIVE' && <UserX className="w-3 h-3" />}
-                          {user.status}
+                          {t(user.status)}
                         </span>
                       </td>
 
@@ -670,11 +672,11 @@ export const TenantUsersPage: React.FC = () => {
                               {user.membership.memberCode}
                             </span>
                             <span className="text-[11px] text-[#8b949e]">
-                              {user.membership.vehicles.length} vehicle(s)
+                              {t('{{count}} vehicle(s)', { count: user.membership.vehicles.length })}
                             </span>
                           </div>
                         ) : (
-                          <span className="text-[#8b949e] text-[11px] italic">Auth-only (No pass)</span>
+                          <span className="text-[#8b949e] text-[11px] italic">{t('Auth-only (No pass)')}</span>
                         )}
                       </td>
 
@@ -683,7 +685,7 @@ export const TenantUsersPage: React.FC = () => {
                         {user.lastLoginAt ? (
                           new Date(user.lastLoginAt).toLocaleString()
                         ) : (
-                          <span className="italic text-[#8b949e]/60">Never</span>
+                          <span className="italic text-[#8b949e]/60">{t('Never')}</span>
                         )}
                       </td>
 
@@ -696,14 +698,14 @@ export const TenantUsersPage: React.FC = () => {
                             className="text-[11px] py-1 px-2 bg-[#21262d] hover:bg-[#30363d] text-white border border-[#30363d]"
                           >
                             <Shield className="w-3 h-3 text-[#58a6ff]" />
-                            Role
+                            {t('Role')}
                           </Button>
 
                           <Button
                             variant="secondary"
                             onClick={() => setSelectedUserForPassword(user)}
                             className="text-[11px] py-1 px-2 bg-[#21262d] hover:bg-[#30363d] text-white border border-[#30363d]"
-                            title="Reset password"
+                            title={t('Reset password')}
                           >
                             <Key className="w-3 h-3 text-[#e3b341]" />
                           </Button>
@@ -748,12 +750,12 @@ export const TenantUsersPage: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px] tracking-wider">
                 <tr>
-                  <th className="py-3 px-4">Member ID &amp; Name</th>
-                  <th className="py-3 px-4">Type &amp; Department</th>
-                  <th className="py-3 px-4">Membership Status</th>
-                  <th className="py-3 px-4">Registered Vehicle Plates</th>
-                  <th className="py-3 px-4">Joined Date</th>
-                  <th className="py-3 px-4 text-right">Access Controls</th>
+                  <th className="py-3 px-4">{t('Member ID & Name')}</th>
+                  <th className="py-3 px-4">{t('Type & Department')}</th>
+                  <th className="py-3 px-4">{t('Membership Status')}</th>
+                  <th className="py-3 px-4">{t('Registered Vehicle Plates')}</th>
+                  <th className="py-3 px-4">{t('Joined Date')}</th>
+                  <th className="py-3 px-4 text-right">{t('Access Controls')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]/60 font-medium">
@@ -761,7 +763,7 @@ export const TenantUsersPage: React.FC = () => {
                   <tr>
                     <td colSpan={6} className="py-12 text-center text-[#8b949e]">
                       <Layers className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/50" />
-                      <p className="font-semibold text-white">No members match the criteria</p>
+                      <p className="font-semibold text-white">{t('No members match the criteria')}</p>
                     </td>
                   </tr>
                 ) : (
@@ -793,8 +795,8 @@ export const TenantUsersPage: React.FC = () => {
 
                         {/* Type & Dept */}
                         <td className="py-3 px-4">
-                          <div className="font-semibold text-white">{m.type}</div>
-                          <div className="text-[11px] text-[#8b949e]">{m.department || 'General'}</div>
+                          <div className="font-semibold text-white">{t(m.type)}</div>
+                          <div className="text-[11px] text-[#8b949e]">{m.department || t('General')}</div>
                         </td>
 
                         {/* Status */}
@@ -810,14 +812,14 @@ export const TenantUsersPage: React.FC = () => {
                           >
                             {m.status === 'ACTIVE' && <CheckCircle2 className="w-3 h-3" />}
                             {m.status === 'SUSPENDED' && <Ban className="w-3 h-3" />}
-                            {m.status}
+                            {t(m.status)}
                           </span>
                         </td>
 
                         {/* Registered Vehicles */}
                         <td className="py-3 px-4">
                           {m.vehicles.length === 0 ? (
-                            <span className="text-[#8b949e] text-[11px] italic">No vehicles registered</span>
+                            <span className="text-[#8b949e] text-[11px] italic">{t('No vehicles registered')}</span>
                           ) : (
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {m.vehicles.map((v, i) => (
@@ -852,7 +854,7 @@ export const TenantUsersPage: React.FC = () => {
                                 className="text-[11px] py-1 px-2.5 bg-[#d29922]/15 text-[#e3b341] border border-[#d29922]/30 hover:bg-[#d29922]/25"
                               >
                                 <Ban className="w-3 h-3" />
-                                Suspend Pass
+                                {t('Suspend Pass')}
                               </Button>
                             ) : (
                               <Button
@@ -861,7 +863,7 @@ export const TenantUsersPage: React.FC = () => {
                                 className="text-[11px] py-1 px-2.5 bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30 hover:bg-[#238636]/25"
                               >
                                 <CheckCircle2 className="w-3 h-3" />
-                                Reactivate
+                                {t('Reactivate')}
                               </Button>
                             )}
                           </div>
@@ -894,13 +896,13 @@ export const TenantUsersPage: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px] tracking-wider">
                 <tr>
-                  <th className="py-3 px-4">Invited Email / Name</th>
-                  <th className="py-3 px-4">Assigned Role</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Invited By</th>
-                  <th className="py-3 px-4">Sent At</th>
-                  <th className="py-3 px-4">Expires</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4">{t('Invited Email / Name')}</th>
+                  <th className="py-3 px-4">{t('Assigned Role')}</th>
+                  <th className="py-3 px-4">{t('Status')}</th>
+                  <th className="py-3 px-4">{t('Invited By')}</th>
+                  <th className="py-3 px-4">{t('Sent At')}</th>
+                  <th className="py-3 px-4">{t('Expires')}</th>
+                  <th className="py-3 px-4 text-right">{t('Actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]/60 font-medium">
@@ -908,7 +910,7 @@ export const TenantUsersPage: React.FC = () => {
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-[#8b949e]">
                       <Mail className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/50" />
-                      <p className="font-semibold text-white">No invitations found</p>
+                      <p className="font-semibold text-white">{t('No invitations found')}</p>
                     </td>
                   </tr>
                 ) : (
@@ -945,7 +947,7 @@ export const TenantUsersPage: React.FC = () => {
                               : 'bg-[#8b949e]/15 text-[#8b949e] border border-[#8b949e]/30'
                           }`}
                         >
-                          {inv.status}
+                          {t(inv.status)}
                         </span>
                       </td>
 
@@ -972,18 +974,18 @@ export const TenantUsersPage: React.FC = () => {
                               className="text-[11px] py-1 px-2.5 bg-[#21262d] hover:bg-[#30363d] text-white border border-[#30363d] gap-1"
                             >
                               <Send className="w-3 h-3 text-[#58a6ff]" />
-                              Resend
+                              {t('Resend')}
                             </Button>
                             <Button
                               variant="secondary"
                               onClick={() => cancelTenantInvitation(inv.id)}
                               className="text-[11px] py-1 px-2.5 bg-[#f85149]/10 text-[#ff7b72] border border-[#f85149]/30 hover:bg-[#f85149]/20"
                             >
-                              Revoke
+                              {t('Revoke')}
                             </Button>
                           </div>
                         ) : (
-                          <span className="text-[#8b949e] text-[11px] italic">Resolved</span>
+                          <span className="text-[#8b949e] text-[11px] italic">{t('Resolved')}</span>
                         )}
                       </td>
                     </tr>
@@ -1012,10 +1014,10 @@ export const TenantUsersPage: React.FC = () => {
           <div className="p-4 bg-[#0d0e12] border-b border-[#30363d] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <History className="w-4 h-4 text-[#58a6ff]" />
-              <span className="text-xs font-bold text-white">Governance &amp; User Access Logs</span>
+              <span className="text-xs font-bold text-white">{t('Governance & User Access Logs')}</span>
             </div>
             <span className="text-[11px] font-mono text-[#8b949e]">
-              {filteredAuditLogs.length} events logged
+              {t('{{count}} events logged', { count: filteredAuditLogs.length })}
             </span>
           </div>
 
@@ -1023,7 +1025,7 @@ export const TenantUsersPage: React.FC = () => {
             {filteredAuditLogs.length === 0 ? (
               <div className="p-12 text-center text-[#8b949e]">
                 <History className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/50" />
-                <p className="font-semibold text-white">No audit records found</p>
+                <p className="font-semibold text-white">{t('No audit records found')}</p>
               </div>
             ) : (
               paginatedAuditLogs.map((log) => (
@@ -1041,7 +1043,7 @@ export const TenantUsersPage: React.FC = () => {
                   </div>
                   <p className="text-[#c9d1d9] text-xs leading-relaxed">{log.description}</p>
                   <div className="text-[11px] text-[#8b949e]">
-                    Triggered by: <strong className="text-white">{log.actorName}</strong>
+                    {t('Triggered by:')} <strong className="text-white">{log.actorName}</strong>
                   </div>
                 </div>
               ))

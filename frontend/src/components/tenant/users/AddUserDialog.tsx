@@ -18,6 +18,7 @@ import {
   Layers
 } from 'lucide-react';
 import { Button } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface AddUserDialogProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ interface AddUserDialogProps {
 
 export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose }) => {
   const { inviteTenantUser, createTenantUserManually, tenantUsers } = usePlatform();
+  const { t } = useTranslation('tenant');
   const [tab, setTab] = useState<'INVITE' | 'MANUAL'>('INVITE');
 
   // Invite Form State
@@ -61,7 +63,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
     setFormError(null);
 
     if (!inviteEmail || !inviteEmail.includes('@')) {
-      setFormError('Please provide a valid email address.');
+      setFormError(t('Please provide a valid email address.'));
       return;
     }
 
@@ -86,11 +88,11 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
     setFormError(null);
 
     if (!manualFullName.trim()) {
-      setFormError('Full name is required.');
+      setFormError(t('Full name is required.'));
       return;
     }
     if (!manualEmail.trim() || !manualEmail.includes('@')) {
-      setFormError('Please enter a valid email address.');
+      setFormError(t('Please enter a valid email address.'));
       return;
     }
 
@@ -139,8 +141,8 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white tracking-tight">Add User to Organization</h2>
-              <p className="text-xs text-[#8b949e]">Invite via email or provision account manually</p>
+              <h2 className="text-base font-bold text-white tracking-tight">{t('Add User to Organization')}</h2>
+              <p className="text-xs text-[#8b949e]">{t('Invite via email or provision account manually')}</p>
             </div>
           </div>
           <button
@@ -166,7 +168,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
             }`}
           >
             <Mail className="w-3.5 h-3.5" />
-            Invite by Email (Recommended)
+            {t('Invite by Email (Recommended)')}
           </button>
           <button
             type="button"
@@ -181,7 +183,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
             }`}
           >
             <UserCheck className="w-3.5 h-3.5" />
-            Create Manually
+            {t('Create Manually')}
           </button>
         </div>
 
@@ -198,7 +200,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
             <form id="invite-form" onSubmit={handleInviteSubmit} className="space-y-4">
               <div>
                 <label className="block text-[#8b949e] font-semibold mb-1">
-                  Email Address <span className="text-[#f85149]">*</span>
+                  {t('Email Address')} <span className="text-[#f85149]">*</span>
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-[#8b949e] absolute left-3 top-2.5" />
@@ -215,17 +217,17 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[#8b949e] font-semibold mb-1">Full Name (Optional)</label>
+                  <label className="block text-[#8b949e] font-semibold mb-1">{t('Full Name (Optional)')}</label>
                   <input
                     type="text"
-                    placeholder="e.g. John Doe"
+                    placeholder={t('e.g. John Doe')}
                     value={inviteFullName}
                     onChange={(e) => setInviteFullName(e.target.value)}
                     className="w-full bg-[#0d0e12] border border-[#30363d] rounded-xl px-3 py-2 text-white placeholder-[#8b949e]/60 focus:border-[#58a6ff] focus:outline-hidden"
                   />
                 </div>
                 <div>
-                  <label className="block text-[#8b949e] font-semibold mb-1">Phone Number (Optional)</label>
+                  <label className="block text-[#8b949e] font-semibold mb-1">{t('Phone Number (Optional)')}</label>
                   <input
                     type="text"
                     placeholder="+84 90 123 4567"
@@ -239,7 +241,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
               {/* Role Selection */}
               <div>
                 <label className="block text-[#8b949e] font-semibold mb-1">
-                  Organization Role <span className="text-[#f85149]">*</span>
+                  {t('Organization Role')} <span className="text-[#f85149]">*</span>
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <button
@@ -251,8 +253,8 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
                         : 'bg-[#0d0e12] border-[#30363d] text-[#8b949e] hover:border-[#8b949e]'
                     }`}
                   >
-                    <div className="font-bold text-xs text-white">Member</div>
-                    <div className="text-[11px] text-[#8b949e] mt-0.5">Vehicle access pass & self-service</div>
+                    <div className="font-bold text-xs text-white">{t('Member')}</div>
+                    <div className="text-[11px] text-[#8b949e] mt-0.5">{t('Vehicle access pass & self-service')}</div>
                   </button>
 
                   <button
@@ -264,8 +266,8 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
                         : 'bg-[#0d0e12] border-[#30363d] text-[#8b949e] hover:border-[#8b949e]'
                     }`}
                   >
-                    <div className="font-bold text-xs text-[#d29922]">Site Manager</div>
-                    <div className="text-[11px] text-[#8b949e] mt-0.5">Manage gates, lanes & camera alerts</div>
+                    <div className="font-bold text-xs text-[#d29922]">{t('Site Manager')}</div>
+                    <div className="text-[11px] text-[#8b949e] mt-0.5">{t('Manage gates, lanes & camera alerts')}</div>
                   </button>
 
                   <button
@@ -277,8 +279,8 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
                         : 'bg-[#0d0e12] border-[#30363d] text-[#8b949e] hover:border-[#8b949e]'
                     }`}
                   >
-                    <div className="font-bold text-xs text-[#f85149]">Tenant Admin</div>
-                    <div className="text-[11px] text-[#8b949e] mt-0.5">Full organization & user control</div>
+                    <div className="font-bold text-xs text-[#f85149]">{t('Tenant Admin')}</div>
+                    <div className="text-[11px] text-[#8b949e] mt-0.5">{t('Full organization & user control')}</div>
                   </button>
                 </div>
 
@@ -286,7 +288,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
                   <div className="mt-2 p-2.5 bg-[#f85149]/10 border border-[#f85149]/30 rounded-xl text-[#ff7b72] flex items-start gap-2 text-[11px]">
                     <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
                     <span>
-                      <strong>Caution:</strong> Tenant Admins have full administrative authority over all organization data, location settings, access policies, and member credentials.
+                      <strong>{t('Caution:')}</strong> {t('Tenant Admins have full administrative authority over all organization data, location settings, access policies, and member credentials.')}
                     </span>
                   </div>
                 )}
@@ -297,7 +299,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
                 <label className="flex items-center justify-between cursor-pointer">
                   <div className="flex items-center gap-2">
                     <Layers className="w-4 h-4 text-[#58a6ff]" />
-                    <span className="font-semibold text-white">Create Business Membership Profile</span>
+                    <span className="font-semibold text-white">{t('Create Business Membership Profile')}</span>
                   </div>
                   <input
                     type="checkbox"
@@ -310,26 +312,26 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
                 {inviteCreateMember && (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-[#30363d]/60">
                     <div>
-                      <label className="block text-[#8b949e] text-[11px] font-semibold mb-1">Membership Type</label>
+                      <label className="block text-[#8b949e] text-[11px] font-semibold mb-1">{t('Membership Type')}</label>
                       <select
                         value={inviteMemberType}
                         onChange={(e) => setInviteMemberType(e.target.value as MembershipType)}
                         className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-hidden focus:border-[#58a6ff]"
                       >
-                        <option value="EMPLOYEE">Employee</option>
-                        <option value="STAFF">Staff / Guard</option>
-                        <option value="RESIDENT">Resident</option>
-                        <option value="CUSTOMER">Customer / VIP</option>
-                        <option value="VISITOR">Visitor</option>
-                        <option value="OTHER">Other / Contractor</option>
+                        <option value="EMPLOYEE">{t('Employee')}</option>
+                        <option value="STAFF">{t('Staff / Guard')}</option>
+                        <option value="RESIDENT">{t('Resident')}</option>
+                        <option value="CUSTOMER">{t('Customer / VIP')}</option>
+                        <option value="VISITOR">{t('Visitor')}</option>
+                        <option value="OTHER">{t('Other / Contractor')}</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className="block text-[#8b949e] text-[11px] font-semibold mb-1">Department</label>
+                      <label className="block text-[#8b949e] text-[11px] font-semibold mb-1">{t('Department')}</label>
                       <input
                         type="text"
-                        placeholder="e.g. Engineering"
+                        placeholder={t('e.g. Engineering')}
                         value={inviteDepartment}
                         onChange={(e) => setInviteDepartment(e.target.value)}
                         className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-2.5 py-1.5 text-white text-xs placeholder-[#8b949e]/60 focus:outline-hidden focus:border-[#58a6ff]"
@@ -337,10 +339,10 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
                     </div>
 
                     <div>
-                      <label className="block text-[#8b949e] text-[11px] font-semibold mb-1">Employee ID</label>
+                      <label className="block text-[#8b949e] text-[11px] font-semibold mb-1">{t('Employee ID')}</label>
                       <input
                         type="text"
-                        placeholder="EMP-102"
+                        placeholder={t('EMP-102')}
                         value={inviteEmployeeId}
                         onChange={(e) => setInviteEmployeeId(e.target.value)}
                         className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-2.5 py-1.5 text-white text-xs placeholder-[#8b949e]/60 focus:outline-hidden focus:border-[#58a6ff]"
@@ -351,10 +353,10 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
               </div>
 
               <div>
-                <label className="block text-[#8b949e] font-semibold mb-1">Personal Message (Optional)</label>
+                <label className="block text-[#8b949e] font-semibold mb-1">{t('Personal Message (Optional)')}</label>
                 <textarea
                   rows={2}
-                  placeholder="Add a welcoming note with instructions..."
+                  placeholder={t('Add a welcoming note with instructions...')}
                   value={inviteMessage}
                   onChange={(e) => setInviteMessage(e.target.value)}
                   className="w-full bg-[#0d0e12] border border-[#30363d] rounded-xl px-3 py-2 text-white placeholder-[#8b949e]/60 focus:border-[#58a6ff] focus:outline-hidden resize-none"
@@ -366,12 +368,12 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[#8b949e] font-semibold mb-1">
-                    Full Name <span className="text-[#f85149]">*</span>
+                    {t('Full Name')} <span className="text-[#f85149]">*</span>
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Robert Smith"
+                    placeholder={t('e.g. Robert Smith')}
                     value={manualFullName}
                     onChange={(e) => setManualFullName(e.target.value)}
                     className="w-full bg-[#0d0e12] border border-[#30363d] rounded-xl px-3 py-2 text-white placeholder-[#8b949e]/60 focus:border-[#58a6ff] focus:outline-hidden"
@@ -379,7 +381,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
                 </div>
                 <div>
                   <label className="block text-[#8b949e] font-semibold mb-1">
-                    Email Address <span className="text-[#f85149]">*</span>
+                    {t('Email Address')} <span className="text-[#f85149]">*</span>
                   </label>
                   <input
                     type="email"
@@ -394,7 +396,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[#8b949e] font-semibold mb-1">Username (Optional)</label>
+                  <label className="block text-[#8b949e] font-semibold mb-1">{t('Username (Optional)')}</label>
                   <input
                     type="text"
                     placeholder="rsmith"
@@ -404,7 +406,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
                   />
                 </div>
                 <div>
-                  <label className="block text-[#8b949e] font-semibold mb-1">Phone Number</label>
+                  <label className="block text-[#8b949e] font-semibold mb-1">{t('Phone Number')}</label>
                   <input
                     type="text"
                     placeholder="+84 90 987 6543"
@@ -417,15 +419,15 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
 
               {/* Role Select */}
               <div>
-                <label className="block text-[#8b949e] font-semibold mb-1">Organization Role</label>
+                <label className="block text-[#8b949e] font-semibold mb-1">{t('Organization Role')}</label>
                 <select
                   value={manualRole}
                   onChange={(e) => setManualRole(e.target.value as TenantUserRole)}
                   className="w-full bg-[#0d0e12] border border-[#30363d] rounded-xl px-3 py-2 text-white focus:border-[#58a6ff] focus:outline-hidden"
                 >
-                  <option value="MEMBER">Member (Vehicle whitelist access)</option>
-                  <option value="SITE_MANAGER">Site Manager (Gate & lane operations)</option>
-                  <option value="TENANT_ADMIN">Tenant Admin (Full administrative privileges)</option>
+                  <option value="MEMBER">{t('Member (Vehicle whitelist access)')}</option>
+                  <option value="SITE_MANAGER">{t('Site Manager (Gate & lane operations)')}</option>
+                  <option value="TENANT_ADMIN">{t('Tenant Admin (Full administrative privileges)')}</option>
                 </select>
               </div>
 
@@ -433,11 +435,11 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
               <div className="p-3.5 bg-[#0d0e12] border border-[#30363d] rounded-xl space-y-3">
                 <div className="flex items-center gap-2">
                   <Key className="w-4 h-4 text-[#58a6ff]" />
-                  <span className="font-semibold text-white">Temporary Credentials</span>
+                  <span className="font-semibold text-white">{t('Temporary Credentials')}</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[#8b949e] text-[11px] font-semibold mb-1">Temporary Password</label>
+                    <label className="block text-[#8b949e] text-[11px] font-semibold mb-1">{t('Temporary Password')}</label>
                     <input
                       type="text"
                       value={manualTempPassword}
@@ -453,7 +455,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
                         onChange={(e) => setManualForcePasswordChange(e.target.checked)}
                         className="w-4 h-4 rounded-sm border-[#30363d] bg-[#161b22] text-[#238636] focus:ring-0 focus:outline-hidden"
                       />
-                      <span className="text-xs text-[#c9d1d9]">Require password change on first sign-in</span>
+                      <span className="text-xs text-[#c9d1d9]">{t('Require password change on first sign-in')}</span>
                     </label>
                   </div>
                 </div>
@@ -464,7 +466,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
                 <label className="flex items-center justify-between cursor-pointer">
                   <div className="flex items-center gap-2">
                     <Layers className="w-4 h-4 text-[#58a6ff]" />
-                    <span className="font-semibold text-white">Create Business Membership Profile</span>
+                    <span className="font-semibold text-white">{t('Create Business Membership Profile')}</span>
                   </div>
                   <input
                     type="checkbox"
@@ -477,26 +479,26 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
                 {manualCreateMember && (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-[#30363d]/60">
                     <div>
-                      <label className="block text-[#8b949e] text-[11px] font-semibold mb-1">Membership Type</label>
+                      <label className="block text-[#8b949e] text-[11px] font-semibold mb-1">{t('Membership Type')}</label>
                       <select
                         value={manualMemberType}
                         onChange={(e) => setManualMemberType(e.target.value as MembershipType)}
                         className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-hidden focus:border-[#58a6ff]"
                       >
-                        <option value="EMPLOYEE">Employee</option>
-                        <option value="STAFF">Staff / Guard</option>
-                        <option value="RESIDENT">Resident</option>
-                        <option value="CUSTOMER">Customer / VIP</option>
-                        <option value="VISITOR">Visitor</option>
-                        <option value="OTHER">Other / Contractor</option>
+                        <option value="EMPLOYEE">{t('Employee')}</option>
+                        <option value="STAFF">{t('Staff / Guard')}</option>
+                        <option value="RESIDENT">{t('Resident')}</option>
+                        <option value="CUSTOMER">{t('Customer / VIP')}</option>
+                        <option value="VISITOR">{t('Visitor')}</option>
+                        <option value="OTHER">{t('Other / Contractor')}</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className="block text-[#8b949e] text-[11px] font-semibold mb-1">Department</label>
+                      <label className="block text-[#8b949e] text-[11px] font-semibold mb-1">{t('Department')}</label>
                       <input
                         type="text"
-                        placeholder="e.g. Logistics"
+                        placeholder={t('e.g. Logistics')}
                         value={manualDepartment}
                         onChange={(e) => setManualDepartment(e.target.value)}
                         className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-2.5 py-1.5 text-white text-xs placeholder-[#8b949e]/60 focus:outline-hidden focus:border-[#58a6ff]"
@@ -504,10 +506,10 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
                     </div>
 
                     <div>
-                      <label className="block text-[#8b949e] text-[11px] font-semibold mb-1">Employee ID</label>
+                      <label className="block text-[#8b949e] text-[11px] font-semibold mb-1">{t('Employee ID')}</label>
                       <input
                         type="text"
-                        placeholder="EMP-303"
+                        placeholder={t('EMP-303')}
                         value={manualEmployeeId}
                         onChange={(e) => setManualEmployeeId(e.target.value)}
                         className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-2.5 py-1.5 text-white text-xs placeholder-[#8b949e]/60 focus:outline-hidden focus:border-[#58a6ff]"
@@ -523,7 +525,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
         {/* Footer */}
         <div className="p-4 border-t border-[#30363d] bg-[#0d0e12]/80 flex items-center justify-end gap-2.5">
           <Button variant="secondary" onClick={onClose} className="text-xs">
-            Cancel
+            {t('Cancel')}
           </Button>
           {tab === 'INVITE' ? (
             <Button
@@ -533,7 +535,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
               className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 font-bold shadow-sm"
             >
               <Send className="w-3.5 h-3.5" />
-              Send Invitation
+              {t('Send Invitation')}
             </Button>
           ) : (
             <Button
@@ -543,7 +545,7 @@ export const AddUserDialog: React.FC<AddUserDialogProps> = ({ isOpen, onClose })
               className="text-xs bg-[#58a6ff] hover:bg-[#79b8ff] text-black gap-1.5 font-bold shadow-sm"
             >
               <UserCheck className="w-3.5 h-3.5" />
-              Create Account
+              {t('Create Account')}
             </Button>
           )}
         </div>

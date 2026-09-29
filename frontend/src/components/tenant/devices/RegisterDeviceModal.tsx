@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { usePlatform } from '../../../context/PlatformContext';
 import { Server } from 'lucide-react';
 import { Button, Input, Modal, Select } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface RegisterDeviceModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ const EMPTY_FORM = {
 
 export const RegisterDeviceModal: React.FC<RegisterDeviceModalProps> = ({ isOpen, onClose }) => {
   const { tenantSites, createTenantDevice } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,7 +57,7 @@ export const RegisterDeviceModal: React.FC<RegisterDeviceModalProps> = ({ isOpen
       setFormData(EMPTY_FORM);
       onClose();
     } else {
-      setError(result.message || 'Failed to register device');
+      setError(result.message || t('Failed to register device'));
     }
   };
 
@@ -66,15 +68,15 @@ export const RegisterDeviceModal: React.FC<RegisterDeviceModalProps> = ({ isOpen
       title={
         <span className="flex items-center gap-2">
           <Server className="w-5 h-5 text-[#58a6ff]" />
-          Register Edge Device
+          {t('Register Edge Device')}
         </span>
       }
-      subtitle="Provision a new edge gateway on a site"
+      subtitle={t('Provision a new edge gateway on a site')}
       footer={
         <div className="flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose} type="button">Cancel</Button>
+          <Button variant="secondary" onClick={onClose} type="button">{t('Cancel')}</Button>
           <Button variant="primary" type="submit" form="register-device-form" isLoading={isLoading}>
-            Register Device
+            {t('Register Device')}
           </Button>
         </div>
       }
@@ -87,31 +89,31 @@ export const RegisterDeviceModal: React.FC<RegisterDeviceModalProps> = ({ isOpen
         )}
 
         <Input
-          label="Device Name"
+          label={t('Device Name')}
           value={formData.name}
           onChange={set('name')}
-          placeholder="e.g. Barrier Gateway 01"
+          placeholder={t('e.g. Barrier Gateway 01')}
           required
         />
 
         <Select
-          label="Site"
+          label={t('Site')}
           value={formData.siteId}
           onChange={set('siteId')}
           required
           options={[
-            { value: '', label: 'Select a site…' },
+            { value: '', label: t('Select a site…') },
             ...tenantSites.map((s) => ({ value: s.id, label: s.name }))
           ]}
         />
 
         <div className="grid grid-cols-2 gap-4">
-          <Input label="Serial Number" value={formData.deviceSerial} onChange={set('deviceSerial')} placeholder="SN-0000" />
-          <Input label="Hardware Model" value={formData.hardwareModel} onChange={set('hardwareModel')} placeholder="e.g. PV-Edge-2U" />
-          <Input label="MAC Address" value={formData.mac} onChange={set('mac')} placeholder="00:1B:44:11:3A:B7" />
-          <Input label="IP Address" value={formData.ipAddress} onChange={set('ipAddress')} placeholder="10.0.0.12" />
-          <Input label="MQTT Client ID" value={formData.mqttClientId} onChange={set('mqttClientId')} placeholder="edge-gw-01" />
-          <Input label="Firmware Version" value={formData.firmwareVersion} onChange={set('firmwareVersion')} placeholder="1.4.2" />
+          <Input label={t('Serial Number')} value={formData.deviceSerial} onChange={set('deviceSerial')} placeholder="SN-0000" />
+          <Input label={t('Hardware Model')} value={formData.hardwareModel} onChange={set('hardwareModel')} placeholder={t('e.g. PV-Edge-2U')} />
+          <Input label={t('MAC Address')} value={formData.mac} onChange={set('mac')} placeholder="00:1B:44:11:3A:B7" />
+          <Input label={t('IP Address')} value={formData.ipAddress} onChange={set('ipAddress')} placeholder="10.0.0.12" />
+          <Input label={t('MQTT Client ID')} value={formData.mqttClientId} onChange={set('mqttClientId')} placeholder="edge-gw-01" />
+          <Input label={t('Firmware Version')} value={formData.firmwareVersion} onChange={set('firmwareVersion')} placeholder="1.4.2" />
         </div>
       </form>
     </Modal>

@@ -3,6 +3,7 @@ import { Search, Car, MapPin, Layers, Clock } from 'lucide-react';
 import { publicApi, type PublicLocateOut, type PublicMapLevelOut } from '../../services/api';
 import { ParkingMapCanvas } from '../../components/tenant/parking/ParkingMapCanvas';
 import { Button, Input } from '../../components/ui';
+import { useTranslation } from 'react-i18next';
 
 interface FindMyCarPageProps {
   tenantSlug: string;
@@ -10,6 +11,7 @@ interface FindMyCarPageProps {
 }
 
 export const FindMyCarPage: React.FC<FindMyCarPageProps> = ({ tenantSlug, initialPlate }) => {
+  const { t } = useTranslation('landing');
   const [plate, setPlate] = useState(initialPlate ?? '');
   const [result, setResult] = useState<PublicLocateOut | null>(null);
   const [map, setMap] = useState<PublicMapLevelOut[] | null>(null);
@@ -32,7 +34,7 @@ export const FindMyCarPage: React.FC<FindMyCarPageProps> = ({ tenantSlug, initia
         if (res.levelId) setSelectedLevelId(res.levelId);
       }
     } catch {
-      setError('Không thể tra cứu lúc này. Vui lòng thử lại sau.');
+      setError(t('Lookup unavailable right now. Please try again later.'));
       setResult(null);
     } finally {
       setSearching(false);
@@ -61,17 +63,17 @@ export const FindMyCarPage: React.FC<FindMyCarPageProps> = ({ tenantSlug, initia
           <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-br from-[#58a6ff] to-[#1f6feb] items-center justify-center shadow-lg shadow-[#58a6ff]/20">
             <Car className="w-7 h-7 text-slate-950" />
           </div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">Tìm xe của bạn</h1>
+          <h1 className="text-2xl font-extrabold text-white tracking-tight">{t('Find your vehicle')}</h1>
           <p className="text-sm text-[#8b949e]">
-            Nhập biển số xe để xem xe đang đỗ ở tầng và khu vực nào.
+            {t('Enter your license plate to see which level and zone your vehicle is parked in.')}
           </p>
         </div>
 
         {!tenantSlug ? (
           <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-8 text-center">
-            <p className="text-sm text-[#f85149] font-semibold">Liên kết không hợp lệ</p>
+            <p className="text-sm text-[#f85149] font-semibold">{t('Invalid link')}</p>
             <p className="text-xs text-[#8b949e] mt-1">
-              Trang này cần tham số <span className="font-mono">?tenant=</span> của bãi xe. Vui lòng dùng đường dẫn do bãi xe cung cấp.
+              {t('This page requires the')} <span className="font-mono">?tenant=</span> {t('parameter of the parking lot. Please use the link provided by the facility.')}
             </p>
           </div>
         ) : (
@@ -86,7 +88,7 @@ export const FindMyCarPage: React.FC<FindMyCarPageProps> = ({ tenantSlug, initia
             >
               <div className="flex-1">
                 <Input
-                  placeholder="Nhập biển số xe, ví dụ 51G12345"
+                  placeholder={t('Enter license plate, e.g. 51G12345')}
                   value={plate}
                   onChange={(e) => setPlate(e.target.value.toUpperCase())}
                   className="bg-[#0d0e12] border-[#30363d] text-white font-mono uppercase tracking-wider text-base py-3"
@@ -101,7 +103,7 @@ export const FindMyCarPage: React.FC<FindMyCarPageProps> = ({ tenantSlug, initia
                 className="gap-1.5 shrink-0"
               >
                 <Search className="w-4 h-4" />
-                Tìm vị trí xe
+                {t('Locate vehicle')}
               </Button>
             </form>
 
@@ -115,11 +117,9 @@ export const FindMyCarPage: React.FC<FindMyCarPageProps> = ({ tenantSlug, initia
             {result && !result.found && (
               <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-8 text-center space-y-2">
                 <MapPin className="w-8 h-8 text-[#8b949e] mx-auto" />
-                <p className="text-sm font-bold text-white">Không tìm thấy xe</p>
+                <p className="text-sm font-bold text-white">{t('Vehicle not found')}</p>
                 <p className="text-xs text-[#8b949e] max-w-md mx-auto">
-                  Biển số <span className="font-mono text-[#c9d1d9]">{plate.trim().toUpperCase()}</span> hiện
-                  không có trong bãi xe, hoặc xe vừa di chuyển và camera chưa cập nhật kịp. Kiểm tra lại
-                  biển số hoặc thử lại sau ít phút.
+                  {t('Plate {{plate}} is not currently in the lot, or the vehicle just moved and cameras have not synced yet. Double-check the plate or try again in a few minutes.', { plate: plate.trim().toUpperCase() })}
                 </p>
               </div>
             )}
@@ -129,7 +129,7 @@ export const FindMyCarPage: React.FC<FindMyCarPageProps> = ({ tenantSlug, initia
                 <div className="bg-[#238636]/10 border border-[#3fb950]/40 rounded-2xl p-5 flex flex-wrap items-center gap-x-6 gap-y-2">
                   <div className="flex items-center gap-2">
                     <Layers className="w-4 h-4 text-[#3fb950]" />
-                    <span className="text-xs text-[#8b949e]">Tầng:</span>
+                    <span className="text-xs text-[#8b949e]">{t('Level:')}</span>
                     <span className="text-sm font-bold text-white">
                       {result.levelName ?? locatedLevel?.name ?? '—'}
                       {result.levelCode ? ` (${result.levelCode})` : ''}
@@ -137,7 +137,7 @@ export const FindMyCarPage: React.FC<FindMyCarPageProps> = ({ tenantSlug, initia
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-[#3fb950]" />
-                    <span className="text-xs text-[#8b949e]">Khu vực:</span>
+                    <span className="text-xs text-[#8b949e]">{t('Zone:')}</span>
                     <span className="text-sm font-bold text-white">
                       {result.zoneName ?? '—'}
                       {result.zoneCode ? ` (${result.zoneCode})` : ''}
@@ -146,7 +146,7 @@ export const FindMyCarPage: React.FC<FindMyCarPageProps> = ({ tenantSlug, initia
                   {result.sinceAt && (
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-[#3fb950]" />
-                      <span className="text-xs text-[#8b949e]">Đỗ từ:</span>
+                      <span className="text-xs text-[#8b949e]">{t('Parked since:')}</span>
                       <span className="text-xs font-mono text-[#c9d1d9]">
                         {new Date(result.sinceAt).toLocaleString()}
                       </span>
@@ -163,7 +163,7 @@ export const FindMyCarPage: React.FC<FindMyCarPageProps> = ({ tenantSlug, initia
                       highlightZoneId={result.zoneId ?? null}
                     />
                     <p className="text-[11px] text-[#8b949e] mt-3 text-center">
-                      Khu vực được tô sáng là nơi xe của bạn đang đỗ.
+                      {t('The highlighted zone is where your vehicle is parked.')}
                     </p>
                   </div>
                 )}

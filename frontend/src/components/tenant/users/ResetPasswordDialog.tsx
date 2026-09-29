@@ -3,6 +3,7 @@ import { usePlatform } from '../../../context/PlatformContext';
 import { TenantUser } from '../../../types/tenant';
 import { X, Key, Send, CheckCircle2 } from 'lucide-react';
 import { Button } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface ResetPasswordDialogProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface ResetPasswordDialogProps {
 
 export const ResetPasswordDialog: React.FC<ResetPasswordDialogProps> = ({ isOpen, onClose, user }) => {
   const { resetTenantUserPassword } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   if (!isOpen || !user) return null;
 
@@ -30,8 +32,8 @@ export const ResetPasswordDialog: React.FC<ResetPasswordDialogProps> = ({ isOpen
               <Key className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white tracking-tight">Reset Password</h2>
-              <p className="text-xs text-[#8b949e]">Send password reset instructions to user</p>
+              <h2 className="text-base font-bold text-white tracking-tight">{t('Reset Password')}</h2>
+              <p className="text-xs text-[#8b949e]">{t('Send password reset instructions to user')}</p>
             </div>
           </div>
           <button
@@ -45,7 +47,7 @@ export const ResetPasswordDialog: React.FC<ResetPasswordDialogProps> = ({ isOpen
         {/* Content Body */}
         <div className="p-5 space-y-4 text-xs">
           <p className="text-[#c9d1d9] leading-relaxed">
-            Are you sure you want to trigger a password reset for <strong className="text-white">{user.name}</strong>?
+            {t('Are you sure you want to trigger a password reset for')} <strong className="text-white">{user.name}</strong>?
           </p>
 
           <div className="p-3.5 bg-[#0d0e12] border border-[#30363d] rounded-xl flex items-center gap-3">
@@ -59,14 +61,14 @@ export const ResetPasswordDialog: React.FC<ResetPasswordDialogProps> = ({ isOpen
           </div>
 
           <div className="p-3.5 bg-[#161b22] border border-[#30363d] rounded-xl text-[#8b949e] text-[11px] leading-relaxed">
-            An automated email containing a single-use secure reset link (valid for 24 hours) will be dispatched to <span className="font-mono text-white">{user.email}</span>. Their existing sessions will remain active until the new password is set.
+            {t('An automated email containing a single-use secure reset link (valid for 24 hours) will be dispatched to')} <span className="font-mono text-white">{user.email}</span>. {t('Their existing sessions will remain active until the new password is set.')}
           </div>
         </div>
 
         {/* Footer */}
         <div className="p-4 border-t border-[#30363d] bg-[#0d0e12]/80 flex items-center justify-end gap-2.5">
           <Button variant="secondary" onClick={onClose} className="text-xs">
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             type="button"
@@ -75,7 +77,7 @@ export const ResetPasswordDialog: React.FC<ResetPasswordDialogProps> = ({ isOpen
             className="text-xs bg-[#58a6ff] hover:bg-[#79b8ff] text-black font-bold gap-1.5 shadow-sm"
           >
             <Send className="w-3.5 h-3.5" />
-            Send Reset Link
+            {t('Send Reset Link')}
           </Button>
         </div>
       </div>

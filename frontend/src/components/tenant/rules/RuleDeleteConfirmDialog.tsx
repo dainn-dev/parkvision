@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertTriangle, Trash2, X } from 'lucide-react';
 import { TenantAccessRule } from '../../../types/tenant';
 import { Button } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface RuleDeleteConfirmDialogProps {
   rule: TenantAccessRule | null;
@@ -16,6 +17,7 @@ export const RuleDeleteConfirmDialog: React.FC<RuleDeleteConfirmDialogProps> = (
   onClose,
   onConfirm
 }) => {
+  const { t } = useTranslation('tenant');
   if (!isOpen || !rule) return null;
 
   return (
@@ -36,16 +38,16 @@ export const RuleDeleteConfirmDialog: React.FC<RuleDeleteConfirmDialogProps> = (
         </div>
 
         <div>
-          <h3 className="text-base font-bold text-white">Delete Access Policy Rule?</h3>
+          <h3 className="text-base font-bold text-white">{t('Delete Access Policy Rule?')}</h3>
           <p className="text-xs text-[#8b949e] mt-1.5 leading-relaxed">
-            Are you sure you want to permanently delete rule <strong className="text-white">"{rule.name}"</strong> (<span className="font-mono text-[#58a6ff]">{rule.code}</span>)?
+            {t('Are you sure you want to permanently delete rule')} <strong className="text-white">"{rule.name}"</strong> (<span className="font-mono text-[#58a6ff]">{rule.code}</span>)?
           </p>
         </div>
 
         <div className="p-3 rounded-lg bg-[#da3633]/10 border border-[#da3633]/30 text-xs text-[#f85149] flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <div>
-            Edge controllers will immediately purge this rule. Vehicles evaluated previously by this rule will fall back to default tenant access policies.
+            {t('Edge controllers will immediately purge this rule. Vehicles evaluated previously by this rule will fall back to default tenant access policies.')}
           </div>
         </div>
 
@@ -56,7 +58,7 @@ export const RuleDeleteConfirmDialog: React.FC<RuleDeleteConfirmDialogProps> = (
             onClick={onClose}
             className="text-xs border-[#30363d] text-[#8b949e] hover:text-white"
           >
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             variant="outline"
@@ -68,7 +70,7 @@ export const RuleDeleteConfirmDialog: React.FC<RuleDeleteConfirmDialogProps> = (
             className="text-xs bg-[#da3633] hover:bg-[#b62324] text-white border-transparent gap-1.5 font-bold"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Delete Rule
+            {t('Delete Rule')}
           </Button>
         </div>
       </div>

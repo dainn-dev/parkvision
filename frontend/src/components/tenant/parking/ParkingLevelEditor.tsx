@@ -4,6 +4,7 @@ import { usePlatform } from '../../../context/PlatformContext';
 import { Button, Input } from '../../ui';
 import type { TenantSite } from '../../../types/tenant';
 import type { MapLevelOut } from '../../../services/api';
+import { useTranslation } from 'react-i18next';
 
 interface ParkingLevelEditorProps {
   site: TenantSite;
@@ -19,6 +20,7 @@ export const ParkingLevelEditor: React.FC<ParkingLevelEditorProps> = ({ site, is
     uploadParkingMapImage,
     addToast,
   } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const [newName, setNewName] = useState('');
   const [newCode, setNewCode] = useState('');
@@ -59,7 +61,7 @@ export const ParkingLevelEditor: React.FC<ParkingLevelEditorProps> = ({ site, is
       const objectKey = await uploadParkingMapImage(file);
       upsertParkingLevel(lv.id, { name: lv.name, mapImageUrl: objectKey });
     } catch (err) {
-      addToast({ type: 'error', title: 'Upload failed', description: err instanceof Error ? err.message : String(err) });
+      addToast({ type: 'error', title: t('Upload failed'), description: err instanceof Error ? err.message : String(err) });
     } finally {
       setUploadingId(null);
     }
@@ -76,8 +78,8 @@ export const ParkingLevelEditor: React.FC<ParkingLevelEditorProps> = ({ site, is
               <Layers className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">Quản lý tầng</h3>
-              <p className="text-xs text-[#8b949e]">{site.name} — thêm, sắp xếp, ảnh sơ đồ</p>
+              <h3 className="text-base font-bold text-white tracking-tight">{t('Manage Levels')}</h3>
+              <p className="text-xs text-[#8b949e]">{site.name} — {t('add, reorder, map images')}</p>
             </div>
           </div>
           <button
@@ -92,7 +94,7 @@ export const ParkingLevelEditor: React.FC<ParkingLevelEditorProps> = ({ site, is
           {/* Existing levels */}
           <div className="space-y-2">
             {levels.length === 0 && (
-              <p className="text-[11px] text-[#8b949e] italic">Chưa có tầng nào — thêm tầng bên dưới.</p>
+              <p className="text-[11px] text-[#8b949e] italic">{t('No levels yet — add one below.')}</p>
             )}
             {levels.map((lv, idx) => (
               <div
@@ -135,7 +137,7 @@ export const ParkingLevelEditor: React.FC<ParkingLevelEditorProps> = ({ site, is
                 <button
                   onClick={() => fileInputs.current[lv.id]?.click()}
                   disabled={uploadingId === lv.id}
-                  title={lv.mapImageUrl ? 'Thay ảnh sơ đồ' : 'Tải ảnh sơ đồ'}
+                  title={lv.mapImageUrl ? t('Replace map image') : t('Upload map image')}
                   className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-colors cursor-pointer ${
                     lv.mapImageUrl
                       ? 'border-[#3fb950]/40 text-[#3fb950] hover:bg-[#3fb950]/10'
@@ -146,7 +148,7 @@ export const ParkingLevelEditor: React.FC<ParkingLevelEditorProps> = ({ site, is
                 </button>
                 <button
                   onClick={() => removeParkingLevel(lv.id)}
-                  title="Xóa tầng"
+                  title={t('Delete level')}
                   className="w-7 h-7 rounded-lg border border-[#f85149]/40 text-[#f85149] hover:bg-[#f85149]/10 flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -158,16 +160,16 @@ export const ParkingLevelEditor: React.FC<ParkingLevelEditorProps> = ({ site, is
           {/* Add level */}
           <form onSubmit={handleAdd} className="pt-3 border-t border-[#30363d] flex items-end gap-2">
             <div className="flex-1">
-              <label className="block text-[#8b949e] text-[11px] mb-1">Tên tầng mới</label>
+              <label className="block text-[#8b949e] text-[11px] mb-1">{t('New level name')}</label>
               <Input
-                placeholder="e.g. Tầng hầm B1"
+                placeholder={t('e.g. Basement B1')}
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 className="bg-[#161b22] border-[#30363d] text-white"
               />
             </div>
             <div className="w-24">
-              <label className="block text-[#8b949e] text-[11px] mb-1">Mã</label>
+              <label className="block text-[#8b949e] text-[11px] mb-1">{t('Code')}</label>
               <Input
                 placeholder="B1"
                 value={newCode}
@@ -177,7 +179,7 @@ export const ParkingLevelEditor: React.FC<ParkingLevelEditorProps> = ({ site, is
             </div>
             <Button type="submit" variant="primary" className="text-xs gap-1.5" disabled={!newName.trim()}>
               <Plus className="w-3.5 h-3.5" />
-              Thêm
+              {t('Add')}
             </Button>
           </form>
         </div>

@@ -3,6 +3,7 @@ import { TenantVehicle, VehicleType } from '../../../types/tenant';
 import { usePlatform } from '../../../context/PlatformContext';
 import { X, Check, Car, Edit2 } from 'lucide-react';
 import { Button, Input } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface EditVehicleModalProps {
   vehicle: TenantVehicle | null;
@@ -16,6 +17,7 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
   onClose
 }) => {
   const { updateTenantVehicle } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const [formData, setFormData] = useState({
     make: '',
@@ -72,8 +74,8 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
               <Edit2 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">Edit Vehicle Specifications</h3>
-              <p className="text-xs text-[#8b949e]">Update vehicle properties for {vehicle.currentPlate.number}</p>
+              <h3 className="text-base font-bold text-white tracking-tight">{t('Edit Vehicle Specifications')}</h3>
+              <p className="text-xs text-[#8b949e]">{t('Update vehicle properties for')} {vehicle.currentPlate.number}</p>
             </div>
           </div>
 
@@ -89,10 +91,10 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Make / Manufacturer <span className="text-[#f85149]">*</span>
+                {t('Make / Manufacturer')} <span className="text-[#f85149]">*</span>
               </label>
               <Input
-                placeholder="e.g. Toyota, Tesla"
+                placeholder={t('e.g. Toyota, Tesla')}
                 value={formData.make}
                 onChange={(e) => setFormData({ ...formData, make: e.target.value })}
                 required
@@ -102,10 +104,10 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
 
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Model <span className="text-[#f85149]">*</span>
+                {t('Model')} <span className="text-[#f85149]">*</span>
               </label>
               <Input
-                placeholder="e.g. Camry, Model Y"
+                placeholder={t('e.g. Camry, Model Y')}
                 value={formData.model}
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                 required
@@ -117,25 +119,25 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Vehicle Type
+                {t('Vehicle Type')}
               </label>
               <select
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value as VehicleType })}
                 className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-2 text-white focus:outline-hidden focus:border-[#58a6ff]"
               >
-                <option value="CAR">Car / Sedan / SUV</option>
-                <option value="MOTORCYCLE">Motorcycle / Scooter</option>
-                <option value="VAN">Van / Minivan</option>
-                <option value="TRUCK">Truck / Heavy Vehicle</option>
-                <option value="BUS">Bus / Shuttle</option>
-                <option value="OTHER">Other Category</option>
+                <option value="CAR">{t('Car / Sedan / SUV')}</option>
+                <option value="MOTORCYCLE">{t('Motorcycle / Scooter')}</option>
+                <option value="VAN">{t('Van / Minivan')}</option>
+                <option value="TRUCK">{t('Truck / Heavy Vehicle')}</option>
+                <option value="BUS">{t('Bus / Shuttle')}</option>
+                <option value="OTHER">{t('Other Category')}</option>
               </select>
             </div>
 
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Year of Manufacture
+                {t('Year of Manufacture')}
               </label>
               <Input
                 type="number"
@@ -151,10 +153,10 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Exterior Color
+                {t('Exterior Color')}
               </label>
               <Input
-                placeholder="e.g. Pearl White, Obsidian Black"
+                placeholder={t('e.g. Pearl White, Obsidian Black')}
                 value={formData.color}
                 onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                 className="bg-[#161b22] border-[#30363d] text-white"
@@ -163,10 +165,10 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
 
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                VIN / Chassis Number
+                {t('VIN / Chassis Number')}
               </label>
               <Input
-                placeholder="17-character VIN"
+                placeholder={t('17-character VIN')}
                 value={formData.vin}
                 onChange={(e) => setFormData({ ...formData, vin: e.target.value.toUpperCase() })}
                 className="bg-[#161b22] border-[#30363d] text-white font-mono"
@@ -176,11 +178,11 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
 
           <div>
             <label className="block text-[#c9d1d9] font-medium mb-1.5">
-              Internal Notes / Description
+              {t('Internal Notes / Description')}
             </label>
             <textarea
               rows={2}
-              placeholder="Optional fleet remarks or vehicle notes..."
+              placeholder={t('Optional fleet remarks or vehicle notes...')}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-2 text-white focus:outline-hidden focus:border-[#58a6ff]"
@@ -194,7 +196,7 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
               onClick={onClose}
               className="text-xs"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               type="submit"
@@ -202,7 +204,7 @@ export const EditVehicleModal: React.FC<EditVehicleModalProps> = ({
               className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
-              Save Changes
+              {t('Save Changes')}
             </Button>
           </div>
         </form>

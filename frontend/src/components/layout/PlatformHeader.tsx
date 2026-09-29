@@ -19,6 +19,8 @@ import {
   Moon
 } from 'lucide-react';
 import { Button, Badge } from '../ui';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '../common/LanguageSwitcher';
 
 export const PlatformHeader: React.FC<{
   onOpenQuickActionModal: () => void;
@@ -40,6 +42,7 @@ export const PlatformHeader: React.FC<{
     navigateTo,
     addToast
   } = usePlatform();
+  const { t } = useTranslation('layout');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -52,8 +55,8 @@ export const PlatformHeader: React.FC<{
   const handleManualRefresh = () => {
     addToast({
       type: 'info',
-      title: 'Manual Refresh Triggered',
-      description: 'Platform metrics & operational telemetry re-synchronized.'
+      title: t('Manual Refresh Triggered'),
+      description: t('Platform metrics & operational telemetry re-synchronized.')
     });
   };
 
@@ -63,8 +66,8 @@ export const PlatformHeader: React.FC<{
 
     addToast({
       type: 'info',
-      title: 'Platform Query Result',
-      description: `Searched for "${searchQuery}". Navigated to matching Governance records.`
+      title: t('Platform Query Result'),
+      description: t('Searched for "{{query}}". Navigated to matching Governance records.', { query: searchQuery })
     });
 
     if (searchQuery.toLowerCase().includes('tenant') || searchQuery.toLowerCase().includes('abc')) {
@@ -88,7 +91,7 @@ export const PlatformHeader: React.FC<{
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search tenants, admins, alerts, or audit logs... (Enter)"
+          placeholder={t('Search tenants, admins, alerts, or audit logs... (Enter)')}
           className="w-full bg-[#161b22] border border-[#30363d] hover:border-[#484f58] text-xs text-[#c9d1d9] placeholder-[#8b949e] rounded-xl pl-9 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:border-[#58a6ff] transition-colors"
         />
       </form>
@@ -103,10 +106,10 @@ export const PlatformHeader: React.FC<{
               ? 'bg-[#238636]/10 border-[#3fb950]/30 text-[#3fb950]'
               : 'bg-[#161b22] border-[#30363d] text-[#8b949e]'
           }`}
-          title="Click to toggle real-time live telemetry polling simulation"
+          title={t('Click to toggle real-time live telemetry polling simulation')}
         >
           <span className={`w-2 h-2 rounded-full ${isLiveSimulationActive ? 'bg-[#3fb950] animate-pulse' : 'bg-[#8b949e]'}`} />
-          <span>{isLiveSimulationActive ? 'LIVE TELEMETRY' : 'PAUSED'}</span>
+          <span>{isLiveSimulationActive ? t('LIVE TELEMETRY') : t('PAUSED')}</span>
           <span className="text-[10px] opacity-70 font-mono">({lastUpdatedTime})</span>
         </button>
 
@@ -114,10 +117,13 @@ export const PlatformHeader: React.FC<{
         <button
           onClick={handleManualRefresh}
           className="p-2 text-[#8b949e] hover:text-white bg-[#161b22] hover:bg-[#21262d] rounded-lg border border-[#30363d] transition-colors cursor-pointer"
-          title="Force refresh platform metrics"
+          title={t('Force refresh platform metrics')}
         >
           <RefreshCw className="w-4 h-4" />
         </button>
+
+        {/* Language Switcher */}
+        <LanguageSwitcher />
 
         {/* Dark / Light Mode Switch Button */}
         <button
@@ -125,22 +131,22 @@ export const PlatformHeader: React.FC<{
             toggleTheme();
             addToast({
               type: 'info',
-              title: 'Theme Toggled',
-              description: `Switched to ${theme === 'dark' ? 'Light' : 'Dark'} Mode.`
+              title: t('Theme Toggled'),
+              description: t('Switched to {{mode}} Mode.', { mode: theme === 'dark' ? t('Light') : t('Dark') })
             });
           }}
           className="p-2 px-2.5 text-[#8b949e] hover:text-white bg-[#161b22] hover:bg-[#21262d] rounded-lg border border-[#30363d] transition-colors cursor-pointer flex items-center gap-1.5"
-          title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+          title={t('Switch to {{mode}} Mode', { mode: theme === 'dark' ? t('Light') : t('Dark') })}
         >
           {theme === 'dark' ? (
             <>
               <Sun className="w-4 h-4 text-amber-400" />
-              <span className="text-xs font-semibold hidden sm:inline text-[#c9d1d9]">Light Mode</span>
+              <span className="text-xs font-semibold hidden sm:inline text-[#c9d1d9]">{t('Light Mode')}</span>
             </>
           ) : (
             <>
               <Moon className="w-4 h-4 text-sky-500" />
-              <span className="text-xs font-semibold hidden sm:inline text-[#c9d1d9]">Dark Mode</span>
+              <span className="text-xs font-semibold hidden sm:inline text-[#c9d1d9]">{t('Dark Mode')}</span>
             </>
           )}
         </button>
@@ -154,7 +160,7 @@ export const PlatformHeader: React.FC<{
             onClick={onViewLandingPage}
             className="hidden lg:inline-flex text-xs"
           >
-            Xem Landing Page
+            {t('View Landing Page')}
           </Button>
         )}
 
@@ -166,7 +172,7 @@ export const PlatformHeader: React.FC<{
           onClick={onOpenQuickActionModal}
           className="shadow-sm"
         >
-          Quick Action
+          {t('Quick Action')}
         </Button>
 
         {/* Notifications Drawer Toggle */}
@@ -193,7 +199,7 @@ export const PlatformHeader: React.FC<{
                 <div className="flex items-center gap-2">
                   <ShieldAlert className="w-4 h-4 text-[#f85149]" />
                   <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                    Platform Notifications ({totalNotifications})
+                    {t('Platform Notifications ({{count}})', { count: totalNotifications })}
                   </h4>
                 </div>
                 <button
@@ -208,7 +214,7 @@ export const PlatformHeader: React.FC<{
                 {activeAlerts.length === 0 && activeIncidents.length === 0 ? (
                   <div className="py-8 text-center text-[#8b949e]">
                     <CheckCircle2 className="w-8 h-8 text-[#3fb950] mx-auto mb-2" />
-                    <p className="font-medium">No unresolved platform alerts</p>
+                    <p className="font-medium">{t('No unresolved platform alerts')}</p>
                   </div>
                 ) : (
                   <>
@@ -231,7 +237,7 @@ export const PlatformHeader: React.FC<{
                           </span>
                         </div>
                         <p className="text-[11px] text-[#8b949e] mt-1">{alert.evidence.details}</p>
-                        <p className="text-[10px] text-[#8b949e] mt-0.5">Subject: {alert.subjectEmail}</p>
+                        <p className="text-[10px] text-[#8b949e] mt-0.5">{t('Subject: {{email}}', { email: alert.subjectEmail })}</p>
                       </div>
                     ))}
 
@@ -268,7 +274,7 @@ export const PlatformHeader: React.FC<{
                   }}
                   className="text-xs text-[#58a6ff] hover:text-[#388bfd] font-semibold cursor-pointer"
                 >
-                  View Security Control Center →
+                  {t('View Security Control Center →')}
                 </button>
               </div>
             </div>
@@ -289,7 +295,7 @@ export const PlatformHeader: React.FC<{
             </div>
             <div className="text-left hidden sm:block">
               <span className="text-xs font-bold text-white block leading-none">{currentUser?.name || 'Anthony N.'}</span>
-              <span className="text-[10px] text-[#58a6ff] block leading-tight font-semibold font-mono">{appWorkspace === 'platform' ? 'PLATFORM GOV' : 'TENANT PORTAL'}</span>
+              <span className="text-[10px] text-[#58a6ff] block leading-tight font-semibold font-mono">{appWorkspace === 'platform' ? t('PLATFORM GOV') : t('TENANT PORTAL')}</span>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-[#8b949e]" />
           </button>
@@ -310,13 +316,13 @@ export const PlatformHeader: React.FC<{
                         ? 'bg-[#238636]/20 text-[#3fb950] border border-[#3fb950]/30'
                         : 'bg-[#d29922]/20 text-[#d29922] border border-[#d29922]/30'
                     }`}
-                    title="Click to verify TOTP passcode"
+                    title={t('Click to verify TOTP passcode')}
                   >
                     <UserCheck className="w-3 h-3" />
-                    {currentUser?.mfaEnabled ? 'MFA Verified' : 'MFA Off'}
+                    {currentUser?.mfaEnabled ? t('MFA Verified') : t('MFA Off')}
                   </button>
                   <span className="text-[10px] text-[#8b949e] font-mono">
-                    {currentUser?.mfaEnabled ? 'TOTP Active' : 'Password Only'}
+                    {currentUser?.mfaEnabled ? t('TOTP Active') : t('Password Only')}
                   </span>
                 </div>
               </div>
@@ -329,7 +335,7 @@ export const PlatformHeader: React.FC<{
                 className="w-full text-left px-4 py-2.5 text-[#c9d1d9] hover:bg-[#21262d] hover:text-white flex items-center gap-2 cursor-pointer"
               >
                 <ShieldCheck className="w-4 h-4 text-[#3fb950]" />
-                <span>Configure MFA / TOTP</span>
+                <span>{t('Configure MFA / TOTP')}</span>
               </button>
 
               <button
@@ -340,7 +346,7 @@ export const PlatformHeader: React.FC<{
                 className="w-full text-left px-4 py-2.5 text-[#c9d1d9] hover:bg-[#21262d] hover:text-white flex items-center gap-2 cursor-pointer"
               >
                 <Sliders className="w-4 h-4 text-[#58a6ff]" />
-                <span>Platform Settings</span>
+                <span>{t('Platform Settings')}</span>
               </button>
 
               <button
@@ -351,7 +357,7 @@ export const PlatformHeader: React.FC<{
                 className="w-full text-left px-4 py-2.5 text-[#c9d1d9] hover:bg-[#21262d] hover:text-white flex items-center gap-2 cursor-pointer"
               >
                 <Zap className="w-4 h-4 text-[#d29922]" />
-                <span>My Active Sessions</span>
+                <span>{t('My Active Sessions')}</span>
               </button>
 
               <div className="border-t border-[#30363d] my-1" />
@@ -362,14 +368,14 @@ export const PlatformHeader: React.FC<{
                   logout();
                   addToast({
                     type: 'info',
-                    title: 'Đã đăng xuất',
-                    description: 'Phiên làm việc đã kết thúc. Vui lòng đăng nhập lại.'
+                    title: t('Signed Out'),
+                    description: t('Your session has ended. Please sign in again.')
                   });
                 }}
                 className="w-full text-left px-4 py-2.5 text-[#f85149] hover:bg-[#da3633]/20 flex items-center gap-2 cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
-                <span>Đăng xuất Trang Quản trị (Sign Out)</span>
+                <span>{t('Sign Out')}</span>
               </button>
             </div>
           )}

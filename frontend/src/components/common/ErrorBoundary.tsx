@@ -1,6 +1,7 @@
 import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertOctagon, RotateCcw, Home } from 'lucide-react';
 import { Button } from '../ui';
+import i18n from '../../i18n';
 
 interface Props {
   children: ReactNode;
@@ -51,10 +52,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
           </div>
           <div>
             <h2 className="text-lg font-bold text-white tracking-tight">
-              {this.props.fallbackTitle || 'Đã Xảy Ra Lỗi Hiển Thị (View Render Error)'}
+              {this.props.fallbackTitle || i18n.t('Something went wrong (View Render Error)', { ns: 'common' })}
             </h2>
             <p className="text-xs text-[#8b949e] mt-1 max-w-md mx-auto">
-              {this.state.error?.message || 'Một sự cố không mong muốn đã xảy ra khi tải giao diện này.'}
+              {this.state.error?.message || i18n.t('An unexpected error occurred while rendering this view.', { ns: 'common' })}
             </p>
           </div>
 
@@ -72,7 +73,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               onClick={this.handleReload}
               className="text-xs border-[#30363d] text-white hover:border-[#58a6ff]"
             >
-              Tải Lại Giao Diện
+              {i18n.t('Reload View', { ns: 'common' })}
             </Button>
             <Button
               variant="primary"
@@ -84,7 +85,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               }}
               className="text-xs"
             >
-              Trang Chủ
+              {i18n.t('Home', { ns: 'common' })}
             </Button>
           </div>
         </div>

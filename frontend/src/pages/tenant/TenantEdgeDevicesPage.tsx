@@ -23,6 +23,8 @@ import {
   ReactivateDeviceDialog,
   DeleteDeviceDialog
 } from '../../components/tenant/devices/DeviceActionDialogs';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 const STATUS_STYLES: Record<string, { dot: string; text: string; bg: string }> = {
   ONLINE: { dot: 'bg-[#3fb950]', text: 'text-[#3fb950]', bg: 'bg-[#238636]/10 border-[#238636]/30' },
@@ -33,16 +35,17 @@ const STATUS_STYLES: Record<string, { dot: string; text: string; bg: string }> =
 };
 
 const timeAgo = (iso?: string): string => {
-  if (!iso) return 'Never';
+  const tt = (key: string, opts?: Record<string, unknown>) => i18n.t(key, { ns: 'tenant', ...opts });
+  if (!iso) return tt('Never');
   const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 0) return 'just now';
+  if (diff < 0) return tt('just now');
   const s = Math.floor(diff / 1000);
-  if (s < 60) return `${s}s ago`;
+  if (s < 60) return tt('{{count}}s ago', { count: s });
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return tt('{{count}}m ago', { count: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  if (h < 24) return tt('{{count}}h ago', { count: h });
+  return tt('{{count}}d ago', { count: Math.floor(h / 24) });
 };
 
 const UsageBar: React.FC<{ label: string; value: number }> = ({ label, value }) => {
@@ -60,6 +63,7 @@ const UsageBar: React.FC<{ label: string; value: number }> = ({ label, value }) 
 };
 
 export const TenantEdgeDevicesPage: React.FC = () => {
+  const { t } = useTranslation('tenant');
   const { tenantDevices, tenantSites } = usePlatform();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -105,14 +109,14 @@ export const TenantEdgeDevicesPage: React.FC = () => {
           <div className="flex items-center gap-2.5">
             <Server className="w-6 h-6 text-[#58a6ff]" />
             <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
-              Edge Device Management
+              {t('Edge Device Management')}
             </h1>
             <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#21262d] border border-[#30363d] text-[#58a6ff]">
-              {tenantDevices.length} Devices
+              {t('{{count}} Devices', { count: tenantDevices.length })}
             </span>
           </div>
           <p className="text-xs text-[#8b949e] mt-1">
-            Register, monitor, reboot, and decommission edge gateways powering your barrier gates
+            {t('Register, monitor, reboot, and decommission edge gateways powering your barrier gates')}
           </p>
         </div>
 
@@ -123,7 +127,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
             className="text-xs h-9 bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            Register Device
+            {t('Register Device')}
           </Button>
         </div>
       </div>
@@ -132,9 +136,9 @@ export const TenantEdgeDevicesPage: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">Total Devices</span>
+            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Total Devices')}</span>
             <div className="text-xl font-bold text-white mt-1">{metrics.total}</div>
-            <span className="text-[10px] text-[#8b949e]">Across all sites</span>
+            <span className="text-[10px] text-[#8b949e]">{t('Across all sites')}</span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
             <Server className="w-5 h-5" />
@@ -143,9 +147,9 @@ export const TenantEdgeDevicesPage: React.FC = () => {
 
         <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">Online</span>
+            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Online')}</span>
             <div className="text-xl font-bold text-[#3fb950] mt-1">{metrics.online}</div>
-            <span className="text-[10px] text-[#8b949e]">Heartbeat active</span>
+            <span className="text-[10px] text-[#8b949e]">{t('Heartbeat active')}</span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-[#238636]/10 border border-[#238636]/30 text-[#3fb950] flex items-center justify-center">
             <Wifi className="w-5 h-5" />
@@ -154,9 +158,9 @@ export const TenantEdgeDevicesPage: React.FC = () => {
 
         <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">Offline</span>
+            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Offline')}</span>
             <div className="text-xl font-bold text-[#f85149] mt-1">{metrics.offline}</div>
-            <span className="text-[10px] text-[#8b949e]">Heartbeat stale</span>
+            <span className="text-[10px] text-[#8b949e]">{t('Heartbeat stale')}</span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-[#f85149]/10 border border-[#f85149]/30 text-[#f85149] flex items-center justify-center">
             <WifiOff className="w-5 h-5" />
@@ -165,9 +169,9 @@ export const TenantEdgeDevicesPage: React.FC = () => {
 
         <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">Decommissioned</span>
+            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Decommissioned')}</span>
             <div className="text-xl font-bold text-[#8b949e] mt-1">{metrics.decommissioned}</div>
-            <span className="text-[10px] text-[#8b949e]">Retired devices</span>
+            <span className="text-[10px] text-[#8b949e]">{t('Retired devices')}</span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-[#21262d] border border-[#30363d] text-[#8b949e] flex items-center justify-center">
             <PowerOff className="w-5 h-5" />
@@ -180,7 +184,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 text-[#8b949e] absolute left-3 top-1/2 -translate-y-1/2" />
           <Input
-            placeholder="Search by name, serial, MAC, IP, MQTT client, or site..."
+            placeholder={t('Search by name, serial, MAC, IP, MQTT client, or site...')}
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -199,12 +203,12 @@ export const TenantEdgeDevicesPage: React.FC = () => {
             }}
             className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
           >
-            <option value="ALL">Status: All</option>
-            <option value="ONLINE">Online</option>
-            <option value="OFFLINE">Offline</option>
-            <option value="DEGRADED">Degraded</option>
-            <option value="PROVISIONING">Provisioning</option>
-            <option value="DECOMMISSIONED">Decommissioned</option>
+            <option value="ALL">{t('Status: All')}</option>
+            <option value="ONLINE">{t('Online')}</option>
+            <option value="OFFLINE">{t('Offline')}</option>
+            <option value="DEGRADED">{t('Degraded')}</option>
+            <option value="PROVISIONING">{t('Provisioning')}</option>
+            <option value="DECOMMISSIONED">{t('Decommissioned')}</option>
           </select>
 
           <select
@@ -215,7 +219,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
             }}
             className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
           >
-            <option value="ALL">Site: All</option>
+            <option value="ALL">{t('Site: All')}</option>
             {tenantSites.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
@@ -233,7 +237,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
               }}
               className="text-[11px] h-8 text-[#8b949e] hover:text-white"
             >
-              Reset Filters
+              {t('Reset Filters')}
             </Button>
           )}
         </div>
@@ -245,14 +249,14 @@ export const TenantEdgeDevicesPage: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px]">
               <tr>
-                <th className="py-3 px-4">Device</th>
-                <th className="py-3 px-4">Site</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Resource Usage</th>
-                <th className="py-3 px-4">Latency</th>
-                <th className="py-3 px-4">Firmware</th>
-                <th className="py-3 px-4">Last Heartbeat</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-3 px-4">{t('Device')}</th>
+                <th className="py-3 px-4">{t('Site')}</th>
+                <th className="py-3 px-4">{t('Status')}</th>
+                <th className="py-3 px-4">{t('Resource Usage')}</th>
+                <th className="py-3 px-4">{t('Latency')}</th>
+                <th className="py-3 px-4">{t('Firmware')}</th>
+                <th className="py-3 px-4">{t('Last Heartbeat')}</th>
+                <th className="py-3 px-4 text-right">{t('Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]/60 font-medium">
@@ -260,8 +264,8 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-[#8b949e]">
                     <Server className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/50" />
-                    <p className="font-semibold text-white">No edge devices found</p>
-                    <p className="text-xs mt-1">Register a device or reset your filters</p>
+                    <p className="font-semibold text-white">{t('No edge devices found')}</p>
+                    <p className="text-xs mt-1">{t('Register a device or reset your filters')}</p>
                   </td>
                 </tr>
               ) : (
@@ -328,7 +332,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                       <td className="py-3.5 px-4">
                         <div className="flex items-center justify-end gap-1">
                           <button
-                            title="Edit device"
+                            title={t('Edit device')}
                             onClick={() => setEditTarget(device)}
                             className="p-1.5 rounded-lg text-[#8b949e] hover:text-white hover:bg-[#30363d] transition-colors cursor-pointer"
                           >
@@ -337,14 +341,14 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                           {!isDecommissioned && (
                             <>
                               <button
-                                title="Reboot device"
+                                title={t('Reboot device')}
                                 onClick={() => setRebootTarget(device)}
                                 className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#e3b341] hover:bg-[#d29922]/10 transition-colors cursor-pointer"
                               >
                                 <RotateCcw className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                title="Decommission device"
+                                title={t('Decommission device')}
                                 onClick={() => setDecommissionTarget(device)}
                                 className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#e3b341] hover:bg-[#d29922]/10 transition-colors cursor-pointer"
                               >
@@ -355,14 +359,14 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                           {isDecommissioned && (
                             <>
                               <button
-                                title="Reactivate device"
+                                title={t('Reactivate device')}
                                 onClick={() => setReactivateTarget(device)}
                                 className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#3fb950] hover:bg-[#238636]/10 transition-colors cursor-pointer"
                               >
                                 <RefreshCw className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                title="Delete permanently"
+                                title={t('Delete permanently')}
                                 onClick={() => setDeleteTarget(device)}
                                 className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#f85149] hover:bg-[#f85149]/10 transition-colors cursor-pointer"
                               >

@@ -98,6 +98,7 @@ import {
 import {
   INITIAL_SETTINGS,
 } from '../data/mockData';
+import i18n from '../i18n';
 // UI role labels -> backend TenantUserRole enum
 const mapUiRoleToBackend = (role: string): string => {
   const r = (role ?? '').toUpperCase();
@@ -1229,7 +1230,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     const me = await authApi.me();
     applyMe(me);
     setTenantNavTab('dashboard');
-    addToast({ type: 'info', title: 'Đang mạo danh', description: `Tenant: ${r.tenantName} — 15 phút` });
+    addToast({ type: 'info', title: i18n.t('Impersonating', { ns: 'layout' }), description: i18n.t('Tenant: {{name}} — 15 min', { ns: 'layout', name: r.tenantName }) });
   };
 
   const exitImpersonation = async () => {

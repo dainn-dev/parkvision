@@ -12,6 +12,7 @@ import { usePlatform } from '../../../context/PlatformContext';
 import { tenantApi } from '../../../services/api';
 import { TenantAccessRule } from '../../../types/tenant';
 import { Button, Input } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface RuleSimulatorModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const RuleSimulatorModal: React.FC<RuleSimulatorModalProps> = ({
   initialRule
 }) => {
   const { activeTenantId, addToast } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const [plate, setPlate] = useState<string>(
     initialRule?.target?.licensePlate || '51A-123.45'
@@ -42,7 +44,7 @@ export const RuleSimulatorModal: React.FC<RuleSimulatorModalProps> = ({
 
   const handleRunSimulation = async () => {
     if (!activeTenantId) {
-      addToast({ type: 'error', title: 'No tenant selected' });
+      addToast({ type: 'error', title: t('No tenant selected') });
       return;
     }
     setIsEvaluating(true);
@@ -50,7 +52,7 @@ export const RuleSimulatorModal: React.FC<RuleSimulatorModalProps> = ({
       const out = await tenantApi.simulateRule(activeTenantId, plate || undefined);
       setResult(out);
     } catch {
-      addToast({ type: 'error', title: 'Simulation failed' });
+      addToast({ type: 'error', title: t('Simulation failed') });
     } finally {
       setIsEvaluating(false);
     }
@@ -75,10 +77,10 @@ export const RuleSimulatorModal: React.FC<RuleSimulatorModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-white tracking-tight">
-                ANPR Policy Simulator & Decision Engine
+                {t('ANPR Policy Simulator & Decision Engine')}
               </h3>
               <p className="text-xs text-[#8b949e]">
-                Dry-run the live decision engine (`decide_access`) against a plate
+                {t('Dry-run the live decision engine (`decide_access`) against a plate')}
               </p>
             </div>
           </div>
@@ -95,48 +97,48 @@ export const RuleSimulatorModal: React.FC<RuleSimulatorModalProps> = ({
         <div className="p-6 overflow-y-auto space-y-5 text-xs flex-1">
           {/* Input Panel */}
           <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-4">
-            <div className="font-bold text-white text-xs">Simulated Ingress Request</div>
+            <div className="font-bold text-white text-xs">{t('Simulated Ingress Request')}</div>
 
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Vehicle License Plate
+                {t('Vehicle License Plate')}
               </label>
               <Input
                 value={plate}
                 onChange={(e) => setPlate(e.target.value.toUpperCase())}
-                placeholder="e.g. 51A-123.45"
+                placeholder={t('e.g. 51A-123.45')}
                 className="font-mono uppercase text-white bg-[#0d0e12] border-[#30363d]"
               />
 
               <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] text-[#8b949e]">Quick Presets:</span>
+                <span className="text-[10px] text-[#8b949e]">{t('Quick Presets:')}</span>
                 <button
                   type="button"
                   onClick={() => setPresetPlate('51K-881.00')}
                   className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#da3633]/15 text-[#f85149] border border-[#da3633]/30 hover:bg-[#da3633]/25 cursor-pointer"
                 >
-                  51K-881.00 (Blocked)
+                  51K-881.00 ({t('Blocked')})
                 </button>
                 <button
                   type="button"
                   onClick={() => setPresetPlate('30H-222.22')}
                   className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30 hover:bg-[#238636]/25 cursor-pointer"
                 >
-                  30H-222.22 (VIP)
+                  30H-222.22 ({t('VIP')})
                 </button>
                 <button
                   type="button"
                   onClick={() => setPresetPlate('51A-123.45')}
                   className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#1f6feb]/15 text-[#58a6ff] border border-[#1f6feb]/30 hover:bg-[#1f6feb]/25 cursor-pointer"
                 >
-                  51A-123.45 (Staff)
+                  51A-123.45 ({t('Staff')})
                 </button>
                 <button
                   type="button"
                   onClick={() => setPresetPlate('59Z-999.99')}
                   className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#21262d] text-[#8b949e] border border-[#30363d] hover:text-white cursor-pointer"
                 >
-                  59Z-999.99 (Unknown)
+                  59Z-999.99 ({t('Unknown')})
                 </button>
               </div>
             </div>
@@ -152,7 +154,7 @@ export const RuleSimulatorModal: React.FC<RuleSimulatorModalProps> = ({
               ) : (
                 <Play className="w-4 h-4" />
               )}
-              Run Access Evaluation
+              {t('Run Access Evaluation')}
             </Button>
           </div>
 
@@ -186,7 +188,7 @@ export const RuleSimulatorModal: React.FC<RuleSimulatorModalProps> = ({
                         allowed ? 'text-[#3fb950]' : 'text-[#f85149]'
                       }`}
                     >
-                      {allowed ? 'ACCESS PERMITTED (ALLOW)' : 'ACCESS DENIED (DENY)'}
+                      {allowed ? t('ACCESS PERMITTED (ALLOW)') : t('ACCESS DENIED (DENY)')}
                     </span>
                     <p className="text-white text-xs mt-1 leading-relaxed font-mono">
                       {result.reason}
@@ -197,10 +199,10 @@ export const RuleSimulatorModal: React.FC<RuleSimulatorModalProps> = ({
                 {result.matchedRule && (
                   <div className="mt-4 pt-3 border-t border-[#30363d]/60 flex items-center justify-between text-xs text-[#8b949e]">
                     <div>
-                      Enforcing Policy: <span className="font-bold text-white">{result.matchedRule}</span>
+                      {t('Enforcing Policy:')} <span className="font-bold text-white">{result.matchedRule}</span>
                     </div>
                     <div>
-                      Evaluation: <span className="text-[#3fb950] font-medium">Server-side decision engine</span>
+                      {t('Evaluation:')} <span className="text-[#3fb950] font-medium">{t('Server-side decision engine')}</span>
                     </div>
                   </div>
                 )}
@@ -209,10 +211,7 @@ export const RuleSimulatorModal: React.FC<RuleSimulatorModalProps> = ({
               <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-start gap-2.5 text-[#8b949e]">
                 <HelpCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>
-                  Decision comes from the live engine: the plate is matched against the
-                  vehicle registry first, then active rules by priority. Site/gate/schedule
-                  scoping is applied inside the engine; the simulator returns the final
-                  decision and the winning rule name.
+                  {t('Decision comes from the live engine: the plate is matched against the vehicle registry first, then active rules by priority. Site/gate/schedule scoping is applied inside the engine; the simulator returns the final decision and the winning rule name.')}
                 </span>
               </div>
             </div>
@@ -222,7 +221,7 @@ export const RuleSimulatorModal: React.FC<RuleSimulatorModalProps> = ({
         {/* Footer */}
         <div className="px-6 py-4 border-t border-[#30363d] bg-[#161b22] flex items-center justify-between">
           <div className="text-xs text-[#8b949e]">
-            Evaluation is deterministic and stops on the first matching rule.
+            {t('Evaluation is deterministic and stops on the first matching rule.')}
           </div>
           <Button
             variant="outline"
@@ -230,7 +229,7 @@ export const RuleSimulatorModal: React.FC<RuleSimulatorModalProps> = ({
             onClick={onClose}
             className="text-xs border-[#30363d] text-[#c9d1d9] hover:bg-[#21262d]"
           >
-            Close Simulator
+            {t('Close Simulator')}
           </Button>
         </div>
       </div>

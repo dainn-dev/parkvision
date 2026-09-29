@@ -3,6 +3,7 @@ import { TenantVehicle } from '../../../types/tenant';
 import { usePlatform } from '../../../context/PlatformContext';
 import { X, Ban, AlertTriangle } from 'lucide-react';
 import { Button } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface SuspendVehicleModalProps {
   vehicle: TenantVehicle | null;
@@ -16,6 +17,7 @@ export const SuspendVehicleModal: React.FC<SuspendVehicleModalProps> = ({
   onClose
 }) => {
   const { suspendTenantVehicle } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const [reason, setReason] = useState('Temporary parking policy violation / permit review');
 
@@ -40,8 +42,8 @@ export const SuspendVehicleModal: React.FC<SuspendVehicleModalProps> = ({
               <Ban className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">Suspend Vehicle Access</h3>
-              <p className="text-xs text-[#8b949e]">Temporarily block barrier access for this plate</p>
+              <h3 className="text-base font-bold text-white tracking-tight">{t('Suspend Vehicle Access')}</h3>
+              <p className="text-xs text-[#8b949e]">{t('Temporarily block barrier access for this plate')}</p>
             </div>
           </div>
 
@@ -57,24 +59,24 @@ export const SuspendVehicleModal: React.FC<SuspendVehicleModalProps> = ({
           <div className="p-3.5 rounded-xl bg-[#d29922]/10 border border-[#d29922]/30 flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-[#e3b341] shrink-0 mt-0.5" />
             <div className="text-xs text-[#c9d1d9]">
-              Suspended vehicles will trigger an instant <strong className="text-white">DENIED</strong> gate event if detected by ANPR edge cameras at any barrier gate.
+              {t('Suspended vehicles will trigger an instant')} <strong className="text-white">DENIED</strong> {t('gate event if detected by ANPR edge cameras at any barrier gate.')}
             </div>
           </div>
 
           <div>
             <label className="block text-[#c9d1d9] font-medium mb-1.5">
-              Reason for Suspension <span className="text-[#f85149]">*</span>
+              {t('Reason for Suspension')} <span className="text-[#f85149]">*</span>
             </label>
             <select
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-2 text-white focus:outline-hidden mb-2"
             >
-              <option value="Temporary parking policy violation / permit review">Temporary parking policy violation</option>
-              <option value="Unpaid monthly parking subscription">Unpaid monthly parking subscription</option>
-              <option value="Security inquiry or pending credential audit">Security inquiry or pending credential audit</option>
-              <option value="Driver membership status suspended or ended">Driver membership status suspended or ended</option>
-              <option value="Other administrative suspension">Other administrative suspension</option>
+              <option value="Temporary parking policy violation / permit review">{t('Temporary parking policy violation')}</option>
+              <option value="Unpaid monthly parking subscription">{t('Unpaid monthly parking subscription')}</option>
+              <option value="Security inquiry or pending credential audit">{t('Security inquiry or pending credential audit')}</option>
+              <option value="Driver membership status suspended or ended">{t('Driver membership status suspended or ended')}</option>
+              <option value="Other administrative suspension">{t('Other administrative suspension')}</option>
             </select>
 
             <textarea
@@ -82,7 +84,7 @@ export const SuspendVehicleModal: React.FC<SuspendVehicleModalProps> = ({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-2 text-white focus:outline-hidden"
-              placeholder="Enter custom suspension note..."
+              placeholder={t('Enter custom suspension note...')}
             />
           </div>
 
@@ -93,7 +95,7 @@ export const SuspendVehicleModal: React.FC<SuspendVehicleModalProps> = ({
               onClick={onClose}
               className="text-xs"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               type="submit"
@@ -101,7 +103,7 @@ export const SuspendVehicleModal: React.FC<SuspendVehicleModalProps> = ({
               className="text-xs bg-[#d29922] hover:bg-[#bb8419] text-black font-bold gap-1.5"
             >
               <Ban className="w-3.5 h-3.5" />
-              Confirm Suspension
+              {t('Confirm Suspension')}
             </Button>
           </div>
         </form>

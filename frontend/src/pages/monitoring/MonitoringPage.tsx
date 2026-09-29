@@ -29,8 +29,10 @@ import {
   Select
 } from '../../components/ui';
 import { BarrierMapVisualization } from '../../components/monitoring/BarrierMapVisualization';
+import { useTranslation } from 'react-i18next';
 
 export const MonitoringPage: React.FC = () => {
+  const { t } = useTranslation('monitoring');
   const {
     services,
     edgeDevices,
@@ -51,9 +53,9 @@ export const MonitoringPage: React.FC = () => {
     platformApi
       .rebootEdgeDevice(deviceId)
       .then((r) =>
-        addToast({ type: 'success', title: 'Reboot dispatched', description: `${r.commandIds.length} command(s) queued` })
+        addToast({ type: 'success', title: t('Reboot dispatched'), description: t('{{count}} command(s) queued', { count: r.commandIds.length }) })
       )
-      .catch(() => addToast({ type: 'error', title: 'Reboot failed' }));
+      .catch(() => addToast({ type: 'error', title: t('Reboot failed') }));
   };
 
   // Resolution modal
@@ -83,14 +85,14 @@ export const MonitoringPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <Activity className="w-5 h-5 text-sky-400" /> Platform Infrastructure Observability
+              <Activity className="w-5 h-5 text-sky-400" /> {t('Platform Infrastructure Observability')}
             </h2>
             <Badge variant="emerald" dot>
-              ● ALL SYSTEMS NORMAL
+              {t('● ALL SYSTEMS NORMAL')}
             </Badge>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Real-time infrastructure health, microservices SLA meters, edge processing telemetry, and active incident queue.
+            {t('Real-time infrastructure health, microservices SLA meters, edge processing telemetry, and active incident queue.')}
           </p>
         </div>
       </div>
@@ -99,11 +101,11 @@ export const MonitoringPage: React.FC = () => {
       <Tabs
         variant="pills"
         tabs={[
-          { id: 'gates', label: 'Bản Đồ Barrier & Vị Trí Trạm (D3.js)', icon: DoorOpen, badge: 'Live' },
-          { id: 'overview', label: 'System Health Services', icon: Server },
-          { id: 'edge', label: 'Edge Devices Fleet', icon: Radio, badge: edgeDevices.length },
-          { id: 'cameras', label: 'Cameras & Streams', icon: Video, badge: cameras.length },
-          { id: 'incidents', label: 'Operational Incidents', icon: ShieldAlert, badge: openIncidents.length }
+          { id: 'gates', label: t('Barrier Map & Station Locations (D3.js)'), icon: DoorOpen, badge: 'Live' },
+          { id: 'overview', label: t('System Health Services'), icon: Server },
+          { id: 'edge', label: t('Edge Devices Fleet'), icon: Radio, badge: edgeDevices.length },
+          { id: 'cameras', label: t('Cameras & Streams'), icon: Video, badge: cameras.length },
+          { id: 'incidents', label: t('Operational Incidents'), icon: ShieldAlert, badge: openIncidents.length }
         ]}
         activeTab={monitoringSubTab}
         onChange={(id) => setMonitoringSubTab(id as any)}
@@ -127,11 +129,11 @@ export const MonitoringPage: React.FC = () => {
 
                 <div className="mt-4 pt-3 border-t border-slate-800 grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <span className="text-slate-500 block">Latency:</span>
+                    <span className="text-slate-500 block">{t('Latency:')}</span>
                     <span className="font-mono font-bold text-indigo-300">{srv.responseTimeMs} ms</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">SLA Uptime:</span>
+                    <span className="text-slate-500 block">{t('SLA Uptime:')}</span>
                     <span className="font-mono font-bold text-emerald-400">{srv.uptimePercent}%</span>
                   </div>
                 </div>
@@ -148,20 +150,20 @@ export const MonitoringPage: React.FC = () => {
       {/* 2. EDGE DEVICES FLEET TAB */}
       {monitoringSubTab === 'edge' && (
         <Card className="overflow-hidden">
-          <CardHeader title="Edge Hardware Processing Nodes" subtitle="YOLOv11 NPU acceleration boxes deployed across tenant gates" />
+          <CardHeader title={t('Edge Hardware Processing Nodes')} subtitle={t('YOLOv11 NPU acceleration boxes deployed across tenant gates')} />
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
                 <tr>
-                  <th className="py-3.5 px-4">Edge Device Name</th>
-                  <th className="py-3.5 px-4">Organization</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4">CPU Load</th>
-                  <th className="py-3.5 px-4">RAM Load</th>
-                  <th className="py-3.5 px-4 text-center">Cameras</th>
-                  <th className="py-3.5 px-4 text-center">Events/Min</th>
-                  <th className="py-3.5 px-4">Heartbeat</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
+                  <th className="py-3.5 px-4">{t('Edge Device Name')}</th>
+                  <th className="py-3.5 px-4">{t('Organization')}</th>
+                  <th className="py-3.5 px-4">{t('Status')}</th>
+                  <th className="py-3.5 px-4">{t('CPU Load')}</th>
+                  <th className="py-3.5 px-4">{t('RAM Load')}</th>
+                  <th className="py-3.5 px-4 text-center">{t('Cameras')}</th>
+                  <th className="py-3.5 px-4 text-center">{t('Events/Min')}</th>
+                  <th className="py-3.5 px-4">{t('Heartbeat')}</th>
+                  <th className="py-3.5 px-4 text-right">{t('Actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80 text-slate-200">
@@ -198,7 +200,7 @@ export const MonitoringPage: React.FC = () => {
                       {userType === 'platform_admin' && (
                         <Button variant="outline" size="sm" onClick={() => rebootEdge(e.id)}>
                           <RefreshCw className="w-3.5 h-3.5 mr-1" />
-                          Reboot
+                          {t('Reboot')}
                         </Button>
                       )}
                     </td>
@@ -214,14 +216,14 @@ export const MonitoringPage: React.FC = () => {
       {monitoringSubTab === 'cameras' && (
         <Card className="overflow-hidden">
           <CardHeader
-            title="Registered ANPR Cameras"
-            subtitle="Camera endpoints and lane assignments. Live stream health requires edge telemetry (not yet available)."
+            title={t('Registered ANPR Cameras')}
+            subtitle={t('Camera endpoints and lane assignments. Live stream health requires edge telemetry (not yet available).')}
           />
           {cameras.length === 0 ? (
             <div className="p-8 text-center space-y-2">
               <Video className="w-6 h-6 mx-auto text-slate-500" />
               <p className="text-xs text-slate-500">
-                No cameras registered. Manage cameras per site from the tenant Site panel.
+                {t('No cameras registered. Manage cameras per site from the tenant Site panel.')}
               </p>
             </div>
           ) : (
@@ -229,12 +231,12 @@ export const MonitoringPage: React.FC = () => {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
                   <tr>
-                    <th className="py-3.5 px-4">Camera</th>
-                    <th className="py-3.5 px-4">Organization</th>
-                    <th className="py-3.5 px-4">Site</th>
-                    <th className="py-3.5 px-4 text-center">Purpose</th>
-                    <th className="py-3.5 px-4">Stream URL</th>
-                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4">{t('Camera')}</th>
+                    <th className="py-3.5 px-4">{t('Organization')}</th>
+                    <th className="py-3.5 px-4">{t('Site')}</th>
+                    <th className="py-3.5 px-4 text-center">{t('Purpose')}</th>
+                    <th className="py-3.5 px-4">{t('Stream URL')}</th>
+                    <th className="py-3.5 px-4">{t('Status')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/80 text-slate-200">
@@ -263,7 +265,7 @@ export const MonitoringPage: React.FC = () => {
                           variant={c.status === 'ONLINE' ? 'emerald' : c.status === 'DEGRADED' ? 'amber' : 'red'}
                           dot
                         >
-                          {c.status === 'ONLINE' ? 'ACTIVE' : c.status === 'DEGRADED' ? 'PROVISIONING' : 'DISABLED'}
+                          {c.status === 'ONLINE' ? t('ACTIVE') : c.status === 'DEGRADED' ? t('PROVISIONING') : t('DISABLED')}
                         </Badge>
                       </td>
                     </tr>
@@ -284,8 +286,8 @@ export const MonitoringPage: React.FC = () => {
       {monitoringSubTab === 'incidents' && (
         <Card className="p-5 space-y-4">
           <CardHeader
-            title="Operational Incidents Queue"
-            subtitle="Track and acknowledge infrastructure alerts requiring engineering response"
+            title={t('Operational Incidents Queue')}
+            subtitle={t('Track and acknowledge infrastructure alerts requiring engineering response')}
             action={
               openIncidents.length > 0 ? (
                 <Button
@@ -293,7 +295,7 @@ export const MonitoringPage: React.FC = () => {
                   size="sm"
                   onClick={() => bulkResolveIncidents(openIncidents.map((i) => i.id), 'resolved_bulk')}
                 >
-                  Resolve all ({openIncidents.length})
+                  {t('Resolve all')} ({openIncidents.length})
                 </Button>
               ) : undefined
             }
@@ -313,7 +315,7 @@ export const MonitoringPage: React.FC = () => {
                   </div>
                   <p className="text-xs text-slate-400">{inc.description}</p>
                   <div className="text-[10px] text-slate-500 font-mono">
-                    Resource: {inc.resourceType} ({inc.resourceId}) • Started: {new Date(inc.startedAt).toLocaleString()}
+                    {t('Resource:')} {inc.resourceType} ({inc.resourceId}) • {t('Started:')} {new Date(inc.startedAt).toLocaleString()}
                   </div>
                 </div>
 
@@ -324,7 +326,7 @@ export const MonitoringPage: React.FC = () => {
                       size="sm"
                       onClick={() => acknowledgeIncident(inc.id)}
                     >
-                      Acknowledge
+                      {t('Acknowledge')}
                     </Button>
                   )}
 
@@ -334,7 +336,7 @@ export const MonitoringPage: React.FC = () => {
                       size="sm"
                       onClick={() => setActionModal({ isOpen: true, incidentId: inc.id, note: '' })}
                     >
-                      Resolve Incident
+                      {t('Resolve Incident')}
                     </Button>
                   )}
                 </div>
@@ -348,23 +350,23 @@ export const MonitoringPage: React.FC = () => {
       <Modal
         isOpen={resolveModal.isOpen}
         onClose={() => setActionModal({ isOpen: false, incidentId: null, note: '' })}
-        title="Resolve Operational Incident"
-        subtitle={`Incident Ref: ${resolveModal.incidentId}`}
+        title={t('Resolve Operational Incident')}
+        subtitle={t('Incident Ref: {{id}}', { id: resolveModal.incidentId })}
       >
         <div className="space-y-4 text-xs">
           <Input
-            label="Resolution Summary & Post-Mortem Note *"
-            placeholder="e.g. Restarted RTSP stream proxy worker and re-initialized network socket."
+            label={t('Resolution Summary & Post-Mortem Note *')}
+            placeholder={t('e.g. Restarted RTSP stream proxy worker and re-initialized network socket.')}
             value={resolveModal.note}
             onChange={(e) => setActionModal((prev) => ({ ...prev, note: e.target.value }))}
           />
 
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="ghost" size="sm" onClick={() => setActionModal({ isOpen: false, incidentId: null, note: '' })}>
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button variant="success" size="sm" onClick={handleConfirmResolve}>
-              Mark as Resolved
+              {t('Mark as Resolved')}
             </Button>
           </div>
         </div>

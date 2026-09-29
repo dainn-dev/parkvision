@@ -30,6 +30,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { Button, Badge } from '../ui';
+import { useTranslation } from 'react-i18next';
 
 interface SiteDetailDrawerProps {
   site: TenantSite | null;
@@ -43,6 +44,7 @@ const maskStreamUrl = (u?: string): string =>
 
 export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen, onClose }) => {
   const { triggerGateCommand, addToast, cameras, tenantLanes, deleteTenantCamera } = usePlatform();
+  const { t } = useTranslation('tenant');
   const [activeTab, setActiveTab] = useState<'overview' | 'lanes_gates' | 'cameras' | 'edge_nodes'>('overview');
   const [gateActionStatus, setGateActionStatus] = useState<{ [key: string]: boolean }>({});
   const [cameraModal, setCameraModal] = useState<{ open: boolean; camera: CameraHealth | null }>({
@@ -91,7 +93,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                     : 'bg-[#da3633]/15 text-[#f85149] border border-[#da3633]/30'
                 }`}>
                   <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                  {site.status}
+                  {t(site.status)}
                 </span>
               </div>
               <p className="text-xs text-[#8b949e] flex items-center gap-1.5 mt-1">
@@ -118,7 +120,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                 : 'border-transparent text-[#8b949e] hover:text-[#c9d1d9]'
             }`}
           >
-            Site Overview
+            {t('Site Overview')}
           </button>
           <button
             onClick={() => setActiveTab('lanes_gates')}
@@ -129,7 +131,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
             }`}
           >
             <DoorOpen className="w-3.5 h-3.5" />
-            Lanes & Gates ({site.gateCount})
+            {t('Lanes & Gates')} ({site.gateCount})
           </button>
           <button
             onClick={() => setActiveTab('cameras')}
@@ -140,7 +142,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
             }`}
           >
             <Camera className="w-3.5 h-3.5" />
-            ANPR Cameras ({siteCams.length})
+            {t('ANPR Cameras')} ({siteCams.length})
           </button>
           <button
             onClick={() => setActiveTab('edge_nodes')}
@@ -151,7 +153,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
             }`}
           >
             <HardDrive className="w-3.5 h-3.5" />
-            Edge Gateways ({site.edgeDeviceCount})
+            {t('Edge Gateways')} ({site.edgeDeviceCount})
           </button>
         </div>
 
@@ -162,42 +164,42 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
               {/* Site KPI Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3.5 rounded-xl bg-[#161b22] border border-[#30363d]">
-                  <span className="text-[#8b949e] text-[11px] block">Today's Access</span>
+                  <span className="text-[#8b949e] text-[11px] block">{t("Today's Access")}</span>
                   <span className="text-xl font-bold text-white font-mono mt-1 block">
                     {site.todayAccessCount.toLocaleString()}
                   </span>
                   <span className="text-[10px] text-[#3fb950] font-medium mt-0.5 flex items-center gap-1">
-                    ↑ Active sync
+                    ↑ {t('Active sync')}
                   </span>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-[#161b22] border border-[#30363d]">
-                  <span className="text-[#8b949e] text-[11px] block">Active Vehicles</span>
+                  <span className="text-[#8b949e] text-[11px] block">{t('Active Vehicles')}</span>
                   <span className="text-xl font-bold text-[#58a6ff] font-mono mt-1 block">
                     {site.vehicleCount}
                   </span>
-                  <span className="text-[10px] text-[#8b949e] mt-0.5 block">Enrolled plates</span>
+                  <span className="text-[10px] text-[#8b949e] mt-0.5 block">{t('Enrolled plates')}</span>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-[#161b22] border border-[#30363d]">
-                  <span className="text-[#8b949e] text-[11px] block">Cameras Online</span>
+                  <span className="text-[#8b949e] text-[11px] block">{t('Cameras Online')}</span>
                   <span className="text-xl font-bold text-white font-mono mt-1 block">
                     {site.onlineCameraCount} / {site.cameraCount}
                   </span>
                   <span className={`text-[10px] font-medium mt-0.5 block ${
                     site.onlineCameraCount === site.cameraCount ? 'text-[#3fb950]' : 'text-[#f85149]'
                   }`}>
-                    {site.onlineCameraCount === site.cameraCount ? '● 100% Online' : `⚠ ${site.cameraCount - site.onlineCameraCount} Offline`}
+                    {site.onlineCameraCount === site.cameraCount ? `● 100% ${t('Online')}` : `⚠ ${site.cameraCount - site.onlineCameraCount} ${t('Offline')}`}
                   </span>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-[#161b22] border border-[#30363d]">
-                  <span className="text-[#8b949e] text-[11px] block">Gates Online</span>
+                  <span className="text-[#8b949e] text-[11px] block">{t('Gates Online')}</span>
                   <span className="text-xl font-bold text-white font-mono mt-1 block">
                     {site.onlineGateCount} / {site.gateCount}
                   </span>
                   <span className="text-[10px] text-[#3fb950] font-medium mt-0.5 block">
-                    ● Barrier relays ok
+                    ● {t('Barrier relays ok')}
                   </span>
                 </div>
               </div>
@@ -208,10 +210,10 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-white font-semibold flex items-center gap-1.5">
                       <Car className="w-4 h-4 text-[#58a6ff]" />
-                      Real-time Facility Occupancy
+                      {t('Real-time Facility Occupancy')}
                     </span>
                     <span className="text-white font-mono font-bold">
-                      {site.currentOccupancy} / {site.capacity} bays ({occupancyPercent}%)
+                      {t('{{current}} / {{capacity}} bays ({{percent}}%)', { current: site.currentOccupancy, capacity: site.capacity, percent: occupancyPercent })}
                     </span>
                   </div>
 
@@ -229,8 +231,8 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                   </div>
 
                   <div className="flex items-center justify-between text-[10px] text-[#8b949e] pt-1">
-                    <span>Available bays: {(site.capacity - (site.currentOccupancy || 0))}</span>
-                    <span>Schedule: {site.operatingHours}</span>
+                    <span>{t('Available bays: {{count}}', { count: site.capacity - (site.currentOccupancy || 0) })}</span>
+                    <span>{t('Schedule:')} {site.operatingHours}</span>
                   </div>
                 </div>
               )}
@@ -238,30 +240,30 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
               {/* Facility Details */}
               <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
                 <h4 className="text-white font-semibold border-b border-[#30363d]/60 pb-2">
-                  Operations & Facility Profile
+                  {t('Operations & Facility Profile')}
                 </h4>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <span className="text-[10px] text-[#8b949e] uppercase font-semibold">Operating Schedule</span>
+                    <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Operating Schedule')}</span>
                     <p className="text-white font-medium mt-0.5">{site.operatingHours}</p>
                   </div>
                   <div>
-                    <span className="text-[10px] text-[#8b949e] uppercase font-semibold">Lanes Configured</span>
-                    <p className="text-white font-medium mt-0.5">{site.lanesCount} Inbound/Outbound Lanes</p>
+                    <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Lanes Configured')}</span>
+                    <p className="text-white font-medium mt-0.5">{site.lanesCount} {t('Inbound/Outbound Lanes')}</p>
                   </div>
                   <div>
-                    <span className="text-[10px] text-[#8b949e] uppercase font-semibold">Site Manager</span>
+                    <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Site Manager')}</span>
                     <p className="text-white font-medium mt-0.5">{site.managerName || 'Le Hoang Nam'}</p>
                   </div>
                   <div>
-                    <span className="text-[10px] text-[#8b949e] uppercase font-semibold">Contact Phone</span>
+                    <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Contact Phone')}</span>
                     <p className="text-white font-medium mt-0.5">{site.managerPhone || '+84 90 311 2233'}</p>
                   </div>
                 </div>
 
                 <div className="pt-2">
-                  <span className="text-[10px] text-[#8b949e] uppercase font-semibold">Description / Notes</span>
+                  <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Description / Notes')}</span>
                   <p className="text-[#8b949e] mt-1 text-xs">{site.description}</p>
                 </div>
               </div>
@@ -271,8 +273,8 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
           {activeTab === 'lanes_gates' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-white font-semibold text-xs">Barrier Gates & Relay Telemetry</h4>
-                <span className="text-[11px] text-[#8b949e]">Protocol: MQTT / Modbus TCP</span>
+                <h4 className="text-white font-semibold text-xs">{t('Barrier Gates & Relay Telemetry')}</h4>
+                <span className="text-[11px] text-[#8b949e]">{t('Protocol: MQTT / Modbus TCP')}</span>
               </div>
 
               {Array.from({ length: site.gateCount }).map((_, idx) => {
@@ -293,7 +295,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                         <div>
                           <span className="text-white font-bold font-mono text-xs">{gateId}</span>
                           <span className="text-[11px] text-[#8b949e] block">
-                            {isOutGate ? 'Outbound Exit Lane' : 'Inbound Entry Lane'} · Automatic Barrier
+                            {isOutGate ? t('Outbound Exit Lane') : t('Inbound Entry Lane')} · {t('Automatic Barrier')}
                           </span>
                         </div>
                       </div>
@@ -303,13 +305,13 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                           isOffline ? 'bg-[#da3633]/20 text-[#f85149]' : 'bg-[#238636]/20 text-[#3fb950]'
                         }`}>
                           <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                          {isOffline ? 'OFFLINE' : 'ONLINE / ARMED'}
+                          {isOffline ? t('OFFLINE') : t('ONLINE / ARMED')}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between pt-2 border-t border-[#30363d]/60 text-[11px]">
-                      <span className="text-[#8b949e]">Relay Latency: {isOffline ? '--' : '18ms'} · State: CLOSED</span>
+                      <span className="text-[#8b949e]">{t('Relay Latency:')} {isOffline ? '--' : '18ms'} · {t('State:')} {t('CLOSED')}</span>
                       
                       <div className="flex items-center gap-2">
                         <Button
@@ -320,7 +322,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                           className="text-xs bg-[#238636]/10 text-[#3fb950] hover:bg-[#238636]/20 border-[#238636]/30 gap-1"
                         >
                           <Unlock className="w-3 h-3" />
-                          Open Barrier
+                          {t('Open Barrier')}
                         </Button>
 
                         <Button
@@ -331,7 +333,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                           className="text-xs text-[#f85149] hover:bg-[#da3633]/20 border-[#da3633]/30 gap-1"
                         >
                           <Lock className="w-3 h-3" />
-                          Lock
+                          {t('Lock')}
                         </Button>
                       </div>
                     </div>
@@ -344,7 +346,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
           {activeTab === 'cameras' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-white font-semibold text-xs">ANPR Video Feeds & OCR Sensors</h4>
+                <h4 className="text-white font-semibold text-xs">{t('ANPR Video Feeds & OCR Sensors')}</h4>
                 <Button
                   variant="outline"
                   size="sm"
@@ -352,7 +354,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                   className="text-xs gap-1 text-[#58a6ff] border-[#58a6ff]/40 hover:bg-[#58a6ff]/10"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  Add Camera
+                  {t('Add Camera')}
                 </Button>
               </div>
 
@@ -360,7 +362,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                 <div className="p-6 rounded-xl bg-[#161b22] border border-dashed border-[#30363d] text-center space-y-2">
                   <Camera className="w-6 h-6 mx-auto text-[#8b949e] opacity-60" />
                   <p className="text-[#8b949e] text-xs">
-                    No cameras registered — use <span className="text-[#58a6ff]">Add Camera</span> to register the first ANPR feed.
+                    {t('No cameras registered — use')} <span className="text-[#58a6ff]">{t('Add Camera')}</span> {t('to register the first ANPR feed.')}
                   </p>
                 </div>
               ) : (
@@ -371,10 +373,10 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                       : undefined;
                     const tileLabel =
                       cam.status === 'ONLINE'
-                        ? 'STREAM REGISTERED'
+                        ? t('STREAM REGISTERED')
                         : cam.status === 'DEGRADED'
-                          ? 'AWAITING EDGE'
-                          : 'DISABLED';
+                          ? t('AWAITING EDGE')
+                          : t('DISABLED');
                     const tileCls =
                       cam.status === 'ONLINE'
                         ? 'text-[#3fb950]'
@@ -398,7 +400,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                             {cam.code ?? cam.cameraName}
                           </div>
                           <div className="absolute top-1.5 right-2 text-[9px] font-mono text-[#8b949e] bg-black/60 px-1.5 py-0.5 rounded">
-                            {cam.purpose === 'overview' ? 'OVERVIEW' : 'PLATE'}
+                            {cam.purpose === 'overview' ? t('OVERVIEW') : t('PLATE')}
                           </div>
                         </div>
 
@@ -414,18 +416,18 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                             <button
                               onClick={() => setCameraModal({ open: true, camera: cam })}
                               className="w-6 h-6 rounded-md bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white flex items-center justify-center cursor-pointer"
-                              title="Edit camera"
+                              title={t('Edit camera')}
                             >
                               <Pencil className="w-3 h-3" />
                             </button>
                             <button
                               onClick={() => {
-                                if (window.confirm(`Delete camera ${cam.cameraName}?`)) {
+                                if (window.confirm(t('Delete camera {{name}}?', { name: cam.cameraName }))) {
                                   deleteTenantCamera(cam.id);
                                 }
                               }}
                               className="w-6 h-6 rounded-md bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-[#f85149] flex items-center justify-center cursor-pointer"
-                              title="Delete camera"
+                              title={t('Delete camera')}
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>
@@ -441,7 +443,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
 
           {activeTab === 'edge_nodes' && (
             <div className="space-y-4">
-              <h4 className="text-white font-semibold text-xs">Edge AI Inference Compute Nodes</h4>
+              <h4 className="text-white font-semibold text-xs">{t('Edge AI Inference Compute Nodes')}</h4>
               
               {Array.from({ length: site.edgeDeviceCount }).map((_, idx) => {
                 const nodeId = `EDGE-${site.code}-0${idx + 1}`;
@@ -463,13 +465,13 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                       <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
                         isHighCpu ? 'bg-[#d29922]/20 text-[#e3b341]' : 'bg-[#238636]/20 text-[#3fb950]'
                       }`}>
-                        {isHighCpu ? 'HIGH LOAD' : 'ONLINE'}
+                        {isHighCpu ? t('HIGH LOAD') : t('ONLINE')}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2 text-[11px] pt-1">
                       <div className="p-2 rounded bg-[#0d0e12] border border-[#30363d]">
-                        <span className="text-[#8b949e] block text-[10px]">CPU Load</span>
+                        <span className="text-[#8b949e] block text-[10px]">{t('CPU Load')}</span>
                         <span className={`font-mono font-bold ${isHighCpu ? 'text-[#f85149]' : 'text-white'}`}>
                           {isHighCpu ? '91%' : '34%'}
                         </span>
@@ -479,7 +481,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                         <span className="font-mono font-bold text-white">48%</span>
                       </div>
                       <div className="p-2 rounded bg-[#0d0e12] border border-[#30363d]">
-                        <span className="text-[#8b949e] block text-[10px]">Temp</span>
+                        <span className="text-[#8b949e] block text-[10px]">{t('Temp')}</span>
                         <span className="font-mono font-bold text-white">46°C</span>
                       </div>
                     </div>
@@ -493,7 +495,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
         {/* Footer */}
         <div className="p-4 border-t border-[#30363d] bg-[#161b22]/90 flex items-center justify-between sticky bottom-0 z-20">
           <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
-            Close Panel
+            {t('Close Panel')}
           </Button>
 
           <Button
@@ -502,14 +504,14 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
             onClick={() => {
               addToast({
                 type: 'success',
-                title: 'Diagnostics Dispatched',
-                description: `Running remote heartbeat & sensor self-test on ${site.name}.`
+                title: t('Diagnostics Dispatched'),
+                description: t('Running remote heartbeat & sensor self-test on {{name}}.', { name: site.name })
               });
             }}
             className="text-xs bg-[#58a6ff] hover:bg-[#58a6ff]/90 text-slate-950 font-bold gap-1.5"
           >
             <Zap className="w-3.5 h-3.5" />
-            Run Site Self-Test
+            {t('Run Site Self-Test')}
           </Button>
         </div>
       </div>

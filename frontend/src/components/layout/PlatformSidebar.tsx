@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { usePlatform } from '../../context/PlatformContext';
 import {
   LayoutDashboard,
@@ -53,6 +54,7 @@ export const PlatformSidebar: React.FC = () => {
     currentUser,
     setSelectedTenantId
   } = usePlatform();
+  const { t } = useTranslation('layout');
 
   const [isPlatformOpen, setIsPlatformOpen] = useState(true);
   const [isMonitoringOpen, setIsMonitoringOpen] = useState(true);
@@ -78,7 +80,7 @@ export const PlatformSidebar: React.FC = () => {
               {appWorkspace === 'tenant' ? (tenantLocation.tenantName || tenantLocation.name || 'TENANT').toUpperCase() : 'PLATFORM'} <span className="text-[#58a6ff]">{appWorkspace === 'tenant' ? 'PORTAL' : 'GOV'}</span>
             </h1>
             <p className="text-[9px] text-[#8b949e] font-semibold uppercase tracking-wider">
-              {appWorkspace === 'tenant' ? 'Tenant Site Management' : 'Superadmin Control'}
+              {appWorkspace === 'tenant' ? t('Tenant Site Management') : t('Superadmin Control')}
             </p>
           </div>
         </div>
@@ -101,13 +103,13 @@ export const PlatformSidebar: React.FC = () => {
               }`}
             >
               <LayoutDashboard className={`w-4 h-4 shrink-0 ${tenantNavTab === 'dashboard' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
-              <span>Dashboard</span>
+              <span>{t('Dashboard')}</span>
             </button>
 
             {/* ORGANIZATION GROUP */}
             <div className="space-y-1">
               <div className="px-3 text-[10px] font-bold text-[#8b949e] uppercase tracking-wider font-mono">
-                Organization
+                {t('Organization')}
               </div>
 
               {/* Location */}
@@ -121,10 +123,10 @@ export const PlatformSidebar: React.FC = () => {
               >
                 <div className="flex items-center gap-3">
                   <Building2 className={`w-4 h-4 shrink-0 ${tenantNavTab === 'location' || tenantNavTab === 'sites' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
-                  <span>Location</span>
+                  <span>{t('Location')}</span>
                 </div>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#21262d] border border-[#30363d] text-[#3fb950] font-mono">
-                  Active
+                  {t('Active')}
                 </span>
               </button>
 
@@ -138,14 +140,14 @@ export const PlatformSidebar: React.FC = () => {
                 }`}
               >
                 <Users className={`w-4 h-4 shrink-0 ${tenantNavTab === 'team' || tenantNavTab === 'users' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
-                <span>Users & Members</span>
+                <span>{t('Users & Members')}</span>
               </button>
             </div>
 
             {/* ACCESS MANAGEMENT GROUP */}
             <div className="space-y-1">
               <div className="px-3 text-[10px] font-bold text-[#8b949e] uppercase tracking-wider font-mono">
-                Access Management
+                {t('Access Management')}
               </div>
 
               {/* Vehicles & Whitelist */}
@@ -159,7 +161,7 @@ export const PlatformSidebar: React.FC = () => {
               >
                 <div className="flex items-center gap-3">
                   <Car className={`w-4 h-4 shrink-0 ${tenantNavTab === 'vehicles' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
-                  <span>Vehicles & Whitelist</span>
+                  <span>{t('Vehicles & Whitelist')}</span>
                 </div>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#21262d] text-[#8b949e] font-mono">
                   {tenantVehicles.length}
@@ -176,14 +178,14 @@ export const PlatformSidebar: React.FC = () => {
                 }`}
               >
                 <ShieldCheck className={`w-4 h-4 shrink-0 ${tenantNavTab === 'access_rules' || tenantNavTab === 'access-rules' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
-                <span>Access Rules</span>
+                <span>{t('Access Rules')}</span>
               </button>
             </div>
 
             {/* MONITORING GROUP */}
             <div className="space-y-1">
               <div className="px-3 text-[10px] font-bold text-[#8b949e] uppercase tracking-wider font-mono">
-                Monitoring
+                {t('Monitoring')}
               </div>
 
               {/* Barrier Map */}
@@ -197,10 +199,10 @@ export const PlatformSidebar: React.FC = () => {
               >
                 <div className="flex items-center gap-3">
                   <DoorOpen className={`w-4 h-4 shrink-0 ${tenantNavTab === 'gates' ? 'text-[#3fb950]' : 'text-[#8b949e]'}`} />
-                  <span>Barrier Map</span>
+                  <span>{t('Barrier Map')}</span>
                 </div>
                 <span className="text-[10px] px-1.5 py-0.2 bg-[#3fb950]/20 text-[#3fb950] rounded-full font-bold">
-                  Live
+                  {t('Live')}
                 </span>
               </button>
 
@@ -215,7 +217,7 @@ export const PlatformSidebar: React.FC = () => {
               >
                 <div className="flex items-center gap-3">
                   <MapPinned className={`w-4 h-4 shrink-0 ${tenantNavTab === 'parking-map' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
-                  <span>Sơ Đồ Bãi Xe</span>
+                  <span>{t('Parking Map')}</span>
                 </div>
                 <span className="text-[10px] px-1.5 py-0.2 bg-[#58a6ff]/20 text-[#58a6ff] rounded-full font-bold">
                   Live
@@ -233,7 +235,7 @@ export const PlatformSidebar: React.FC = () => {
               >
                 <div className="flex items-center gap-3">
                   <Server className={`w-4 h-4 shrink-0 ${tenantNavTab === 'edge-devices' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
-                  <span>Edge Devices</span>
+                  <span>{t('Edge Devices')}</span>
                 </div>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#21262d] text-[#8b949e] font-mono">
                   {tenantDevices.length}
@@ -251,7 +253,7 @@ export const PlatformSidebar: React.FC = () => {
               >
                 <div className="flex items-center gap-3">
                   <Activity className={`w-4 h-4 shrink-0 ${tenantNavTab === 'access_events' || tenantNavTab === 'access-events' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
-                  <span>Access Events</span>
+                  <span>{t('Access Events')}</span>
                 </div>
                 <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse" />
               </button>
@@ -260,7 +262,7 @@ export const PlatformSidebar: React.FC = () => {
             {/* ADMINISTRATION GROUP */}
             <div className="space-y-1">
               <div className="px-3 text-[10px] font-bold text-[#8b949e] uppercase tracking-wider font-mono">
-                Administration
+                {t('Administration')}
               </div>
 
               {/* Site Settings */}
@@ -273,7 +275,7 @@ export const PlatformSidebar: React.FC = () => {
                 }`}
               >
                 <Settings className={`w-4 h-4 shrink-0 ${tenantNavTab === 'settings' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
-                <span>Site Settings</span>
+                <span>{t('Site Settings')}</span>
               </button>
             </div>
           </div>
@@ -295,7 +297,7 @@ export const PlatformSidebar: React.FC = () => {
               }`}
             >
               <LayoutDashboard className={`w-4 h-4 shrink-0 ${primaryTab === 'dashboard' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
-              <span>Dashboard</span>
+              <span>{t('Dashboard')}</span>
             </button>
 
             {/* 2. TENANTS */}
@@ -312,7 +314,7 @@ export const PlatformSidebar: React.FC = () => {
             >
               <div className="flex items-center gap-3">
                 <Building2 className={`w-4 h-4 shrink-0 ${primaryTab === 'tenants' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
-                <span>Tenants</span>
+                <span>{t('Tenants')}</span>
               </div>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#21262d] border border-[#30363d] text-[#8b949e] font-mono">
                 {tenants.length}
@@ -334,7 +336,7 @@ export const PlatformSidebar: React.FC = () => {
               >
                 <div className="flex items-center gap-3">
                   <Sliders className="w-4 h-4 shrink-0 text-[#8b949e]" />
-                  <span>Platform</span>
+                  <span>{t('Platform')}</span>
                 </div>
                 {isPlatformOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
               </button>
@@ -353,7 +355,7 @@ export const PlatformSidebar: React.FC = () => {
                     }`}
                   >
                     <Settings className="w-3.5 h-3.5" />
-                    <span>Settings</span>
+                    <span>{t('Settings')}</span>
                   </button>
 
                   <button
@@ -368,7 +370,7 @@ export const PlatformSidebar: React.FC = () => {
                     }`}
                   >
                     <Flag className="w-3.5 h-3.5 text-[#3fb950]" />
-                    <span>Feature Flags</span>
+                    <span>{t('Feature Flags')}</span>
                   </button>
 
                   <button
@@ -383,7 +385,7 @@ export const PlatformSidebar: React.FC = () => {
                     }`}
                   >
                     <Users className="w-3.5 h-3.5 text-[#a371f7]" />
-                    <span>Platform Admins</span>
+                    <span>{t('Platform Admins')}</span>
                   </button>
                 </div>
               )}
@@ -404,7 +406,7 @@ export const PlatformSidebar: React.FC = () => {
               >
                 <div className="flex items-center gap-3">
                   <Activity className="w-4 h-4 shrink-0 text-[#8b949e]" />
-                  <span>Monitoring</span>
+                  <span>{t('Monitoring')}</span>
                 </div>
                 {isMonitoringOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
               </button>
@@ -424,10 +426,10 @@ export const PlatformSidebar: React.FC = () => {
                   >
                     <div className="flex items-center gap-2.5">
                       <DoorOpen className="w-3.5 h-3.5 text-[#3fb950]" />
-                      <span>Barrier Map</span>
+                      <span>{t('Barrier Map')}</span>
                     </div>
                     <span className="text-[9px] px-1.5 py-0.2 bg-[#3fb950]/20 text-[#3fb950] rounded-full font-bold">
-                      Live
+                      {t('Live')}
                     </span>
                   </button>
 
@@ -443,7 +445,7 @@ export const PlatformSidebar: React.FC = () => {
                     }`}
                   >
                     <Server className="w-3.5 h-3.5" />
-                    <span>Core Services</span>
+                    <span>{t('Core Services')}</span>
                   </button>
 
                   <button
@@ -459,7 +461,7 @@ export const PlatformSidebar: React.FC = () => {
                   >
                     <div className="flex items-center gap-2.5">
                       <ShieldAlert className="w-3.5 h-3.5 text-[#e3b341]" />
-                      <span>Incidents</span>
+                      <span>{t('Incidents')}</span>
                     </div>
                     {openIncidentsCount > 0 && (
                       <span className="text-[10px] px-1.5 py-0.2 bg-[#d29922]/20 text-[#e3b341] rounded-full font-bold">
@@ -480,7 +482,7 @@ export const PlatformSidebar: React.FC = () => {
                     }`}
                   >
                     <Radio className="w-3.5 h-3.5 text-[#58a6ff]" />
-                    <span>Edge Gateways</span>
+                    <span>{t('Edge Gateways')}</span>
                   </button>
                 </div>
               )}
@@ -501,7 +503,7 @@ export const PlatformSidebar: React.FC = () => {
               >
                 <div className="flex items-center gap-3">
                   <Lock className="w-4 h-4 shrink-0 text-[#8b949e]" />
-                  <span>Security</span>
+                  <span>{t('Security')}</span>
                 </div>
                 {isSecurityOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
               </button>
@@ -520,7 +522,7 @@ export const PlatformSidebar: React.FC = () => {
                     }`}
                   >
                     <ShieldCheck className="w-3.5 h-3.5 text-[#3fb950]" />
-                    <span>MFA Policies</span>
+                    <span>{t('MFA Policies')}</span>
                   </button>
 
                   <button
@@ -536,7 +538,7 @@ export const PlatformSidebar: React.FC = () => {
                   >
                     <div className="flex items-center gap-2.5">
                       <ShieldAlert className="w-3.5 h-3.5 text-[#f85149]" />
-                      <span>Security Alerts</span>
+                      <span>{t('Security Alerts')}</span>
                     </div>
                     {openAlertsCount > 0 && (
                       <span className="text-[10px] px-1.5 py-0.2 bg-[#da3633]/20 text-[#f85149] rounded-full font-bold">
@@ -557,7 +559,7 @@ export const PlatformSidebar: React.FC = () => {
                     }`}
                   >
                     <Key className="w-3.5 h-3.5 text-[#d29922]" />
-                    <span>Active Sessions</span>
+                    <span>{t('Active Sessions')}</span>
                   </button>
                 </div>
               )}
@@ -576,7 +578,7 @@ export const PlatformSidebar: React.FC = () => {
               }`}
             >
               <FileText className={`w-4 h-4 shrink-0 ${primaryTab === 'audit' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
-              <span>Audit Logs</span>
+              <span>{t('Audit Logs')}</span>
             </button>
           </>
         )}
@@ -594,7 +596,7 @@ export const PlatformSidebar: React.FC = () => {
               {appWorkspace === 'tenant' ? currentUser.role : currentUser.email}
             </p>
           </div>
-          <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse shrink-0" title="Online & Connected" />
+          <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse shrink-0" title={t('Online & Connected')} />
         </div>
       </div>
     </aside>

@@ -13,12 +13,14 @@ import {
   Check
 } from 'lucide-react';
 import { PublicViewType } from '../../components/layout/PublicNavbar';
+import { useTranslation } from 'react-i18next';
 
 interface SlaPolicyPageProps {
   onNavigate: (view: PublicViewType) => void;
 }
 
 export const SlaPolicyPage: React.FC<SlaPolicyPageProps> = ({ onNavigate }) => {
+  const { t } = useTranslation('landing');
   return (
     <div className="w-full bg-[#0d0e12] text-[#c9d1d9] font-sans antialiased py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -29,21 +31,21 @@ export const SlaPolicyPage: React.FC<SlaPolicyPageProps> = ({ onNavigate }) => {
             className="inline-flex items-center gap-2 text-xs font-semibold text-[#58a6ff] hover:text-[#79c0ff] cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Quay lại Trang Chủ</span>
+            <span>{t('Back to Home')}</span>
           </button>
-          <span className="text-xs text-[#8b949e] font-mono">Chuẩn dịch vụ cấp độ doanh nghiệp (Enterprise SLA)</span>
+          <span className="text-xs text-[#8b949e] font-mono">{t('Enterprise-grade service standard (Enterprise SLA)')}</span>
         </div>
 
         {/* Header Title */}
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-6 sm:p-8 space-y-3 shadow-xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#a371f7]/10 border border-[#a371f7]/30 text-[#a371f7] text-xs font-mono font-semibold">
-            <Server className="w-4 h-4" /> Cam Kết Uptime 99.9% Có Bồi Hoàn
+            <Server className="w-4 h-4" /> {t('Compensated 99.9% Uptime Commitment')}
           </div>
           <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-            Cam Kết Chất Lượng Dịch Vụ (Service Level Agreement - SLA)
+            {t('Service Level Agreement (SLA)')}
           </h1>
           <p className="text-xs sm:text-sm text-[#8b949e] leading-relaxed">
-            ANPR Cloud cam kết mang đến dịch vụ kiểm soát ra vào vận hành liên tục, ổn định và bảo mật cao nhất với chính sách hoàn tiền rõ ràng nếu không đạt chỉ số cam kết.
+            {t('ANPR Cloud is committed to delivering the most continuous, stable and highly secure access control service, with a clear refund policy if committed metrics are not met.')}
           </p>
         </div>
 
@@ -51,20 +53,20 @@ export const SlaPolicyPage: React.FC<SlaPolicyPageProps> = ({ onNavigate }) => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 text-center">
             <div className="text-3xl font-black text-[#3fb950] font-mono">99.9%</div>
-            <div className="text-xs font-bold text-white mt-1">Uptime Khả Dụng Hàng Tháng</div>
-            <p className="text-[11px] text-[#8b949e] mt-0.5">Thời gian gián đoạn tối đa &lt; 43 phút/tháng</p>
+            <div className="text-xs font-bold text-white mt-1">{t('Monthly Uptime Availability')}</div>
+            <p className="text-[11px] text-[#8b949e] mt-0.5">{t('Maximum downtime < 43 min/month')}</p>
           </div>
 
           <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 text-center">
             <div className="text-3xl font-black text-[#58a6ff] font-mono">&lt; 100ms</div>
-            <div className="text-xs font-bold text-white mt-1">Độ Trễ Phản Hồi Barrier</div>
-            <p className="text-[11px] text-[#8b949e] mt-0.5">Thời gian kích hoạt relay mở cần</p>
+            <div className="text-xs font-bold text-white mt-1">{t('Barrier Response Latency')}</div>
+            <p className="text-[11px] text-[#8b949e] mt-0.5">{t('Arm relay activation time')}</p>
           </div>
 
           <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 text-center">
-            <div className="text-3xl font-black text-[#d29922] font-mono">&lt; 15 phút</div>
-            <div className="text-xs font-bold text-white mt-1">Thời Gian Phản Hồi Sự Cố Cấp 1</div>
-            <p className="text-[11px] text-[#8b949e] mt-0.5">Hỗ trợ kỹ thuật khẩn cấp 24/7/365</p>
+            <div className="text-3xl font-black text-[#d29922] font-mono">&lt; 15 {t('min')}</div>
+            <div className="text-xs font-bold text-white mt-1">{t('Severity-1 Incident Response Time')}</div>
+            <p className="text-[11px] text-[#8b949e] mt-0.5">{t('Emergency technical support 24/7/365')}</p>
           </div>
         </div>
 
@@ -72,16 +74,16 @@ export const SlaPolicyPage: React.FC<SlaPolicyPageProps> = ({ onNavigate }) => {
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-6 space-y-4">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <Activity className="w-5 h-5 text-[#f85149]" />
-            1. Ma Trận Phân Cấp Sự Cố & Thời Gian Khắc Phục (MTTR)
+            {t('1. Incident Severity Matrix & Resolution Time (MTTR)')}
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-[#30363d] text-[#8b949e] font-mono">
-                  <th className="py-2.5 px-3">Cấp độ sự cố</th>
-                  <th className="py-2.5 px-3">Mô tả sự cố</th>
-                  <th className="py-2.5 px-3">Thời gian phản hồi</th>
-                  <th className="py-2.5 px-3">Thời gian xử lý</th>
+                  <th className="py-2.5 px-3">{t('Severity level')}</th>
+                  <th className="py-2.5 px-3">{t('Incident description')}</th>
+                  <th className="py-2.5 px-3">{t('Response time')}</th>
+                  <th className="py-2.5 px-3">{t('Resolution time')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d] text-[#c9d1d9]">
@@ -92,10 +94,10 @@ export const SlaPolicyPage: React.FC<SlaPolicyPageProps> = ({ onNavigate }) => {
                     </span>
                   </td>
                   <td className="py-3 px-3">
-                    Toàn bộ cổng barrier tại cơ sở bị tê liệt, xe không thể ra vào tự động.
+                    {t('All barrier gates at the site are paralyzed; vehicles cannot enter/exit automatically.')}
                   </td>
-                  <td className="py-3 px-3 font-mono text-[#f85149] font-bold">&lt; 15 phút</td>
-                  <td className="py-3 px-3 font-mono font-bold">&lt; 2 giờ</td>
+                  <td className="py-3 px-3 font-mono text-[#f85149] font-bold">&lt; 15 {t('min')}</td>
+                  <td className="py-3 px-3 font-mono font-bold">&lt; 2 {t('hrs')}</td>
                 </tr>
                 <tr>
                   <td className="py-3 px-3">
@@ -104,10 +106,10 @@ export const SlaPolicyPage: React.FC<SlaPolicyPageProps> = ({ onNavigate }) => {
                     </span>
                   </td>
                   <td className="py-3 px-3">
-                    Một làn barrier đơn lẻ bị mất kết nối camera hoặc độ trễ nhận diện tăng cao.
+                    {t('A single barrier lane loses camera connection or recognition latency spikes.')}
                   </td>
-                  <td className="py-3 px-3 font-mono text-[#d29922] font-bold">&lt; 30 phút</td>
-                  <td className="py-3 px-3 font-mono font-bold">&lt; 4 giờ</td>
+                  <td className="py-3 px-3 font-mono text-[#d29922] font-bold">&lt; 30 {t('min')}</td>
+                  <td className="py-3 px-3 font-mono font-bold">&lt; 4 {t('hrs')}</td>
                 </tr>
                 <tr>
                   <td className="py-3 px-3">
@@ -116,10 +118,10 @@ export const SlaPolicyPage: React.FC<SlaPolicyPageProps> = ({ onNavigate }) => {
                     </span>
                   </td>
                   <td className="py-3 px-3">
-                    Tính năng xuất báo cáo Excel chậm, giao diện Dashboard hiển thị thiếu dữ liệu.
+                    {t('Excel report export is slow; the Dashboard UI shows missing data.')}
                   </td>
-                  <td className="py-3 px-3 font-mono text-[#58a6ff]">&lt; 2 giờ</td>
-                  <td className="py-3 px-3 font-mono">&lt; 24 giờ</td>
+                  <td className="py-3 px-3 font-mono text-[#58a6ff]">&lt; 2 {t('hrs')}</td>
+                  <td className="py-3 px-3 font-mono">&lt; 24 {t('hrs')}</td>
                 </tr>
                 <tr>
                   <td className="py-3 px-3">
@@ -128,10 +130,10 @@ export const SlaPolicyPage: React.FC<SlaPolicyPageProps> = ({ onNavigate }) => {
                     </span>
                   </td>
                   <td className="py-3 px-3">
-                    Yêu cầu hướng dẫn cấu hình, điều chỉnh biểu mẫu hoặc góp ý tính năng mới.
+                    {t('Requests for configuration guidance, form adjustments or new feature feedback.')}
                   </td>
-                  <td className="py-3 px-3 font-mono text-[#8b949e]">&lt; 4 giờ</td>
-                  <td className="py-3 px-3 font-mono">Theo kế hoạch</td>
+                  <td className="py-3 px-3 font-mono text-[#8b949e]">&lt; 4 {t('hrs')}</td>
+                  <td className="py-3 px-3 font-mono">{t('Per roadmap')}</td>
                 </tr>
               </tbody>
             </table>
@@ -142,29 +144,29 @@ export const SlaPolicyPage: React.FC<SlaPolicyPageProps> = ({ onNavigate }) => {
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-6 space-y-4">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-[#3fb950]" />
-            2. Chính Sách Hoàn Tiền / Bồi Hoàn Cước (Service Credits)
+            {t('2. Refund / Service Credits Policy')}
           </h2>
           <p className="text-xs text-[#8b949e]">
-            Nếu tỷ lệ khả dụng hàng tháng không đạt chỉ số 99.9%, Tenant có quyền nhận bồi hoàn cước dịch vụ tương ứng dưới hình thức giảm trừ trực tiếp vào hóa đơn kỳ tiếp theo:
+            {t('If monthly availability falls below 99.9%, the Tenant is entitled to corresponding service credits applied as a direct deduction on the next billing invoice:')}
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
             <div className="p-4 bg-[#0d0e12] rounded-xl border border-[#30363d] space-y-1">
               <div className="font-bold text-[#d29922] font-mono text-sm">99.0% - 99.89%</div>
-              <div className="text-xs font-bold text-white">Hoàn 10% Cước Tháng</div>
-              <p className="text-[11px] text-[#8b949e]">Gián đoạn từ 44 phút đến 7.2 giờ/tháng</p>
+              <div className="text-xs font-bold text-white">{t('10% Monthly Fee Credit')}</div>
+              <p className="text-[11px] text-[#8b949e]">{t('Downtime from 44 min to 7.2 hrs/month')}</p>
             </div>
 
             <div className="p-4 bg-[#0d0e12] rounded-xl border border-[#30363d] space-y-1">
               <div className="font-bold text-[#f85149] font-mono text-sm">95.0% - 98.9%</div>
-              <div className="text-xs font-bold text-white">Hoàn 25% Cước Tháng</div>
-              <p className="text-[11px] text-[#8b949e]">Gián đoạn từ 7.2 giờ đến 36 giờ/tháng</p>
+              <div className="text-xs font-bold text-white">{t('25% Monthly Fee Credit')}</div>
+              <p className="text-[11px] text-[#8b949e]">{t('Downtime from 7.2 hrs to 36 hrs/month')}</p>
             </div>
 
             <div className="p-4 bg-[#0d0e12] rounded-xl border border-[#30363d] space-y-1">
               <div className="font-bold text-[#f85149] font-mono text-sm">&lt; 95.0%</div>
-              <div className="text-xs font-bold text-white">Hoàn 50% Cước Tháng</div>
-              <p className="text-[11px] text-[#8b949e]">Gián đoạn nghiêm trọng trên 36 giờ/tháng</p>
+              <div className="text-xs font-bold text-white">{t('50% Monthly Fee Credit')}</div>
+              <p className="text-[11px] text-[#8b949e]">{t('Severe downtime over 36 hrs/month')}</p>
             </div>
           </div>
         </div>
@@ -173,10 +175,10 @@ export const SlaPolicyPage: React.FC<SlaPolicyPageProps> = ({ onNavigate }) => {
         <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-6 space-y-3">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-[#58a6ff]" />
-            3. Bảo Đảm Vận Hành Ngoại Tuyến (Offline Edge Guarantee)
+            {t('3. Offline Operation Guarantee (Offline Edge Guarantee)')}
           </h2>
           <p className="text-xs text-[#8b949e] leading-relaxed">
-            Ngay cả trong trường hợp Cloud Server bảo trì hoặc cáp quang Internet bị đứt hoàn toàn, thiết bị Edge Gateway tại chỗ vẫn hoạt động độc lập và tiếp tục mở barrier cho 100% phương tiện hợp lệ có trong bộ nhớ đệm cục bộ (Local Snapshot Database). Cam kết không làm gián đoạn dòng xe lưu thông tại cổng.
+            {t('Even when the Cloud Server is under maintenance or the Internet fiber is completely cut, the on-site Edge Gateway keeps operating independently and continues opening the barrier for 100% of valid vehicles in its local cache (Local Snapshot Database). We guarantee uninterrupted vehicle flow at the gate.')}
           </p>
         </div>
 
@@ -186,21 +188,21 @@ export const SlaPolicyPage: React.FC<SlaPolicyPageProps> = ({ onNavigate }) => {
             onClick={() => onNavigate('landing')}
             className="px-5 py-2.5 rounded-xl bg-[#21262d] hover:bg-[#30363d] text-white text-xs font-semibold border border-[#30363d] cursor-pointer"
           >
-            ← Trở về Trang Chủ
+            ← {t('Back to Home')}
           </button>
           <div className="flex items-center gap-3">
             <button
               onClick={() => onNavigate('privacy')}
               className="text-xs text-[#58a6ff] hover:underline cursor-pointer"
             >
-              Chính Sách Bảo Mật →
+              {t('Privacy Policy')} →
             </button>
             <span className="text-[#8b949e]">•</span>
             <button
               onClick={() => onNavigate('terms')}
               className="text-xs text-[#58a6ff] hover:underline cursor-pointer"
             >
-              Điều Khoản Dịch Vụ →
+              {t('Terms of Service')} →
             </button>
           </div>
         </div>

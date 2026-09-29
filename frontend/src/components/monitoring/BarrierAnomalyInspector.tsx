@@ -20,6 +20,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { Badge, Button } from '../ui';
+import { useTranslation } from 'react-i18next';
 
 interface BarrierAnomalyInspectorProps {
   anomaly: BarrierAnomalyResult | null;
@@ -34,6 +35,7 @@ export const BarrierAnomalyInspector: React.FC<BarrierAnomalyInspectorProps> = (
   onClose,
   onMitigate
 }) => {
+  const { t } = useTranslation('monitoring');
   const [mitigationNote, setMitigationNote] = useState('');
   const [isApplying, setIsApplying] = useState(false);
 
@@ -65,7 +67,7 @@ export const BarrierAnomalyInspector: React.FC<BarrierAnomalyInspectorProps> = (
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant={isCritical ? 'red' : isHigh ? 'amber' : 'purple'} dot size="sm">
-                    ML HEURISTIC · {anomaly.severity}
+                    ML HEURISTIC · {t(anomaly.severity)}
                   </Badge>
                   <span className="text-[10px] font-mono text-purple-300 bg-purple-950/60 border border-purple-800/60 px-2 py-0.5 rounded">
                     Score: {anomaly.anomalyScore}/100
@@ -94,7 +96,7 @@ export const BarrierAnomalyInspector: React.FC<BarrierAnomalyInspectorProps> = (
             <div className="flex items-center justify-between text-xs">
               <span className="text-purple-300 font-semibold flex items-center gap-1.5">
                 <Zap className="w-3.5 h-3.5 text-purple-400" />
-                Chỉ Số Dị Thường Heuristic (Anomaly Score)
+                {t('Heuristic Anomaly Score')}
               </span>
               <span className="font-mono font-bold text-purple-200 text-sm">
                 {anomaly.anomalyScore} / 100
@@ -107,7 +109,7 @@ export const BarrierAnomalyInspector: React.FC<BarrierAnomalyInspectorProps> = (
               />
             </div>
             <p className="text-[11px] text-[#8b949e]">
-              Dựa trên mô hình khoảng cách đa biến (Z-score + EWMA + Phân phối Poisson) phân tích lưu lượng thời gian thực.
+              {t('Based on multivariate distance model (Z-score + EWMA + Poisson distribution) analyzing real-time traffic.')}
             </p>
           </div>
         </div>
@@ -118,24 +120,24 @@ export const BarrierAnomalyInspector: React.FC<BarrierAnomalyInspectorProps> = (
           <div className="space-y-2">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-[#8b949e] flex items-center gap-1.5">
               <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
-              Đặc Trưng Thống Kê & Tham Số Heuristic (Features)
+              {t('Statistical Features & Heuristic Parameters')}
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
               <div className="bg-[#0d1117] p-3 rounded-xl border border-[#30363d] space-y-1">
-                <span className="text-[#8b949e] text-[10px] block">Tần Suất Quan Sát</span>
+                <span className="text-[#8b949e] text-[10px] block">{t('Observed Frequency')}</span>
                 <div className="flex items-baseline gap-1.5">
                   <span className="font-mono font-bold text-base text-purple-300">
                     {features.currentReqPerMin}
                   </span>
-                  <span className="text-[10px] text-[#8b949e]">req/phút</span>
+                  <span className="text-[10px] text-[#8b949e]">{t('req/min')}</span>
                 </div>
                 <span className="text-[10px] text-red-400 font-mono block">
-                  +{(features.burstRatio * 100 - 100).toFixed(0)}% so với chuẩn
+                  +{(features.burstRatio * 100 - 100).toFixed(0)}% {t('vs baseline')}
                 </span>
               </div>
 
               <div className="bg-[#0d1117] p-3 rounded-xl border border-[#30363d] space-y-1">
-                <span className="text-[#8b949e] text-[10px] block">Baseline Lịch Sử (μ ± σ)</span>
+                <span className="text-[#8b949e] text-[10px] block">{t('Historical Baseline (μ ± σ)')}</span>
                 <div className="flex items-baseline gap-1.5">
                   <span className="font-mono font-bold text-base text-white">
                     {features.baselineReqPerMin}
@@ -143,12 +145,12 @@ export const BarrierAnomalyInspector: React.FC<BarrierAnomalyInspectorProps> = (
                   <span className="text-[10px] text-[#8b949e]">± {features.baselineStdDev}</span>
                 </div>
                 <span className="text-[10px] text-[#8b949e] font-mono block">
-                  Ngưỡng 3σ: {(features.baselineReqPerMin + 3 * features.baselineStdDev).toFixed(1)} req/m
+                  {t('3σ threshold: {{val}} req/m', { val: (features.baselineReqPerMin + 3 * features.baselineStdDev).toFixed(1) })}
                 </span>
               </div>
 
               <div className="bg-[#0d1117] p-3 rounded-xl border border-[#30363d] space-y-1">
-                <span className="text-[#8b949e] text-[10px] block">Độ Lệch Chuẩn (Z-Score)</span>
+                <span className="text-[#8b949e] text-[10px] block">{t('Standard Deviation (Z-Score)')}</span>
                 <div className="flex items-baseline gap-1.5">
                   <span className="font-mono font-bold text-base text-purple-400">
                     +{features.zScore}σ
@@ -160,39 +162,39 @@ export const BarrierAnomalyInspector: React.FC<BarrierAnomalyInspectorProps> = (
               </div>
 
               <div className="bg-[#0d1117] p-3 rounded-xl border border-[#30363d] space-y-1">
-                <span className="text-[#8b949e] text-[10px] block">Tốc Độ EWMA (α=0.35)</span>
+                <span className="text-[#8b949e] text-[10px] block">{t('EWMA Rate (α=0.35)')}</span>
                 <div className="flex items-baseline gap-1.5">
                   <span className="font-mono font-bold text-base text-white">
                     {features.ewmaRate}
                   </span>
-                  <span className="text-[10px] text-[#8b949e]">req/phút</span>
+                  <span className="text-[10px] text-[#8b949e]">{t('req/min')}</span>
                 </div>
                 <span className="text-[10px] text-[#8b949e] font-mono block">
-                  Làm mượt dao động ngắn
+                  {t('Smooths short-term fluctuations')}
                 </span>
               </div>
 
               <div className="bg-[#0d1117] p-3 rounded-xl border border-[#30363d] space-y-1">
-                <span className="text-[#8b949e] text-[10px] block">Phương Sai Giãn Cách (Δt)</span>
+                <span className="text-[#8b949e] text-[10px] block">{t('Inter-Arrival Variance (Δt)')}</span>
                 <div className="flex items-baseline gap-1.5">
                   <span className="font-mono font-bold text-base text-amber-300">
                     {features.interArrivalVariance}s
                   </span>
                 </div>
                 <span className="text-[10px] text-amber-400/80 font-mono block">
-                  Rất thấp (Đặc trưng máy spam)
+                  {t('Very low (bot spam signature)')}
                 </span>
               </div>
 
               <div className="bg-[#0d1117] p-3 rounded-xl border border-[#30363d] space-y-1">
-                <span className="text-[#8b949e] text-[10px] block">Nhiệt Độ Động Cơ Servo</span>
+                <span className="text-[#8b949e] text-[10px] block">{t('Servo Motor Temperature')}</span>
                 <div className="flex items-baseline gap-1.5">
                   <span className="font-mono font-bold text-base text-white">
                     {features.motorTempC}°C
                   </span>
                 </div>
                 <span className="text-[10px] text-emerald-400 font-mono block">
-                  Chu kỳ 5m: {features.cyclesLast5Min} lượt
+                  {t('5m cycles: {{count}}', { count: features.cyclesLast5Min })}
                 </span>
               </div>
             </div>
@@ -201,10 +203,10 @@ export const BarrierAnomalyInspector: React.FC<BarrierAnomalyInspectorProps> = (
           {/* 2. Historical Timeline Sparkline Visualization */}
           <div className="bg-[#0d1117] p-4 rounded-xl border border-[#30363d] space-y-3">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-white">Diễn Biến Tần Suất Yêu Cầu (10 Phút Gần Nhất)</span>
+              <span className="font-semibold text-white">{t('Request Frequency Trend (Last 10 Minutes)')}</span>
               <div className="flex items-center gap-3 text-[10px] font-mono">
                 <span className="flex items-center gap-1 text-purple-400">
-                  <span className="w-2 h-2 bg-purple-400 rounded-sm" /> Thực tế
+                  <span className="w-2 h-2 bg-purple-400 rounded-sm" /> {t('Observed')}
                 </span>
                 <span className="flex items-center gap-1 text-[#8b949e]">
                   <span className="w-2 h-0.5 bg-[#8b949e]" /> Baseline
@@ -252,7 +254,7 @@ export const BarrierAnomalyInspector: React.FC<BarrierAnomalyInspectorProps> = (
           <div className="bg-[#0d1117] p-4 rounded-xl border border-purple-900/30 space-y-2">
             <h4 className="text-xs font-semibold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
               <ShieldAlert className="w-3.5 h-3.5 text-purple-400" />
-              Giả Thuyết Nguyên Nhân Gốc (Heuristic Root Cause)
+              {t('Root Cause Hypothesis (Heuristic)')}
             </h4>
             <p className="text-xs text-slate-200 leading-relaxed bg-[#161b22] p-3 rounded-lg border border-[#30363d]">
               {anomaly.hypothesis}
@@ -263,7 +265,7 @@ export const BarrierAnomalyInspector: React.FC<BarrierAnomalyInspectorProps> = (
           <div className="bg-[#0d1117] p-4 rounded-xl border border-emerald-900/40 space-y-2.5">
             <h4 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              Khuyến Nghị Khắc Phục Tức Thời (Mitigation Strategy)
+              {t('Immediate Mitigation Recommendations')}
             </h4>
             <p className="text-xs text-slate-300 leading-relaxed">
               {anomaly.recommendedAction}
@@ -276,10 +278,10 @@ export const BarrierAnomalyInspector: React.FC<BarrierAnomalyInspectorProps> = (
                 size="sm"
                 icon={Zap}
                 disabled={isApplying}
-                onClick={() => handleApplyAction('Kích hoạt Edge Rate-Limiting (2.5s/lệnh)')}
+                onClick={() => handleApplyAction(t('Edge rate-limiting enabled (2.5s/command)'))}
                 className="text-xs font-semibold shadow-md shadow-emerald-950/40"
               >
-                Bật Edge Rate-Limiting
+                {t('Enable Edge Rate-Limiting')}
               </Button>
 
               <Button
@@ -287,10 +289,10 @@ export const BarrierAnomalyInspector: React.FC<BarrierAnomalyInspectorProps> = (
                 size="sm"
                 icon={Sliders}
                 disabled={isApplying}
-                onClick={() => handleApplyAction('Tăng Delay Vòng Từ 3.5s')}
+                onClick={() => handleApplyAction(t('Loop sensor delay increased to 3.5s'))}
                 className="text-xs font-semibold"
               >
-                Tăng Delay Cảm Biến Từ
+                {t('Increase Loop Sensor Delay')}
               </Button>
 
               <Button
@@ -298,10 +300,10 @@ export const BarrierAnomalyInspector: React.FC<BarrierAnomalyInspectorProps> = (
                 size="sm"
                 icon={Lock}
                 disabled={isApplying}
-                onClick={() => handleApplyAction('Khóa Tạm Thời Làn Đang Bị Tấn Công')}
+                onClick={() => handleApplyAction(t('Temporarily locked attacked lane'))}
                 className="text-xs font-semibold"
               >
-                Khóa Tạm Thời Làn
+                {t('Temporarily Lock Lane')}
               </Button>
             </div>
           </div>
@@ -310,7 +312,7 @@ export const BarrierAnomalyInspector: React.FC<BarrierAnomalyInspectorProps> = (
         {/* Bottom Footer Actions */}
         <div className="pt-4 border-t border-[#30363d] flex items-center justify-between gap-3">
           <Button variant="ghost" size="sm" onClick={onClose} className="text-xs">
-            Đóng
+            {t('Close')}
           </Button>
 
           <Button
@@ -318,10 +320,10 @@ export const BarrierAnomalyInspector: React.FC<BarrierAnomalyInspectorProps> = (
             size="sm"
             icon={RefreshCw}
             disabled={isApplying}
-            onClick={() => handleApplyAction('Đã rà soát & thiết lập lại Heuristic')}
+            onClick={() => handleApplyAction(t('Reviewed & heuristic reset'))}
             className="text-xs font-bold"
           >
-            Đánh Dấu Đã Xử Lý & Reset Heuristic
+            {t('Mark Resolved & Reset Heuristic')}
           </Button>
         </div>
       </div>

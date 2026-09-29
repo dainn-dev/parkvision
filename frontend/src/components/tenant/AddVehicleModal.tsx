@@ -3,6 +3,7 @@ import { usePlatform } from '../../context/PlatformContext';
 import { Car, X, Check, ShieldCheck, UserCheck, AlertCircle } from 'lucide-react';
 import { Button, Input } from '../ui';
 import { VehicleType } from '../../types/tenant';
+import { useTranslation } from 'react-i18next';
 
 interface AddVehicleModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface AddVehicleModalProps {
 
 export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClose }) => {
   const { tenantUsers, createTenantVehicle } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const [formData, setFormData] = useState({
     plate: '',
@@ -37,7 +39,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
 
     const plateNumber = formData.plate.toUpperCase().trim();
     if (!plateNumber || !formData.make.trim() || !formData.model.trim()) {
-      setErrorMessage('Please provide license plate, make, and model.');
+      setErrorMessage(t('Please provide license plate, make, and model.'));
       return;
     }
 
@@ -78,7 +80,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
         description: ''
       });
     } else {
-      setErrorMessage(result.message || 'Failed to register vehicle.');
+      setErrorMessage(result.message || t('Failed to register vehicle.'));
     }
   };
 
@@ -94,8 +96,8 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
               <Car className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">Register & Enroll Vehicle</h3>
-              <p className="text-xs text-[#8b949e]">Add new vehicle to whitelist with ANPR automatic barrier access</p>
+              <h3 className="text-base font-bold text-white tracking-tight">{t('Register & Enroll Vehicle')}</h3>
+              <p className="text-xs text-[#8b949e]">{t('Add new vehicle to whitelist with ANPR automatic barrier access')}</p>
             </div>
           </div>
 
@@ -112,10 +114,10 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
           <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                License Plate Number <span className="text-[#f85149]">*</span>
+                {t('License Plate Number')} <span className="text-[#f85149]">*</span>
               </label>
               <Input
-                placeholder="e.g. 51G-888.99, 29A-12345, 59P1-99882"
+                placeholder={t('e.g. 51G-888.99, 29A-12345, 59P1-99882')}
                 value={formData.plate}
                 onChange={(e) => {
                   setFormData({ ...formData, plate: e.target.value.toUpperCase() });
@@ -129,7 +131,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[#8b949e] text-[11px] mb-1">
-                  Province / City
+                  {t('Province / City')}
                 </label>
                 <Input
                   value={formData.province}
@@ -139,7 +141,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
               </div>
               <div>
                 <label className="block text-[#8b949e] text-[11px] mb-1">
-                  Country
+                  {t('Country')}
                 </label>
                 <Input
                   value={formData.country}
@@ -154,10 +156,10 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Make / Manufacturer <span className="text-[#f85149]">*</span>
+                {t('Make / Manufacturer')} <span className="text-[#f85149]">*</span>
               </label>
               <Input
-                placeholder="e.g. Toyota, VinFast, Mazda"
+                placeholder={t('e.g. Toyota, VinFast, Mazda')}
                 value={formData.make}
                 onChange={(e) => setFormData({ ...formData, make: e.target.value })}
                 required
@@ -167,10 +169,10 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
 
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Model <span className="text-[#f85149]">*</span>
+                {t('Model')} <span className="text-[#f85149]">*</span>
               </label>
               <Input
-                placeholder="e.g. Camry, VF8, CX-5"
+                placeholder={t('e.g. Camry, VF8, CX-5')}
                 value={formData.model}
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                 required
@@ -182,25 +184,25 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Vehicle Type
+                {t('Vehicle Type')}
               </label>
               <select
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value as VehicleType })}
                 className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-2.5 py-2 text-white focus:outline-hidden"
               >
-                <option value="CAR">Car / SUV</option>
-                <option value="MOTORCYCLE">Motorcycle</option>
-                <option value="VAN">Van / Delivery</option>
-                <option value="TRUCK">Truck</option>
-                <option value="BUS">Bus</option>
-                <option value="OTHER">Other</option>
+                <option value="CAR">{t('Car / SUV')}</option>
+                <option value="MOTORCYCLE">{t('Motorcycle')}</option>
+                <option value="VAN">{t('Van / Delivery')}</option>
+                <option value="TRUCK">{t('Truck')}</option>
+                <option value="BUS">{t('Bus')}</option>
+                <option value="OTHER">{t('Other')}</option>
               </select>
             </div>
 
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Model Year
+                {t('Model Year')}
               </label>
               <Input
                 type="number"
@@ -214,10 +216,10 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
 
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Exterior Color
+                {t('Exterior Color')}
               </label>
               <Input
-                placeholder="e.g. Black, White"
+                placeholder={t('e.g. Black, White')}
                 value={formData.color}
                 onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                 className="bg-[#161b22] border-[#30363d] text-white"
@@ -227,10 +229,10 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
 
           <div>
             <label className="block text-[#c9d1d9] font-medium mb-1.5">
-              VIN / Chassis Number (Optional)
+              {t('VIN / Chassis Number (Optional)')}
             </label>
             <Input
-              placeholder="e.g. 1HGCR2F83HA001923"
+              placeholder={t('e.g. 1HGCR2F83HA001923')}
               value={formData.vin}
               onChange={(e) => setFormData({ ...formData, vin: e.target.value.toUpperCase() })}
               className="bg-[#161b22] border-[#30363d] text-white font-mono"
@@ -240,14 +242,14 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
           {/* Member Assignment Selector */}
           <div>
             <label className="block text-[#c9d1d9] font-medium mb-1.5">
-              Assign to Member Profile (Optional)
+              {t('Assign to Member Profile (Optional)')}
             </label>
             <select
               value={formData.memberId}
               onChange={(e) => setFormData({ ...formData, memberId: e.target.value })}
               className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-2 text-white focus:outline-hidden"
             >
-              <option value="">-- Unassigned Organization / Pool Vehicle --</option>
+              <option value="">{t('-- Unassigned Organization / Pool Vehicle --')}</option>
               {tenantUsers.map((u) => (
                 <option key={u.id} value={u.membership?.id || u.id}>
                   {u.name} ({u.membership?.memberCode || u.email}) {u.membership?.type ? `· ${u.membership.type}` : ''}
@@ -266,7 +268,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
           <div className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center gap-3">
             <ShieldCheck className="w-5 h-5 text-[#3fb950] shrink-0" />
             <div className="text-[11px] text-[#8b949e]">
-              Enrolled plate will instantly sync to all site edge cameras and open gates automatically upon 90%+ OCR match.
+              {t('Enrolled plate will instantly sync to all site edge cameras and open gates automatically upon 90%+ OCR match.')}
             </div>
           </div>
 
@@ -277,7 +279,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
               onClick={onClose}
               className="text-xs"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               type="submit"
@@ -286,7 +288,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
               className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
-              Enroll Vehicle
+              {t('Enroll Vehicle')}
             </Button>
           </div>
         </form>

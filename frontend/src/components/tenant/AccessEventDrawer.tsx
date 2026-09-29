@@ -23,6 +23,7 @@ import {
   Maximize2
 } from 'lucide-react';
 import { Button, Badge } from '../ui';
+import { useTranslation } from 'react-i18next';
 
 interface AccessEventDrawerProps {
   event: AccessEvent | null;
@@ -40,6 +41,7 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
   onBlock
 }) => {
   const { activeTenantId, addToast } = usePlatform();
+  const { t } = useTranslation('tenant');
   const [correctionInput, setCorrectionInput] = useState('');
   const [isCorrecting, setIsCorrecting] = useState(false);
 
@@ -52,10 +54,10 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
     tenantApi
       .correctPlate(activeTenantId, event.id, plate)
       .then(() => {
-        addToast({ type: 'success', title: 'Plate corrected', description: `${event.plate} → ${plate}` });
+        addToast({ type: 'success', title: t('Plate corrected'), description: `${event.plate} → ${plate}` });
         setCorrectionInput('');
       })
-      .catch(() => addToast({ type: 'error', title: 'Correction failed' }))
+      .catch(() => addToast({ type: 'error', title: t('Correction failed') }))
       .finally(() => setIsCorrecting(false));
   };
 
@@ -65,34 +67,34 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
             <CheckCircle2 className="w-3.5 h-3.5 text-[#3fb950]" />
-            ALLOWED
+            {t('ALLOWED')}
           </span>
         );
       case 'DENIED':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#da3633]/15 text-[#f85149] border border-[#da3633]/30">
             <XCircle className="w-3.5 h-3.5 text-[#f85149]" />
-            DENIED
+            {t('DENIED')}
           </span>
         );
       case 'BLOCKED':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#da3633]/25 text-[#ff7b72] border border-[#da3633]/50">
             <Ban className="w-3.5 h-3.5 text-[#ff7b72]" />
-            BLOCKED LIST
+            {t('BLOCKED LIST')}
           </span>
         );
       case 'UNKNOWN':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#d29922]/15 text-[#e3b341] border border-[#d29922]/30">
             <AlertTriangle className="w-3.5 h-3.5 text-[#e3b341]" />
-            UNKNOWN PLATE
+            {t('UNKNOWN PLATE')}
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#8b949e]/15 text-[#8b949e] border border-[#30363d]">
-            {decision}
+            {t(decision)}
           </span>
         );
     }
@@ -116,7 +118,7 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-white tracking-tight">Access Verification Inspection</h3>
+                <h3 className="text-sm font-bold text-white tracking-tight">{t('Access Verification Inspection')}</h3>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#21262d] border border-[#30363d] text-[#8b949e]">
                   {event.id}
                 </span>
@@ -141,7 +143,7 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
           <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between flex-wrap gap-3">
             <div>
               <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider mb-1">
-                Detected License Plate
+                {t('Detected License Plate')}
               </div>
               <div className="flex items-center gap-2.5">
                 <span className="font-mono text-xl font-extrabold text-white px-3 py-1 rounded bg-[#0d0e12] border-2 border-[#58a6ff]/40 shadow-inner tracking-wider">
@@ -150,7 +152,7 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
                 <button
                   onClick={() => navigator.clipboard?.writeText(event.plate)}
                   className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
-                  title="Copy plate number"
+                  title={t('Copy plate number')}
                 >
                   <Copy className="w-3.5 h-3.5" />
                 </button>
@@ -159,7 +161,7 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
 
             <div className="text-right">
               <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider mb-1">
-                Gate Decision
+                {t('Gate Decision')}
               </div>
               {getDecisionBadge(event.decision)}
             </div>
@@ -169,11 +171,11 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
           <div className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">
-                OCR Correction
+                {t('OCR Correction')}
               </span>
               {event.correctedPlate && (
                 <span className="text-[10px] text-[#d29922] font-mono">
-                  corrected → {event.correctedPlate} by {event.verifiedBy ?? 'operator'}
+                  {t('corrected')} → {event.correctedPlate} {t('by')} {event.verifiedBy ?? 'operator'}
                 </span>
               )}
             </div>
@@ -182,7 +184,7 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
                 type="text"
                 value={correctionInput}
                 onChange={(e) => setCorrectionInput(e.target.value.toUpperCase())}
-                placeholder="Correct plate (e.g. 30F12345)"
+                placeholder={t('Correct plate (e.g. 30F12345)')}
                 className="flex-1 px-3 py-1.5 bg-[#0d0e12] border border-[#30363d] rounded-lg font-mono text-[11px] text-white focus:outline-none focus:border-[#58a6ff]"
               />
               <button
@@ -191,7 +193,7 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
                 disabled={isCorrecting || !correctionInput.trim()}
                 className="px-3 py-1.5 rounded-lg bg-[#1f6feb]/20 border border-[#1f6feb]/40 text-[#58a6ff] text-[11px] font-semibold hover:bg-[#1f6feb]/30 disabled:opacity-40 transition-colors cursor-pointer"
               >
-                {isCorrecting ? 'Saving…' : 'Correct'}
+                {isCorrecting ? t('Saving…') : t('Correct')}
               </button>
             </div>
           </div>
@@ -201,11 +203,11 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
             <div className="flex items-center justify-between border-b border-[#30363d]/60 pb-2">
               <div className="flex items-center gap-2 text-white font-semibold">
                 <Camera className="w-4 h-4 text-[#58a6ff]" />
-                <span>ANPR Camera & Edge Vision Capture</span>
+                <span>{t('ANPR Camera & Edge Vision Capture')}</span>
               </div>
               <span className="text-[10px] text-[#3fb950] font-mono flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-ping" />
-                AI Inference Verified
+                {t('AI Inference Verified')}
               </span>
             </div>
 
@@ -231,7 +233,7 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
             <div className="grid grid-cols-2 gap-3 pt-1">
               <div className="p-3 rounded-lg bg-[#0d0e12] border border-[#30363d]">
                 <div className="flex items-center justify-between mb-1 text-[11px]">
-                  <span className="text-[#8b949e]">OCR Confidence</span>
+                  <span className="text-[#8b949e]">{t('OCR Confidence')}</span>
                   <span className="text-[#3fb950] font-mono font-bold">
                     {(event.plateConfidence * 100).toFixed(1)}%
                   </span>
@@ -246,7 +248,7 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
 
               <div className="p-3 rounded-lg bg-[#0d0e12] border border-[#30363d]">
                 <div className="flex items-center justify-between mb-1 text-[11px]">
-                  <span className="text-[#8b949e]">Detection Confidence</span>
+                  <span className="text-[#8b949e]">{t('Detection Confidence')}</span>
                   <span className="text-[#58a6ff] font-mono font-bold">
                     {(event.detectionConfidence * 100).toFixed(1)}%
                   </span>
@@ -265,34 +267,34 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
           <div className="rounded-xl bg-[#161b22] border border-[#30363d] p-4 space-y-3">
             <div className="flex items-center gap-2 text-white font-semibold border-b border-[#30363d]/60 pb-2">
               <MapPin className="w-4 h-4 text-[#d29922]" />
-              <span>Location & Gate Topology</span>
+              <span>{t('Location & Gate Topology')}</span>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">Site Facility</span>
+                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Site Facility')}</span>
                 <p className="text-white font-medium mt-0.5">{event.siteName}</p>
               </div>
 
               <div>
-                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">Gate Identifier</span>
+                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Gate Identifier')}</span>
                 <p className="text-white font-medium mt-0.5">{event.gateName}</p>
               </div>
 
               <div>
-                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">Lane & Direction</span>
+                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Lane & Direction')}</span>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-white font-medium">{event.laneName}</span>
                   <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
                     event.direction === 'IN' ? 'bg-[#238636]/20 text-[#3fb950]' : 'bg-[#1f6feb]/20 text-[#58a6ff]'
                   }`}>
-                    {event.direction}BOUND
+                    {event.direction === 'IN' ? t('INBOUND') : t('OUTBOUND')}
                   </span>
                 </div>
               </div>
 
               <div>
-                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">Verification Engine</span>
+                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Verification Engine')}</span>
                 <p className="text-[#8b949e] font-mono text-[11px] mt-0.5">{event.verifiedBy || 'Edge AI v4.2'}</p>
               </div>
             </div>
@@ -302,36 +304,36 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
           <div className="rounded-xl bg-[#161b22] border border-[#30363d] p-4 space-y-3">
             <div className="flex items-center gap-2 text-white font-semibold border-b border-[#30363d]/60 pb-2">
               <Car className="w-4 h-4 text-[#a371f7]" />
-              <span>Vehicle Specifications & Registry</span>
+              <span>{t('Vehicle Specifications & Registry')}</span>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">Make & Model</span>
-                <p className="text-white font-medium mt-0.5">{event.vehicleModel || 'Standard Passenger Vehicle'}</p>
+                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Make & Model')}</span>
+                <p className="text-white font-medium mt-0.5">{event.vehicleModel || t('Standard Passenger Vehicle')}</p>
               </div>
 
               <div>
-                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">Body Type & Color</span>
+                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Body Type & Color')}</span>
                 <p className="text-white font-medium mt-0.5">{event.vehicleType || 'Sedan'} · {event.vehicleColor || 'Standard'}</p>
               </div>
 
               <div>
-                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">Owner / Driver</span>
-                <p className="text-white font-medium mt-0.5">{event.ownerName || 'Unregistered Driver'}</p>
+                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Owner / Driver')}</span>
+                <p className="text-white font-medium mt-0.5">{event.ownerName || t('Unregistered Driver')}</p>
               </div>
 
               <div>
-                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">Affiliation Category</span>
+                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Affiliation Category')}</span>
                 <span className="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-[#21262d] text-[#58a6ff] border border-[#30363d]">
-                  {event.ownerType || 'VISITOR'}
+                  {t(event.ownerType || 'VISITOR')}
                 </span>
               </div>
             </div>
 
             {event.ownerDepartment && (
               <div className="pt-1">
-                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">Department</span>
+                <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Department')}</span>
                 <p className="text-[#c9d1d9] mt-0.5">{event.ownerDepartment}</p>
               </div>
             )}
@@ -341,19 +343,19 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
           <div className="rounded-xl bg-[#161b22] border border-[#30363d] p-4 space-y-2">
             <div className="flex items-center gap-2 text-white font-semibold border-b border-[#30363d]/60 pb-2">
               <ShieldCheck className="w-4 h-4 text-[#3fb950]" />
-              <span>Policy Evaluation & Rule Triggered</span>
+              <span>{t('Policy Evaluation & Rule Triggered')}</span>
             </div>
 
             <div>
-              <span className="text-[10px] text-[#8b949e] uppercase font-semibold">Enforced Access Rule</span>
+              <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Enforced Access Rule')}</span>
               <p className="text-[#58a6ff] font-medium font-mono text-[11px] mt-0.5">
-                {event.accessRule || 'Default Standard Multi-Site Access Policy'}
+                {event.accessRule || t('Default Standard Multi-Site Access Policy')}
               </p>
             </div>
 
             <div className="p-3 rounded-lg bg-[#0d0e12] border border-[#30363d] text-[#8b949e] text-[11px]">
-              <span className="text-white font-semibold">Decision Reason: </span>
-              {event.reason || 'Verification logic evaluated without anomalies.'}
+              <span className="text-white font-semibold">{t('Decision Reason:')} </span>
+              {event.reason || t('Verification logic evaluated without anomalies.')}
             </div>
           </div>
         </div>
@@ -366,7 +368,7 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
             onClick={onClose}
             className="text-xs"
           >
-            Close Sheet
+            {t('Close Sheet')}
           </Button>
 
           <div className="flex items-center gap-2">
@@ -378,7 +380,7 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
                 className="bg-[#238636] hover:bg-[#2ea043] text-white text-xs gap-1.5"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                Override & Open Gate
+                {t('Override & Open Gate')}
               </Button>
             )}
 
@@ -390,7 +392,7 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
                 className="text-[#f85149] hover:bg-[#da3633]/20 border-[#da3633]/40 text-xs gap-1.5"
               >
                 <Ban className="w-3.5 h-3.5" />
-                Add to Blocklist
+                {t('Add to Blocklist')}
               </Button>
             )}
           </div>

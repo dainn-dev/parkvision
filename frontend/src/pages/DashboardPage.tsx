@@ -22,6 +22,7 @@ import {
   Clock
 } from 'lucide-react';
 import { StatCard, Card, CardHeader, CardContent, Badge, Button } from '../components/ui';
+import { useTranslation } from 'react-i18next';
 import {
   AreaChart,
   Area,
@@ -48,6 +49,7 @@ export const DashboardPage: React.FC<{
     navigateTo,
     userType
   } = usePlatform();
+  const { t } = useTranslation('platform');
 
   // Server-aggregated platform metrics + throughput (Phase 2)
   const [metrics, setMetrics] = useState<components['schemas']['MetricsOverviewOut'] | null>(null);
@@ -94,15 +96,15 @@ export const DashboardPage: React.FC<{
         <div>
           <div className="flex items-center gap-2">
             <Badge variant="blue" size="sm">
-              GLOBAL PLATFORM GOVERNANCE
+              {t('GLOBAL PLATFORM GOVERNANCE')}
             </Badge>
-            <span className="text-xs text-[#8b949e] font-mono">Region: ap-southeast-1</span>
+            <span className="text-xs text-[#8b949e] font-mono">{t('Region: ap-southeast-1')}</span>
           </div>
           <h2 className="text-2xl font-extrabold text-white mt-2 tracking-tight">
-            Vehicle Platform Operational Center
+            {t('Vehicle Platform Operational Center')}
           </h2>
           <p className="text-xs text-[#8b949e] mt-1">
-            Real-time multi-tenant health, high-precision edge telemetry, and security oversight.
+            {t('Real-time multi-tenant health, high-precision edge telemetry, and security oversight.')}
           </p>
         </div>
 
@@ -113,14 +115,14 @@ export const DashboardPage: React.FC<{
             onClick={onOpenCreateTenantModal}
             className="shadow-sm"
           >
-            Provision Tenant
+            {t('Provision Tenant')}
           </Button>
           <Button
             variant="secondary"
             icon={ShieldAlert}
             onClick={() => navigateTo('security')}
           >
-            Security Center
+            {t('Security Center')}
           </Button>
         </div>
       </div>
@@ -128,40 +130,40 @@ export const DashboardPage: React.FC<{
       {/* 2. Top KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Total Platform Tenants"
+          title={t('Total Platform Tenants')}
           value={tenants.length}
-          subtitle={`${activeTenants} Active • ${trialTenants} Trial • ${suspendedTenants} Suspended`}
+          subtitle={t('{{active}} Active • {{trial}} Trial • {{suspended}} Suspended', { active: activeTenants, trial: trialTenants, suspended: suspendedTenants })}
           changeType="neutral"
           icon={Building2}
           onClick={() => navigateTo('tenants')}
         />
 
         <StatCard
-          title="Active Platform Users"
+          title={t('Active Platform Users')}
           value={totalUsersCount.toLocaleString()}
-          subtitle="Across all active enterprise tenant orgs"
+          subtitle={t('Across all active enterprise tenant orgs')}
           changeType="neutral"
           icon={Users}
           onClick={() => navigateTo('tenants')}
         />
 
         <StatCard
-          title="Recognition Events (24h)"
+          title={t('Recognition Events (24h)')}
           value={totalEventsCount.toLocaleString()}
-          subtitle={metrics ? "Live count today across all tenants" : "Real-time gate OCR payload throughput"}
+          subtitle={metrics ? t('Live count today across all tenants') : t('Real-time gate OCR payload throughput')}
           changeType="neutral"
           icon={Activity}
           onClick={() => navigateTo('monitoring')}
         />
 
         <StatCard
-          title="Platform Service Health"
+          title={t('Platform Service Health')}
           value={services.length ? `${services.filter((s) => s.status === 'HEALTHY').length}/${services.length}` : '—'}
-          subtitle="Core infrastructure services online"
-          change="● Live infra health"
+          subtitle={t('Core infrastructure services online')}
+          change={t('● Live infra health')}
           changeType="positive"
           icon={ShieldCheck}
-          badge={<Badge variant="emerald" dot>HEALTHY</Badge>}
+          badge={<Badge variant="emerald" dot>{t('HEALTHY')}</Badge>}
           onClick={() => navigateTo('monitoring')}
         />
       </div>
@@ -171,15 +173,15 @@ export const DashboardPage: React.FC<{
         {/* Core Services Health */}
         <Card className="lg:col-span-2">
           <CardHeader
-            title="Core Platform Microservices Status"
-            subtitle="Live ping latencies and SLA uptime verification"
+            title={t('Core Platform Microservices Status')}
+            subtitle={t('Live ping latencies and SLA uptime verification')}
             action={
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => navigateTo('monitoring', 'overview')}
               >
-                Detailed Health →
+                {t('Detailed Health')} →
               </Button>
             }
           />
@@ -201,7 +203,7 @@ export const DashboardPage: React.FC<{
                     {srv.responseTimeMs} ms
                   </span>
                   <span className="text-[10px] text-emerald-400 font-medium">
-                    {srv.uptimePercent != null ? `${srv.uptimePercent}% uptime` : 'uptime n/a'}
+                    {srv.uptimePercent != null ? `${srv.uptimePercent}% ${t('uptime')}` : t('uptime n/a')}
                   </span>
                 </div>
               </div>
@@ -212,8 +214,8 @@ export const DashboardPage: React.FC<{
         {/* Infrastructure Fleet Summary */}
         <Card>
           <CardHeader
-            title="Infrastructure Fleet"
-            subtitle="Aggregate Edge hardware & camera status"
+            title={t('Infrastructure Fleet')}
+            subtitle={t('Aggregate Edge hardware & camera status')}
           />
           <CardContent className="space-y-4">
             <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
@@ -222,8 +224,8 @@ export const DashboardPage: React.FC<{
                   <Video className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white">Cameras Fleet</h4>
-                  <p className="text-[11px] text-slate-400">{onlineCameras} / {totalCameras} Online</p>
+                  <h4 className="text-xs font-bold text-white">{t('Cameras Fleet')}</h4>
+                  <p className="text-[11px] text-slate-400">{onlineCameras} / {totalCameras} {t('Online')}</p>
                 </div>
               </div>
               <Badge variant={offlineCameras > 0 ? 'amber' : 'emerald'} size="sm">
@@ -241,10 +243,10 @@ export const DashboardPage: React.FC<{
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h4 className="text-xs font-bold text-white group-hover:text-sky-300 transition-colors">Gate Controllers & Barriers</h4>
+                    <h4 className="text-xs font-bold text-white group-hover:text-sky-300 transition-colors">{t('Gate Controllers & Barriers')}</h4>
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   </div>
-                  <p className="text-[11px] text-slate-400">{onlineGates} / {totalGates} Active · Xem Bản Đồ D3 →</p>
+                  <p className="text-[11px] text-slate-400">{onlineGates} / {totalGates} {t('Active')} · {t('View D3 Map')} →</p>
                 </div>
               </div>
               <Badge variant="emerald" size="sm">{totalGates ? `${((onlineGates / totalGates) * 100).toFixed(1)}%` : '—'}</Badge>
@@ -256,8 +258,8 @@ export const DashboardPage: React.FC<{
                   <Radio className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white">Edge Processing Nodes</h4>
-                  <p className="text-[11px] text-slate-400">{onlineEdge} / {totalEdge} Connected</p>
+                  <h4 className="text-xs font-bold text-white">{t('Edge Processing Nodes')}</h4>
+                  <p className="text-[11px] text-slate-400">{onlineEdge} / {totalEdge} {t('Connected')}</p>
                 </div>
               </div>
               <Badge variant="emerald" size="sm">{totalEdge ? `${((onlineEdge / totalEdge) * 100).toFixed(1)}%` : '—'}</Badge>
@@ -269,12 +271,12 @@ export const DashboardPage: React.FC<{
       {/* 4. Platform Event Throughput Chart */}
       <Card>
         <CardHeader
-          title="Platform Event Processing Rate (Payloads / Hour)"
-          subtitle="Real-time OCR license plate recognition & gate barrier access decisions"
+          title={t('Platform Event Processing Rate (Payloads / Hour)')}
+          subtitle={t('Real-time OCR license plate recognition & gate barrier access decisions')}
           action={
             <div className="flex items-center gap-2">
-              <Badge variant="blue" size="sm">24-Hour Range</Badge>
-              <Badge variant="emerald" size="sm" dot>Live SQL aggregation</Badge>
+              <Badge variant="blue" size="sm">{t('24-Hour Range')}</Badge>
+              <Badge variant="emerald" size="sm" dot>{t('Live SQL aggregation')}</Badge>
             </div>
           }
         />
@@ -303,7 +305,7 @@ export const DashboardPage: React.FC<{
                 <Area
                   type="monotone"
                   dataKey="events"
-                  name="Access events"
+                  name={t('Access events')}
                   stroke="#58a6ff"
                   strokeWidth={2.5}
                   fillOpacity={1}
@@ -312,7 +314,7 @@ export const DashboardPage: React.FC<{
                 <Area
                   type="monotone"
                   dataKey="commands"
-                  name="Gate commands"
+                  name={t('Gate commands')}
                   stroke="#a371f7"
                   strokeWidth={1.5}
                   fillOpacity={0}
@@ -329,11 +331,11 @@ export const DashboardPage: React.FC<{
         {/* Security Alerts */}
         <Card>
           <CardHeader
-            title="Security Threats & Control Center"
-            subtitle="Detected authentication anomalies and active security alerts"
+            title={t('Security Threats & Control Center')}
+            subtitle={t('Detected authentication anomalies and active security alerts')}
             action={
               <Button variant="ghost" size="sm" onClick={() => navigateTo('security')}>
-                Security Center →
+                {t('Security Center')} →
               </Button>
             }
           />
@@ -341,7 +343,7 @@ export const DashboardPage: React.FC<{
             {securityAlerts.length === 0 ? (
               <div className="py-8 text-center text-slate-500 text-xs">
                 <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-                No unresolved security alerts.
+                {t('No unresolved security alerts.')}
               </div>
             ) : (
               securityAlerts.slice(0, 3).map((alert) => (
@@ -359,7 +361,7 @@ export const DashboardPage: React.FC<{
                     </div>
                     <p className="text-xs text-slate-400">{alert.evidence.details}</p>
                     <div className="text-[10px] text-slate-500 font-mono">
-                      Subject: {alert.subjectEmail} • IP: {alert.sourceIp}
+                      {t('Subject:')} {alert.subjectEmail} • IP: {alert.sourceIp}
                     </div>
                   </div>
                   <span className="text-[10px] text-slate-500 whitespace-nowrap">
@@ -374,11 +376,11 @@ export const DashboardPage: React.FC<{
         {/* Recent Audit Activity */}
         <Card>
           <CardHeader
-            title="Recent Administrative Activity"
-            subtitle="Platform-wide audit trail of governance actions"
+            title={t('Recent Administrative Activity')}
+            subtitle={t('Platform-wide audit trail of governance actions')}
             action={
               <Button variant="ghost" size="sm" onClick={() => navigateTo('audit')}>
-                Full Audit Trail →
+                {t('Full Audit Trail')} →
               </Button>
             }
           />
@@ -394,7 +396,7 @@ export const DashboardPage: React.FC<{
                   <div>
                     <span className="font-bold text-slate-200 block">{log.action}</span>
                     <span className="text-[11px] text-slate-400">
-                      by {log.actorName} ({log.actorEmail})
+                      {t('by')} {log.actorName} ({log.actorEmail})
                     </span>
                   </div>
                 </div>

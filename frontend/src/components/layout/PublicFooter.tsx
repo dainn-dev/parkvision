@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Globe
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { PublicViewType } from './PublicNavbar';
 
 interface PublicFooterProps {
@@ -25,6 +26,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
   onNavigate,
   onScrollToSection
 }) => {
+  const { t } = useTranslation('layout');
   return (
     <footer className="border-t border-[#30363d] bg-[#0d0e12] text-[#8b949e] font-sans">
       {/* Top Banner CTA */}
@@ -32,13 +34,13 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-2 text-center md:text-left">
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] text-xs font-mono">
-              <Sparkles className="w-3.5 h-3.5" /> Dùng thử đầy đủ tính năng trong 14 ngày
+              <Sparkles className="w-3.5 h-3.5" /> {t('Full-featured 14-day trial')}
             </div>
             <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-              Sẵn sàng nâng cấp bãi đỗ xe và cổng barrier thông minh?
+              {t('Ready to upgrade your parking lot with smart barriers?')}
             </h3>
             <p className="text-sm text-[#8b949e] max-w-2xl">
-              Không cần thay mới phần cứng barrier. Tương thích ngay với camera IP hiện có. Cài đặt nhanh chóng chỉ trong 4 giờ làm việc.
+              {t('No barrier hardware replacement needed. Works with your existing IP cameras. Deployed in just 4 working hours.')}
             </p>
           </div>
 
@@ -47,7 +49,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
               onClick={() => onNavigate('register')}
               className="px-6 py-3 rounded-xl bg-[#58a6ff] hover:bg-[#388bfd] text-slate-950 font-bold text-sm shadow-lg shadow-[#58a6ff]/20 transition-all flex items-center gap-2 cursor-pointer"
             >
-              <span>Đăng ký Tenant dùng thử</span>
+              <span>{t('Register a Trial Tenant')}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
             <button
@@ -56,7 +58,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
               }}
               className="px-5 py-3 rounded-xl bg-[#21262d] hover:bg-[#30363d] text-white font-semibold text-sm border border-[#30363d] transition-colors cursor-pointer"
             >
-              Xem Live Demo
+              {t('Watch Live Demo')}
             </button>
           </div>
         </div>
@@ -76,17 +78,17 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
               </span>
             </div>
             <p className="text-xs leading-relaxed text-[#8b949e] max-w-sm">
-              Nền tảng kiểm soát ra vào phương tiện thế hệ mới dựa trên trí tuệ nhân tạo (Edge AI ANPR), tự động hóa barrier và quản trị bãi xe đa điểm tập trung trên đám mây.
+              {t('A next-generation vehicle access control platform powered by Edge AI ANPR, automating barriers and centrally managing multi-site parking in the cloud.')}
             </p>
 
             <div className="space-y-2 text-xs">
               <div className="flex items-center gap-2.5 text-[#c9d1d9]">
                 <MapPin className="w-4 h-4 text-[#58a6ff] shrink-0" />
-                <span>Tầng 12, Tòa nhà Bitexco Financial, Q.1, TP. Hồ Chí Minh</span>
+                <span>{t('12th Floor, Bitexco Financial Tower, District 1, Ho Chi Minh City')}</span>
               </div>
               <div className="flex items-center gap-2.5 text-[#c9d1d9]">
                 <Phone className="w-4 h-4 text-[#3fb950] shrink-0" />
-                <span>Hotline tư vấn & CSKH: 1900 8899 / (028) 7300 8899</span>
+                <span>{t('Consulting & Support Hotline: 1900 8899 / (028) 7300 8899')}</span>
               </div>
               <div className="flex items-center gap-2.5 text-[#c9d1d9]">
                 <Mail className="w-4 h-4 text-[#d29922] shrink-0" />
@@ -97,7 +99,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
             {/* Compliance Badges */}
             <div className="pt-2 flex flex-wrap items-center gap-2 text-[11px] font-mono">
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#21262d] border border-[#30363d] text-[#3fb950]">
-                <CheckCircle2 className="w-3 h-3" /> Nghị định 13/2023/NĐ-CP
+                <CheckCircle2 className="w-3 h-3" /> {t('Decree 13/2023/ND-CP')}
               </span>
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#21262d] border border-[#30363d] text-[#58a6ff]">
                 <Lock className="w-3 h-3" /> TLS 1.3 & AES-256
@@ -111,7 +113,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
           {/* Solutions Column */}
           <div className="space-y-3">
             <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-              Giải Pháp Theo Ngành
+              {t('Solutions by Industry')}
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
@@ -122,7 +124,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   }}
                   className="hover:text-white transition-colors cursor-pointer text-left"
                 >
-                  Tòa nhà văn phòng & TTTM
+                  {t('Office Buildings & Shopping Malls')}
                 </button>
               </li>
               <li>
@@ -133,7 +135,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   }}
                   className="hover:text-white transition-colors cursor-pointer text-left"
                 >
-                  Khu dân cư & Chung cư cao cấp
+                  {t('Residential Areas & Premium Apartments')}
                 </button>
               </li>
               <li>
@@ -144,7 +146,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   }}
                   className="hover:text-white transition-colors cursor-pointer text-left"
                 >
-                  Khu công nghiệp & Kho vận
+                  {t('Industrial Parks & Warehouses')}
                 </button>
               </li>
               <li>
@@ -155,7 +157,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   }}
                   className="hover:text-white transition-colors cursor-pointer text-left"
                 >
-                  Bệnh viện & Cơ quan nhà nước
+                  {t('Hospitals & Government Offices')}
                 </button>
               </li>
               <li>
@@ -166,7 +168,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   }}
                   className="hover:text-white transition-colors cursor-pointer text-left"
                 >
-                  Bãi đỗ xe thông minh thu phí tự động
+                  {t('Automated-fee Smart Parking Lots')}
                 </button>
               </li>
             </ul>
@@ -175,7 +177,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
           {/* Platform & Product Column */}
           <div className="space-y-3">
             <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-              Nền Tảng & Công Nghệ
+              {t('Platform & Technology')}
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
@@ -186,7 +188,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   }}
                   className="hover:text-white transition-colors cursor-pointer text-left"
                 >
-                  Nhận diện biển số OCR AI
+                  {t('AI OCR License Plate Recognition')}
                 </button>
               </li>
               <li>
@@ -197,7 +199,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   }}
                   className="hover:text-white transition-colors cursor-pointer text-left"
                 >
-                  Động cơ luật Policy Rules Engine
+                  {t('Policy Rules Engine')}
                 </button>
               </li>
               <li>
@@ -208,7 +210,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   }}
                   className="hover:text-white transition-colors cursor-pointer text-left"
                 >
-                  Chống bám đuôi & Anti-Passback
+                  {t('Anti-Tailgating & Anti-Passback')}
                 </button>
               </li>
               <li>
@@ -219,7 +221,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   }}
                   className="hover:text-white transition-colors cursor-pointer text-left"
                 >
-                  Cơ chế dự phòng Offline tại trạm
+                  {t('On-site Offline Failover')}
                 </button>
               </li>
               <li>
@@ -230,7 +232,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   }}
                   className="hover:text-white transition-colors cursor-pointer text-left"
                 >
-                  Bảng giá & Gói cước
+                  {t('Pricing & Plans')}
                 </button>
               </li>
             </ul>
@@ -239,7 +241,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
           {/* Legal & Policy Column */}
           <div className="space-y-3">
             <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-              Chính Sách & Pháp Lý
+              {t('Policies & Legal')}
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
@@ -247,7 +249,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   onClick={() => onNavigate('privacy')}
                   className="hover:text-white transition-colors cursor-pointer text-left flex items-center gap-1.5"
                 >
-                  <span>Chính sách bảo mật (Privacy)</span>
+                  <span>{t('Privacy Policy')}</span>
                 </button>
               </li>
               <li>
@@ -255,7 +257,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   onClick={() => onNavigate('terms')}
                   className="hover:text-white transition-colors cursor-pointer text-left flex items-center gap-1.5"
                 >
-                  <span>Điều khoản dịch vụ (Terms)</span>
+                  <span>{t('Terms of Service')}</span>
                 </button>
               </li>
               <li>
@@ -263,7 +265,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   onClick={() => onNavigate('sla')}
                   className="hover:text-white transition-colors cursor-pointer text-left flex items-center gap-1.5"
                 >
-                  <span>Cam kết chất lượng SLA (99.9%)</span>
+                  <span>{t('SLA Commitment (99.9%)')}</span>
                 </button>
               </li>
               <li>
@@ -271,7 +273,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   onClick={() => onNavigate('login')}
                   className="hover:text-white transition-colors cursor-pointer text-left flex items-center gap-1.5 text-[#58a6ff]"
                 >
-                  <span>Cổng đăng nhập khách hàng</span>
+                  <span>{t('Customer Login Portal')}</span>
                 </button>
               </li>
               <li>
@@ -279,7 +281,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   onClick={() => onNavigate('register')}
                   className="hover:text-white transition-colors cursor-pointer text-left flex items-center gap-1.5 text-[#3fb950]"
                 >
-                  <span>Đăng ký Tenant mới (14 ngày)</span>
+                  <span>{t('New Tenant Signup (14 days)')}</span>
                 </button>
               </li>
             </ul>
@@ -288,13 +290,13 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
 
         {/* Bottom Bar */}
         <div className="mt-12 pt-6 border-t border-[#30363d] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-          <p>© 2026 ANPR.CLOUD SaaS Platform. Bản quyền thuộc về Công ty Cổ phần Giải pháp An ninh Số Toàn Cầu.</p>
+          <p>{t('© 2026 ANPR.CLOUD SaaS Platform. All rights reserved by Global Digital Security Solutions JSC.')}</p>
           <div className="flex items-center gap-6">
             <button onClick={() => onNavigate('privacy')} className="hover:text-white transition-colors">
-              Bảo mật dữ liệu
+              {t('Data Privacy')}
             </button>
             <button onClick={() => onNavigate('terms')} className="hover:text-white transition-colors">
-              Điều khoản sử dụng
+              {t('Terms of Use')}
             </button>
             <button onClick={() => onNavigate('sla')} className="hover:text-white transition-colors">
               SLA 99.9%

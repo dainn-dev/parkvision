@@ -18,7 +18,9 @@ import {
   Sliders
 } from 'lucide-react';
 import { usePlatform } from '../../context/PlatformContext';
+import { useTranslation } from 'react-i18next';
 import { Button, Badge } from '../ui';
+import { LanguageSwitcher } from '../common/LanguageSwitcher';
 
 export type PublicViewType = 'landing' | 'login' | 'register' | 'privacy' | 'terms' | 'sla' | 'activate' | 'find-car';
 
@@ -34,6 +36,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
   onScrollToSection
 }) => {
   const { isAuthenticated, theme, toggleTheme } = usePlatform();
+  const { t } = useTranslation('layout');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleNavClick = (sectionId: string) => {
@@ -69,7 +72,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               </Badge>
             </div>
             <p className="text-[10px] text-[#8b949e] font-medium hidden sm:block">
-              Kiểm Soát Ra Vào & Barrier Thông Minh
+              {t('Smart Access Control & Barriers')}
             </p>
           </div>
         </div>
@@ -80,7 +83,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
             onClick={() => handleNavClick('features')}
             className="px-3 py-1.5 rounded-lg hover:text-white hover:bg-[#161b22] transition-colors cursor-pointer"
           >
-            Tính năng cốt lõi
+            {t('Core Features')}
           </button>
           <button
             onClick={() => handleNavClick('simulator')}
@@ -93,35 +96,36 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
             onClick={() => handleNavClick('how-it-works')}
             className="px-3 py-1.5 rounded-lg hover:text-white hover:bg-[#161b22] transition-colors cursor-pointer"
           >
-            Mô hình vận hành
+            {t('Operating Model')}
           </button>
           <button
             onClick={() => handleNavClick('solutions')}
             className="px-3 py-1.5 rounded-lg hover:text-white hover:bg-[#161b22] transition-colors cursor-pointer"
           >
-            Giải pháp
+            {t('Solutions')}
           </button>
           <button
             onClick={() => handleNavClick('pricing')}
             className="px-3 py-1.5 rounded-lg hover:text-white hover:bg-[#161b22] transition-colors cursor-pointer"
           >
-            Bảng giá
+            {t('Pricing')}
           </button>
           <button
             onClick={() => handleNavClick('faq')}
             className="px-3 py-1.5 rounded-lg hover:text-white hover:bg-[#161b22] transition-colors cursor-pointer"
           >
-            Hỏi đáp (FAQ)
+            {t('FAQ')}
           </button>
         </nav>
 
         {/* Right Actions */}
         <div className="flex items-center gap-2.5">
+          <LanguageSwitcher />
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
             className="p-2 rounded-lg text-[#8b949e] hover:text-white hover:bg-[#161b22] transition-colors cursor-pointer border border-[#30363d]"
-            title={theme === 'dark' ? 'Chuyển sang Giao diện Sáng' : 'Chuyển sang Giao diện Tối'}
+            title={theme === 'dark' ? t('Switch to Light Mode') : t('Switch to Dark Mode')}
           >
             {theme === 'dark' ? <Sun className="w-4 h-4 text-[#d29922]" /> : <Moon className="w-4 h-4 text-[#58a6ff]" />}
           </button>
@@ -135,7 +139,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               onClick={() => onNavigate('landing')} // In App.tsx this will switch to workspace view
               className="bg-[#238636] hover:bg-[#2ea043] border-[#3fb950] text-white"
             >
-              Vào Workspace Quản trị
+              {t('Back to Admin Workspace')}
             </Button>
           ) : (
             <>
@@ -149,7 +153,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
                 }`}
               >
                 <LogIn className="w-3.5 h-3.5 text-[#58a6ff]" />
-                <span>Đăng nhập</span>
+                <span>{t('Sign In')}</span>
               </button>
 
               {/* Free Trial / Register Button */}
@@ -160,7 +164,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
                 onClick={() => onNavigate('register')}
                 className="shadow-sm shadow-[#58a6ff]/30 text-xs py-2 px-3.5"
               >
-                Dùng thử 14 ngày
+                {t('14-Day Free Trial')}
               </Button>
             </>
           )}
@@ -186,7 +190,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               }}
               className="w-full py-2 px-3 rounded-lg bg-[#0d0e12] border border-[#30363d] text-xs font-semibold text-white flex items-center justify-center gap-1.5"
             >
-              <LogIn className="w-3.5 h-3.5 text-[#58a6ff]" /> Đăng nhập
+              <LogIn className="w-3.5 h-3.5 text-[#58a6ff]" /> {t('Sign In')}
             </button>
             <button
               onClick={() => {
@@ -195,7 +199,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               }}
               className="w-full py-2 px-3 rounded-lg bg-[#58a6ff] text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5"
             >
-              <UserPlus className="w-3.5 h-3.5" /> Dùng thử ngay
+              <UserPlus className="w-3.5 h-3.5" /> {t('Try Free')}
             </button>
           </div>
 
@@ -204,7 +208,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               onClick={() => handleNavClick('features')}
               className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#0d0e12] flex items-center justify-between"
             >
-              <span>Tính năng cốt lõi</span>
+              <span>{t('Core Features')}</span>
               <ChevronRight className="w-4 h-4 text-[#8b949e]" />
             </button>
             <button
@@ -212,7 +216,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#0d0e12] flex items-center justify-between text-[#58a6ff]"
             >
               <span className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#58a6ff]" /> Trải nghiệm Live Demo ANPR
+                <Sparkles className="w-4 h-4 text-[#58a6ff]" /> {t('Try the Live ANPR Demo')}
               </span>
               <ChevronRight className="w-4 h-4 text-[#58a6ff]" />
             </button>
@@ -220,43 +224,43 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               onClick={() => handleNavClick('how-it-works')}
               className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#0d0e12] flex items-center justify-between"
             >
-              <span>Mô hình vận hành 3 bước</span>
+              <span>{t('3-Step Operating Model')}</span>
               <ChevronRight className="w-4 h-4 text-[#8b949e]" />
             </button>
             <button
               onClick={() => handleNavClick('solutions')}
               className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#0d0e12] flex items-center justify-between"
             >
-              <span>Giải pháp theo ngành</span>
+              <span>{t('Solutions by Industry')}</span>
               <ChevronRight className="w-4 h-4 text-[#8b949e]" />
             </button>
             <button
               onClick={() => handleNavClick('pricing')}
               className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#0d0e12] flex items-center justify-between"
             >
-              <span>Bảng giá dịch vụ</span>
+              <span>{t('Service Pricing')}</span>
               <ChevronRight className="w-4 h-4 text-[#8b949e]" />
             </button>
             <button
               onClick={() => handleNavClick('faq')}
               className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#0d0e12] flex items-center justify-between"
             >
-              <span>Hỏi đáp (FAQ)</span>
+              <span>{t('FAQ')}</span>
               <ChevronRight className="w-4 h-4 text-[#8b949e]" />
             </button>
           </div>
 
           <div className="pt-2 border-t border-[#30363d] flex items-center justify-between text-xs text-[#8b949e]">
             <button onClick={() => { setMobileMenuOpen(false); onNavigate('privacy'); }} className="hover:text-white">
-              Bảo mật
+              {t('Privacy')}
             </button>
             <span>•</span>
             <button onClick={() => { setMobileMenuOpen(false); onNavigate('terms'); }} className="hover:text-white">
-              Điều khoản
+              {t('Terms')}
             </button>
             <span>•</span>
             <button onClick={() => { setMobileMenuOpen(false); onNavigate('sla'); }} className="hover:text-white">
-              Cam kết SLA 99.9%
+              {t('99.9% SLA Commitment')}
             </button>
           </div>
         </div>

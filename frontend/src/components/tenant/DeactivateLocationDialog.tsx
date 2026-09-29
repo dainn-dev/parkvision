@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AlertTriangle, CheckCircle, X, ShieldAlert, Power } from 'lucide-react';
 import { Button } from '../ui';
 import { TenantLocation } from '../../types/tenant';
+import { useTranslation } from 'react-i18next';
 
 interface DeactivateLocationDialogProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const DeactivateLocationDialog: React.FC<DeactivateLocationDialogProps> =
   location,
   onConfirm
 }) => {
+  const { t } = useTranslation('tenant');
   const [confirmInput, setConfirmInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -65,7 +67,7 @@ export const DeactivateLocationDialog: React.FC<DeactivateLocationDialogProps> =
             </div>
             <div>
               <h3 className="text-base font-bold text-white tracking-tight">
-                {isCurrentActive ? 'Deactivate Location' : 'Activate Location'}
+                {isCurrentActive ? t('Deactivate Location') : t('Activate Location')}
               </h3>
               <p className="text-xs text-[#8b949e]">
                 {location.name} ({location.code})
@@ -88,27 +90,26 @@ export const DeactivateLocationDialog: React.FC<DeactivateLocationDialogProps> =
               <div className="p-3.5 rounded-xl bg-[#f85149]/10 border border-[#f85149]/30 text-[#f85149] space-y-1.5">
                 <div className="font-semibold flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>Operational Impact Warning</span>
+                  <span>{t('Operational Impact Warning')}</span>
                 </div>
                 <p className="text-[11px] text-[#ff7b72] leading-relaxed">
-                  Deactivating this location will suspend live ANPR automated gate opening and OCR
-                  processing across all 4 lanes.
+                  {t('Deactivating this location will suspend live ANPR automated gate opening and OCR processing across all 4 lanes.')}
                 </p>
               </div>
 
               <div className="space-y-2 text-[#c9d1d9]">
-                <p className="font-medium">What happens when deactivated:</p>
+                <p className="font-medium">{t('What happens when deactivated:')}</p>
                 <ul className="list-disc list-inside space-y-1 text-[#8b949e] text-[11px]">
-                  <li>Automated gate relay triggers will pause</li>
-                  <li>Historical event logs & vehicle registries remain intact</li>
-                  <li>Hardware telemetry remains visible for diagnostic purposes</li>
-                  <li>You can reactivate this location at any time</li>
+                  <li>{t('Automated gate relay triggers will pause')}</li>
+                  <li>{t('Historical event logs & vehicle registries remain intact')}</li>
+                  <li>{t('Hardware telemetry remains visible for diagnostic purposes')}</li>
+                  <li>{t('You can reactivate this location at any time')}</li>
                 </ul>
               </div>
 
               <div className="space-y-1.5 pt-2">
                 <label className="text-[11px] font-medium text-[#c9d1d9]">
-                  Type <span className="text-[#f85149] font-mono font-bold">DEACTIVATE</span> to confirm:
+                  {t('Type')} <span className="text-[#f85149] font-mono font-bold">DEACTIVATE</span> {t('to confirm:')}
                 </label>
                 <input
                   type="text"
@@ -122,11 +123,10 @@ export const DeactivateLocationDialog: React.FC<DeactivateLocationDialogProps> =
           ) : (
             <div className="space-y-3 text-[#c9d1d9]">
               <p className="leading-relaxed">
-                Activating this location will re-enable ANPR automated barrier gate controls and live
-                access validation for registered vehicles.
+                {t('Activating this location will re-enable ANPR automated barrier gate controls and live access validation for registered vehicles.')}
               </p>
               <div className="p-3 rounded-xl bg-[#238636]/10 border border-[#238636]/30 text-[#3fb950] text-[11px]">
-                ✓ All edge cameras and relays will immediately resume real-time operational polling.
+                {t('✓ All edge cameras and relays will immediately resume real-time operational polling.')}
               </div>
             </div>
           )}
@@ -141,7 +141,7 @@ export const DeactivateLocationDialog: React.FC<DeactivateLocationDialogProps> =
             onClick={onClose}
             className="text-xs border-[#30363d] text-[#8b949e] hover:text-white"
           >
-            Cancel
+            {t('Cancel')}
           </Button>
 
           <Button
@@ -158,7 +158,7 @@ export const DeactivateLocationDialog: React.FC<DeactivateLocationDialogProps> =
             }`}
           >
             <Power className="w-3.5 h-3.5" />
-            {isCurrentActive ? 'Confirm Deactivation' : 'Activate Location'}
+            {isCurrentActive ? t('Confirm Deactivation') : t('Activate Location')}
           </Button>
         </div>
       </div>

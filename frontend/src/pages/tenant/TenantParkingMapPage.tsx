@@ -7,6 +7,7 @@ import { VehicleLocatePanel } from '../../components/tenant/parking/VehicleLocat
 import { ParkingLevelEditor } from '../../components/tenant/parking/ParkingLevelEditor';
 import { ZoneEditorSheet } from '../../components/tenant/parking/ZoneEditorSheet';
 import type { LocateOut, MapZoneOut, ZoneBounds } from '../../services/api';
+import { useTranslation } from 'react-i18next';
 
 export const TenantParkingMapPage: React.FC = () => {
   const {
@@ -17,6 +18,7 @@ export const TenantParkingMapPage: React.FC = () => {
     locateVehicleInLot,
     setTenantNavTab,
   } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const [siteFilter, setSiteFilter] = useState<string>('all');
   const [selectedLevelId, setSelectedLevelId] = useState<string | null>(null);
@@ -73,10 +75,10 @@ export const TenantParkingMapPage: React.FC = () => {
         <div>
           <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
             <MapPinned className="w-5 h-5 text-[#58a6ff]" />
-            Sơ Đồ Bãi Xe
+            {t('Parking Lot Map')}
           </h2>
           <p className="text-xs text-[#8b949e] mt-1">
-            Phân tầng, khu vực đỗ xe và tìm kiếm vị trí xe theo biển số — cập nhật trực tiếp từ camera giám sát.
+            {t('Levels, parking zones and plate-based vehicle locating — live from monitor cameras.')}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -86,7 +88,7 @@ export const TenantParkingMapPage: React.FC = () => {
               onChange={(e) => setSiteFilter(e.target.value)}
               className="min-w-[180px]"
               options={[
-                { value: 'all', label: 'Tất cả khu vực' },
+                { value: 'all', label: t('All sites') },
                 ...tenantSites.map((s) => ({ value: s.id, label: s.name })),
               ]}
             />
@@ -99,7 +101,7 @@ export const TenantParkingMapPage: React.FC = () => {
                 onClick={() => setLevelEditorOpen(true)}
               >
                 <Layers className="w-3.5 h-3.5" />
-                Quản lý tầng
+                {t('Manage Levels')}
               </Button>
               <Button
                 variant={editMode ? 'primary' : 'outline'}
@@ -107,7 +109,7 @@ export const TenantParkingMapPage: React.FC = () => {
                 onClick={() => setEditMode((v) => !v)}
               >
                 <Pencil className="w-3.5 h-3.5" />
-                {editMode ? 'Đang chỉnh sửa' : 'Chỉnh sửa sơ đồ'}
+                {editMode ? t('Editing') : t('Edit map')}
               </Button>
             </>
           )}
@@ -117,9 +119,9 @@ export const TenantParkingMapPage: React.FC = () => {
       {levels.length === 0 ? (
         <Card className="p-10 flex flex-col items-center text-center gap-3">
           <Layers className="w-10 h-10 text-[#8b949e]" />
-          <h3 className="text-sm font-bold text-white">Chưa có sơ đồ bãi xe</h3>
+          <h3 className="text-sm font-bold text-white">{t('No parking map yet')}</h3>
           <p className="text-xs text-[#8b949e] max-w-md">
-            Tạo tầng và khu vực để hệ thống camera giám sát có thể ghi nhận vị trí xe và hướng dẫn người dùng.
+            {t('Create levels and zones so monitor cameras can record vehicle positions and guide users.')}
           </p>
           {canWrite && (
             <Button
@@ -127,7 +129,7 @@ export const TenantParkingMapPage: React.FC = () => {
               className="mt-2"
             >
               <Plus className="w-4 h-4 mr-1.5" />
-              Thêm tầng đầu tiên
+              {t('Add first level')}
             </Button>
           )}
         </Card>
@@ -155,11 +157,11 @@ export const TenantParkingMapPage: React.FC = () => {
                   </button>
                 </div>
                 <p className="text-[11px] text-[#8b949e]">
-                  {zonePopover.occupiedCount}{zonePopover.capacity ? `/${zonePopover.capacity}` : ''} xe đang đỗ
+                  {zonePopover.occupiedCount}{zonePopover.capacity ? `/${zonePopover.capacity}` : ''} {t('vehicles parked')}
                 </p>
                 <div className="space-y-1 max-h-40 overflow-y-auto">
                   {zonePlates.length === 0 && (
-                    <p className="text-[11px] text-[#8b949e] italic">Trống</p>
+                    <p className="text-[11px] text-[#8b949e] italic">{t('Empty')}</p>
                   )}
                   {zonePlates.map((p) => (
                     <div key={p.id} className="flex items-center gap-2 text-xs text-[#c9d1d9]">
@@ -176,7 +178,7 @@ export const TenantParkingMapPage: React.FC = () => {
           <Card className="lg:col-span-2 p-4">
             {editMode && canWrite && (
               <p className="text-[11px] text-[#58a6ff] mb-2">
-                Chế độ chỉnh sửa: kéo chuột trên sơ đồ để vẽ khu vực mới, hoặc bấm vào khu vực để sửa.
+                {t('Edit mode: drag on the map to draw a new zone, or click a zone to edit.')}
               </p>
             )}
             <ParkingMapCanvas

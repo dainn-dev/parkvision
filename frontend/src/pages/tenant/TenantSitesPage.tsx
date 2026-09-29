@@ -27,8 +27,10 @@ import { Button, Input } from '../../components/ui';
 import { TenantSite } from '../../types/tenant';
 import { SiteDetailDrawer } from '../../components/tenant/SiteDetailDrawer';
 import { CreateSiteModal } from '../../components/tenant/CreateSiteModal';
+import { useTranslation } from 'react-i18next';
 
 export const TenantSitesPage: React.FC = () => {
+  const { t } = useTranslation('tenant');
   const { tenantSites, deleteTenantSite, setTenantNavTab } = usePlatform();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -63,14 +65,14 @@ export const TenantSitesPage: React.FC = () => {
           <div className="flex items-center gap-2.5">
             <Building2 className="w-6 h-6 text-[#58a6ff]" />
             <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
-              Site Facilities Management
+              {t('Site Facilities Management')}
             </h1>
             <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#21262d] border border-[#30363d] text-[#58a6ff]">
-              {tenantSites.length} Total Facilities
+              {t('{{count}} Total Facilities', { count: tenantSites.length })}
             </span>
           </div>
           <p className="text-xs text-[#8b949e] mt-1">
-            Configure locations, ANPR camera arrays, automatic barrier gates, and edge node compute
+            {t('Configure locations, ANPR camera arrays, automatic barrier gates, and edge node compute')}
           </p>
         </div>
 
@@ -81,7 +83,7 @@ export const TenantSitesPage: React.FC = () => {
             className="text-xs text-[#58a6ff] border-[#30363d] hover:bg-[#21262d] gap-1.5"
           >
             <DoorOpen className="w-4 h-4 text-[#3fb950]" />
-            Bản Đồ Barrier (D3.js)
+            {t('Barrier Map (D3.js)')}
           </Button>
 
           <Button
@@ -90,7 +92,7 @@ export const TenantSitesPage: React.FC = () => {
             className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            Add New Site
+            {t('Add New Site')}
           </Button>
         </div>
       </div>
@@ -102,7 +104,7 @@ export const TenantSitesPage: React.FC = () => {
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-[#8b949e] absolute left-3 top-1/2 -translate-y-1/2" />
             <Input
-              placeholder="Search by site name, code, or address..."
+              placeholder={t('Search by site name, code, or address...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 bg-[#0d0e12] border-[#30363d] text-white text-xs h-9"
@@ -121,7 +123,7 @@ export const TenantSitesPage: React.FC = () => {
                     : 'text-[#8b949e] hover:text-[#c9d1d9]'
                 }`}
               >
-                {st === 'ALL' ? 'All Status' : st}
+                {st === 'ALL' ? t('All Status') : t(st)}
               </button>
             ))}
           </div>
@@ -134,7 +136,7 @@ export const TenantSitesPage: React.FC = () => {
             className={`p-1.5 rounded-md transition-colors cursor-pointer ${
               viewMode === 'grid' ? 'bg-[#21262d] text-[#58a6ff]' : 'text-[#8b949e]'
             }`}
-            title="Grid View"
+            title={t('Grid View')}
           >
             <LayoutGrid className="w-4 h-4" />
           </button>
@@ -143,7 +145,7 @@ export const TenantSitesPage: React.FC = () => {
             className={`p-1.5 rounded-md transition-colors cursor-pointer ${
               viewMode === 'table' ? 'bg-[#21262d] text-[#58a6ff]' : 'text-[#8b949e]'
             }`}
-            title="Table View"
+            title={t('Table View')}
           >
             <List className="w-4 h-4" />
           </button>
@@ -184,7 +186,7 @@ export const TenantSitesPage: React.FC = () => {
                         : 'bg-[#8b949e]/15 text-[#8b949e] border border-[#30363d]'
                     }`}>
                       <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                      {site.status}
+                      {t(site.status)}
                     </span>
                   </div>
 
@@ -196,21 +198,21 @@ export const TenantSitesPage: React.FC = () => {
                   {/* Hardware Status Metric Badges */}
                   <div className="grid grid-cols-3 gap-2 pt-2 text-xs">
                     <div className="p-2 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                      <span className="text-[10px] text-[#8b949e] block">Cameras</span>
+                      <span className="text-[10px] text-[#8b949e] block">{t('Cameras')}</span>
                       <span className="font-mono font-bold text-white text-xs">
                         {site.onlineCameraCount}/{site.cameraCount}
                       </span>
                     </div>
 
                     <div className="p-2 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                      <span className="text-[10px] text-[#8b949e] block">Gates</span>
+                      <span className="text-[10px] text-[#8b949e] block">{t('Gates')}</span>
                       <span className="font-mono font-bold text-white text-xs">
                         {site.onlineGateCount}/{site.gateCount}
                       </span>
                     </div>
 
                     <div className="p-2 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                      <span className="text-[10px] text-[#8b949e] block">Edge AI</span>
+                      <span className="text-[10px] text-[#8b949e] block">{t('Edge AI')}</span>
                       <span className="font-mono font-bold text-white text-xs">
                         {site.onlineEdgeDeviceCount}/{site.edgeDeviceCount}
                       </span>
@@ -221,7 +223,7 @@ export const TenantSitesPage: React.FC = () => {
                   {site.capacity && (
                     <div className="space-y-1.5 pt-1">
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-[#8b949e]">Facility Occupancy</span>
+                        <span className="text-[#8b949e]">{t('Facility Occupancy')}</span>
                         <span className="text-white font-mono font-bold">
                           {site.currentOccupancy} / {site.capacity} ({occPercent}%)
                         </span>
@@ -243,7 +245,7 @@ export const TenantSitesPage: React.FC = () => {
                       <Clock className="w-3 h-3 text-[#8b949e]" /> {site.operatingHours}
                     </span>
                     <span className="font-mono text-white font-semibold">
-                      {site.todayAccessCount.toLocaleString()} accesses
+                      {t('{{count}} accesses', { count: site.todayAccessCount.toLocaleString() })}
                     </span>
                   </div>
                 </div>
@@ -251,7 +253,7 @@ export const TenantSitesPage: React.FC = () => {
                 {/* Card Footer Actions */}
                 <div className="px-5 py-3 border-t border-[#30363d] bg-[#0d0e12]/60 flex items-center justify-between">
                   <span className="text-[11px] text-[#8b949e]">
-                    Manager: {site.managerName || 'Operations'}
+                    {t('Manager:')} {site.managerName || t('Operations')}
                   </span>
 
                   <div className="flex items-center gap-2">
@@ -261,7 +263,7 @@ export const TenantSitesPage: React.FC = () => {
                       onClick={() => handleOpenSite(site)}
                       className="text-xs bg-[#161b22] border-[#30363d] text-white hover:border-[#58a6ff] gap-1"
                     >
-                      Manage Site <ChevronRight className="w-3.5 h-3.5" />
+                      {t('Manage Site')} <ChevronRight className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </div>
@@ -276,14 +278,14 @@ export const TenantSitesPage: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px]">
                 <tr>
-                  <th className="py-3 px-4">Facility Name</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Lanes & Gates</th>
-                  <th className="py-3 px-4">ANPR Cameras</th>
-                  <th className="py-3 px-4">Edge Nodes</th>
-                  <th className="py-3 px-4">Today's Access</th>
-                  <th className="py-3 px-4">Operating Hours</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4">{t('Facility Name')}</th>
+                  <th className="py-3 px-4">{t('Status')}</th>
+                  <th className="py-3 px-4">{t('Lanes & Gates')}</th>
+                  <th className="py-3 px-4">{t('ANPR Cameras')}</th>
+                  <th className="py-3 px-4">{t('Edge Nodes')}</th>
+                  <th className="py-3 px-4">{t("Today's Access")}</th>
+                  <th className="py-3 px-4">{t('Operating Hours')}</th>
+                  <th className="py-3 px-4 text-right">{t('Actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]/60 font-medium">
@@ -315,16 +317,16 @@ export const TenantSitesPage: React.FC = () => {
                           : 'bg-[#8b949e]/15 text-[#8b949e] border border-[#30363d]'
                       }`}>
                         <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                        {site.status}
+                        {t(site.status)}
                       </span>
                     </td>
 
                     <td className="py-3.5 px-4 whitespace-nowrap font-mono text-white">
-                      {site.onlineGateCount} / {site.gateCount} Gates ({site.lanesCount} Lanes)
+                      {site.onlineGateCount} / {site.gateCount} {t('Gates')} ({site.lanesCount} {t('Lanes')})
                     </td>
 
                     <td className="py-3.5 px-4 whitespace-nowrap font-mono text-white">
-                      {site.onlineCameraCount} / {site.cameraCount} Online
+                      {site.onlineCameraCount} / {site.cameraCount} {t('Online')}
                     </td>
 
                     <td className="py-3.5 px-4 whitespace-nowrap font-mono text-white">
@@ -346,7 +348,7 @@ export const TenantSitesPage: React.FC = () => {
                         onClick={() => handleOpenSite(site)}
                         className="text-xs bg-[#0d0e12] border-[#30363d] text-[#c9d1d9] hover:text-white hover:border-[#58a6ff]"
                       >
-                        Inspect →
+                        {t('Inspect')} →
                       </Button>
                     </td>
                   </tr>

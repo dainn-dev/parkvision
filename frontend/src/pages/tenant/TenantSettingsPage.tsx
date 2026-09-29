@@ -9,6 +9,7 @@ import {
   HardDrive
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
+import { useTranslation } from 'react-i18next';
 
 interface TenantSettingsForm {
   orgName: string;
@@ -42,6 +43,7 @@ const DEFAULTS: TenantSettingsForm = {
 };
 
 export const TenantSettingsPage: React.FC = () => {
+  const { t } = useTranslation('tenant');
   const { addToast, activeTenantId } = usePlatform();
 
   const [settings, setSettings] = useState<TenantSettingsForm>(DEFAULTS);
@@ -77,7 +79,7 @@ export const TenantSettingsPage: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeTenantId) {
-      addToast({ type: 'error', title: 'No tenant selected' });
+      addToast({ type: 'error', title: t('No tenant selected') });
       return;
     }
     const pct = parseFloat(settings.ocrConfidenceThreshold);
@@ -99,9 +101,9 @@ export const TenantSettingsPage: React.FC = () => {
         retentionDays: Number.isFinite(retention) ? retention : null,
         notifyOnCritical: settings.notifyOnCritical,
       });
-      addToast({ type: 'success', title: 'Settings saved', description: 'Tenant settings persisted.' });
+      addToast({ type: 'success', title: t('Settings saved'), description: t('Tenant settings persisted.') });
     } catch {
-      addToast({ type: 'error', title: 'Failed to save settings' });
+      addToast({ type: 'error', title: t('Failed to save settings') });
     } finally {
       setIsSaving(false);
     }
@@ -114,14 +116,14 @@ export const TenantSettingsPage: React.FC = () => {
           <div className="flex items-center gap-2.5">
             <Settings className="w-6 h-6 text-[#58a6ff]" />
             <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
-              Tenant Organization & Site Settings
+              {t('Tenant Organization & Site Settings')}
             </h1>
           </div>
           <p className="text-xs text-[#8b949e] mt-1">
-            Configure default OCR recognition thresholds, automated barrier relay policies, and webhook subscriptions
+            {t('Configure default OCR recognition thresholds, automated barrier relay policies, and webhook subscriptions')}
           </p>
         </div>
-        {!loaded && <span className="text-[11px] text-[#8b949e]">Loading…</span>}
+        {!loaded && <span className="text-[11px] text-[#8b949e]">{t('Loading…')}</span>}
       </div>
 
       <form onSubmit={handleSave} className="space-y-5 text-xs">
@@ -129,12 +131,12 @@ export const TenantSettingsPage: React.FC = () => {
         <div className="p-5 rounded-2xl bg-[#161b22] border border-[#30363d] space-y-4">
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
             <Building2 className="w-4 h-4 text-[#58a6ff]" />
-            Tenant Organization Profile
+            {t('Tenant Organization Profile')}
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">Tenant Display Name</label>
+              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Tenant Display Name')}</label>
               <Input
                 value={settings.orgName}
                 onChange={(e) => setSettings({ ...settings, orgName: e.target.value })}
@@ -143,7 +145,7 @@ export const TenantSettingsPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">Administrative Contact Email</label>
+              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Administrative Contact Email')}</label>
               <Input
                 value={settings.contactEmail}
                 onChange={(e) => setSettings({ ...settings, contactEmail: e.target.value })}
@@ -157,13 +159,13 @@ export const TenantSettingsPage: React.FC = () => {
         <div className="p-5 rounded-2xl bg-[#161b22] border border-[#30363d] space-y-4">
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
             <HardDrive className="w-4 h-4 text-[#3fb950]" />
-            ANPR Engine & Gate Automation Rules
+            {t('ANPR Engine & Gate Automation Rules')}
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Minimum OCR Confidence Threshold (%)
+                {t('Minimum OCR Confidence Threshold (%)')}
               </label>
               <Input
                 type="number"
@@ -175,7 +177,7 @@ export const TenantSettingsPage: React.FC = () => {
 
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Loop-Clear Delay (ms)
+                {t('Loop-Clear Delay (ms)')}
               </label>
               <Input
                 type="number"
@@ -187,22 +189,22 @@ export const TenantSettingsPage: React.FC = () => {
 
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Edge Backup Frequency
+                {t('Edge Backup Frequency')}
               </label>
               <select
                 value={settings.backupFrequency}
                 onChange={(e) => setSettings({ ...settings, backupFrequency: e.target.value })}
                 className="w-full bg-[#0d0e12] border border-[#30363d] rounded-lg px-3 py-2 text-white"
               >
-                <option value="REALTIME">Continuous Real-time Streaming</option>
-                <option value="HOURLY">Hourly Batch Sync</option>
-                <option value="DAILY">Daily Off-peak Archive</option>
+                <option value="REALTIME">{t('Continuous Real-time Streaming')}</option>
+                <option value="HOURLY">{t('Hourly Batch Sync')}</option>
+                <option value="DAILY">{t('Daily Off-peak Archive')}</option>
               </select>
             </div>
 
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Event Retention (days)
+                {t('Event Retention (days)')}
               </label>
               <Input
                 type="number"
@@ -222,7 +224,7 @@ export const TenantSettingsPage: React.FC = () => {
                 className="rounded border-[#30363d] text-[#58a6ff]"
               />
               <span className="text-[#c9d1d9]">
-                Automatically trigger barrier relay open when registered plate matches whitelist
+                {t('Automatically trigger barrier relay open when registered plate matches whitelist')}
               </span>
             </label>
 
@@ -234,7 +236,7 @@ export const TenantSettingsPage: React.FC = () => {
                 className="rounded border-[#30363d] text-[#58a6ff]"
               />
               <span className="text-[#c9d1d9]">
-                Send operator alert push notification when unregistered or unknown vehicle approaches gate
+                {t('Send operator alert push notification when unregistered or unknown vehicle approaches gate')}
               </span>
             </label>
 
@@ -246,7 +248,7 @@ export const TenantSettingsPage: React.FC = () => {
                 className="rounded border-[#30363d] text-[#58a6ff]"
               />
               <span className="text-[#c9d1d9]">
-                Push critical-severity incidents to webhook + Telegram
+                {t('Push critical-severity incidents to webhook + Telegram')}
               </span>
             </label>
           </div>
@@ -256,23 +258,23 @@ export const TenantSettingsPage: React.FC = () => {
         <div className="p-5 rounded-2xl bg-[#161b22] border border-[#30363d] space-y-4">
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
             <Radio className="w-4 h-4 text-[#a371f7]" />
-            Outbound Webhook Dispatch
+            {t('Outbound Webhook Dispatch')}
           </h3>
 
           <div>
-            <label className="block text-[#c9d1d9] font-medium mb-1.5">Webhook Endpoint URL</label>
+            <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Webhook Endpoint URL')}</label>
             <Input
               value={settings.webhookUrl}
               onChange={(e) => setSettings({ ...settings, webhookUrl: e.target.value })}
               className="bg-[#0d0e12] border-[#30363d] text-white font-mono"
             />
             <p className="text-[11px] text-[#8b949e] mt-1">
-              Events will be dispatched in JSON payload upon every gate open, denied, or manual override event.
+              {t('Events will be dispatched in JSON payload upon every gate open, denied, or manual override event.')}
             </p>
           </div>
 
           <div>
-            <label className="block text-[#c9d1d9] font-medium mb-1.5">Telegram Chat ID</label>
+            <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Telegram Chat ID')}</label>
             <Input
               value={settings.telegramChatId}
               onChange={(e) => setSettings({ ...settings, telegramChatId: e.target.value })}
@@ -280,7 +282,7 @@ export const TenantSettingsPage: React.FC = () => {
               className="bg-[#0d0e12] border-[#30363d] text-white font-mono"
             />
             <p className="text-[11px] text-[#8b949e] mt-1">
-              Target chat/channel for critical incident alerts via the platform notification dispatcher.
+              {t('Target chat/channel for critical incident alerts via the platform notification dispatcher.')}
             </p>
           </div>
         </div>
@@ -293,7 +295,7 @@ export const TenantSettingsPage: React.FC = () => {
             className="bg-[#238636] hover:bg-[#2ea043] text-white gap-2"
           >
             <Save className="w-4 h-4" />
-            {isSaving ? 'Saving…' : 'Save Changes'}
+            {isSaving ? t('Saving…') : t('Save Changes')}
           </Button>
         </div>
       </form>

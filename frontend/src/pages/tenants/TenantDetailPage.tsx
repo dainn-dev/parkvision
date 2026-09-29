@@ -31,11 +31,13 @@ import {
   Input,
   Modal
 } from '../../components/ui';
+import { useTranslation } from 'react-i18next';
 
 export const TenantDetailPage: React.FC<{
   tenantId: string;
   onBack: () => void;
 }> = ({ tenantId, onBack }) => {
+  const { t } = useTranslation('platform');
   const { tenants, setTenantStatus, auditLogs, impersonateTenant } = usePlatform();
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'usage' | 'activity'>('overview');
@@ -70,7 +72,7 @@ export const TenantDetailPage: React.FC<{
         onClick={onBack}
         className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
       >
-        <ArrowLeft className="w-4 h-4" /> Back to Tenants List
+        <ArrowLeft className="w-4 h-4" /> {t('Back to Tenants List')}
       </button>
 
       {/* Organization Header Banner */}
@@ -110,7 +112,7 @@ export const TenantDetailPage: React.FC<{
                   <Globe className="w-3.5 h-3.5 text-slate-500" /> {tenant.timezone}
                 </span>
                 <span className="flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-slate-500" /> Created {new Date(tenant.createdAt).toLocaleDateString()}
+                  <Calendar className="w-3.5 h-3.5 text-slate-500" /> {t('Created')} {new Date(tenant.createdAt).toLocaleDateString()}
                 </span>
               </div>
             </div>
@@ -132,7 +134,7 @@ export const TenantDetailPage: React.FC<{
                 }
               }}
             >
-              Impersonate
+              {t('Impersonate')}
             </Button>
             {tenant.status === 'ACTIVE' ? (
               <Button
@@ -144,7 +146,7 @@ export const TenantDetailPage: React.FC<{
                   setIsStatusModalOpen(true);
                 }}
               >
-                Suspend Tenant
+                {t('Suspend Tenant')}
               </Button>
             ) : (
               <Button
@@ -156,7 +158,7 @@ export const TenantDetailPage: React.FC<{
                   setIsStatusModalOpen(true);
                 }}
               >
-                Activate Tenant
+                {t('Activate Tenant')}
               </Button>
             )}
           </div>
@@ -167,10 +169,10 @@ export const TenantDetailPage: React.FC<{
       <Tabs
         variant="underline"
         tabs={[
-          { id: 'overview', label: 'Overview & Resources' },
-          { id: 'users', label: 'Enrolled Users', badge: tenant.statistics.usersCount },
-          { id: 'usage', label: 'Usage & Capacity' },
-          { id: 'activity', label: 'Audit Activity', badge: tenantAuditLogs.length }
+          { id: 'overview', label: t('Overview & Resources') },
+          { id: 'users', label: t('Enrolled Users'), badge: tenant.statistics.usersCount },
+          { id: 'usage', label: t('Usage & Capacity') },
+          { id: 'activity', label: t('Audit Activity'), badge: tenantAuditLogs.length }
         ]}
         activeTab={activeTab}
         onChange={(id) => setActiveTab(id as any)}
@@ -181,32 +183,32 @@ export const TenantDetailPage: React.FC<{
         <div className="space-y-6">
           <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
             <StatCard
-              title="Users"
+              title={t('Users')}
               value={tenant.statistics.usersCount}
               icon={Users}
             />
             <StatCard
-              title="Vehicles"
+              title={t('Vehicles')}
               value={tenant.statistics.vehiclesCount.toLocaleString()}
               icon={Activity}
             />
             <StatCard
-              title="Cameras"
+              title={t('Cameras')}
               value={tenant.statistics.camerasCount}
               icon={Video}
             />
             <StatCard
-              title="Gates"
+              title={t('Gates')}
               value={tenant.statistics.gatesCount}
               icon={DoorOpen}
             />
             <StatCard
-              title="Edge Nodes"
+              title={t('Edge Nodes')}
               value={tenant.statistics.edgeDevicesCount}
               icon={Radio}
             />
             <StatCard
-              title="Storage"
+              title={t('Storage')}
               value={`${tenant.statistics.storageUsedGb} GB`}
               icon={Database}
             />
@@ -214,7 +216,7 @@ export const TenantDetailPage: React.FC<{
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
-              <CardHeader title="Primary Tenant Administrator" />
+              <CardHeader title={t('Primary Tenant Administrator')} />
               <CardContent className="space-y-3 text-xs">
                 <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
                   <div>
@@ -224,29 +226,29 @@ export const TenantDetailPage: React.FC<{
                   <Badge variant="indigo">{ownerUser?.role?.toUpperCase() || 'OWNER'}</Badge>
                 </div>
                 <div className="text-slate-400 space-y-1 pt-1">
-                  <div><strong>Phone:</strong> {tenant.administrator.phone || 'N/A'}</div>
-                  <div><strong>Admin User ID:</strong> {ownerUser?.id || '—'}</div>
+                  <div><strong>{t('Phone:')}</strong> {tenant.administrator.phone || 'N/A'}</div>
+                  <div><strong>{t('Admin User ID:')}</strong> {ownerUser?.id || '—'}</div>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader title="Organization Configuration" />
+              <CardHeader title={t('Organization Configuration')} />
               <CardContent className="space-y-2 text-xs">
                 <div className="flex justify-between py-1.5 border-b border-slate-800">
-                  <span className="text-slate-400">Organization ID</span>
+                  <span className="text-slate-400">{t('Organization ID')}</span>
                   <span className="font-mono text-slate-200">{tenant.id}</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-slate-800">
-                  <span className="text-slate-400">Routing Code</span>
+                  <span className="text-slate-400">{t('Routing Code')}</span>
                   <span className="font-mono text-amber-300">{tenant.code}</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-slate-800">
-                  <span className="text-slate-400">Timezone</span>
+                  <span className="text-slate-400">{t('Timezone')}</span>
                   <span className="text-slate-200">{tenant.timezone}</span>
                 </div>
                 <div className="flex justify-between py-1.5">
-                  <span className="text-slate-400">Last Active Timestamp</span>
+                  <span className="text-slate-400">{t('Last Active Timestamp')}</span>
                   <span className="text-slate-200">{new Date(tenant.lastActivityAt).toLocaleString()}</span>
                 </div>
               </CardContent>
@@ -258,14 +260,14 @@ export const TenantDetailPage: React.FC<{
       {/* Tab 2: Users */}
       {activeTab === 'users' && (
         <Card>
-          <CardHeader title="Registered Organization Users" subtitle="Read-only tenant user registry" />
+          <CardHeader title={t('Registered Organization Users')} subtitle={t('Read-only tenant user registry')} />
           <CardContent>
             <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-300">
-              Showing enrolled tenant users under <strong>{tenant.name}</strong>. Full CRUD rights belong to the designated Tenant Administrator.
+              {t('Showing enrolled tenant users under')} <strong>{tenant.name}</strong>. {t('Full CRUD rights belong to the designated Tenant Administrator.')}
             </div>
             <div className="mt-4 space-y-2 text-xs">
               {tenantUsers.length === 0 && (
-                <div className="p-3 text-slate-500">No users provisioned for this tenant yet.</div>
+                <div className="p-3 text-slate-500">{t('No users provisioned for this tenant yet.')}</div>
               )}
               {tenantUsers.map((u) => (
                 <div key={u.id} className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
@@ -285,11 +287,11 @@ export const TenantDetailPage: React.FC<{
       {activeTab === 'usage' && (
         <div className="space-y-4">
           <Card>
-            <CardHeader title="Tenant Storage & Payload Consumption" />
+            <CardHeader title={t('Tenant Storage & Payload Consumption')} />
             <CardContent className="space-y-4 text-xs">
               <div>
                 <div className="flex justify-between mb-1.5">
-                  <span className="text-slate-300 font-semibold">MinIO NVMe OCR Frame Storage</span>
+                  <span className="text-slate-300 font-semibold">{t('MinIO NVMe OCR Frame Storage')}</span>
                   <span className="font-mono text-indigo-300 font-bold">{tenant.statistics.storageUsedGb} GB / 500 GB</span>
                 </div>
                 <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800">
@@ -302,19 +304,19 @@ export const TenantDetailPage: React.FC<{
 
               <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <div>
-                  <span className="text-slate-500 block">Total Recognition Events</span>
+                  <span className="text-slate-500 block">{t('Total Recognition Events')}</span>
                   <span className="text-lg font-mono font-bold text-white mt-1 block">
                     {tenant.statistics.eventsCount.toLocaleString()}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">API Calls (30d)</span>
+                  <span className="text-slate-500 block">{t('API Calls (30d)')}</span>
                   <span className="text-lg font-mono font-bold text-emerald-400 mt-1 block">
                     —
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Active Edge Nodes</span>
+                  <span className="text-slate-500 block">{t('Active Edge Nodes')}</span>
                   <span className="text-lg font-mono font-bold text-sky-400 mt-1 block">
                     {tenant.statistics.edgeDevicesCount}
                   </span>
@@ -328,16 +330,16 @@ export const TenantDetailPage: React.FC<{
       {/* Tab 4: Activity */}
       {activeTab === 'activity' && (
         <Card>
-          <CardHeader title="Filtered Tenant Audit Log History" />
+          <CardHeader title={t('Filtered Tenant Audit Log History')} />
           <CardContent className="space-y-3 text-xs">
             {tenantAuditLogs.length === 0 ? (
-              <p className="py-6 text-center text-slate-500">No specific audit entries recorded for this tenant yet.</p>
+              <p className="py-6 text-center text-slate-500">{t('No specific audit entries recorded for this tenant yet.')}</p>
             ) : (
               tenantAuditLogs.map((log) => (
                 <div key={log.id} className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
                   <div>
                     <span className="font-bold text-slate-200 block">{log.action}</span>
-                    <span className="text-slate-400">by {log.actorName}</span>
+                    <span className="text-slate-400">{t('by')} {log.actorName}</span>
                   </div>
                   <span className="text-[10px] text-slate-500 font-mono">
                     {new Date(log.timestamp).toLocaleString()}
@@ -353,23 +355,23 @@ export const TenantDetailPage: React.FC<{
       <Modal
         isOpen={isStatusModalOpen}
         onClose={() => setIsStatusModalOpen(false)}
-        title={`Apply Lifecycle Action: ${targetStatus}`}
-        subtitle={`Organization: ${tenant.name}`}
+        title={t('Apply Lifecycle Action: {{status}}', { status: targetStatus })}
+        subtitle={t('Organization: {{name}}', { name: tenant.name })}
       >
         <div className="space-y-4 text-xs">
           <Input
-            label="Reason for Lifecycle Override (Audited) *"
-            placeholder="e.g. Administrative request, security investigation..."
+            label={t('Reason for Lifecycle Override (Audited) *')}
+            placeholder={t('e.g. Administrative request, security investigation...')}
             value={statusReason}
             onChange={(e) => setStatusReason(e.target.value)}
           />
 
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="ghost" size="sm" onClick={() => setIsStatusModalOpen(false)}>
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button variant={targetStatus === 'ACTIVE' ? 'success' : 'danger'} size="sm" onClick={handleApplyStatusChange}>
-              Confirm & Save
+              {t('Confirm & Save')}
             </Button>
           </div>
         </div>

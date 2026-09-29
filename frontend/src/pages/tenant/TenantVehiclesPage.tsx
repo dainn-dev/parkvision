@@ -33,8 +33,10 @@ import { UpdatePlateModal } from '../../components/tenant/vehicles/UpdatePlateMo
 import { AssignMemberModal } from '../../components/tenant/vehicles/AssignMemberModal';
 import { SuspendVehicleModal } from '../../components/tenant/vehicles/SuspendVehicleModal';
 import { ImportVehiclesModal } from '../../components/tenant/vehicles/ImportVehiclesModal';
+import { useTranslation } from 'react-i18next';
 
 export const TenantVehiclesPage: React.FC = () => {
+  const { t } = useTranslation('tenant');
   const {
     tenantVehicles,
     activateTenantVehicle,
@@ -124,14 +126,14 @@ export const TenantVehiclesPage: React.FC = () => {
           <div className="flex items-center gap-2.5">
             <Car className="w-6 h-6 text-[#58a6ff]" />
             <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
-              Vehicle Whitelist & Registry
+              {t('Vehicle Whitelist & Registry')}
             </h1>
             <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#21262d] border border-[#30363d] text-[#58a6ff]">
-              {tenantVehicles.length} Enrolled Vehicles
+              {t('{{count}} Enrolled Vehicles', { count: tenantVehicles.length })}
             </span>
           </div>
           <p className="text-xs text-[#8b949e] mt-1">
-            Manage authorized vehicles, license plate updates, member vehicle assignments, and ANPR barrier policies
+            {t('Manage authorized vehicles, license plate updates, member vehicle assignments, and ANPR barrier policies')}
           </p>
         </div>
 
@@ -142,7 +144,7 @@ export const TenantVehiclesPage: React.FC = () => {
             className="text-xs h-9 gap-1.5 border-[#30363d] bg-[#161b22] text-[#c9d1d9] hover:text-white"
           >
             <UploadCloud className="w-4 h-4" />
-            Bulk CSV Import
+            {t('Bulk CSV Import')}
           </Button>
           <Button
             variant="primary"
@@ -150,7 +152,7 @@ export const TenantVehiclesPage: React.FC = () => {
             className="text-xs h-9 bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            Enroll Vehicle
+            {t('Enroll Vehicle')}
           </Button>
         </div>
       </div>
@@ -159,9 +161,9 @@ export const TenantVehiclesPage: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">Total Enrolled</span>
+            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Total Enrolled')}</span>
             <div className="text-xl font-bold text-white mt-1">{metrics.total}</div>
-            <span className="text-[10px] text-[#8b949e]">Registered in whitelist</span>
+            <span className="text-[10px] text-[#8b949e]">{t('Registered in whitelist')}</span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
             <Car className="w-5 h-5" />
@@ -170,9 +172,9 @@ export const TenantVehiclesPage: React.FC = () => {
 
         <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">Gate Allowed</span>
+            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Gate Allowed')}</span>
             <div className="text-xl font-bold text-[#3fb950] mt-1">{metrics.allowed}</div>
-            <span className="text-[10px] text-[#8b949e]">Active whitelist pass</span>
+            <span className="text-[10px] text-[#8b949e]">{t('Active whitelist pass')}</span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-[#238636]/10 border border-[#238636]/30 text-[#3fb950] flex items-center justify-center">
             <ShieldCheck className="w-5 h-5" />
@@ -181,9 +183,9 @@ export const TenantVehiclesPage: React.FC = () => {
 
         <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">Suspended</span>
+            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Suspended')}</span>
             <div className="text-xl font-bold text-[#e3b341] mt-1">{metrics.suspended}</div>
-            <span className="text-[10px] text-[#8b949e]">Access blocked</span>
+            <span className="text-[10px] text-[#8b949e]">{t('Access blocked')}</span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-[#d29922]/10 border border-[#d29922]/30 text-[#e3b341] flex items-center justify-center">
             <Ban className="w-5 h-5" />
@@ -192,9 +194,9 @@ export const TenantVehiclesPage: React.FC = () => {
 
         <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">Member Assigned</span>
+            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Member Assigned')}</span>
             <div className="text-xl font-bold text-[#58a6ff] mt-1">{metrics.assigned}</div>
-            <span className="text-[10px] text-[#8b949e]">{metrics.unassigned} unassigned fleet</span>
+            <span className="text-[10px] text-[#8b949e]">{t('{{count}} unassigned fleet', { count: metrics.unassigned })}</span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
             <UserCheck className="w-5 h-5" />
@@ -208,7 +210,7 @@ export const TenantVehiclesPage: React.FC = () => {
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 text-[#8b949e] absolute left-3 top-1/2 -translate-y-1/2" />
           <Input
-            placeholder="Search by license plate, make, model, VIN, or owner name..."
+            placeholder={t('Search by license plate, make, model, VIN, or owner name...')}
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-9 bg-[#0d0e12] border-[#30363d] text-white text-xs h-9"
@@ -226,11 +228,11 @@ export const TenantVehiclesPage: React.FC = () => {
             }}
             className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
           >
-            <option value="ALL">Status: All</option>
-            <option value="ACTIVE">Status: Active</option>
-            <option value="SUSPENDED">Status: Suspended</option>
-            <option value="INACTIVE">Status: Inactive</option>
-            <option value="ARCHIVED">Status: Archived</option>
+            <option value="ALL">{t('Status: All')}</option>
+            <option value="ACTIVE">{t('Status: Active')}</option>
+            <option value="SUSPENDED">{t('Status: Suspended')}</option>
+            <option value="INACTIVE">{t('Status: Inactive')}</option>
+            <option value="ARCHIVED">{t('Status: Archived')}</option>
           </select>
 
           {/* Type Filter */}
@@ -242,12 +244,12 @@ export const TenantVehiclesPage: React.FC = () => {
             }}
             className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
           >
-            <option value="ALL">Category: All</option>
-            <option value="CAR">Car / SUV</option>
-            <option value="MOTORCYCLE">Motorcycle</option>
-            <option value="VAN">Van</option>
-            <option value="TRUCK">Truck</option>
-            <option value="BUS">Bus</option>
+            <option value="ALL">{t('Category: All')}</option>
+            <option value="CAR">{t('Car / SUV')}</option>
+            <option value="MOTORCYCLE">{t('Motorcycle')}</option>
+            <option value="VAN">{t('Van')}</option>
+            <option value="TRUCK">{t('Truck')}</option>
+            <option value="BUS">{t('Bus')}</option>
           </select>
 
           {/* Access Filter */}
@@ -259,9 +261,9 @@ export const TenantVehiclesPage: React.FC = () => {
             }}
             className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
           >
-            <option value="ALL">Gate Access: All</option>
-            <option value="ALLOWED">Gate Allowed</option>
-            <option value="DENIED">Gate Denied</option>
+            <option value="ALL">{t('Gate Access: All')}</option>
+            <option value="ALLOWED">{t('Gate Allowed')}</option>
+            <option value="DENIED">{t('Gate Denied')}</option>
           </select>
 
           {/* Assignment Filter */}
@@ -273,9 +275,9 @@ export const TenantVehiclesPage: React.FC = () => {
             }}
             className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
           >
-            <option value="ALL">Ownership: All</option>
-            <option value="ASSIGNED">Member Assigned</option>
-            <option value="UNASSIGNED">Unassigned Fleet</option>
+            <option value="ALL">{t('Ownership: All')}</option>
+            <option value="ASSIGNED">{t('Member Assigned')}</option>
+            <option value="UNASSIGNED">{t('Unassigned Fleet')}</option>
           </select>
 
           {(searchQuery || statusFilter !== 'ALL' || typeFilter !== 'ALL' || accessFilter !== 'ALL' || assignmentFilter !== 'ALL') && (
@@ -292,7 +294,7 @@ export const TenantVehiclesPage: React.FC = () => {
               }}
               className="text-[11px] h-8 text-[#8b949e] hover:text-white"
             >
-              Reset Filters
+              {t('Reset Filters')}
             </Button>
           )}
         </div>
@@ -304,13 +306,13 @@ export const TenantVehiclesPage: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px]">
               <tr>
-                <th className="py-3 px-4">License Plate</th>
-                <th className="py-3 px-4">Vehicle Specs</th>
-                <th className="py-3 px-4">Assigned Member / Owner</th>
-                <th className="py-3 px-4">Gate Authorization</th>
-                <th className="py-3 px-4">Lifecycle Status</th>
-                <th className="py-3 px-4">Plates History</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-3 px-4">{t('License Plate')}</th>
+                <th className="py-3 px-4">{t('Vehicle Specs')}</th>
+                <th className="py-3 px-4">{t('Assigned Member / Owner')}</th>
+                <th className="py-3 px-4">{t('Gate Authorization')}</th>
+                <th className="py-3 px-4">{t('Lifecycle Status')}</th>
+                <th className="py-3 px-4">{t('Plates History')}</th>
+                <th className="py-3 px-4 text-right">{t('Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]/60 font-medium">
@@ -318,8 +320,8 @@ export const TenantVehiclesPage: React.FC = () => {
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-[#8b949e]">
                     <Car className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/50" />
-                    <p className="font-semibold text-white">No vehicles match your search</p>
-                    <p className="text-xs mt-1">Try resetting your search query or filters</p>
+                    <p className="font-semibold text-white">{t('No vehicles match your search')}</p>
+                    <p className="text-xs mt-1">{t('Try resetting your search query or filters')}</p>
                   </td>
                 </tr>
               ) : (
@@ -340,7 +342,7 @@ export const TenantVehiclesPage: React.FC = () => {
                           </span>
                         </div>
                         <span className="text-[10px] text-[#8b949e] block mt-0.5">
-                          {vehicle.currentPlate.province || 'Ho Chi Minh City'} ({vehicle.currentPlate.country})
+                          {vehicle.currentPlate.province || t('Ho Chi Minh City')} ({vehicle.currentPlate.country})
                         </span>
                       </td>
 
@@ -348,7 +350,7 @@ export const TenantVehiclesPage: React.FC = () => {
                       <td className="py-3.5 px-4 text-white">
                         <div className="font-semibold text-white">{vehicle.name}</div>
                         <div className="text-[11px] text-[#8b949e]">
-                          {vehicle.type} · {vehicle.color || 'White'} {vehicle.year ? `· ${vehicle.year}` : ''}
+                          {t(vehicle.type)} · {vehicle.color || t('White')} {vehicle.year ? `· ${vehicle.year}` : ''}
                         </div>
                       </td>
 
@@ -369,7 +371,7 @@ export const TenantVehiclesPage: React.FC = () => {
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[#21262d] text-[#8b949e]">
                             <User className="w-3 h-3" />
-                            Unassigned Fleet
+                            {t('Unassigned Fleet')}
                           </span>
                         )}
                       </td>
@@ -389,7 +391,7 @@ export const TenantVehiclesPage: React.FC = () => {
                           ) : (
                             <ShieldAlert className="w-3.5 h-3.5" />
                           )}
-                          {vehicle.accessStatus}
+                          {t(vehicle.accessStatus)}
                         </span>
                       </td>
 
@@ -406,18 +408,18 @@ export const TenantVehiclesPage: React.FC = () => {
                               : 'bg-[#da3633]/15 text-[#f85149] border border-[#da3633]/30'
                           }`}
                         >
-                          {vehicle.status}
+                          {t(vehicle.status)}
                         </span>
                       </td>
 
                       {/* Plate history count */}
                       <td className="py-3.5 px-4 text-[#8b949e] text-[11px]">
                         <span className="font-mono">
-                          {1 + (vehicle.previousPlates?.length || 0)} plates
+                          {t('{{count}} plates', { count: 1 + (vehicle.previousPlates?.length || 0) })}
                         </span>
                         {vehicle.previousPlates && vehicle.previousPlates.length > 0 && (
                           <span className="text-[10px] text-[#58a6ff] block">
-                            ({vehicle.previousPlates.length} previous)
+                            ({t('{{count}} previous', { count: vehicle.previousPlates.length })})
                           </span>
                         )}
                       </td>
@@ -428,28 +430,28 @@ export const TenantVehiclesPage: React.FC = () => {
                           <button
                             onClick={() => setSelectedVehicleForDetails(vehicle)}
                             className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
-                            title="View Details & History"
+                            title={t('View Details & History')}
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setSelectedVehicleForEdit(vehicle)}
                             className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
-                            title="Edit Vehicle Specs"
+                            title={t('Edit Vehicle Specs')}
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setSelectedVehicleForPlate(vehicle)}
                             className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
-                            title="Update License Plate"
+                            title={t('Update License Plate')}
                           >
                             <Tag className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setSelectedVehicleForAssign(vehicle)}
                             className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
-                            title="Assign / Reassign Member"
+                            title={t('Assign / Reassign Member')}
                           >
                             <UserCheck className="w-4 h-4" />
                           </button>
@@ -457,7 +459,7 @@ export const TenantVehiclesPage: React.FC = () => {
                             <button
                               onClick={() => activateTenantVehicle(vehicle.id)}
                               className="p-1.5 rounded hover:bg-[#238636]/20 text-[#3fb950] transition-colors cursor-pointer"
-                              title="Reactivate Vehicle"
+                              title={t('Reactivate Vehicle')}
                             >
                               <CheckCircle2 className="w-4 h-4" />
                             </button>
@@ -465,7 +467,7 @@ export const TenantVehiclesPage: React.FC = () => {
                             <button
                               onClick={() => setSelectedVehicleForSuspend(vehicle)}
                               className="p-1.5 rounded hover:bg-[#d29922]/20 text-[#8b949e] hover:text-[#e3b341] transition-colors cursor-pointer"
-                              title="Suspend Access"
+                              title={t('Suspend Access')}
                             >
                               <Ban className="w-4 h-4" />
                             </button>

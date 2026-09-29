@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../ui';
 import { TenantLocation } from '../../types/tenant';
+import { useTranslation } from 'react-i18next';
 
 interface EditLocationSheetProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
   location,
   onSave
 }) => {
+  const { t } = useTranslation('tenant');
   const clean = (v: string | undefined) => (v === '—' || v === 'No site configured' ? '' : v) ?? '';
   const [formData, setFormData] = useState({
     name: clean(location.name),
@@ -99,39 +101,39 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!formData.name.trim() || formData.name.trim().length < 3) {
-      errs.name = 'Location name must be at least 3 characters long.';
+      errs.name = t('Location name must be at least 3 characters long.');
     } else if (formData.name.trim().length > 100) {
-      errs.name = 'Location name cannot exceed 100 characters.';
+      errs.name = t('Location name cannot exceed 100 characters.');
     }
 
     if (!formData.line1.trim()) {
-      errs.line1 = 'Address line 1 is required.';
+      errs.line1 = t('Address line 1 is required.');
     }
 
     if (!formData.city.trim()) {
-      errs.city = 'City is required.';
+      errs.city = t('City is required.');
     }
 
     if (!formData.country.trim()) {
-      errs.country = 'Country is required.';
+      errs.country = t('Country is required.');
     }
 
     if (!formData.timezone.trim()) {
-      errs.timezone = 'Timezone is required.';
+      errs.timezone = t('Timezone is required.');
     }
 
     const lat = parseFloat(formData.latitude);
     if (isNaN(lat) || lat < -90 || lat > 90) {
-      errs.latitude = 'Latitude must be between -90 and 90.';
+      errs.latitude = t('Latitude must be between -90 and 90.');
     }
 
     const lng = parseFloat(formData.longitude);
     if (isNaN(lng) || lng < -180 || lng > 180) {
-      errs.longitude = 'Longitude must be between -180 and 180.';
+      errs.longitude = t('Longitude must be between -180 and 180.');
     }
 
     if (formData.email && !formData.email.includes('@')) {
-      errs.email = 'Please provide a valid email address.';
+      errs.email = t('Please provide a valid email address.');
     }
 
     setErrors(errs);
@@ -194,9 +196,9 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white tracking-tight">Edit Location</h2>
+              <h2 className="text-base font-bold text-white tracking-tight">{t('Edit Location')}</h2>
               <p className="text-xs text-[#8b949e]">
-                Update physical address, timezone, coordinates, and contact info
+                {t('Update physical address, timezone, coordinates, and contact info')}
               </p>
             </div>
           </div>
@@ -215,20 +217,20 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-white font-semibold border-b border-[#30363d] pb-2">
               <Building2 className="w-4 h-4 text-[#58a6ff]" />
-              <h3>General Location Details</h3>
+              <h3>{t('General Location Details')}</h3>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-[11px] font-medium text-[#c9d1d9] flex items-center justify-between">
-                  <span>Location Name *</span>
-                  <span className="text-[10px] text-[#8b949e]">3–100 characters</span>
+                  <span>{t('Location Name')} *</span>
+                  <span className="text-[10px] text-[#8b949e]">{t('3–100 characters')}</span>
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => handleChange('name', e.target.value)}
-                  placeholder="e.g. Main Campus"
+                  placeholder={t('e.g. Main Campus')}
                   className={`w-full bg-[#0d0e12] border rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden ${
                     errors.name ? 'border-[#f85149]' : 'border-[#30363d] focus:border-[#58a6ff]'
                   }`}
@@ -238,7 +240,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
 
               <div className="space-y-1.5">
                 <label className="text-[11px] font-medium text-[#8b949e]">
-                  Location Code (Read-only)
+                  {t('Location Code (Read-only)')}
                 </label>
                 <input
                   type="text"
@@ -252,13 +254,13 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
 
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium text-[#c9d1d9]">
-                Facility Description / Notes
+                {t('Facility Description / Notes')}
               </label>
               <textarea
                 rows={2}
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
-                placeholder="Brief description of the facility operations, gates, and usage..."
+                placeholder={t('Brief description of the facility operations, gates, and usage...')}
                 className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden resize-none"
               />
             </div>
@@ -268,18 +270,18 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-white font-semibold border-b border-[#30363d] pb-2">
               <MapPin className="w-4 h-4 text-[#3fb950]" />
-              <h3>Physical Address</h3>
+              <h3>{t('Physical Address')}</h3>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium text-[#c9d1d9]">
-                Address Line 1 *
+                {t('Address Line 1')} *
               </label>
               <input
                 type="text"
                 value={formData.line1}
                 onChange={(e) => handleChange('line1', e.target.value)}
-                placeholder="Street address, building number"
+                placeholder={t('Street address, building number')}
                 className={`w-full bg-[#0d0e12] border rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden ${
                   errors.line1 ? 'border-[#f85149]' : 'border-[#30363d] focus:border-[#58a6ff]'
                 }`}
@@ -289,20 +291,20 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
 
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium text-[#8b949e]">
-                Address Line 2 (Optional)
+                {t('Address Line 2 (Optional)')}
               </label>
               <input
                 type="text"
                 value={formData.line2}
                 onChange={(e) => handleChange('line2', e.target.value)}
-                placeholder="District, Suite, Floor, Gate number"
+                placeholder={t('District, Suite, Floor, Gate number')}
                 className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden"
               />
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="col-span-2 space-y-1.5">
-                <label className="text-[11px] font-medium text-[#c9d1d9]">City *</label>
+                <label className="text-[11px] font-medium text-[#c9d1d9]">{t('City')} *</label>
                 <input
                   type="text"
                   value={formData.city}
@@ -316,7 +318,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-[#8b949e]">Province / State</label>
+                <label className="text-[11px] font-medium text-[#8b949e]">{t('Province / State')}</label>
                 <input
                   type="text"
                   value={formData.province}
@@ -327,7 +329,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-[#8b949e]">Postal Code</label>
+                <label className="text-[11px] font-medium text-[#8b949e]">{t('Postal Code')}</label>
                 <input
                   type="text"
                   value={formData.postalCode}
@@ -340,7 +342,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-[#c9d1d9]">Country *</label>
+                <label className="text-[11px] font-medium text-[#c9d1d9]">{t('Country')} *</label>
                 <input
                   type="text"
                   value={formData.country}
@@ -354,7 +356,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-[#c9d1d9]">Timezone *</label>
+                <label className="text-[11px] font-medium text-[#c9d1d9]">{t('Timezone')} *</label>
                 <select
                   value={formData.timezone}
                   onChange={(e) => handleChange('timezone', e.target.value)}
@@ -369,7 +371,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
                   <option value="America/Los_Angeles">America/Los_Angeles (UTC-08:00)</option>
                 </select>
                 <p className="text-[10px] text-[#8b949e]">
-                  Controls scheduled access rules, timestamps, and reporting periods.
+                  {t('Controls scheduled access rules, timestamps, and reporting periods.')}
                 </p>
               </div>
             </div>
@@ -379,12 +381,12 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-white font-semibold border-b border-[#30363d] pb-2">
               <Compass className="w-4 h-4 text-[#e3b341]" />
-              <h3>Geographic Coordinates</h3>
+              <h3>{t('Geographic Coordinates')}</h3>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-[#c9d1d9]">Latitude (-90 to 90) *</label>
+                <label className="text-[11px] font-medium text-[#c9d1d9]">{t('Latitude (-90 to 90)')} *</label>
                 <input
                   type="text"
                   value={formData.latitude}
@@ -398,7 +400,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-[#c9d1d9]">Longitude (-180 to 180) *</label>
+                <label className="text-[11px] font-medium text-[#c9d1d9]">{t('Longitude (-180 to 180)')} *</label>
                 <input
                   type="text"
                   value={formData.longitude}
@@ -417,12 +419,12 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-white font-semibold border-b border-[#30363d] pb-2">
               <Phone className="w-4 h-4 text-[#a371f7]" />
-              <h3>Contact Information & Capacity</h3>
+              <h3>{t('Contact Information & Capacity')}</h3>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-[#c9d1d9]">Contact Person / Facility Manager</label>
+                <label className="text-[11px] font-medium text-[#c9d1d9]">{t('Contact Person / Facility Manager')}</label>
                 <input
                   type="text"
                   value={formData.contactPerson}
@@ -433,7 +435,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-[#c9d1d9]">Total Slot Capacity</label>
+                <label className="text-[11px] font-medium text-[#c9d1d9]">{t('Total Slot Capacity')}</label>
                 <input
                   type="number"
                   value={formData.capacity}
@@ -446,7 +448,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-[#c9d1d9]">Facility Phone</label>
+                <label className="text-[11px] font-medium text-[#c9d1d9]">{t('Facility Phone')}</label>
                 <input
                   type="text"
                   value={formData.phone}
@@ -457,7 +459,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-[#c9d1d9]">Operational Email</label>
+                <label className="text-[11px] font-medium text-[#c9d1d9]">{t('Operational Email')}</label>
                 <input
                   type="email"
                   value={formData.email}
@@ -471,7 +473,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-[#c9d1d9]">Emergency Hotline</label>
+                <label className="text-[11px] font-medium text-[#c9d1d9]">{t('Emergency Hotline')}</label>
                 <input
                   type="text"
                   value={formData.emergencyContact}
@@ -493,7 +495,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
             onClick={handleCloseAttempt}
             className="text-xs text-[#8b949e] hover:text-white border-[#30363d]"
           >
-            Cancel
+            {t('Cancel')}
           </Button>
 
           <Button
@@ -505,7 +507,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
             className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 font-semibold"
           >
             <Save className="w-3.5 h-3.5" />
-            Save Changes
+            {t('Save Changes')}
           </Button>
         </div>
 
@@ -518,9 +520,9 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-white">Unsaved Changes</h4>
+                  <h4 className="font-bold text-sm text-white">{t('Unsaved Changes')}</h4>
                   <p className="text-xs text-[#8b949e]">
-                    You have modified location details. Are you sure you want to discard them?
+                    {t('You have modified location details. Are you sure you want to discard them?')}
                   </p>
                 </div>
               </div>
@@ -532,7 +534,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
                   onClick={() => setShowDiscardConfirm(false)}
                   className="text-xs border-[#30363d] text-[#c9d1d9]"
                 >
-                  Keep Editing
+                  {t('Keep Editing')}
                 </Button>
                 <Button
                   variant="outline"
@@ -543,7 +545,7 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
                   }}
                   className="text-xs bg-[#da3633]/15 hover:bg-[#da3633]/30 text-[#f85149] border-[#da3633]/40"
                 >
-                  Discard Changes
+                  {t('Discard Changes')}
                 </Button>
               </div>
             </div>

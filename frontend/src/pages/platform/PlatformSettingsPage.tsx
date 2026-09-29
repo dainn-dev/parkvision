@@ -19,8 +19,10 @@ import {
   Select,
   Switch
 } from '../../components/ui';
+import { useTranslation } from 'react-i18next';
 
 export const PlatformSettingsPage: React.FC = () => {
+  const { t } = useTranslation('platform');
   const { settings, updateSettings, settingsSection, setSettingsSection, openMfaModal } = usePlatform();
 
   const [formData, setFormData] = useState<any>(settings[settingsSection]);
@@ -47,10 +49,10 @@ export const PlatformSettingsPage: React.FC = () => {
       {/* Top Title */}
       <div>
         <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-          <Settings className="w-5 h-5 text-indigo-400" /> Platform Global Settings
+          <Settings className="w-5 h-5 text-indigo-400" /> {t('Platform Global Settings')}
         </h2>
         <p className="text-xs text-slate-400 mt-1">
-          Configure multi-tenant default security policies, token lifetimes, storage retention, and notification defaults.
+          {t('Configure multi-tenant default security policies, token lifetimes, storage retention, and notification defaults.')}
         </p>
       </div>
 
@@ -68,7 +70,7 @@ export const PlatformSettingsPage: React.FC = () => {
               }`}
             >
               <Settings className="w-4 h-4" />
-              <span>General Defaults</span>
+              <span>{t('General Defaults')}</span>
             </button>
 
             <button
@@ -80,7 +82,7 @@ export const PlatformSettingsPage: React.FC = () => {
               }`}
             >
               <Lock className="w-4 h-4 text-amber-400" />
-              <span>Authentication</span>
+              <span>{t('Authentication')}</span>
             </button>
 
             <button
@@ -92,7 +94,7 @@ export const PlatformSettingsPage: React.FC = () => {
               }`}
             >
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Security Policy</span>
+              <span>{t('Security Policy')}</span>
             </button>
 
             <button
@@ -104,7 +106,7 @@ export const PlatformSettingsPage: React.FC = () => {
               }`}
             >
               <Database className="w-4 h-4 text-sky-400" />
-              <span>Storage & Retention</span>
+              <span>{t('Storage & Retention')}</span>
             </button>
 
             <button
@@ -116,7 +118,7 @@ export const PlatformSettingsPage: React.FC = () => {
               }`}
             >
               <Bell className="w-4 h-4 text-purple-400" />
-              <span>Notifications</span>
+              <span>{t('Notifications')}</span>
             </button>
           </div>
         </Card>
@@ -126,16 +128,16 @@ export const PlatformSettingsPage: React.FC = () => {
           <CardHeader
             title={
               settingsSection === 'general'
-                ? 'General Platform Information'
+                ? t('General Platform Information')
                 : settingsSection === 'authentication'
-                ? 'Token Lifetimes & Session Policy'
+                ? t('Token Lifetimes & Session Policy')
                 : settingsSection === 'security'
-                ? 'Password & Lockout Security Rules'
+                ? t('Password & Lockout Security Rules')
                 : settingsSection === 'storage'
-                ? 'Object Storage & Automatic Retention Cleanup'
-                : 'Notification Dispatch Defaults'
+                ? t('Object Storage & Automatic Retention Cleanup')
+                : t('Notification Dispatch Defaults')
             }
-            subtitle="Changes apply globally across all platform governance services"
+            subtitle={t('Changes apply globally across all platform governance services')}
           />
 
           <CardContent className="space-y-5">
@@ -143,20 +145,20 @@ export const PlatformSettingsPage: React.FC = () => {
             {settingsSection === 'general' && (
               <div className="space-y-4">
                 <Input
-                  label="Platform System Name"
+                  label={t('Platform System Name')}
                   value={formData.platformName || ''}
                   onChange={(e) => handleChange('platformName', e.target.value)}
                 />
 
                 <Input
-                  label="Platform Base URL"
+                  label={t('Platform Base URL')}
                   value={formData.platformUrl || ''}
                   onChange={(e) => handleChange('platformUrl', e.target.value)}
                 />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Select
-                    label="Default Timezone"
+                    label={t('Default Timezone')}
                     value={formData.defaultTimezone || 'Asia/Ho_Chi_Minh'}
                     onChange={(e) => handleChange('defaultTimezone', e.target.value)}
                     options={[
@@ -167,7 +169,7 @@ export const PlatformSettingsPage: React.FC = () => {
                   />
 
                   <Select
-                    label="Default Console Language"
+                    label={t('Default Console Language')}
                     value={formData.defaultLanguage || 'English (US)'}
                     onChange={(e) => handleChange('defaultLanguage', e.target.value)}
                     options={[
@@ -178,7 +180,7 @@ export const PlatformSettingsPage: React.FC = () => {
                 </div>
 
                 <Input
-                  label="Platform Support Email"
+                  label={t('Platform Support Email')}
                   type="email"
                   value={formData.supportEmail || ''}
                   onChange={(e) => handleChange('supportEmail', e.target.value)}
@@ -191,32 +193,32 @@ export const PlatformSettingsPage: React.FC = () => {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
-                    label="Access Token Lifetime (Minutes)"
+                    label={t('Access Token Lifetime (Minutes)')}
                     type="number"
                     value={formData.accessTokenLifetimeMinutes || 15}
                     onChange={(e) => handleChange('accessTokenLifetimeMinutes', Number(e.target.value))}
-                    helperText="Shorter token lifetime enhances token stealing protection"
+                    helperText={t('Shorter token lifetime enhances token stealing protection')}
                   />
 
                   <Input
-                    label="Refresh Token Lifetime (Days)"
+                    label={t('Refresh Token Lifetime (Days)')}
                     type="number"
                     value={formData.refreshTokenLifetimeDays || 7}
                     onChange={(e) => handleChange('refreshTokenLifetimeDays', Number(e.target.value))}
-                    helperText="Users must re-authenticate after refresh token expires"
+                    helperText={t('Users must re-authenticate after refresh token expires')}
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
-                    label="Idle Session Timeout (Minutes)"
+                    label={t('Idle Session Timeout (Minutes)')}
                     type="number"
                     value={formData.sessionTimeoutMinutes || 30}
                     onChange={(e) => handleChange('sessionTimeoutMinutes', Number(e.target.value))}
                   />
 
                   <Input
-                    label="Max Concurrent Sessions Per User"
+                    label={t('Max Concurrent Sessions Per User')}
                     type="number"
                     value={formData.maxConcurrentSessions || 5}
                     onChange={(e) => handleChange('maxConcurrentSessions', Number(e.target.value))}
@@ -224,15 +226,15 @@ export const PlatformSettingsPage: React.FC = () => {
                 </div>
 
                 <Switch
-                  label="Revoke Active Sessions on Password Change"
-                  description="Automatically signs out all devices when an account updates its password"
+                  label={t('Revoke Active Sessions on Password Change')}
+                  description={t('Automatically signs out all devices when an account updates its password')}
                   checked={formData.revokeSessionsOnPasswordChange ?? true}
                   onChange={(val) => handleChange('revokeSessionsOnPasswordChange', val)}
                 />
 
                 <Switch
-                  label="Revoke Active Sessions on Password Reset"
-                  description="Immediately invalidates all existing JWT tokens upon password reset"
+                  label={t('Revoke Active Sessions on Password Reset')}
+                  description={t('Immediately invalidates all existing JWT tokens upon password reset')}
                   checked={formData.revokeSessionsOnPasswordReset ?? true}
                   onChange={(val) => handleChange('revokeSessionsOnPasswordReset', val)}
                 />
@@ -243,7 +245,7 @@ export const PlatformSettingsPage: React.FC = () => {
             {settingsSection === 'security' && (
               <div className="space-y-4">
                 <Input
-                  label="Minimum Password Length"
+                  label={t('Minimum Password Length')}
                   type="number"
                   value={formData.minPasswordLength || 12}
                   onChange={(e) => handleChange('minPasswordLength', Number(e.target.value))}
@@ -251,13 +253,13 @@ export const PlatformSettingsPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                   <Switch
-                    label="Require Uppercase Characters"
+                    label={t('Require Uppercase Characters')}
                     checked={formData.requireUppercase ?? true}
                     onChange={(val) => handleChange('requireUppercase', val)}
                   />
 
                   <Switch
-                    label="Require Special Characters (!@#$%^&*)"
+                    label={t('Require Special Characters (!@#$%^&*)')}
                     checked={formData.requireSpecialChars ?? true}
                     onChange={(val) => handleChange('requireSpecialChars', val)}
                   />
@@ -265,14 +267,14 @@ export const PlatformSettingsPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
-                    label="Max Failed Login Attempts Before Lockout"
+                    label={t('Max Failed Login Attempts Before Lockout')}
                     type="number"
                     value={formData.maxFailedLoginAttempts || 5}
                     onChange={(e) => handleChange('maxFailedLoginAttempts', Number(e.target.value))}
                   />
 
                   <Input
-                    label="Account Lockout Duration (Minutes)"
+                    label={t('Account Lockout Duration (Minutes)')}
                     type="number"
                     value={formData.accountLockoutMinutes || 15}
                     onChange={(e) => handleChange('accountLockoutMinutes', Number(e.target.value))}
@@ -280,21 +282,21 @@ export const PlatformSettingsPage: React.FC = () => {
                 </div>
 
                 <Select
-                  label="Multi-Factor Authentication (MFA) Policy"
+                  label={t('Multi-Factor Authentication (MFA) Policy')}
                   value={formData.mfaEnforcement || 'MANDATORY_ADMINS'}
                   onChange={(e) => handleChange('mfaEnforcement', e.target.value)}
                   options={[
-                    { value: 'MANDATORY_ALL', label: 'Mandatory for ALL Users' },
-                    { value: 'MANDATORY_ADMINS', label: 'Mandatory for Administrators Only' },
-                    { value: 'OPTIONAL', label: 'Optional Self-Enrollment' }
+                    { value: 'MANDATORY_ALL', label: t('Mandatory for ALL Users') },
+                    { value: 'MANDATORY_ADMINS', label: t('Mandatory for Administrators Only') },
+                    { value: 'OPTIONAL', label: t('Optional Self-Enrollment') }
                   ]}
                 />
 
                 <div className="p-4 bg-[#0d0e12] border border-[#30363d] rounded-xl flex items-center justify-between">
                   <div>
-                    <h5 className="font-bold text-white text-xs">Self-Enrollment & Verification Test</h5>
+                    <h5 className="font-bold text-white text-xs">{t('Self-Enrollment & Verification Test')}</h5>
                     <p className="text-[11px] text-[#8b949e] mt-0.5">
-                      Pair your authenticator app, scan QR code, or test 6-digit TOTP validation.
+                      {t('Pair your authenticator app, scan QR code, or test 6-digit TOTP validation.')}
                     </p>
                   </div>
                   <Button
@@ -303,7 +305,7 @@ export const PlatformSettingsPage: React.FC = () => {
                     icon={ShieldCheck}
                     onClick={() => openMfaModal('enroll')}
                   >
-                    Setup / Verify MFA
+                    {t('Setup / Verify MFA')}
                   </Button>
                 </div>
               </div>
@@ -313,7 +315,7 @@ export const PlatformSettingsPage: React.FC = () => {
             {settingsSection === 'storage' && (
               <div className="space-y-4">
                 <Select
-                  label="Object Storage Engine Provider"
+                  label={t('Object Storage Engine Provider')}
                   value={formData.provider || 'MinIO'}
                   onChange={(e) => handleChange('provider', e.target.value)}
                   options={[
@@ -325,14 +327,14 @@ export const PlatformSettingsPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
-                    label="Raw Camera Image Retention (Days)"
+                    label={t('Raw Camera Image Retention (Days)')}
                     type="number"
                     value={formData.defaultImageRetentionDays || 90}
                     onChange={(e) => handleChange('defaultImageRetentionDays', Number(e.target.value))}
                   />
 
                   <Input
-                    label="Audit Attachment Retention (Days)"
+                    label={t('Audit Attachment Retention (Days)')}
                     type="number"
                     value={formData.attachmentRetentionDays || 180}
                     onChange={(e) => handleChange('attachmentRetentionDays', Number(e.target.value))}
@@ -340,8 +342,8 @@ export const PlatformSettingsPage: React.FC = () => {
                 </div>
 
                 <Switch
-                  label="Enable Automatic Retention Worker Cleanup"
-                  description="Nightly background daemon will purge expired OCR raw image snapshots"
+                  label={t('Enable Automatic Retention Worker Cleanup')}
+                  description={t('Nightly background daemon will purge expired OCR raw image snapshots')}
                   checked={formData.autoCleanupEnabled ?? true}
                   onChange={(val) => handleChange('autoCleanupEnabled', val)}
                 />
@@ -352,21 +354,21 @@ export const PlatformSettingsPage: React.FC = () => {
             {settingsSection === 'notifications' && (
               <div className="space-y-4">
                 <Switch
-                  label="Enable Platform Email Dispatch Engine"
-                  description="Routes security notifications and system alerts via SMTP gateway"
+                  label={t('Enable Platform Email Dispatch Engine')}
+                  description={t('Routes security notifications and system alerts via SMTP gateway')}
                   checked={formData.emailNotificationsEnabled ?? true}
                   onChange={(val) => handleChange('emailNotificationsEnabled', val)}
                 />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
-                    label="Sender Display Name"
+                    label={t('Sender Display Name')}
                     value={formData.senderName || ''}
                     onChange={(e) => handleChange('senderName', e.target.value)}
                   />
 
                   <Input
-                    label="Sender Email Address"
+                    label={t('Sender Email Address')}
                     type="email"
                     value={formData.senderEmail || ''}
                     onChange={(e) => handleChange('senderEmail', e.target.value)}
@@ -375,13 +377,13 @@ export const PlatformSettingsPage: React.FC = () => {
 
                 <div className="space-y-2 pt-2">
                   <Switch
-                    label="Notify Platform Admins on Security Threat Alerts"
+                    label={t('Notify Platform Admins on Security Threat Alerts')}
                     checked={formData.notifySecurityAlerts ?? true}
                     onChange={(val) => handleChange('notifySecurityAlerts', val)}
                   />
 
                   <Switch
-                    label="Notify Platform Admins on System Health Degradation"
+                    label={t('Notify Platform Admins on System Health Degradation')}
                     checked={formData.notifySystemHealthAlerts ?? true}
                     onChange={(val) => handleChange('notifySystemHealthAlerts', val)}
                   />
@@ -392,10 +394,10 @@ export const PlatformSettingsPage: React.FC = () => {
             {/* Save / Reset Bar */}
             <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-800">
               <Button variant="ghost" size="sm" icon={RotateCcw} onClick={handleReset}>
-                Reset Section
+                {t('Reset Section')}
               </Button>
               <Button variant="primary" size="sm" icon={Check} onClick={handleSave}>
-                Save Changes
+                {t('Save Changes')}
               </Button>
             </div>
           </CardContent>

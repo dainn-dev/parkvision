@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, UploadCloud, FileText, CheckCircle2, AlertTriangle, Download } from 'lucide-react';
 import { Button } from '../../ui';
 import { usePlatform } from '../../../context/PlatformContext';
+import { useTranslation } from 'react-i18next';
 
 interface ImportUsersModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface ImportUsersModalProps {
 
 export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onClose }) => {
   const { addToast } = usePlatform();
+  const { t } = useTranslation('tenant');
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -37,8 +39,8 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
       setIsProcessing(false);
       addToast({
         type: 'success',
-        title: 'Users Imported Successfully',
-        description: `Imported records from ${fileName}. Invitations dispatched.`
+        title: t('Users Imported Successfully'),
+        description: t('Imported records from {{file}}. Invitations dispatched.', { file: fileName })
       });
       onClose();
     }, 800);
@@ -67,8 +69,8 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
               <UploadCloud className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white tracking-tight">Bulk Import Users & Members</h2>
-              <p className="text-xs text-[#8b949e]">Upload CSV spreadsheet to batch invite or provision</p>
+              <h2 className="text-base font-bold text-white tracking-tight">{t('Bulk Import Users & Members')}</h2>
+              <p className="text-xs text-[#8b949e]">{t('Upload CSV spreadsheet to batch invite or provision')}</p>
             </div>
           </div>
           <button
@@ -97,13 +99,13 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
           >
             <UploadCloud className="w-8 h-8 text-[#58a6ff] mx-auto mb-2" />
             <p className="font-bold text-white text-xs">
-              {fileName ? fileName : 'Drag and drop your CSV file here'}
+              {fileName ? fileName : t('Drag and drop your CSV file here')}
             </p>
-            <p className="text-[11px] text-[#8b949e] mt-1">Supports UTF-8 CSV with standard header mapping</p>
+            <p className="text-[11px] text-[#8b949e] mt-1">{t('Supports UTF-8 CSV with standard header mapping')}</p>
 
             <label className="mt-3 inline-block">
               <span className="px-3 py-1.5 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-white text-xs font-semibold cursor-pointer border border-[#30363d] transition-colors">
-                Browse File
+                {t('Browse File')}
               </span>
               <input type="file" accept=".csv" onChange={handleFileInput} className="hidden" />
             </label>
@@ -114,8 +116,8 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
             <div className="flex items-center gap-2.5">
               <FileText className="w-4 h-4 text-[#58a6ff]" />
               <div>
-                <div className="font-semibold text-white">Download Sample CSV Template</div>
-                <div className="text-[11px] text-[#8b949e]">Includes columns for Name, Email, Role, Plates</div>
+                <div className="font-semibold text-white">{t('Download Sample CSV Template')}</div>
+                <div className="text-[11px] text-[#8b949e]">{t('Includes columns for Name, Email, Role, Plates')}</div>
               </div>
             </div>
             <Button
@@ -124,7 +126,7 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
               className="text-[11px] py-1 px-2.5 bg-[#21262d] hover:bg-[#30363d] text-white gap-1 border border-[#30363d]"
             >
               <Download className="w-3 h-3" />
-              Template
+              {t('Template')}
             </Button>
           </div>
         </div>
@@ -132,7 +134,7 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
         {/* Footer */}
         <div className="p-4 border-t border-[#30363d] bg-[#0d0e12]/80 flex items-center justify-end gap-2.5">
           <Button variant="secondary" onClick={onClose} className="text-xs">
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             type="button"
@@ -142,7 +144,7 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
             className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white font-bold gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
-            {isProcessing ? 'Processing CSV...' : 'Process Import'}
+            {isProcessing ? t('Processing CSV...') : t('Process Import')}
           </Button>
         </div>
       </div>

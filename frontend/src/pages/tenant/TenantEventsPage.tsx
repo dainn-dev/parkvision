@@ -18,8 +18,10 @@ import {
 import { Button, Input, Pagination } from '../../components/ui';
 import { AccessEvent } from '../../types/tenant';
 import { AccessEventDrawer } from '../../components/tenant/AccessEventDrawer';
+import { useTranslation } from 'react-i18next';
 
 export const TenantEventsPage: React.FC = () => {
+  const { t } = useTranslation('tenant');
   const { accessEvents, tenantSites, triggerGateCommand, addToast } = usePlatform();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,8 +75,8 @@ export const TenantEventsPage: React.FC = () => {
   const handleExportCSV = () => {
     addToast({
       type: 'success',
-      title: 'Export Generated',
-      description: `Downloaded access verification log (${filteredEvents.length} records).`
+      title: t('Export Generated'),
+      description: t('Downloaded access verification log ({{count}} records).', { count: filteredEvents.length })
     });
   };
 
@@ -86,15 +88,15 @@ export const TenantEventsPage: React.FC = () => {
           <div className="flex items-center gap-2.5">
             <Activity className="w-6 h-6 text-[#58a6ff]" />
             <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
-              Access Event Audit Stream
+              {t('Access Event Audit Stream')}
             </h1>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
               <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
-              Live Telemetry
+              {t('Live Telemetry')}
             </span>
           </div>
           <p className="text-xs text-[#8b949e] mt-1">
-            Real-time optical license plate verification, gate decision rules, and operator overrides
+            {t('Real-time optical license plate verification, gate decision rules, and operator overrides')}
           </p>
         </div>
 
@@ -106,7 +108,7 @@ export const TenantEventsPage: React.FC = () => {
             className="text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] gap-1.5"
           >
             <Download className="w-3.5 h-3.5" />
-            Export Log (.CSV)
+            {t('Export Log (.CSV)')}
           </Button>
         </div>
       </div>
@@ -117,7 +119,7 @@ export const TenantEventsPage: React.FC = () => {
           <div className="relative flex-1 min-w-[220px]">
             <Search className="w-4 h-4 text-[#8b949e] absolute left-3 top-1/2 -translate-y-1/2" />
             <Input
-              placeholder="Search plate, owner, or gate..."
+              placeholder={t('Search plate, owner, or gate...')}
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-9 bg-[#0d0e12] border-[#30363d] text-white text-xs h-9"
@@ -129,7 +131,7 @@ export const TenantEventsPage: React.FC = () => {
             onChange={(e) => handleSiteChange(e.target.value)}
             className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-hidden"
           >
-            <option value="ALL">All Facilities ({tenantSites.length})</option>
+            <option value="ALL">{t('All Facilities')} ({tenantSites.length})</option>
             {tenantSites.map((site) => (
               <option key={site.id} value={site.id}>
                 {site.name}
@@ -148,7 +150,7 @@ export const TenantEventsPage: React.FC = () => {
                     : 'text-[#8b949e] hover:text-[#c9d1d9]'
                 }`}
               >
-                {dec === 'ALL' ? 'All Decisions' : dec}
+                {dec === 'ALL' ? t('All Decisions') : t(dec)}
               </button>
             ))}
           </div>
@@ -161,14 +163,14 @@ export const TenantEventsPage: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px]">
               <tr>
-                <th className="py-3 px-4">Timestamp</th>
-                <th className="py-3 px-4">License Plate</th>
-                <th className="py-3 px-4">Facility Site</th>
-                <th className="py-3 px-4">Gate & Direction</th>
-                <th className="py-3 px-4">Decision</th>
-                <th className="py-3 px-4">Registered Driver</th>
-                <th className="py-3 px-4">OCR Confidence</th>
-                <th className="py-3 px-4 text-right">Inspect</th>
+                <th className="py-3 px-4">{t('Timestamp')}</th>
+                <th className="py-3 px-4">{t('License Plate')}</th>
+                <th className="py-3 px-4">{t('Facility Site')}</th>
+                <th className="py-3 px-4">{t('Gate & Direction')}</th>
+                <th className="py-3 px-4">{t('Decision')}</th>
+                <th className="py-3 px-4">{t('Registered Driver')}</th>
+                <th className="py-3 px-4">{t('OCR Confidence')}</th>
+                <th className="py-3 px-4 text-right">{t('Inspect')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#30363d]/60 font-medium">
@@ -176,8 +178,8 @@ export const TenantEventsPage: React.FC = () => {
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-[#8b949e]">
                     <Activity className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/50" />
-                    <p className="font-semibold text-white">No access events found</p>
-                    <p className="text-xs mt-1">Try adjusting search parameters or facility filters</p>
+                    <p className="font-semibold text-white">{t('No access events found')}</p>
+                    <p className="text-xs mt-1">{t('Try adjusting search parameters or facility filters')}</p>
                   </td>
                 </tr>
               ) : (
@@ -204,7 +206,7 @@ export const TenantEventsPage: React.FC = () => {
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <span className="text-white font-medium">{event.gateName}</span>
                       <span className="text-[10px] text-[#8b949e] block font-mono">
-                        {event.laneName} · {event.direction === 'IN' ? '↓ Inbound' : '↑ Outbound'}
+                        {event.laneName} · {event.direction === 'IN' ? t('↓ Inbound') : t('↑ Outbound')}
                       </span>
                     </td>
 
@@ -222,12 +224,12 @@ export const TenantEventsPage: React.FC = () => {
                         {event.decision === 'DENIED' && <XCircle className="w-3 h-3" />}
                         {event.decision === 'BLOCKED' && <Ban className="w-3 h-3" />}
                         {event.decision === 'UNKNOWN' && <AlertTriangle className="w-3 h-3" />}
-                        {event.decision}
+                        {t(event.decision)}
                       </span>
                     </td>
 
                     <td className="py-3.5 px-4 text-[#c9d1d9] whitespace-nowrap">
-                      <span>{event.ownerName || 'Unregistered'}</span>
+                      <span>{event.ownerName || t('Unregistered')}</span>
                       {event.ownerType && (
                         <span className="text-[10px] text-[#8b949e] block font-mono">
                           ({event.ownerType})

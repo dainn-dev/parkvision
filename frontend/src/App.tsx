@@ -43,6 +43,7 @@ import { TenantParkingMapPage } from './pages/tenant/TenantParkingMapPage';
 import { BarrierMapVisualization } from './components/monitoring/BarrierMapVisualization';
 import { ArrowLeft, LayoutDashboard, UserCog, LogOut } from 'lucide-react';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { useTranslation } from 'react-i18next';
 
 const PlatformAppContent: React.FC = () => {
   const {
@@ -61,6 +62,8 @@ const PlatformAppContent: React.FC = () => {
     impersonation,
     exitImpersonation
   } = usePlatform();
+  const { t } = useTranslation('layout');
+  const { t: tMonitoring } = useTranslation('monitoring');
 
   // Public site view state: 'landing' | 'terms' | 'privacy' | 'sla' | 'login' | 'register' | 'activate' | 'find-car'
   const [publicView, setPublicView] = useState<PublicViewType>(() => {
@@ -90,14 +93,14 @@ const PlatformAppContent: React.FC = () => {
           <div className="bg-[#161b22] border-b border-[#30363d] px-4 py-2 flex items-center justify-between text-xs z-50 sticky top-0">
             <span className="text-[#8b949e] flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-ping" />
-              <span>Chế độ Xem trước Landing Page (Dành cho Tenant & Khách Hàng)</span>
+              <span>{t('Landing Page Preview Mode (For Tenants & Customers)')}</span>
             </span>
             <button
               onClick={() => setIsPreviewingLandingAsAuth(false)}
               className="px-3 py-1 rounded-lg bg-[#58a6ff] hover:bg-[#388bfd] text-slate-950 font-bold flex items-center gap-1.5 cursor-pointer"
             >
               <LayoutDashboard className="w-3.5 h-3.5" />
-              <span>Quay lại Bảng Quản Trị</span>
+              <span>{t('Back to Admin Dashboard')}</span>
             </button>
           </div>
         )}
@@ -196,15 +199,15 @@ const PlatformAppContent: React.FC = () => {
           <div className="bg-amber-500/15 border-b border-amber-500/40 px-6 py-2 flex items-center justify-between gap-4 shrink-0">
             <div className="flex items-center gap-2 text-amber-300 text-xs font-semibold">
               <UserCog className="w-4 h-4" />
-              Đang mạo danh tenant <span className="font-mono">{impersonation.tenantName}</span>
-              — phiên hết hạn sau {Math.round(impersonation.expiresIn / 60)} phút
+              {t('Impersonating tenant')} <span className="font-mono">{impersonation.tenantName}</span>
+              {' — '}{t('session expires in {{minutes}} minutes', { minutes: Math.round(impersonation.expiresIn / 60) })}
             </div>
             <button
               onClick={() => exitImpersonation()}
               className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/20 border border-amber-500/50 text-amber-200 text-[11px] font-bold hover:bg-amber-500/30 transition-colors cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
-              Thoát mạo danh
+              {t('Exit impersonation')}
             </button>
           </div>
         )}
@@ -224,10 +227,10 @@ const PlatformAppContent: React.FC = () => {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161b22] p-6 rounded-2xl border border-[#30363d]">
                     <div>
                       <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                        Bản Đồ Giám Sát Barrier & Vị Trí Trạm
+                        {tMonitoring('Barrier Monitoring Map & Station Locations')}
                       </h2>
                       <p className="text-xs text-[#8b949e] mt-1">
-                        Trực quan hóa trạng thái cần barrier theo thời gian thực trên bản đồ vector D3.js và bảng điều khiển telemetry.
+                        {tMonitoring('Visualize real-time barrier arm status on the D3.js vector map and telemetry dashboard.')}
                       </p>
                     </div>
                   </div>

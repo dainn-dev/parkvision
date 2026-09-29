@@ -12,8 +12,10 @@ import {
   Modal,
   Select
 } from '../../components/ui';
+import { useTranslation } from 'react-i18next';
 
 export const FeatureFlagsPage: React.FC = () => {
+  const { t } = useTranslation('platform');
   const { featureFlags, toggleFeatureFlag, createFeatureFlag, addToast } = usePlatform();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -34,7 +36,7 @@ export const FeatureFlagsPage: React.FC = () => {
 
   const handleCreateFlag = () => {
     if (!flagKey.trim() || !flagName.trim()) {
-      addToast({ type: 'error', title: 'Validation Error', description: 'Key and Name are required.' });
+      addToast({ type: 'error', title: t('Validation Error'), description: t('Key and Name are required.') });
       return;
     }
 
@@ -52,10 +54,10 @@ export const FeatureFlagsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            <Flag className="w-5 h-5 text-amber-400" /> Feature Flags & Progressive Rollouts
+            <Flag className="w-5 h-5 text-amber-400" /> {t('Feature Flags & Progressive Rollouts')}
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Safely roll out platform capabilities, AI models, and gate algorithms dynamically without redeploying code.
+            {t('Safely roll out platform capabilities, AI models, and gate algorithms dynamically without redeploying code.')}
           </p>
         </div>
 
@@ -65,14 +67,14 @@ export const FeatureFlagsPage: React.FC = () => {
           onClick={() => setIsAddModalOpen(true)}
           className="shadow-md shadow-indigo-600/30"
         >
-          New Feature Flag
+          {t('New Feature Flag')}
         </Button>
       </div>
 
       {/* Search Bar */}
       <Card className="p-4">
         <Input
-          placeholder="Search feature flags by key, name, or description..."
+          placeholder={t('Search feature flags by key, name, or description...')}
           icon={Search}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -87,7 +89,7 @@ export const FeatureFlagsPage: React.FC = () => {
               <div className="space-y-1 flex-1">
                 <div className="flex items-center gap-3">
                   <Badge variant={flag.enabled ? 'emerald' : 'slate'} dot>
-                    {flag.enabled ? 'ENABLED' : 'DISABLED'}
+                    {flag.enabled ? t('ENABLED') : t('DISABLED')}
                   </Badge>
                   <code className="text-xs font-mono font-bold text-amber-300 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
                     {flag.key}
@@ -101,7 +103,7 @@ export const FeatureFlagsPage: React.FC = () => {
                 <p className="text-xs text-slate-400">{flag.description}</p>
 
                 <div className="text-[11px] text-slate-500 pt-1 font-mono">
-                  Rollout: {flag.rolloutPercentage}% • Updated by {flag.updatedBy} at {new Date(flag.updatedAt).toLocaleString()}
+                  {t('Rollout:')}{' '}{flag.rolloutPercentage}% • {t('Updated by')} {flag.updatedBy} {t('at')} {new Date(flag.updatedAt).toLocaleString()}
                 </div>
               </div>
 
@@ -109,10 +111,10 @@ export const FeatureFlagsPage: React.FC = () => {
               <div className="flex items-center gap-6 shrink-0 bg-slate-950 p-3 rounded-xl border border-slate-800">
                 <div className="text-right">
                   <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold block">
-                    Rollout Gate
+                    {t('Rollout Gate')}
                   </span>
                   <span className="text-xs font-mono font-bold text-indigo-300">
-                    {flag.rolloutPercentage}% Target
+                    {flag.rolloutPercentage}% {t('Target')}
                   </span>
                 </div>
 
@@ -130,33 +132,33 @@ export const FeatureFlagsPage: React.FC = () => {
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        title="Provision Platform Feature Flag"
-        subtitle="Configure progressive deployment rules for new runtime capabilities"
+        title={t('Provision Platform Feature Flag')}
+        subtitle={t('Configure progressive deployment rules for new runtime capabilities')}
       >
         <div className="space-y-4 text-xs">
           <Input
-            label="Feature Flag Key Identifier *"
+            label={t('Feature Flag Key Identifier *')}
             placeholder="e.g. ANPR_YOLO_V11_PRECISION"
             value={flagKey}
             onChange={(e) => setFlagKey(e.target.value.toUpperCase())}
           />
 
           <Input
-            label="Feature Display Name *"
+            label={t('Feature Display Name *')}
             placeholder="e.g. YOLOv11 License Plate Recognition AI"
             value={flagName}
             onChange={(e) => setFlagName(e.target.value)}
           />
 
           <Input
-            label="Description"
+            label={t('Description')}
             placeholder="High precision 99.8% ANPR model for low light camera conditions"
             value={flagDesc}
             onChange={(e) => setFlagDesc(e.target.value)}
           />
 
           <Select
-            label="Target Environment"
+            label={t('Target Environment')}
             value={environment}
             onChange={(e) => setEnvironment(e.target.value as any)}
             options={[
@@ -168,7 +170,7 @@ export const FeatureFlagsPage: React.FC = () => {
 
           <div className="space-y-1.5">
             <label className="block text-xs font-medium text-slate-300">
-              Initial Target Rollout ({rolloutPercentage}%)
+              {t('Initial Target Rollout')} ({rolloutPercentage}%)
             </label>
             <input
               type="range"
@@ -183,10 +185,10 @@ export const FeatureFlagsPage: React.FC = () => {
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
             <Button variant="ghost" size="sm" onClick={() => setIsAddModalOpen(false)}>
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button variant="primary" size="sm" icon={Check} onClick={handleCreateFlag}>
-              Create Flag
+              {t('Create Flag')}
             </Button>
           </div>
         </div>

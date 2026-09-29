@@ -16,6 +16,10 @@ import {
   LiveGateFrame,
 } from '../types/platform';
 import type { LaneOut } from './api';
+import i18n from '../i18n';
+
+const tt = (key: string, opts?: Record<string, unknown>) =>
+  i18n.t(key, { ns: 'monitoring', ...opts });
 
 // ---------------------------------------------------------------------------
 // Geography: project real lat/lng into the stylised 600x700 tactical SVG frame.
@@ -69,10 +73,10 @@ export function relTime(iso: string | null | undefined): string {
   const ts = new Date(iso).getTime();
   if (Number.isNaN(ts)) return '—';
   const diffSec = Math.max(0, Math.round((Date.now() - ts) / 1000));
-  if (diffSec < 60) return 'Vừa xong';
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} phút trước`;
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} giờ trước`;
-  return `${Math.floor(diffSec / 86400)} ngày trước`;
+  if (diffSec < 60) return tt('Just now');
+  if (diffSec < 3600) return tt('{{n}} minutes ago', { n: Math.floor(diffSec / 60) });
+  if (diffSec < 86400) return tt('{{n}} hours ago', { n: Math.floor(diffSec / 3600) });
+  return tt('{{n}} days ago', { n: Math.floor(diffSec / 86400) });
 }
 
 export function gateCodeFor(gateId: string): string {
@@ -213,7 +217,7 @@ export function buildBarrierLocations(input: BuildBarrierLocationsInput): Tenant
         averageLatencyMs: num(live?.averageLatencyMs) ?? g.averageLatencyMs ?? 0,
         powerSource: live?.powerSource === 'UPS_BATTERY' ? 'UPS_BATTERY' : 'MAINS_220V',
         upsBatteryPercent: num(live?.upsBatteryPercent) ?? 100,
-        warningNote: pending ? `Đang chờ xác nhận lệnh ${pending.command.toUpperCase()}...` : undefined,
+        warningNote: pending ? tt('Awaiting {{cmd}} command confirmation...', { cmd: pending.command.toUpperCase() }) : undefined,
         stuckSince: stuckIncident ? relTime(stuckIncident.startedAt) : undefined,
         stuckReason: stuckIncident?.description,
         offlineSince: offlineIncident ? relTime(offlineIncident.startedAt) : undefined,
@@ -298,11 +302,11 @@ export function incidentToBarrierAlert(inc: OperationalIncident, lk: IncidentLoo
     tenantId: lk.tenantId,
     tenantName: inc.tenantName ?? lk.tenantName,
     timestamp: relTime(inc.startedAt),
-    title: isStuck ? 'Barrier Bị Kẹt Cần Cơ Học' : 'Barrier Mất Tín Hiệu (Offline)',
+    title: isStuck ? tt('Barrier Arm Mechanically Stuck') : tt('Barrier Signal Lost (Offline)'),
     message: inc.description || inc.title,
     suggestedAction: isStuck
-      ? 'Gửi lệnh rơ-le khởi động lại hoặc nâng cần cưỡng bức'
-      : 'Kiểm tra kết nối Edge Gateway và heartbeat thiết bị',
+      ? tt('Send relay restart command or force-raise the arm')
+      : tt('Check Edge Gateway connectivity and device heartbeat'),
     resolved: inc.status === 'RESOLVED',
     resolvedAt: inc.status === 'RESOLVED' ? relTime(inc.updatedAt) : undefined,
     acknowledged: inc.status === 'ACKNOWLEDGED',

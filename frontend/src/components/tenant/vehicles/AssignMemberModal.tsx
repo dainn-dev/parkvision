@@ -3,6 +3,7 @@ import { TenantVehicle } from '../../../types/tenant';
 import { usePlatform } from '../../../context/PlatformContext';
 import { X, Check, UserCheck, Search, User, ShieldAlert } from 'lucide-react';
 import { Button, Input } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface AssignMemberModalProps {
   vehicle: TenantVehicle | null;
@@ -16,6 +17,7 @@ export const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
   onClose
 }) => {
   const { tenantUsers, assignVehicleMember } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(
@@ -50,8 +52,8 @@ export const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
               <UserCheck className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">Assign Vehicle Member</h3>
-              <p className="text-xs text-[#8b949e]">Link {vehicle.name} ({vehicle.currentPlate.number}) to an authorized member</p>
+              <h3 className="text-base font-bold text-white tracking-tight">{t('Assign Vehicle Member')}</h3>
+              <p className="text-xs text-[#8b949e]">{t('Link {{name}} ({{plate}}) to an authorized member', { name: vehicle.name, plate: vehicle.currentPlate.number })}</p>
             </div>
           </div>
 
@@ -77,8 +79,8 @@ export const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
               <User className="w-4 h-4" />
             </div>
             <div className="flex-1">
-              <span className="font-bold text-white block">Unassigned Organization Fleet</span>
-              <span className="text-[11px] text-[#8b949e]">Not associated with any specific member profile</span>
+              <span className="font-bold text-white block">{t('Unassigned Organization Fleet')}</span>
+              <span className="text-[11px] text-[#8b949e]">{t('Not associated with any specific member profile')}</span>
             </div>
             {selectedMemberId === null && (
               <Check className="w-4 h-4 text-[#58a6ff]" />
@@ -89,7 +91,7 @@ export const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
           <div className="relative">
             <Search className="w-4 h-4 text-[#8b949e] absolute left-3 top-1/2 -translate-y-1/2" />
             <Input
-              placeholder="Search members by name, email, or member code..."
+              placeholder={t('Search members by name, email, or member code...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 bg-[#161b22] border-[#30363d] text-white text-xs"
@@ -127,7 +129,7 @@ export const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
                       )}
                       {isSuspended && (
                         <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#da3633]/15 text-[#f85149]">
-                          SUSPENDED
+                          {t('SUSPENDED')}
                         </span>
                       )}
                     </div>
@@ -148,7 +150,7 @@ export const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
               onClick={onClose}
               className="text-xs"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               type="submit"
@@ -156,7 +158,7 @@ export const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
               className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
-              Confirm Assignment
+              {t('Confirm Assignment')}
             </Button>
           </div>
         </form>

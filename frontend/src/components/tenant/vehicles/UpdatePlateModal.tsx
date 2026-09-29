@@ -3,6 +3,7 @@ import { TenantVehicle } from '../../../types/tenant';
 import { usePlatform } from '../../../context/PlatformContext';
 import { X, Check, Tag, AlertCircle } from 'lucide-react';
 import { Button, Input } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface UpdatePlateModalProps {
   vehicle: TenantVehicle | null;
@@ -16,6 +17,7 @@ export const UpdatePlateModal: React.FC<UpdatePlateModalProps> = ({
   onClose
 }) => {
   const { registerVehicleLicensePlate } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const [newPlateNumber, setNewPlateNumber] = useState('');
   const [province, setProvince] = useState('Ho Chi Minh City');
@@ -41,7 +43,7 @@ export const UpdatePlateModal: React.FC<UpdatePlateModalProps> = ({
       setNewPlateNumber('');
       onClose();
     } else {
-      setErrorMessage(res.message || 'Failed to update plate.');
+      setErrorMessage(res.message || t('Failed to update plate.'));
     }
   };
 
@@ -56,8 +58,8 @@ export const UpdatePlateModal: React.FC<UpdatePlateModalProps> = ({
               <Tag className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">Replace License Plate</h3>
-              <p className="text-xs text-[#8b949e]">Update active plate for {vehicle.name}</p>
+              <h3 className="text-base font-bold text-white tracking-tight">{t('Replace License Plate')}</h3>
+              <p className="text-xs text-[#8b949e]">{t('Update active plate for {{name}}', { name: vehicle.name })}</p>
             </div>
           </div>
 
@@ -71,23 +73,23 @@ export const UpdatePlateModal: React.FC<UpdatePlateModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
           <div className="p-3 rounded-xl bg-[#161b22] border border-[#30363d]">
-            <span className="text-[#8b949e] text-[11px] block">Current Active Plate</span>
+            <span className="text-[#8b949e] text-[11px] block">{t('Current Active Plate')}</span>
             <div className="flex items-center gap-2 mt-1">
               <span className="font-mono font-bold text-white text-sm px-2.5 py-0.5 rounded bg-[#0d0e12] border border-[#30363d]">
                 {vehicle.currentPlate.number}
               </span>
               <span className="text-[11px] text-[#8b949e]">
-                (Will be archived into historical records)
+                {t('(Will be archived into historical records)')}
               </span>
             </div>
           </div>
 
           <div>
             <label className="block text-[#c9d1d9] font-medium mb-1.5">
-              New License Plate Number <span className="text-[#f85149]">*</span>
+              {t('New License Plate Number')} <span className="text-[#f85149]">*</span>
             </label>
             <Input
-              placeholder="e.g. 51H-999.88 or 30E-12345"
+              placeholder={t('e.g. 51H-999.88 or 30E-12345')}
               value={newPlateNumber}
               onChange={(e) => {
                 setNewPlateNumber(e.target.value.toUpperCase());
@@ -101,7 +103,7 @@ export const UpdatePlateModal: React.FC<UpdatePlateModalProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Province / City
+                {t('Province / City')}
               </label>
               <Input
                 value={province}
@@ -111,7 +113,7 @@ export const UpdatePlateModal: React.FC<UpdatePlateModalProps> = ({
             </div>
             <div>
               <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                Country
+                {t('Country')}
               </label>
               <Input
                 value={country}
@@ -135,7 +137,7 @@ export const UpdatePlateModal: React.FC<UpdatePlateModalProps> = ({
               onClick={onClose}
               className="text-xs"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               type="submit"
@@ -143,7 +145,7 @@ export const UpdatePlateModal: React.FC<UpdatePlateModalProps> = ({
               className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
-              Update Plate
+              {t('Update Plate')}
             </Button>
           </div>
         </form>

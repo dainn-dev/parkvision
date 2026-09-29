@@ -32,6 +32,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { Button } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface VehicleDetailsModalProps {
   vehicle: TenantVehicle | null;
@@ -57,6 +58,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
     deactivateTenantVehicle,
     archiveTenantVehicle
   } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const [activeTab, setActiveTab] = useState<'overview' | 'plates' | 'assignments' | 'audit'>('overview');
 
@@ -96,11 +98,11 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                   }`}
                 >
                   {vehicle.status === 'ACTIVE' ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-                  {vehicle.status}
+                  {t(vehicle.status)}
                 </span>
               </div>
               <p className="text-xs text-[#8b949e] mt-0.5">
-                {vehicle.type} · {vehicle.color || 'No color'} · {vehicle.year || 'Year N/A'} · Enrolled {new Date(vehicle.createdAt).toLocaleDateString()}
+                {vehicle.type} · {vehicle.color || t('No color')} · {vehicle.year || t('Year N/A')} · {t('Enrolled')} {new Date(vehicle.createdAt).toLocaleDateString()}
               </p>
             </div>
           </div>
@@ -124,7 +126,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            Overview & Specs
+            {t('Overview & Specs')}
           </button>
           <button
             onClick={() => setActiveTab('plates')}
@@ -135,7 +137,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
             }`}
           >
             <Tag className="w-3.5 h-3.5" />
-            Plate History ({1 + (vehicle.previousPlates?.length || 0)})
+            {t('Plate History')} ({1 + (vehicle.previousPlates?.length || 0)})
           </button>
           <button
             onClick={() => setActiveTab('assignments')}
@@ -146,7 +148,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
             }`}
           >
             <UserCheck className="w-3.5 h-3.5" />
-            Member Ownership
+            {t('Member Ownership')}
           </button>
           <button
             onClick={() => setActiveTab('audit')}
@@ -157,7 +159,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
             }`}
           >
             <History className="w-3.5 h-3.5" />
-            Audit Trail ({vehicle.auditHistory?.length || 0})
+            {t('Audit Trail')} ({vehicle.auditHistory?.length || 0})
           </button>
         </div>
 
@@ -181,17 +183,17 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                 )}
                 <div className="flex-1">
                   <div className="flex items-center gap-2 font-bold text-sm text-white">
-                    <span>Gate Access Decision: {vehicle.accessStatus}</span>
+                    <span>{t('Gate Access Decision:')} {t(vehicle.accessStatus)}</span>
                   </div>
                   <p className="text-xs mt-1 text-[#c9d1d9]">
                     {vehicle.accessStatusReason ||
                       (vehicle.accessStatus === 'ALLOWED'
-                        ? 'Vehicle is whitelisted for automated barrier access upon ANPR plate match.'
-                        : 'Access is denied at edge barrier gates.')}
+                        ? t('Vehicle is whitelisted for automated barrier access upon ANPR plate match.')
+                        : t('Access is denied at edge barrier gates.'))}
                   </p>
                   {isSuspended && vehicle.suspendedReason && (
                     <div className="mt-2 text-xs font-mono bg-[#d29922]/10 border border-[#d29922]/30 text-[#e3b341] p-2 rounded-lg">
-                      Suspension Reason: {vehicle.suspendedReason}
+                      {t('Suspension Reason:')} {vehicle.suspendedReason}
                     </div>
                   )}
                 </div>
@@ -200,35 +202,35 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
               {/* Technical Specifications */}
               <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4 space-y-3">
                 <h3 className="text-xs font-bold text-white uppercase tracking-wider text-[#8b949e]">
-                  Vehicle Specifications
+                  {t('Vehicle Specifications')}
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                   <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]/60">
-                    <span className="text-[#8b949e] text-[11px] block">Make & Model</span>
+                    <span className="text-[#8b949e] text-[11px] block">{t('Make & Model')}</span>
                     <span className="font-semibold text-white mt-0.5 block">{vehicle.make} {vehicle.model}</span>
                   </div>
                   <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]/60">
-                    <span className="text-[#8b949e] text-[11px] block">Vehicle Category</span>
+                    <span className="text-[#8b949e] text-[11px] block">{t('Vehicle Category')}</span>
                     <span className="font-semibold text-white mt-0.5 block">{vehicle.type}</span>
                   </div>
                   <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]/60">
-                    <span className="text-[#8b949e] text-[11px] block">Model Year</span>
-                    <span className="font-semibold text-white mt-0.5 block">{vehicle.year || 'Not specified'}</span>
+                    <span className="text-[#8b949e] text-[11px] block">{t('Model Year')}</span>
+                    <span className="font-semibold text-white mt-0.5 block">{vehicle.year || t('Not specified')}</span>
                   </div>
                   <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]/60">
-                    <span className="text-[#8b949e] text-[11px] block">Exterior Color</span>
-                    <span className="font-semibold text-white mt-0.5 block">{vehicle.color || 'Not specified'}</span>
+                    <span className="text-[#8b949e] text-[11px] block">{t('Exterior Color')}</span>
+                    <span className="font-semibold text-white mt-0.5 block">{vehicle.color || t('Not specified')}</span>
                   </div>
                   <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]/60">
-                    <span className="text-[#8b949e] text-[11px] block">VIN / Chassis No.</span>
+                    <span className="text-[#8b949e] text-[11px] block">{t('VIN / Chassis No.')}</span>
                     <span className="font-mono text-white mt-0.5 block text-[11px]">
                       {vehicle.vin || 'N/A'}
                     </span>
                   </div>
                   <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]/60">
-                    <span className="text-[#8b949e] text-[11px] block">Applied Rules</span>
+                    <span className="text-[#8b949e] text-[11px] block">{t('Applied Rules')}</span>
                     <span className="font-medium text-[#58a6ff] mt-0.5 block truncate">
-                      {vehicle.appliedRules?.join(', ') || 'Standard 24/7 Access'}
+                      {vehicle.appliedRules?.join(', ') || t('Standard 24/7 Access')}
                     </span>
                   </div>
                 </div>
@@ -238,7 +240,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
               <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider text-[#8b949e]">
-                    Assigned Member / Driver
+                    {t('Assigned Member / Driver')}
                   </h3>
                   <Button
                     variant="outline"
@@ -247,7 +249,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                     className="text-[11px] h-7 gap-1"
                   >
                     <UserCheck className="w-3 h-3" />
-                    {vehicle.member ? 'Change Member' : 'Assign Member'}
+                    {vehicle.member ? t('Change Member') : t('Assign Member')}
                   </Button>
                 </div>
 
@@ -274,8 +276,8 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                 ) : (
                   <div className="p-4 rounded-lg bg-[#0d0e12] border border-dashed border-[#30363d] text-center text-[#8b949e]">
                     <User className="w-6 h-6 mx-auto mb-1 text-[#8b949e]/50" />
-                    <p className="text-white font-semibold text-xs">Unassigned Pool / Fleet Vehicle</p>
-                    <p className="text-[11px] mt-0.5">This vehicle is not directly tied to an individual member profile.</p>
+                    <p className="text-white font-semibold text-xs">{t('Unassigned Pool / Fleet Vehicle')}</p>
+                    <p className="text-[11px] mt-0.5">{t('This vehicle is not directly tied to an individual member profile.')}</p>
                   </div>
                 )}
               </div>
@@ -287,8 +289,8 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-white text-xs">License Plates Registry</h3>
-                  <p className="text-[11px] text-[#8b949e]">Current active plate and historical replacement records</p>
+                  <h3 className="font-bold text-white text-xs">{t('License Plates Registry')}</h3>
+                  <p className="text-[11px] text-[#8b949e]">{t('Current active plate and historical replacement records')}</p>
                 </div>
                 <Button
                   variant="primary"
@@ -297,7 +299,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                   className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 h-8"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  Replace / Update Plate
+                  {t('Replace / Update Plate')}
                 </Button>
               </div>
 
@@ -309,23 +311,23 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                       {vehicle.currentPlate.number}
                     </span>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
-                      ACTIVE PLATE
+                      {t('ACTIVE PLATE')}
                     </span>
                   </div>
                   <span className="text-[11px] text-[#8b949e]">
-                    Valid From: {vehicle.currentPlate.validFrom}
+                    {t('Valid From:')} {vehicle.currentPlate.validFrom}
                   </span>
                 </div>
                 <div className="flex items-center gap-4 text-[11px] text-[#8b949e] pt-1">
-                  <span>Region: {vehicle.currentPlate.province || 'Ho Chi Minh City'} ({vehicle.currentPlate.country})</span>
-                  <span>Registered: {new Date(vehicle.currentPlate.registeredAt).toLocaleDateString()}</span>
+                  <span>{t('Region:')} {vehicle.currentPlate.province || 'Ho Chi Minh City'} ({vehicle.currentPlate.country})</span>
+                  <span>{t('Registered:')} {new Date(vehicle.currentPlate.registeredAt).toLocaleDateString()}</span>
                 </div>
               </div>
 
               {/* Previous Plates */}
               {vehicle.previousPlates && vehicle.previousPlates.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-xs font-bold text-[#8b949e] uppercase tracking-wider">Previous Historical Plates</h4>
+                  <h4 className="text-xs font-bold text-[#8b949e] uppercase tracking-wider">{t('Previous Historical Plates')}</h4>
                   <div className="space-y-2">
                     {vehicle.previousPlates.map((prevPlate) => (
                       <div
@@ -344,7 +346,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                           )}
                         </div>
                         <span className="text-[11px] text-[#8b949e]">
-                          {prevPlate.validFrom} → {prevPlate.validTo || 'Replaced'}
+                          {prevPlate.validFrom} → {prevPlate.validTo || t('Replaced')}
                         </span>
                       </div>
                     ))}
@@ -359,8 +361,8 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-white text-xs">Member Assignment Log</h3>
-                  <p className="text-[11px] text-[#8b949e]">Historical ownership and driver reallocations</p>
+                  <h3 className="font-bold text-white text-xs">{t('Member Assignment Log')}</h3>
+                  <p className="text-[11px] text-[#8b949e]">{t('Historical ownership and driver reallocations')}</p>
                 </div>
                 <Button
                   variant="outline"
@@ -369,15 +371,15 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                   className="text-xs h-8 gap-1.5"
                 >
                   <UserCheck className="w-3.5 h-3.5" />
-                  Assign / Reassign
+                  {t('Assign / Reassign')}
                 </Button>
               </div>
 
               {(!vehicle.assignmentHistory || vehicle.assignmentHistory.length === 0) ? (
                 <div className="p-8 text-center bg-[#161b22] rounded-xl border border-[#30363d] text-[#8b949e]">
                   <User className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/40" />
-                  <p className="text-white font-semibold">No Assignment History</p>
-                  <p className="text-xs mt-0.5">This vehicle has not been formally assigned to specific members.</p>
+                  <p className="text-white font-semibold">{t('No Assignment History')}</p>
+                  <p className="text-xs mt-0.5">{t('This vehicle has not been formally assigned to specific members.')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -400,19 +402,19 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                             )}
                             {idx === 0 && (
                               <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#238636]/15 text-[#3fb950]">
-                                CURRENT
+                                {t('CURRENT')}
                               </span>
                             )}
                           </div>
                           <p className="text-[11px] text-[#8b949e] mt-0.5">
-                            Assigned by {item.assignedBy}
+                            {t('Assigned by')} {item.assignedBy}
                           </p>
                         </div>
                       </div>
 
                       <div className="text-right text-[11px] text-[#8b949e]">
                         <div>{new Date(item.assignedAt).toLocaleDateString()}</div>
-                        {item.unassignedAt && <div>Ended: {new Date(item.unassignedAt).toLocaleDateString()}</div>}
+                        {item.unassignedAt && <div>{t('Ended:')} {new Date(item.unassignedAt).toLocaleDateString()}</div>}
                       </div>
                     </div>
                   ))}
@@ -424,13 +426,13 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
           {/* AUDIT TAB */}
           {activeTab === 'audit' && (
             <div className="space-y-3">
-              <h3 className="font-bold text-white text-xs">Vehicle Lifecycle Audit Trail</h3>
-              <p className="text-[11px] text-[#8b949e]">Immutable event history of registrations, status shifts, and policy changes</p>
+              <h3 className="font-bold text-white text-xs">{t('Vehicle Lifecycle Audit Trail')}</h3>
+              <p className="text-[11px] text-[#8b949e]">{t('Immutable event history of registrations, status shifts, and policy changes')}</p>
 
               {(!vehicle.auditHistory || vehicle.auditHistory.length === 0) ? (
                 <div className="p-8 text-center bg-[#161b22] rounded-xl border border-[#30363d] text-[#8b949e]">
                   <Clock className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/40" />
-                  <p className="text-white font-semibold">No Audit Entries</p>
+                  <p className="text-white font-semibold">{t('No Audit Entries')}</p>
                 </div>
               ) : (
                 <div className="space-y-2.5">
@@ -444,7 +446,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-white text-xs">{log.action.replace('VEHICLE_', '')}</span>
+                          <span className="font-bold text-white text-xs">{t(log.action.replace('VEHICLE_', ''))}</span>
                           <span className="text-[10px] font-mono text-[#8b949e]">
                             {new Date(log.timestamp).toLocaleString()}
                           </span>
@@ -452,11 +454,11 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                         <p className="text-xs text-[#c9d1d9] mt-0.5">{log.description}</p>
                         {log.reason && (
                           <p className="text-[11px] text-[#e3b341] mt-1 bg-[#d29922]/10 p-1.5 rounded">
-                            Reason: {log.reason}
+                            {t('Reason:')} {log.reason}
                           </p>
                         )}
                         <p className="text-[10px] text-[#8b949e] mt-1">
-                          Actor: {log.actorName} {log.actorRole ? `(${log.actorRole})` : ''}
+                          {t('Actor:')} {log.actorName} {log.actorRole ? `(${t(log.actorRole)})` : ''}
                         </p>
                       </div>
                     </div>
@@ -478,7 +480,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                 className="text-xs bg-[#238636]/15 text-[#3fb950] border-[#238636]/30 hover:bg-[#238636]/25"
               >
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                Reactivate Vehicle
+                {t('Reactivate Vehicle')}
               </Button>
             ) : (
               <Button
@@ -488,7 +490,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                 className="text-xs bg-[#d29922]/15 text-[#e3b341] border-[#d29922]/30 hover:bg-[#d29922]/25"
               >
                 <Ban className="w-3.5 h-3.5 mr-1" />
-                Suspend Access
+                {t('Suspend Access')}
               </Button>
             )}
 
@@ -499,7 +501,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                 onClick={() => deactivateTenantVehicle(vehicle.id)}
                 className="text-xs text-[#8b949e] hover:text-[#f85149]"
               >
-                Deactivate
+                {t('Deactivate')}
               </Button>
             )}
 
@@ -511,7 +513,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                 className="text-xs text-[#8b949e] hover:text-[#f85149]"
               >
                 <Archive className="w-3.5 h-3.5 mr-1" />
-                Archive
+                {t('Archive')}
               </Button>
             )}
           </div>
@@ -524,7 +526,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
               className="text-xs"
             >
               <Edit2 className="w-3.5 h-3.5 mr-1" />
-              Edit Specs
+              {t('Edit Specs')}
             </Button>
             <Button
               variant="primary"
@@ -532,7 +534,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
               onClick={onClose}
               className="text-xs bg-[#21262d] border border-[#30363d] text-white hover:bg-[#30363d]"
             >
-              Close
+              {t('Close')}
             </Button>
           </div>
         </div>

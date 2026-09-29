@@ -13,6 +13,7 @@ import {
 import { usePlatform } from '../../../context/PlatformContext';
 import { TenantAccessRule } from '../../../types/tenant';
 import { Button } from '../../ui';
+import { useTranslation } from 'react-i18next';
 
 interface RulePriorityReorderModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
   onClose
 }) => {
   const { tenantAccessRules, reorderRulePriorities } = usePlatform();
+  const { t } = useTranslation('tenant');
   const [rules, setRules] = useState<TenantAccessRule[]>([]);
 
   useEffect(() => {
@@ -64,10 +66,10 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
             </div>
             <div>
               <h3 className="text-base font-bold text-white tracking-tight">
-                Reorder Rule Evaluation Priorities
+                {t('Reorder Rule Evaluation Priorities')}
               </h3>
               <p className="text-xs text-[#8b949e]">
-                Higher positions in the list are evaluated first by edge controllers
+                {t('Higher positions in the list are evaluated first by edge controllers')}
               </p>
             </div>
           </div>
@@ -84,7 +86,7 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
         <div className="px-6 py-2.5 bg-[#1f6feb]/10 border-b border-[#1f6feb]/20 flex items-center gap-2 text-xs text-[#58a6ff]">
           <Info className="w-4 h-4 shrink-0" />
           <span>
-            Evaluation occurs sequentially from position #1 downwards. The first matched rule determines gate action.
+            {t('Evaluation occurs sequentially from position #1 downwards. The first matched rule determines gate action.')}
           </span>
         </div>
 
@@ -117,14 +119,14 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
                         }`}
                       >
                         {rule.action === 'ALLOW' ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
-                        {rule.action}
+                        {t(rule.action)}
                       </span>
                     </div>
 
                     <div className="text-[11px] text-[#8b949e] mt-0.5">
-                      Target: <span className="text-[#c9d1d9]">{rule.target?.type || rule.type}</span> · Status:{' '}
+                      {t('Target:')} <span className="text-[#c9d1d9]">{rule.target?.type || rule.type}</span> · {t('Status:')}{' '}
                       <span className={rule.status === 'ACTIVE' ? 'text-[#3fb950]' : 'text-[#8b949e]'}>
-                        {rule.status}
+                        {t(rule.status)}
                       </span>
                     </div>
                   </div>
@@ -136,7 +138,7 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
                     disabled={idx === 0}
                     onClick={() => moveRule(idx, 'up')}
                     className="p-1.5 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                    title="Move higher priority"
+                    title={t('Move higher priority')}
                   >
                     <ArrowUp className="w-4 h-4" />
                   </button>
@@ -145,7 +147,7 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
                     disabled={idx === rules.length - 1}
                     onClick={() => moveRule(idx, 'down')}
                     className="p-1.5 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                    title="Move lower priority"
+                    title={t('Move lower priority')}
                   >
                     <ArrowDown className="w-4 h-4" />
                   </button>
@@ -158,7 +160,7 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
         {/* Footer */}
         <div className="px-6 py-4 border-t border-[#30363d] bg-[#161b22] flex items-center justify-between">
           <span className="text-xs text-[#8b949e]">
-            Priorities will automatically re-index in intervals of 10 (#10, #20, #30...)
+            {t('Priorities will automatically re-index in intervals of 10 (#10, #20, #30...)')}
           </span>
 
           <div className="flex items-center gap-2">
@@ -168,7 +170,7 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
               onClick={onClose}
               className="text-xs border-[#30363d] text-[#8b949e] hover:text-white"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               variant="primary"
@@ -177,7 +179,7 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
               className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
             >
               <Check className="w-4 h-4" />
-              Save Evaluation Sequence
+              {t('Save Evaluation Sequence')}
             </Button>
           </div>
         </div>

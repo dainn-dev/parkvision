@@ -25,11 +25,13 @@ import {
   Pagination,
   StatCard
 } from '../../components/ui';
+import { useTranslation } from 'react-i18next';
 
 export const TenantsListPage: React.FC<{
   onOpenCreateModal: () => void;
 }> = ({ onOpenCreateModal }) => {
   const { tenants, setTenantStatus, setSelectedTenantId } = usePlatform();
+  const { t } = useTranslation('platform');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -90,10 +92,10 @@ export const TenantsListPage: React.FC<{
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-amber-400" /> Organization Tenants
+            <Building2 className="w-5 h-5 text-amber-400" /> {t('Organization Tenants')}
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Enterprise multi-tenant directory, usage tracking, and administrative lifecycle.
+            {t('Enterprise multi-tenant directory, usage tracking, and administrative lifecycle.')}
           </p>
         </div>
 
@@ -103,35 +105,35 @@ export const TenantsListPage: React.FC<{
           onClick={onOpenCreateModal}
           className="shadow-md shadow-indigo-600/30"
         >
-          Provision Tenant
+          {t('Provision Tenant')}
         </Button>
       </div>
 
       {/* Quick Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Active Tenants"
+          title={t('Active Tenants')}
           value={tenants.filter((t) => t.status === 'ACTIVE').length}
-          subtitle="Full platform operational rights"
-          badge={<Badge variant="emerald" dot>ACTIVE</Badge>}
+          subtitle={t('Full platform operational rights')}
+          badge={<Badge variant="emerald" dot>{t('ACTIVE')}</Badge>}
         />
         <StatCard
-          title="Trial Evaluation"
+          title={t('Trial Evaluation')}
           value={tenants.filter((t) => t.status === 'TRIAL').length}
-          subtitle="Temporary sandbox licenses"
-          badge={<Badge variant="amber" dot>TRIAL</Badge>}
+          subtitle={t('Temporary sandbox licenses')}
+          badge={<Badge variant="amber" dot>{t('TRIAL')}</Badge>}
         />
         <StatCard
-          title="Suspended Orgs"
+          title={t('Suspended Orgs')}
           value={tenants.filter((t) => t.status === 'SUSPENDED').length}
-          subtitle="Access temporarily revoked"
-          badge={<Badge variant="red" dot>SUSPENDED</Badge>}
+          subtitle={t('Access temporarily revoked')}
+          badge={<Badge variant="red" dot>{t('SUSPENDED')}</Badge>}
         />
         <StatCard
-          title="Disabled Orgs"
+          title={t('Disabled Orgs')}
           value={tenants.filter((t) => t.status === 'DISABLED').length}
-          subtitle="Permanently decommissioned"
-          badge={<Badge variant="slate">DISABLED</Badge>}
+          subtitle={t('Permanently decommissioned')}
+          badge={<Badge variant="slate">{t('DISABLED')}</Badge>}
         />
       </div>
 
@@ -139,7 +141,7 @@ export const TenantsListPage: React.FC<{
       <Card className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="w-full sm:w-80">
           <Input
-            placeholder="Search tenant name, code, email..."
+            placeholder={t('Search tenant name, code, email...')}
             icon={Search}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -151,11 +153,11 @@ export const TenantsListPage: React.FC<{
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             options={[
-              { value: 'ALL', label: 'All Lifecycle Statuses' },
-              { value: 'ACTIVE', label: 'Active Only' },
-              { value: 'TRIAL', label: 'Trial Only' },
-              { value: 'SUSPENDED', label: 'Suspended Only' },
-              { value: 'DISABLED', label: 'Disabled Only' }
+              { value: 'ALL', label: t('All Lifecycle Statuses') },
+              { value: 'ACTIVE', label: t('Active Only') },
+              { value: 'TRIAL', label: t('Trial Only') },
+              { value: 'SUSPENDED', label: t('Suspended Only') },
+              { value: 'DISABLED', label: t('Disabled Only') }
             ]}
           />
         </div>
@@ -167,21 +169,21 @@ export const TenantsListPage: React.FC<{
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
               <tr>
-                <th className="py-3.5 px-4">Organization & Code</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4">Tenant Admin</th>
-                <th className="py-3.5 px-4 text-center">Users</th>
-                <th className="py-3.5 px-4 text-center">Cameras</th>
-                <th className="py-3.5 px-4 text-center">24h Events</th>
-                <th className="py-3.5 px-4">Created Date</th>
-                <th className="py-3.5 px-4 text-right">Actions</th>
+                <th className="py-3.5 px-4">{t('Organization & Code')}</th>
+                <th className="py-3.5 px-4">{t('Status')}</th>
+                <th className="py-3.5 px-4">{t('Tenant Admin')}</th>
+                <th className="py-3.5 px-4 text-center">{t('Users')}</th>
+                <th className="py-3.5 px-4 text-center">{t('Cameras')}</th>
+                <th className="py-3.5 px-4 text-center">{t('24h Events')}</th>
+                <th className="py-3.5 px-4">{t('Created Date')}</th>
+                <th className="py-3.5 px-4 text-right">{t('Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/80 text-slate-200">
               {paginatedTenants.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-slate-500">
-                    No enterprise tenants matching query parameters.
+                    {t('No enterprise tenants matching query parameters.')}
                   </td>
                 </tr>
               ) : (
@@ -264,7 +266,7 @@ export const TenantsListPage: React.FC<{
                           size="sm"
                           icon={Eye}
                           onClick={() => setSelectedTenantId(tenant.id)}
-                          title="View Tenant Detail"
+                          title={t('View Tenant Detail')}
                         />
 
                         {tenant.status === 'ACTIVE' && (
@@ -274,7 +276,7 @@ export const TenantsListPage: React.FC<{
                             className="text-red-400 hover:bg-red-950/50 hover:border-red-800"
                             onClick={() => handleOpenAction(tenant, 'SUSPENDED')}
                           >
-                            Suspend
+                            {t('Suspend')}
                           </Button>
                         )}
 
@@ -285,7 +287,7 @@ export const TenantsListPage: React.FC<{
                             className="text-emerald-400 hover:bg-emerald-950/50 hover:border-emerald-800"
                             onClick={() => handleOpenAction(tenant, 'ACTIVE')}
                           >
-                            Activate
+                            {t('Activate')}
                           </Button>
                         )}
                       </div>
@@ -310,17 +312,17 @@ export const TenantsListPage: React.FC<{
       <Modal
         isOpen={actionModal.isOpen}
         onClose={() => setActionModal({ isOpen: false, tenant: null, targetStatus: null, reason: '' })}
-        title={`Change Tenant Lifecycle Status: ${actionModal.targetStatus}`}
-        subtitle={`Organization: ${actionModal.tenant?.name} (${actionModal.tenant?.code})`}
+        title={t('Change Tenant Lifecycle Status: {{status}}', { status: actionModal.targetStatus })}
+        subtitle={t('Organization: {{name}} ({{code}})', { name: actionModal.tenant?.name, code: actionModal.tenant?.code })}
       >
         <div className="space-y-4 text-xs">
           <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-800/50 text-amber-200">
-            Modifying a tenant's lifecycle status will alter access permissions for all enrolled users and cameras.
+            {t("Modifying a tenant's lifecycle status will alter access permissions for all enrolled users and cameras.")}
           </div>
 
           <Input
-            label="Reason for Lifecycle Action (Audited) *"
-            placeholder="e.g. Administrative request, billing resolution, security check..."
+            label={t('Reason for Lifecycle Action (Audited) *')}
+            placeholder={t('e.g. Administrative request, billing resolution, security check...')}
             value={actionModal.reason}
             onChange={(e) => setActionModal((prev) => ({ ...prev, reason: e.target.value }))}
           />
@@ -331,7 +333,7 @@ export const TenantsListPage: React.FC<{
               size="sm"
               onClick={() => setActionModal({ isOpen: false, tenant: null, targetStatus: null, reason: '' })}
             >
-              Cancel
+              {t('Cancel')}
             </Button>
 
             <Button
@@ -339,7 +341,7 @@ export const TenantsListPage: React.FC<{
               size="sm"
               onClick={handleConfirmAction}
             >
-              Confirm Status Change
+              {t('Confirm Status Change')}
             </Button>
           </div>
         </div>

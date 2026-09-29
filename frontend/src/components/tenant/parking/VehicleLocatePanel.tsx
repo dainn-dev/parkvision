@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search, Car, MapPinned, Camera, Clock, AlertCircle } from 'lucide-react';
 import { Button, Card, Input } from '../../ui';
 import type { LocateOut } from '../../../services/api';
+import { useTranslation } from 'react-i18next';
 
 interface VehicleLocatePanelProps {
   onLocate: (plate: string) => Promise<LocateOut | null>;
@@ -14,6 +15,7 @@ export const VehicleLocatePanel: React.FC<VehicleLocatePanelProps> = ({
   result,
   searching,
 }) => {
+  const { t } = useTranslation('tenant');
   const [plate, setPlate] = useState('');
 
   const submit = async () => {
@@ -27,10 +29,10 @@ export const VehicleLocatePanel: React.FC<VehicleLocatePanelProps> = ({
       <div>
         <h3 className="text-sm font-bold text-white flex items-center gap-2">
           <Search className="w-4 h-4 text-[#58a6ff]" />
-          Tìm xe trong bãi
+          {t('Find vehicle in lot')}
         </h3>
         <p className="text-[11px] text-[#8b949e] mt-1">
-          Nhập biển số — hệ thống chỉ dẫn tới khu vực xe đang đỗ.
+          {t('Enter a plate number — the system will point to the zone where the vehicle is parked.')}
         </p>
       </div>
 
@@ -43,14 +45,14 @@ export const VehicleLocatePanel: React.FC<VehicleLocatePanelProps> = ({
           className="font-mono"
         />
         <Button onClick={submit} disabled={searching || plate.trim().length < 4}>
-          {searching ? '...' : 'Tìm'}
+          {searching ? '...' : t('Find')}
         </Button>
       </div>
 
       {result && !result.found && (
         <div className="flex items-start gap-2 p-3 rounded-lg bg-[#d29922]/10 border border-[#d29922]/30">
           <AlertCircle className="w-4 h-4 text-[#d29922] mt-0.5 shrink-0" />
-          <p className="text-xs text-[#d29922]">Không tìm thấy xe trong bãi.</p>
+          <p className="text-xs text-[#d29922]">{t('Vehicle not found in the lot.')}</p>
         </div>
       )}
 
@@ -77,14 +79,14 @@ export const VehicleLocatePanel: React.FC<VehicleLocatePanelProps> = ({
             {result.cameraName && (
               <div className="flex items-center gap-2">
                 <Camera className="w-3.5 h-3.5 text-[#8b949e] shrink-0" />
-                <span className="text-[#8b949e]">Xác nhận bởi {result.cameraName}</span>
+                <span className="text-[#8b949e]">{t('Confirmed by {{name}}', { name: result.cameraName })}</span>
               </div>
             )}
             {result.presence.firstSeenAt && (
               <div className="flex items-center gap-2">
                 <Clock className="w-3.5 h-3.5 text-[#8b949e] shrink-0" />
                 <span className="text-[#8b949e]">
-                  Đỗ từ {new Date(result.presence.firstSeenAt).toLocaleString('vi-VN')}
+                  {t('Parked since')} {new Date(result.presence.firstSeenAt).toLocaleString()}
                 </span>
               </div>
             )}

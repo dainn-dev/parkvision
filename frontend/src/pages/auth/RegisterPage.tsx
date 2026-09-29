@@ -20,6 +20,8 @@ import { Button, Badge } from '../../components/ui';
 import { usePlatform } from '../../context/PlatformContext';
 import { publicApi, ApiError } from '../../services/api';
 import { PublicViewType } from '../../components/layout/PublicNavbar';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '../../components/common/LanguageSwitcher';
 
 interface RegisterPageProps {
   initialPlan?: string;
@@ -33,6 +35,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
   onRegistrationSuccess
 }) => {
   const { login, setTenantNavTab, addToast } = usePlatform();
+  const { t } = useTranslation('auth');
 
   // Wizard Steps: 1: Organization -> 2: Scale & Plan -> 3: Admin Credentials
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -87,14 +90,14 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
   const handleStep1Next = (e: React.FormEvent) => {
     e.preventDefault();
     if (!orgName.trim()) {
-      setErrorMessage('Vui lòng nhập tên công ty hoặc tòa nhà của bạn.');
+      setErrorMessage(t('Please enter your company or building name.'));
       return;
     }
     if (slugCheck && !slugCheck.available) {
       setErrorMessage(
         slugCheck.reason === 'invalid_slug'
-          ? 'Mã tenant chỉ được chứa chữ thường, số và dấu gạch ngang.'
-          : 'Mã tenant này đã được sử dụng — vui lòng chọn mã khác.'
+          ? t('Tenant code may only contain lowercase letters, numbers and hyphens.')
+          : t('This tenant code is already taken — please choose another.')
       );
       return;
     }
@@ -111,19 +114,19 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
   const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminName.trim() || !adminEmail.trim() || !password) {
-      setErrorMessage('Vui lòng nhập đầy đủ họ tên, email và mật khẩu.');
+      setErrorMessage(t('Please fill in full name, email and password.'));
       return;
     }
     if (password.length < 10) {
-      setErrorMessage('Mật khẩu tối thiểu phải từ 10 ký tự trở lên.');
+      setErrorMessage(t('Password must be at least 10 characters.'));
       return;
     }
     if (password !== confirmPassword) {
-      setErrorMessage('Mật khẩu xác nhận không trùng khớp.');
+      setErrorMessage(t('Passwords do not match.'));
       return;
     }
     if (!agreedToTerms) {
-      setErrorMessage('Vui lòng xác nhận đồng ý với Điều khoản dịch vụ và Chính sách bảo mật.');
+      setErrorMessage(t('Please agree to the Terms of Service and Privacy Policy.'));
       return;
     }
 
@@ -144,7 +147,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
 
       const res = await login(adminEmail, password);
       if (res.requiresMfa || !res.success) {
-        setErrorMessage(res.message || 'Đăng ký thành công nhưng đăng nhập thất bại — vui lòng đăng nhập thủ công.');
+        setErrorMessage(res.message || t('Registration succeeded but auto sign-in failed — please sign in manually.'));
         onNavigate('login');
         return;
       }
@@ -153,15 +156,15 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
 
       addToast({
         type: 'success',
-        title: 'Khởi tạo Tenant thành công!',
-        description: `Chào mừng ${orgName}! Tenant của bạn đã được đăng ký.`
+        title: t('Tenant created successfully!'),
+        description: t('Welcome {{org}}! Your tenant has been registered.', { org: orgName })
       });
 
       if (onRegistrationSuccess) {
         onRegistrationSuccess();
       }
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Đăng ký thất bại. Vui lòng thử lại.';
+      const msg = err instanceof ApiError ? err.message : t('Registration failed. Please try again.');
       setErrorMessage(msg);
     } finally {
       setIsLoading(false);
@@ -181,16 +184,17 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
           className="inline-flex items-center gap-2 text-xs font-semibold text-[#8b949e] hover:text-white transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Về Trang Chủ</span>
+          <span>{t('Back to Home')}</span>
         </button>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs text-[#8b949e]">Đã có tài khoản?</span>
+          <LanguageSwitcher />
+          <span className="text-xs text-[#8b949e]">{t('Already have an account?')}</span>
           <button
             onClick={() => onNavigate('login')}
             className="text-xs font-bold text-[#58a6ff] hover:underline cursor-pointer"
           >
-            Đăng nhập ngay
+            {t('Sign in now')}
           </button>
         </div>
       </div>
@@ -206,15 +210,15 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
               </div>
               <div>
                 <h2 className="text-base font-extrabold text-white tracking-tight">
-                  Đăng Ký Nền Tảng ANPR Cloud
+                  {t('Register for ANPR Cloud')}
                 </h2>
                 <p className="text-xs text-[#8b949e]">
-                  Dùng thử 14 ngày miễn phí • Không cần thẻ tín dụng
+                  {t('14-day free trial • No credit card required')}
                 </p>
               </div>
             </div>
             <Badge variant="emerald" size="sm" className="font-mono text-[10px]">
-              Step {currentStep} / 3
+              {t('Step {{step}} / 3', { step: currentStep })}
             </Badge>
           </div>
 
@@ -246,7 +250,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
             <form onSubmit={handleStep1Next} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-white mb-1.5">
-                  Tên Doanh nghiệp / Tòa nhà / Bãi xe <span className="text-[#f85149]">*</span>
+                  {t('Business / Building / Parking Lot Name')} <span className="text-[#f85149]">*</span>
                 </label>
                 <div className="relative">
                   <Building2 className="w-4 h-4 text-[#8b949e] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -255,7 +259,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                     required
                     value={orgName}
                     onChange={(e) => handleOrgNameChange(e.target.value)}
-                    placeholder="Ví dụ: Tòa nhà Central Point Tower"
+                    placeholder={t('e.g. Central Point Tower')}
                     className="w-full pl-10 pr-4 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-xs sm:text-sm text-white placeholder-[#8b949e] focus:outline-none focus:border-[#58a6ff] focus:ring-1 focus:ring-[#58a6ff]"
                   />
                 </div>
@@ -263,7 +267,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-white mb-1.5">
-                  Mã định danh Tenant (Subdomain Slug)
+                  {t('Tenant Identifier (Subdomain Slug)')}
                 </label>
                 <div className="flex items-center">
                   <span className="px-3 py-2.5 bg-[#21262d] border border-r-0 border-[#30363d] rounded-l-xl text-xs font-mono text-[#8b949e]">
@@ -281,35 +285,35 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                 {slugCheck && (
                   <p className={`text-[11px] mt-1 ${slugCheck.available ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
                     {slugCheck.available
-                      ? `✓ anpr.cloud/${slugCheck.slug ?? slug} khả dụng`
+                      ? t('✓ anpr.cloud/{{slug}} is available', { slug: slugCheck.slug ?? slug })
                       : slugCheck.reason === 'invalid_slug'
-                        ? '✗ Chỉ dùng chữ thường, số và dấu gạch ngang (a-z, 0-9, -)'
-                        : '✗ Mã định danh đã được sử dụng'}
+                        ? t('✗ Only lowercase letters, numbers and hyphens (a-z, 0-9, -)')
+                        : t('✗ This identifier is already taken')}
                   </p>
                 )}
-                <p className="text-[11px] text-[#8b949e] mt-1">Dùng để phân vùng dữ liệu an toàn độc lập (Multi-Tenant RLS).</p>
+                <p className="text-[11px] text-[#8b949e] mt-1">{t('Used to isolate your data securely (Multi-Tenant RLS).')}</p>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-white mb-1.5">
-                  Loại hình cơ sở
+                  {t('Facility Type')}
                 </label>
                 <select
                   value={orgType}
                   onChange={(e) => setOrgType(e.target.value)}
                   className="w-full px-3 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-xs sm:text-sm text-white focus:outline-none focus:border-[#58a6ff]"
                 >
-                  <option value="OFFICE_BUILDING">Tòa nhà văn phòng & Trung tâm thương mại</option>
-                  <option value="RESIDENTIAL">Khu dân cư & Chung cư cao cấp</option>
-                  <option value="INDUSTRIAL">Khu công nghiệp & Kho vận Logistics</option>
-                  <option value="PARKING_LOT">Bãi đỗ xe thương mại thông minh</option>
-                  <option value="HOSPITAL_CAMPUS">Bệnh viện, Trường học & Cơ quan nhà nước</option>
+                  <option value="OFFICE_BUILDING">{t('Office Building & Shopping Mall')}</option>
+                  <option value="RESIDENTIAL">{t('Residential Area & Premium Apartments')}</option>
+                  <option value="INDUSTRIAL">{t('Industrial Park & Logistics Warehouse')}</option>
+                  <option value="PARKING_LOT">{t('Smart Commercial Parking Lot')}</option>
+                  <option value="HOSPITAL_CAMPUS">{t('Hospital, School & Government Office')}</option>
                 </select>
               </div>
 
               <div className="pt-4 flex justify-end">
                 <Button type="submit" variant="primary" icon={ArrowRight} className="py-2.5 px-6">
-                  Tiếp tục: Quy mô bãi xe
+                  {t('Continue: Parking Scale')}
                 </Button>
               </div>
             </form>
@@ -321,33 +325,33 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-white mb-1.5">
-                    Số lượng Cơ sở (Sites) dự kiến
+                    {t('Expected Number of Sites')}
                   </label>
                   <select
                     value={expectedSites}
                     onChange={(e) => setExpectedSites(e.target.value)}
                     className="w-full px-3 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-xs sm:text-sm text-white focus:outline-none focus:border-[#58a6ff]"
                   >
-                    <option value="1">1 Cơ sở duy nhất</option>
-                    <option value="2-3">2 - 3 Cơ sở</option>
-                    <option value="4-10">4 - 10 Cơ sở</option>
-                    <option value=">10">&gt; 10 Cơ sở (Chuỗi bãi xe toàn quốc)</option>
+                    <option value="1">{t('1 Single Site')}</option>
+                    <option value="2-3">{t('2 - 3 Sites')}</option>
+                    <option value="4-10">{t('4 - 10 Sites')}</option>
+                    <option value=">10">{t('> 10 Sites (Nationwide parking chain)')}</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-white mb-1.5">
-                    Tổng số Làn Barrier (Cổng Vào/Ra)
+                    {t('Total Barrier Lanes (Entry/Exit Gates)')}
                   </label>
                   <select
                     value={expectedGates}
                     onChange={(e) => setExpectedGates(e.target.value)}
                     className="w-full px-3 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-xs sm:text-sm text-white focus:outline-none focus:border-[#58a6ff]"
                   >
-                    <option value="1-2">1 - 2 Làn Barrier</option>
-                    <option value="3-6">3 - 6 Làn Barrier</option>
-                    <option value="7-15">7 - 15 Làn Barrier</option>
-                    <option value=">15">&gt; 15 Làn Barrier quy mô lớn</option>
+                    <option value="1-2">{t('1 - 2 Barrier Lanes')}</option>
+                    <option value="3-6">{t('3 - 6 Barrier Lanes')}</option>
+                    <option value="7-15">{t('7 - 15 Barrier Lanes')}</option>
+                    <option value=">15">{t('> 15 Large-scale Barrier Lanes')}</option>
                   </select>
                 </div>
               </div>
@@ -355,7 +359,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
               {/* Plan Choice Cards */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-white">
-                  Chọn gói dùng thử 14 ngày:
+                  {t('Choose your 14-day trial plan:')}
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div
@@ -366,9 +370,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                         : 'bg-[#0d0e12] border-[#30363d] text-[#8b949e] hover:border-[#484f58]'
                     }`}
                   >
-                    <div className="font-bold text-xs">Gói Starter</div>
-                    <div className="text-[11px] font-mono text-[#58a6ff] mt-0.5">Tối đa 2 Làn Barrier</div>
-                    <p className="text-[10px] mt-1 text-[#8b949e]">Phù hợp bãi xe mini, chung cư nhỏ.</p>
+                    <div className="font-bold text-xs">{t('Starter Plan')}</div>
+                    <div className="text-[11px] font-mono text-[#58a6ff] mt-0.5">{t('Up to 2 Barrier Lanes')}</div>
+                    <p className="text-[10px] mt-1 text-[#8b949e]">{t('Fits small lots & condos.')}</p>
                   </div>
 
                   <div
@@ -380,11 +384,11 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                     }`}
                   >
                     <span className="absolute -top-2 right-2 px-1.5 py-0.5 rounded bg-[#58a6ff] text-slate-950 text-[9px] font-bold">
-                      Khuyên dùng
+                      {t('Recommended')}
                     </span>
-                    <div className="font-bold text-xs">Gói Business</div>
-                    <div className="text-[11px] font-mono text-[#58a6ff] mt-0.5">Tới 8 Làn Barrier</div>
-                    <p className="text-[10px] mt-1 text-[#8b949e]">Rule Engine & Offline Failover.</p>
+                    <div className="font-bold text-xs">{t('Business Plan')}</div>
+                    <div className="text-[11px] font-mono text-[#58a6ff] mt-0.5">{t('Up to 8 Barrier Lanes')}</div>
+                    <p className="text-[10px] mt-1 text-[#8b949e]">{t('Rule Engine & Offline Failover.')}</p>
                   </div>
 
                   <div
@@ -395,9 +399,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                         : 'bg-[#0d0e12] border-[#30363d] text-[#8b949e] hover:border-[#484f58]'
                     }`}
                   >
-                    <div className="font-bold text-xs">Gói Enterprise</div>
-                    <div className="text-[11px] font-mono text-[#58a6ff] mt-0.5">Không giới hạn cổng</div>
-                    <p className="text-[10px] mt-1 text-[#8b949e]">KCN & Tích hợp ERP chuyên sâu.</p>
+                    <div className="font-bold text-xs">{t('Enterprise Plan')}</div>
+                    <div className="text-[11px] font-mono text-[#58a6ff] mt-0.5">{t('Unlimited gates')}</div>
+                    <p className="text-[10px] mt-1 text-[#8b949e]">{t('Industrial parks & deep ERP integration.')}</p>
                   </div>
                 </div>
               </div>
@@ -409,10 +413,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                   icon={ChevronLeft}
                   onClick={() => setCurrentStep(1)}
                 >
-                  Quay lại
+                  {t('Back')}
                 </Button>
                 <Button type="submit" variant="primary" icon={ArrowRight} className="py-2.5 px-6">
-                  Tiếp tục: Tài khoản quản trị
+                  {t('Continue: Admin Account')}
                 </Button>
               </div>
             </form>
@@ -423,7 +427,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
             <form onSubmit={handleFinalSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-white mb-1.5">
-                  Họ và tên người quản trị <span className="text-[#f85149]">*</span>
+                  {t('Administrator Full Name')} <span className="text-[#f85149]">*</span>
                 </label>
                 <div className="relative">
                   <User className="w-4 h-4 text-[#8b949e] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -432,7 +436,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                     required
                     value={adminName}
                     onChange={(e) => setAdminName(e.target.value)}
-                    placeholder="Ví dụ: Nguyễn Văn Hoàng"
+                    placeholder={t('e.g. Nguyen Van Hoang')}
                     className="w-full pl-10 pr-4 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-xs sm:text-sm text-white placeholder-[#8b949e] focus:outline-none focus:border-[#58a6ff]"
                   />
                 </div>
@@ -441,7 +445,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-white mb-1.5">
-                    Email đăng nhập <span className="text-[#f85149]">*</span>
+                    {t('Sign-in Email')} <span className="text-[#f85149]">*</span>
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-[#8b949e] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -458,7 +462,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-white mb-1.5">
-                    Số điện thoại liên hệ
+                    {t('Contact Phone Number')}
                   </label>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-[#8b949e] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -476,7 +480,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-white mb-1.5">
-                    Mật khẩu truy cập <span className="text-[#f85149]">*</span>
+                    {t('Access Password')} <span className="text-[#f85149]">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 text-[#8b949e] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -485,7 +489,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Tối thiểu 10 ký tự"
+                      placeholder={t('At least 10 characters')}
                       className="w-full pl-10 pr-4 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-xs sm:text-sm text-white placeholder-[#8b949e] focus:outline-none focus:border-[#58a6ff]"
                     />
                   </div>
@@ -493,7 +497,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-white mb-1.5">
-                    Xác nhận mật khẩu <span className="text-[#f85149]">*</span>
+                    {t('Confirm Password')} <span className="text-[#f85149]">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 text-[#8b949e] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -502,7 +506,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Nhập lại mật khẩu"
+                      placeholder={t('Re-enter password')}
                       className="w-full pl-10 pr-4 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-xs sm:text-sm text-white placeholder-[#8b949e] focus:outline-none focus:border-[#58a6ff]"
                     />
                   </div>
@@ -519,23 +523,23 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                     className="mt-0.5 rounded border-[#30363d] text-[#58a6ff] focus:ring-0 cursor-pointer"
                   />
                   <span>
-                    Tôi đồng ý với{' '}
+                    {t('I agree to the')}{' '}
                     <button
                       type="button"
                       onClick={() => onNavigate('terms')}
                       className="text-[#58a6ff] hover:underline"
                     >
-                      Điều khoản dịch vụ
+                      {t('Terms of Service')}
                     </button>{' '}
-                    và{' '}
+                    {t('and')}{' '}
                     <button
                       type="button"
                       onClick={() => onNavigate('privacy')}
                       className="text-[#58a6ff] hover:underline"
                     >
-                      Chính sách bảo mật dữ liệu
+                      {t('Data Privacy Policy')}
                     </button>{' '}
-                    của ANPR Cloud.
+                    {t('of ANPR Cloud.')}
                   </span>
                 </label>
               </div>
@@ -547,7 +551,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                   icon={ChevronLeft}
                   onClick={() => setCurrentStep(2)}
                 >
-                  Quay lại
+                  {t('Back')}
                 </Button>
                 <Button
                   type="submit"
@@ -556,7 +560,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                   icon={CheckCircle2}
                   className="py-2.5 px-6 shadow-lg shadow-[#58a6ff]/25"
                 >
-                  Hoàn tất & Mở Workspace
+                  {t('Finish & Open Workspace')}
                 </Button>
               </div>
             </form>
@@ -565,9 +569,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
 
         {/* Card Footer */}
         <div className="p-4 bg-[#0d0e12] border-t border-[#30363d] text-center text-xs text-[#8b949e] flex items-center justify-between font-mono">
-          <span>Cam kết bảo mật dữ liệu AES-256</span>
+          <span>{t('AES-256 Data Security Commitment')}</span>
           <span className="text-[#3fb950] flex items-center gap-1">
-            <Check className="w-3.5 h-3.5" /> Miễn phí 14 ngày dùng thử
+            <Check className="w-3.5 h-3.5" /> {t('14-day free trial')}
           </span>
         </div>
       </div>
@@ -575,15 +579,15 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
       {/* Bottom Legal Links */}
       <div className="max-w-3xl mx-auto w-full text-center text-xs text-[#8b949e] pt-6 flex items-center justify-center gap-6">
         <button onClick={() => onNavigate('privacy')} className="hover:text-white transition-colors">
-          Chính sách bảo mật
+          {t('Privacy Policy')}
         </button>
         <span>•</span>
         <button onClick={() => onNavigate('terms')} className="hover:text-white transition-colors">
-          Điều khoản sử dụng
+          {t('Terms of Service')}
         </button>
         <span>•</span>
         <button onClick={() => onNavigate('sla')} className="hover:text-white transition-colors">
-          Cam kết SLA 99.9%
+          {t('99.9% SLA Commitment')}
         </button>
       </div>
     </div>

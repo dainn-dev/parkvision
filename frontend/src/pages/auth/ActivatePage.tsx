@@ -3,6 +3,8 @@ import { ShieldCheck, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Button } from '../../components/ui';
 import { authApi, ApiError } from '../../services/api';
 import { PublicViewType } from '../../components/layout/PublicNavbar';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '../../components/common/LanguageSwitcher';
 
 interface ActivatePageProps {
   onNavigate: (view: PublicViewType) => void;
@@ -10,6 +12,7 @@ interface ActivatePageProps {
 }
 
 export const ActivatePage: React.FC<ActivatePageProps> = ({ onNavigate, token }) => {
+  const { t } = useTranslation('auth');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -19,11 +22,11 @@ export const ActivatePage: React.FC<ActivatePageProps> = ({ onNavigate, token })
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 10) {
-      setErrorMessage('Mật khẩu tối thiểu phải từ 10 ký tự trở lên.');
+      setErrorMessage(t('Password must be at least 10 characters.'));
       return;
     }
     if (password !== confirmPassword) {
-      setErrorMessage('Mật khẩu xác nhận không trùng khớp.');
+      setErrorMessage(t('Passwords do not match.'));
       return;
     }
     setErrorMessage(null);
@@ -32,7 +35,7 @@ export const ActivatePage: React.FC<ActivatePageProps> = ({ onNavigate, token })
       await authApi.activate(token, password);
       setIsDone(true);
     } catch (err) {
-      setErrorMessage(err instanceof ApiError ? err.message : 'Kích hoạt thất bại — liên hệ quản trị viên để cấp lại lời mời.');
+      setErrorMessage(err instanceof ApiError ? err.message : t('Activation failed — contact your administrator for a new invite.'));
     } finally {
       setIsLoading(false);
     }
@@ -42,12 +45,16 @@ export const ActivatePage: React.FC<ActivatePageProps> = ({ onNavigate, token })
     <div className="min-h-screen w-full bg-[#0d0e12] text-[#c9d1d9] flex items-center justify-center p-4 relative font-sans selection:bg-[#58a6ff] selection:text-slate-950">
       <div className="absolute top-0 left-1/4 w-[500px] h-[300px] bg-[#58a6ff]/10 rounded-full blur-[120px] pointer-events-none" />
 
+      <div className="absolute top-4 right-4 z-20">
+        <LanguageSwitcher />
+      </div>
+
       <div className="w-full max-w-md z-10">
         <button
           onClick={() => onNavigate('landing')}
           className="inline-flex items-center gap-2 text-xs font-semibold text-[#8b949e] hover:text-white transition-colors cursor-pointer mb-8"
         >
-          <ArrowLeft className="w-4 h-4" /> Về Trang Chủ
+          <ArrowLeft className="w-4 h-4" /> {t('Back to Home')}
         </button>
 
         <div className="bg-[#161b22]/80 border border-[#30363d] rounded-2xl p-8 backdrop-blur-xs shadow-xl">
@@ -58,20 +65,20 @@ export const ActivatePage: React.FC<ActivatePageProps> = ({ onNavigate, token })
           {isDone ? (
             <div className="space-y-4">
               <h1 className="text-xl font-bold text-white flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-[#3fb950]" /> Kích hoạt thành công
+                <CheckCircle2 className="w-5 h-5 text-[#3fb950]" /> {t('Activation successful')}
               </h1>
               <p className="text-sm text-[#8b949e]">
-                Tài khoản của bạn đã được kích hoạt. Đăng nhập để vào Tenant Portal.
+                {t('Your account has been activated. Sign in to enter the Tenant Portal.')}
               </p>
               <Button variant="primary" className="w-full" onClick={() => onNavigate('login')}>
-                Đăng nhập
+                {t('Sign In')}
               </Button>
             </div>
           ) : (
             <>
-              <h1 className="text-xl font-bold text-white">Kích hoạt tài khoản</h1>
+              <h1 className="text-xl font-bold text-white">{t('Activate your account')}</h1>
               <p className="text-sm text-[#8b949e] mt-1 mb-6">
-                Đặt mật khẩu cho tài khoản được mời của bạn.
+                {t('Set a password for your invited account.')}
               </p>
 
               {errorMessage && (
@@ -83,29 +90,29 @@ export const ActivatePage: React.FC<ActivatePageProps> = ({ onNavigate, token })
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-[#c9d1d9] mb-1.5">Mật khẩu mới</label>
+                  <label className="block text-xs font-medium text-[#c9d1d9] mb-1.5">{t('New Password')}</label>
                   <input
                     type="password"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Tối thiểu 10 ký tự"
+                    placeholder={t('At least 10 characters')}
                     className="w-full px-3 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-sm text-white placeholder-[#8b949e] focus:outline-none focus:border-[#58a6ff]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[#c9d1d9] mb-1.5">Xác nhận mật khẩu</label>
+                  <label className="block text-xs font-medium text-[#c9d1d9] mb-1.5">{t('Confirm Password')}</label>
                   <input
                     type="password"
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Nhập lại mật khẩu"
+                    placeholder={t('Re-enter password')}
                     className="w-full px-3 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-sm text-white placeholder-[#8b949e] focus:outline-none focus:border-[#58a6ff]"
                   />
                 </div>
                 <Button type="submit" variant="primary" className="w-full" disabled={isLoading}>
-                  {isLoading ? 'Đang kích hoạt...' : 'Kích hoạt & Đặt mật khẩu'}
+                  {isLoading ? t('Activating...') : t('Activate & Set Password')}
                 </Button>
               </form>
             </>

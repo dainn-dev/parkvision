@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { usePlatform } from '../../context/PlatformContext';
 import { UserPlus, X, Check, Mail, Shield, Building2 } from 'lucide-react';
 import { Button, Input } from '../ui';
+import { useTranslation } from 'react-i18next';
 
 interface InviteMemberModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface InviteMemberModalProps {
 
 export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, onClose }) => {
   const { tenantSites, inviteTenantMember } = usePlatform();
+  const { t } = useTranslation('tenant');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -54,8 +56,8 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, on
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">Invite Tenant Team Member</h3>
-              <p className="text-xs text-[#8b949e]">Assign access control operational roles and site permissions</p>
+              <h3 className="text-base font-bold text-white tracking-tight">{t('Invite Tenant Team Member')}</h3>
+              <p className="text-xs text-[#8b949e]">{t('Assign access control operational roles and site permissions')}</p>
             </div>
           </div>
 
@@ -70,7 +72,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, on
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
           <div>
             <label className="block text-[#c9d1d9] font-medium mb-1.5">
-              Full Name <span className="text-[#f85149]">*</span>
+              {t('Full Name')} <span className="text-[#f85149]">*</span>
             </label>
             <Input
               placeholder="e.g. Tran Quoc Toan"
@@ -83,7 +85,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, on
 
           <div>
             <label className="block text-[#c9d1d9] font-medium mb-1.5">
-              Email Address <span className="text-[#f85149]">*</span>
+              {t('Email Address')} <span className="text-[#f85149]">*</span>
             </label>
             <Input
               type="email"
@@ -97,23 +99,23 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, on
 
           <div>
             <label className="block text-[#c9d1d9] font-medium mb-1.5">
-              Tenant Portal Role
+              {t('Tenant Portal Role')}
             </label>
             <select
               value={formData.role}
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-2 text-white focus:outline-hidden focus:border-[#58a6ff]"
             >
-              <option value="TENANT_ADMIN">Tenant Admin (Full Control)</option>
-              <option value="OPERATOR">Gate Operator (Live Monitor & Overrides)</option>
-              <option value="SECURITY_GUARD">Security Guard (Gate Viewport Only)</option>
-              <option value="AUDITOR">Auditor / Viewer (Read Only)</option>
+              <option value="TENANT_ADMIN">{t('Tenant Admin (Full Control)')}</option>
+              <option value="OPERATOR">{t('Gate Operator (Live Monitor & Overrides)')}</option>
+              <option value="SECURITY_GUARD">{t('Security Guard (Gate Viewport Only)')}</option>
+              <option value="AUDITOR">{t('Auditor / Viewer (Read Only)')}</option>
             </select>
           </div>
 
           <div>
             <label className="block text-[#c9d1d9] font-medium mb-1.5">
-              Permitted Sites & Facilities
+              {t('Permitted Sites & Facilities')}
             </label>
             <div className="space-y-1.5 max-h-32 overflow-y-auto p-2 rounded-lg bg-[#161b22] border border-[#30363d]">
               {tenantSites.map((site) => (
@@ -138,7 +140,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, on
               onClick={onClose}
               className="text-xs"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               type="submit"
@@ -147,7 +149,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ isOpen, on
               className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
-              Send Invitation
+              {t('Send Invitation')}
             </Button>
           </div>
         </form>
