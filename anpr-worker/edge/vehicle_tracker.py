@@ -94,7 +94,12 @@ class UltralyticsByteTracker:
                 match_thresh=self.thresholds.match,
                 fuse_score=True,
             )
-            self._backend = factory(args, frame_rate=self.frame_rate)
+            try:
+                self._backend = factory(args, frame_rate=self.frame_rate)
+            except TypeError:
+                # ultralytics >= 8.4 dropped the frame_rate kwarg; track_buffer
+                # is already expressed in frames.
+                self._backend = factory(args)
         except Exception as exc:
             raise VehicleTrackerError(f"unable to initialize ByteTrack: {exc}") from exc
 

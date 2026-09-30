@@ -11,6 +11,7 @@ pyyaml
 requests
 pandas
 ultralytics
+lap>=0.5.12
 scipy
 # DAI-292 OCR dependencies are deliberately separated:
 #   requirements-ocr-production.txt                  PaddleOCR production path

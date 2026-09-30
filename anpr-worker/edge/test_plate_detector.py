@@ -104,8 +104,8 @@ def test_vehicle_crop_inference_maps_boxes_to_original_frame_and_filters_rows():
 
     assert len(loader.calls) == 1
     repository, artifact = loader.calls[0]
-    assert Path(repository).as_posix().endswith("anpr-worker/model/ultralytics_yolov5_master")
-    assert Path(artifact).as_posix().endswith("anpr-worker/model/LP_detector_nano_61.pt")
+    assert Path(repository).as_posix().endswith("model/ultralytics_yolov5_master")
+    assert Path(artifact).as_posix().endswith("model/LP_detector_nano_61.pt")
     assert model.devices == ["cpu"]
     assert model.eval_called is True
     assert model.conf == 0.6

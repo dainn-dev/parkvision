@@ -1,0 +1,11 @@
+__pycache__
+*.pyc
+.venv
+venv
+build
+dist
+*.spec.bak
+# Model weights are mounted at runtime, never baked into the image.
+model/*.pt
+model/*.onnx
+model/paddleocr
