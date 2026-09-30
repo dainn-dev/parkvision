@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { Button, Badge } from '../ui';
 import { usePlatform } from '../../context/PlatformContext';
-import { authApi, ApiError } from '../../services/api';
+import { authApi, platformApi, ApiError } from '../../services/api';
 import QRCode from 'qrcode';
 import { useTranslation } from 'react-i18next';
 
@@ -31,6 +31,7 @@ export interface MfaFlowModalProps {
   onClose: () => void;
   mode?: 'enroll' | 'challenge' | 'reset_admin' | 'disable';
   targetAdminName?: string;
+  targetAdminId?: string;
   onSuccess?: () => void;
 }
 
@@ -41,6 +42,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
   onClose,
   mode = 'enroll',
   targetAdminName,
+  targetAdminId,
   onSuccess
 }) => {
   const { addToast, pushAuditLog, currentUser, logout, refreshMe } = usePlatform();
@@ -804,6 +806,10 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                 <p className="text-[#f85149] font-bold">MFA_RESET_PERFORMED_BY_PLATFORM_GOVERNANCE</p>
               </div>
 
+              {verificationError && (
+                <p className="text-[#f85149] text-xs">{verificationError}</p>
+              )}
+
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#30363d]">
                 <Button variant="ghost" onClick={onClose}>
                   {t('Cancel')}
@@ -811,18 +817,30 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                 <Button
                   variant="danger"
                   icon={RotateCcw}
-                  onClick={() => {
-                    addToast({
-                      type: 'warning',
-                      title: t('MFA Secret Reset'),
-                      description: t('MFA credentials revoked for {{name}}. User must re-enroll.', { name: targetAdminName || 'admin' })
-                    });
-                    pushAuditLog('SECURITY', 'MFA_RESET', 'ADMIN', targetAdminName || 'admin', t('MFA Secret Revoked'));
-                    if (onSuccess) onSuccess();
-                    onClose();
+                  isLoading={isVerifying}
+                  disabled={!targetAdminId}
+                  onClick={async () => {
+                    if (!targetAdminId) return;
+                    setIsVerifying(true);
+                    setVerificationError(null);
+                    try {
+                      await platformApi.resetAdminMfa(targetAdminId);
+                      addToast({
+                        type: 'warning',
+                        title: t('MFA Secret Reset'),
+                        description: t('MFA credentials revoked for {{name}}. User must re-enroll.', { name: targetAdminName || 'admin' })
+                      });
+                      pushAuditLog('SECURITY', 'MFA_RESET', 'ADMIN', targetAdminName || 'admin', t('MFA Secret Revoked'));
+                      if (onSuccess) onSuccess();
+                      onClose();
+                    } catch (e) {
+                      setVerificationError(e instanceof ApiError ? e.message : t('Could not reset MFA for this administrator.'));
+                    } finally {
+                      setIsVerifying(false);
+                    }
                   }}
                 >
-                  {t('Revoke & Reset Secret')}
+                  {isVerifying ? t('Revoking...') : t('Revoke & Reset Secret')}
                 </Button>
               </div>
             </div>

@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { Button, Badge } from '../../components/ui';
 import { PublicViewType } from '../../components/layout/PublicNavbar';
+import { publicApi, type PlanOut } from '../../services/api';
 import { useTranslation } from 'react-i18next';
 
 interface LandingPageProps {
@@ -129,6 +130,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   // FAQ open states
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+
+  // Live pricing from the backend plans catalogue (falls back to the
+  // hardcoded marketing copy below if the API is unreachable).
+  const [apiPlans, setApiPlans] = useState<PlanOut[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    publicApi.plans().then((p) => {
+      if (!cancelled) setApiPlans(p);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // Trigger scan animation whenever scenario changes
   const handleSelectScenario = (scenario: DemoScenario) => {
@@ -272,6 +284,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       ctaText: 'Enterprise Consultation'
     }
   ];
+
+  // Overlay live catalogue prices (codes: starter / pro / enterprise) onto the
+  // marketing cards. 'business' on the page maps to the 'pro' plan code.
+  const PLAN_CODE_ALIAS: Record<string, string> = { business: 'pro' };
+  const pricingWithApi = pricingPlans.map((plan) => {
+    const apiPlan = apiPlans?.find((p) => p.code === (PLAN_CODE_ALIAS[plan.id] ?? plan.id));
+    if (!apiPlan) return plan;
+    const isVnd = apiPlan.currency === 'VND';
+    const price =
+      apiPlan.priceMonthlyCents > 0
+        ? new Intl.NumberFormat(isVnd ? 'vi-VN' : 'en-US').format(apiPlan.priceMonthlyCents / 100)
+        : 'Contact us';
+    return { ...plan, name: apiPlan.name, price, currency: apiPlan.currency };
+  });
 
   const faqs = [
     {
@@ -902,7 +928,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-            {pricingPlans.map((plan) => (
+            {pricingWithApi.map((plan) => (
               <div
                 key={plan.id}
                 className={`rounded-2xl p-7 flex flex-col justify-between relative transition-all shadow-xl ${
@@ -926,7 +952,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                   <div className="pt-2 pb-4 border-y border-[#30363d] flex items-baseline gap-1">
                     <span className="text-3xl sm:text-4xl font-black text-white font-mono">{t(plan.price)}</span>
-                    <span className="text-xs text-[#8b949e] font-mono">{t('vnd/{{period}}', { period: t(plan.period) })}</span>
+                    <span className="text-xs text-[#8b949e] font-mono">{(plan as { currency?: string }).currency?.toLowerCase() ?? 'vnd'}/{t(plan.period)}</span>
                   </div>
 
                   <div className="space-y-2.5">

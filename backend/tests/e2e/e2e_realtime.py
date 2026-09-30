@@ -7,6 +7,11 @@ import sys
 import time
 import uuid
 
+if sys.platform == "win32":
+    # aiomqtt/websockets need add_reader/add_writer — unsupported by the
+    # default Proactor loop on Windows (same fix as tests/conftest.py).
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 import aiomqtt
 import httpx
 import websockets

@@ -17,13 +17,17 @@ use axum::extract::{DefaultBodyLimit, FromRequest, Multipart, Path, Request, Sta
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::post;
+use axum::Json;
 use axum::Router;
+use chrono::Utc;
 use rand_core::{OsRng, RngCore};
 use tokio::sync::{broadcast, mpsc};
 use tracing::{info, warn};
 use uuid::Uuid;
 
+use crate::access::decide_access;
 use crate::anpr::PlateReading;
+use crate::store::Store;
 
 /// Everything needed to service one camera's events.
 pub struct CameraRoute {
@@ -39,6 +43,8 @@ struct Inner {
     routes: HashMap<Uuid, CameraRoute>,
     seen: Mutex<HashSet<String>>,
     last_heartbeat: Mutex<HashMap<Uuid, Instant>>,
+    /// Local whitelist/rules cache — serves check-vehicle decisions.
+    store: Arc<Store>,
 }
 
 /// Bound localhost server; `port` is what workers must POST to.
@@ -59,8 +65,9 @@ impl Drop for IngestServer {
 
 impl IngestServer {
     /// Routes: camera_id → owning gate's channels. The server binds an
-    /// ephemeral loopback port and serves immediately.
-    pub async fn start(routes: Vec<(Uuid, CameraRoute)>) -> Result<Self> {
+    /// ephemeral loopback port and serves immediately. `store` backs the
+    /// check-vehicle endpoint with the synced local whitelist.
+    pub async fn start(routes: Vec<(Uuid, CameraRoute)>, store: Arc<Store>) -> Result<Self> {
         let mut key_bytes = [0u8; 24];
         OsRng.fill_bytes(&mut key_bytes);
         let camera_key: String = key_bytes.iter().map(|b| format!("{b:02x}")).collect();
@@ -70,10 +77,12 @@ impl IngestServer {
             routes: routes.into_iter().collect(),
             seen: Mutex::new(HashSet::new()),
             last_heartbeat: Mutex::new(HashMap::new()),
+            store,
         });
 
         let app = Router::new()
             .route("/api/v1/parking-events", post(parking_event))
+            .route("/api/vehicles/check-vehicle", post(check_vehicle))
             .route("/api/cameras/{id}/heartbeat", post(heartbeat))
             .layer(DefaultBodyLimit::max(16 * 1024 * 1024))
             .with_state(inner.clone());
@@ -262,6 +271,53 @@ async fn multipart_parts(
         .ok_or(StatusCode::BAD_REQUEST)
 }
 
+/// `POST /api/vehicles/check-vehicle` — the headless camera pipeline's
+/// pre-decision hook (`plate_access_client.py`). Answers from the synced
+/// local whitelist + rules via the same `decide_access` the gate FSM uses,
+/// so standalone workers get identical offline-capable decisions.
+#[derive(serde::Deserialize)]
+struct CheckVehicleIn {
+    #[serde(rename = "licensePlateNumber")]
+    plate: String,
+    /// "entry" | "exit" — drives anti-passback direction matching.
+    #[serde(rename = "type")]
+    direction: Option<String>,
+}
+
+async fn check_vehicle(
+    State(inner): State<Arc<Inner>>,
+    headers: HeaderMap,
+    Json(body): Json<CheckVehicleIn>,
+) -> impl IntoResponse {
+    if let Err(code) = authed(&inner, &headers) {
+        return (code, Json(serde_json::json!({"success": false, "approved": false}))).into_response();
+    }
+    let plate = body.plate.trim();
+    if plate.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "success": false,
+                "approved": false,
+                "message": "licensePlateNumber is required",
+            })),
+        )
+            .into_response();
+    }
+    let direction = body.direction.as_deref().unwrap_or("entry");
+    // Read-only decision — does not write a local event, so a pre-check can
+    // never trip anti-passback ahead of the real plate reading.
+    let outcome = decide_access(&inner.store, Some(plate), direction, Utc::now());
+    Json(serde_json::json!({
+        "success": true,
+        "approved": outcome.decision == "allow",
+        "message": outcome.reason,
+        "licensePlateNumber": plate,
+        "type": direction,
+    }))
+    .into_response()
+}
+
 async fn heartbeat(
     State(inner): State<Arc<Inner>>,
     Path(id): Path<Uuid>,
@@ -288,6 +344,15 @@ async fn heartbeat(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::store::VehicleRow;
+
+    fn test_store() -> (Arc<Store>, tempfile::TempDir) {
+        let dir = tempfile::tempdir().unwrap();
+        (
+            Arc::new(Store::open(&dir.path().join("edge.db")).unwrap()),
+            dir,
+        )
+    }
 
     fn route(cap: usize) -> (Uuid, CameraRoute, mpsc::Receiver<PlateReading>) {
         let camera_id = Uuid::new_v4();
@@ -334,7 +399,8 @@ mod tests {
     #[tokio::test]
     async fn plate_recognized_routes_to_gate_channel() {
         let (camera_id, route, mut rx) = route(4);
-        let server = IngestServer::start(vec![(camera_id, route)]).await.unwrap();
+        let (store, _dir) = test_store();
+        let server = IngestServer::start(vec![(camera_id, route)], store).await.unwrap();
         let url = format!("http://127.0.0.1:{}/api/v1/parking-events", server.port);
 
         let res = reqwest::Client::new()
@@ -354,7 +420,8 @@ mod tests {
     #[tokio::test]
     async fn duplicate_event_id_is_not_routed_twice() {
         let (camera_id, route, mut rx) = route(4);
-        let server = IngestServer::start(vec![(camera_id, route)]).await.unwrap();
+        let (store, _dir) = test_store();
+        let server = IngestServer::start(vec![(camera_id, route)], store).await.unwrap();
         let url = format!("http://127.0.0.1:{}/api/v1/parking-events", server.port);
         let client = reqwest::Client::new();
         for _ in 0..2 {
@@ -375,7 +442,8 @@ mod tests {
     #[tokio::test]
     async fn bad_key_rejected_and_unknown_camera_404() {
         let (camera_id, route, _rx) = route(4);
-        let server = IngestServer::start(vec![(camera_id, route)]).await.unwrap();
+        let (store, _dir) = test_store();
+        let server = IngestServer::start(vec![(camera_id, route)], store).await.unwrap();
         let url = format!("http://127.0.0.1:{}/api/v1/parking-events", server.port);
         let client = reqwest::Client::new();
 
@@ -402,7 +470,8 @@ mod tests {
     async fn multipart_carries_snapshot_to_disk() {
         let (camera_id, route, mut rx) = route(4);
         let captures = route.captures_dir.clone();
-        let server = IngestServer::start(vec![(camera_id, route)]).await.unwrap();
+        let (store, _dir) = test_store();
+        let server = IngestServer::start(vec![(camera_id, route)], store).await.unwrap();
         let url = format!("http://127.0.0.1:{}/api/v1/parking-events", server.port);
 
         let form = reqwest::multipart::Form::new()
@@ -436,7 +505,8 @@ mod tests {
     #[tokio::test]
     async fn heartbeat_marks_camera_alive() {
         let (camera_id, route, _rx) = route(4);
-        let server = IngestServer::start(vec![(camera_id, route)]).await.unwrap();
+        let (store, _dir) = test_store();
+        let server = IngestServer::start(vec![(camera_id, route)], store).await.unwrap();
         let url = format!(
             "http://127.0.0.1:{}/api/cameras/{}/heartbeat",
             server.port, camera_id
@@ -454,7 +524,8 @@ mod tests {
     #[tokio::test]
     async fn empty_plate_text_is_400() {
         let (camera_id, route, _rx) = route(4);
-        let server = IngestServer::start(vec![(camera_id, route)]).await.unwrap();
+        let (store, _dir) = test_store();
+        let server = IngestServer::start(vec![(camera_id, route)], store).await.unwrap();
         let url = format!("http://127.0.0.1:{}/api/v1/parking-events", server.port);
         let res = reqwest::Client::new()
             .post(&url)
@@ -464,5 +535,63 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(res.status(), 400);
+    }
+
+    #[tokio::test]
+    async fn check_vehicle_decides_from_local_whitelist() {
+        let (camera_id, route, _rx) = route(4);
+        let (store, _dir) = test_store();
+        store
+            .upsert_vehicle(&VehicleRow {
+                plate_normalized: "30E89241".into(),
+                tag: "resident".into(),
+                valid_from: None,
+                valid_to: None,
+                status: "active".into(),
+                updated_at: Utc::now(),
+            })
+            .unwrap();
+        let server = IngestServer::start(vec![(camera_id, route)], store)
+            .await
+            .unwrap();
+        let url = format!(
+            "http://127.0.0.1:{}/api/vehicles/check-vehicle",
+            server.port
+        );
+        let client = reqwest::Client::new();
+
+        // whitelisted plate → approved
+        let res = client
+            .post(&url)
+            .header("x-camera-key", &server.camera_key)
+            .json(&serde_json::json!({"licensePlateNumber": "30E-892.41", "type": "entry"}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(res.status(), 200);
+        let body: serde_json::Value = res.json().await.unwrap();
+        assert_eq!(body["approved"], true);
+
+        // unknown plate → denied, plate_not_registered
+        let res = client
+            .post(&url)
+            .header("x-camera-key", &server.camera_key)
+            .json(&serde_json::json!({"licensePlateNumber": "ZZZ999", "type": "entry"}))
+            .send()
+            .await
+            .unwrap();
+        let body: serde_json::Value = res.json().await.unwrap();
+        assert_eq!(body["approved"], false);
+        assert_eq!(body["message"], "plate_not_registered");
+
+        // bad key → 401
+        let res = client
+            .post(&url)
+            .header("x-camera-key", "wrong")
+            .json(&serde_json::json!({"licensePlateNumber": "30E89241"}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(res.status(), 401);
     }
 }

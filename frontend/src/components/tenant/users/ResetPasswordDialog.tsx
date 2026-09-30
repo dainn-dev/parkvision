@@ -61,7 +61,7 @@ export const ResetPasswordDialog: React.FC<ResetPasswordDialogProps> = ({ isOpen
           </div>
 
           <div className="p-3.5 bg-[#161b22] border border-[#30363d] rounded-xl text-[#8b949e] text-[11px] leading-relaxed">
-            {t('An automated email containing a single-use secure reset link (valid for 24 hours) will be dispatched to')} <span className="font-mono text-white">{user.email}</span>. {t('Their existing sessions will remain active until the new password is set.')}
+            {t('An automated email containing a single-use secure reset link will be dispatched to')} <span className="font-mono text-white">{user.email}</span>. {t('Their existing sessions will be revoked immediately.')}
           </div>
         </div>
 

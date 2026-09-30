@@ -22,6 +22,8 @@ export type RuleOut = S['RuleOut'];
 export type AccessEventOut = S['AccessEventOut'];
 export type IncidentOut = S['IncidentOut'];
 export type AuditLogOut = S['AuditLogOut'];
+export type SecurityAlertOut = S['SecurityAlertOut'];
+export type LoginEventOut = S['LoginEventOut'];
 export type JobOut = S['JobOut'];
 export type ApiCredentialOut = S['ApiCredentialOut'];
 export type ApiCredentialCreatedOut = S['ApiCredentialCreatedOut'];
@@ -263,6 +265,10 @@ export const platformApi = {
   listAdmins: () => api.get<PlatformAdminOut[]>('/platform/admins'),
   createAdmin: (body: { email: string; password: string; fullName: string; role?: string }) =>
     api.post<PlatformAdminOut>('/platform/admins', body),
+  updateAdmin: (id: string, body: { fullName?: string; role?: string; status?: 'active' | 'disabled'; reason?: string }) =>
+    api.patch<PlatformAdminOut>(`/platform/admins/${id}`, body),
+  resetAdminMfa: (id: string) =>
+    api.post<MessageOut>(`/platform/admins/${id}/mfa/reset`),
   listSessions: (p: { userId?: string; tenantId?: string; activeOnly?: boolean } = {}) =>
     api.get<SessionOut[]>(`/platform/sessions${qs(p)}`),
   revokeSession: (id: string) => api.post(`/platform/sessions/${id}/revoke`),
@@ -274,6 +280,17 @@ export const platformApi = {
   infraHealth: () => api.get<InfraHealth>('/platform/infra/health'),
   auditLogs: (p: { page?: number; limit?: number; action?: string; actorId?: string; fromTs?: string; toTs?: string } = {}) =>
     api.get<Page<AuditLogOut>>(`/platform/audit-logs${qs(p)}`),
+  exportAudit: (body: { fromTs?: string; toTs?: string; action?: string } = {}) =>
+    api.post<JobOut>('/platform/audit-logs/export', body),
+  job: (id: string) => api.get<JobOut>(`/platform/jobs/${id}`),
+  securityAlerts: (p: { status?: string; limit?: number } = {}) =>
+    api.get<S['SecurityAlertOut'][]>(`/platform/security/alerts${qs(p)}`),
+  acknowledgeAlert: (id: string) =>
+    api.post<S['MessageOut']>(`/platform/security/alerts/${id}/acknowledge`),
+  resolveAlert: (id: string) =>
+    api.post<S['MessageOut']>(`/platform/security/alerts/${id}/resolve`),
+  loginEvents: (limit = 200) =>
+    api.get<S['LoginEventOut'][]>(`/platform/security/login-events${qs({ limit })}`),
   metricsOverview: () => api.get<S['MetricsOverviewOut']>('/platform/metrics/overview'),
   throughputChart: (hours = 24) => api.get<S['ThroughputChartOut']>(`/platform/metrics/throughput-chart${qs({ hours })}`),
   telemetrySnapshot: () => api.get<S['TelemetrySnapshotOut']>('/platform/monitoring/telemetry-snapshot'),
@@ -291,8 +308,34 @@ const T = (tenantId: string, p: string) => `/tenants/${tenantId}${p}`;
 export const tenantApi = {
   sites: (t: string, p: { page?: number; limit?: number } = {}) => api.get<Page<SiteOut>>(T(t, `/sites${qs(p)}`)),
   site: (t: string, id: string) => api.get<SiteOut>(T(t, `/sites/${id}`)),
-  createSite: (t: string, body: { name: string; address?: string; timezone?: string; status?: string }) => api.post<SiteOut>(T(t, '/sites'), body),
-  updateSite: (t: string, id: string, body: Partial<{ name: string; address: string; timezone: string; status: string }>) => api.patch<SiteOut>(T(t, `/sites/${id}`), body),
+  createSite: (t: string, body: {
+    name: string;
+    code?: string;
+    address?: string;
+    city?: string;
+    latitude?: number;
+    longitude?: number;
+    capacity?: number;
+    operatingHours?: Record<string, unknown>;
+    contactPhone?: string;
+    managerName?: string;
+    timezone?: string;
+    status?: string;
+  }) => api.post<SiteOut>(T(t, '/sites'), body),
+  updateSite: (t: string, id: string, body: Partial<{
+    name: string;
+    code: string;
+    address: string;
+    city: string;
+    latitude: number;
+    longitude: number;
+    capacity: number;
+    operatingHours: Record<string, unknown>;
+    contactPhone: string;
+    managerName: string;
+    timezone: string;
+    status: string;
+  }>) => api.patch<SiteOut>(T(t, `/sites/${id}`), body),
   deleteSite: (t: string, id: string) => api.del(T(t, `/sites/${id}`)),
 
   lanes: (t: string, siteId: string) => api.get<LaneOut[]>(T(t, `/sites/${siteId}/lanes`)),
@@ -365,7 +408,7 @@ export const tenantApi = {
   vehicle: (t: string, id: string) => api.get<VehicleOut>(T(t, `/vehicles/${id}`)),
   createVehicle: (t: string, body: { plateNumber: string; ownerName?: string; ownerContact?: string; vehicleType?: string; tag?: string; validFrom?: string; validTo?: string; notes?: string }) =>
     api.post<VehicleOut>(T(t, '/vehicles'), body),
-  updateVehicle: (t: string, id: string, body: Partial<{ plateNumber: string; ownerName: string; ownerContact: string; vehicleType: string; tag: string; validFrom: string; validTo: string; notes: string; status: string }>) =>
+  updateVehicle: (t: string, id: string, body: Partial<{ plateNumber: string; ownerName: string; ownerContact: string; vehicleType: string; tag: string; validFrom: string; validTo: string; notes: string; status: string; memberUserId: string | null }>) =>
     api.patch<VehicleOut>(T(t, `/vehicles/${id}`), body),
   deleteVehicle: (t: string, id: string) => api.del(T(t, `/vehicles/${id}`)),
   importVehicles: (t: string, csv: Blob) => {
@@ -382,8 +425,28 @@ export const tenantApi = {
   deleteRule: (t: string, id: string) => api.del(T(t, `/rules/${id}`)),
 
   users: (t: string, p: { page?: number; limit?: number } = {}) => api.get<Page<UserOut>>(T(t, `/users${qs(p)}`)),
-  inviteUser: (t: string, body: { email: string; fullName: string; role?: string }) => api.post<UserOut>(T(t, '/users'), body),
-  updateUser: (t: string, id: string, body: Partial<{ fullName: string; role: string; status: string }>) => api.patch<UserOut>(T(t, `/users/${id}`), body),
+  inviteUser: (t: string, body: {
+    email: string;
+    fullName: string;
+    role?: string;
+    memberCode?: string;
+    phone?: string;
+    employeeId?: string;
+    department?: string;
+    membershipType?: string;
+  }) => api.post<UserOut>(T(t, '/users'), body),
+  updateUser: (t: string, id: string, body: Partial<{
+    fullName: string;
+    role: string;
+    status: string;
+    memberCode: string | null;
+    phone: string | null;
+    employeeId: string | null;
+    department: string | null;
+    membershipType: string | null;
+  }>) => api.patch<UserOut>(T(t, `/users/${id}`), body),
+  resendInvite: (t: string, id: string) => api.post<MessageOut>(T(t, `/users/${id}/resend-invite`)),
+  resetUserPassword: (t: string, id: string) => api.post<MessageOut>(T(t, `/users/${id}/password-reset`)),
   deleteUser: (t: string, id: string) => api.del(T(t, `/users/${id}`)),
 
   accessEvents: (t: string, p: { page?: number; limit?: number; siteId?: string; gateId?: string; plate?: string; decision?: string; fromTs?: string; toTs?: string } = {}) =>

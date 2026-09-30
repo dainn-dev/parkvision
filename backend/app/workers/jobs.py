@@ -63,7 +63,7 @@ async def enqueue_import_vehicles(job_id: str, tenant_id: str, rows: list[dict])
 
 
 async def enqueue_audit_export(
-    job_id: str, tenant_id: str, from_ts: str | None, to_ts: str | None, action: str | None
+    job_id: str, tenant_id: str | None, from_ts: str | None, to_ts: str | None, action: str | None
 ) -> None:
     pool = await arq_pool()
     await pool.enqueue_job(
@@ -206,18 +206,19 @@ async def vehicle_import(ctx, job_id: str, tenant_id: str, rows: list[dict]) -> 
 
 
 async def audit_export(
-    ctx, job_id: str, tenant_id: str, from_ts: str | None, to_ts: str | None, action: str | None
+    ctx, job_id: str, tenant_id: str | None, from_ts: str | None, to_ts: str | None, action: str | None
 ) -> None:
     import csv
     import io
 
     from sqlalchemy import select
 
+    from app.core.enums import ActorType
     from app.database import platform_session
     from app.models import AuditLog, BackgroundJob
     from app.services.storage import presign_download, s3_client
 
-    tid = uuid.UUID(tenant_id)
+    tid = uuid.UUID(tenant_id) if tenant_id else None
     async with platform_session() as db:
         job = (
             await db.execute(select(BackgroundJob).where(BackgroundJob.id == uuid.UUID(job_id)))
@@ -227,7 +228,9 @@ async def audit_export(
         job.status = "running"
         await db.flush()
 
-        cond = [AuditLog.tenant_id == tid]
+        # tenant_id=None means platform scope: same filter the platform audit
+        # list uses — platform-admin activity across all tenants.
+        cond = [AuditLog.tenant_id == tid] if tid else [AuditLog.actor_type == ActorType.PLATFORM_ADMIN]
         if from_ts:
             cond.append(AuditLog.created_at >= datetime.fromisoformat(from_ts))
         if to_ts:
@@ -272,7 +275,7 @@ async def audit_export(
                     __import__("json").dumps(r.details),
                 ]
             )
-        key = f"{tid}/exports/audit-{job_id}.csv"
+        key = f"{tid or 'platform'}/exports/audit-{job_id}.csv"
         s3_client().put_object(
             Bucket=settings.s3_bucket,
             Key=key,

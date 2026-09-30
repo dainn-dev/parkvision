@@ -206,16 +206,19 @@ export const TenantDashboardPage: React.FC = () => {
 
         {/* Action Controls & Date Filter */}
         <div className="flex items-center flex-wrap gap-2.5 self-start lg:self-center">
-          {/* Live ANPR Simulation button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => simulateNewAccessEvent()}
-            className="text-xs bg-[#0d0e12] border-[#30363d] text-[#58a6ff] hover:bg-[#58a6ff]/10 hover:border-[#58a6ff]/50 gap-1.5 font-medium"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-[#58a6ff]" />
-            {t('Simulate Event')}
-          </Button>
+          {/* Live ANPR Simulation button — dev/demo only; writes a real
+              source:manual event, so hidden in production builds. */}
+          {import.meta.env.DEV && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => simulateNewAccessEvent()}
+              className="text-xs bg-[#0d0e12] border-[#30363d] text-[#58a6ff] hover:bg-[#58a6ff]/10 hover:border-[#58a6ff]/50 gap-1.5 font-medium"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#58a6ff]" />
+              {t('Simulate Event')}
+            </Button>
+          )}
 
           {/* Date Filter Dropdown */}
           <div className="relative">

@@ -137,7 +137,7 @@ impl SharedRuntime {
         if cameras.is_empty() {
             return Ok(false);
         }
-        let server = crate::ingest::IngestServer::start(routes).await?;
+        let server = crate::ingest::IngestServer::start(routes, self.store.clone()).await?;
         let ingest_url = format!("http://127.0.0.1:{}/api/v1/parking-events", server.port);
         let env = crate::camera_worker::WorkerEnv {
             tenant_id: self.cfg.tenant_id,

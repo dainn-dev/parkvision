@@ -88,6 +88,13 @@ class PlatformAdminIn(CamelModel):
     role: str = "support"
 
 
+class PlatformAdminUpdateIn(CamelModel):
+    full_name: str | None = Field(default=None, min_length=2, max_length=200)
+    role: str | None = None
+    status: str | None = None  # active | disabled
+    reason: str | None = Field(default=None, max_length=500)
+
+
 class PlatformAdminOut(CamelModel):
     id: uuid.UUID
     email: EmailStr
@@ -620,12 +627,23 @@ class UserInviteIn(CamelModel):
     email: EmailStr
     full_name: str = Field(min_length=2, max_length=200)
     role: str = "viewer"
+    # Optional member-profile fields stored in tenant_users.profile
+    member_code: str | None = Field(default=None, max_length=40)
+    phone: str | None = Field(default=None, max_length=50)
+    employee_id: str | None = Field(default=None, max_length=60)
+    department: str | None = Field(default=None, max_length=120)
+    membership_type: str | None = Field(default=None, max_length=30)
 
 
 class UserUpdateIn(CamelModel):
     full_name: str | None = None
     role: str | None = None
     status: str | None = None
+    member_code: str | None = Field(default=None, max_length=40)
+    phone: str | None = Field(default=None, max_length=50)
+    employee_id: str | None = Field(default=None, max_length=60)
+    department: str | None = Field(default=None, max_length=120)
+    membership_type: str | None = Field(default=None, max_length=30)
 
 
 # ---------- vehicles ----------
@@ -646,6 +664,7 @@ class VehicleIn(CamelModel):
     valid_from: datetime | None = None
     valid_to: datetime | None = None
     notes: str | None = None
+    member_user_id: uuid.UUID | None = None
 
 
 class VehicleUpdateIn(CamelModel):
@@ -666,6 +685,7 @@ class VehicleUpdateIn(CamelModel):
     valid_to: datetime | None = None
     status: str | None = None
     notes: str | None = None
+    member_user_id: uuid.UUID | None = None
 
 
 class VehicleOut(CamelModel):
@@ -686,6 +706,7 @@ class VehicleOut(CamelModel):
     valid_from: datetime | None
     valid_to: datetime | None
     status: str
+    member_user_id: uuid.UUID | None = None
     created_at: datetime
 
 
@@ -1000,6 +1021,44 @@ class AuditExportIn(CamelModel):
     from_ts: datetime | None = None
     to_ts: datetime | None = None
     action: str | None = None
+
+
+# ---------- platform security ----------
+class SecurityAlertOut(CamelModel):
+    id: uuid.UUID
+    type: str
+    severity: str
+    status: str
+    subject_email: str | None
+    subject_user_type: str | None
+    detected_at: datetime
+    source_ip: str | None
+    client_browser: str | None
+    evidence: dict[str, Any]
+    acknowledged_at: datetime | None
+    resolved_at: datetime | None
+
+    @field_validator("source_ip", mode="before")
+    @classmethod
+    def _ip_to_str(cls, v: object) -> object:
+        return None if v is None else str(v)
+
+
+class LoginEventOut(CamelModel):
+    id: uuid.UUID
+    timestamp: datetime
+    user_email: str | None
+    user_type: str
+    tenant_id: uuid.UUID | None
+    result: str  # SUCCESS | FAILED | BLOCKED | CHALLENGED
+    source_ip: str | None
+    client_device: str | None
+    failure_reason: str | None = None
+
+    @field_validator("source_ip", mode="before")
+    @classmethod
+    def _ip_to_str(cls, v: object) -> object:
+        return None if v is None else str(v)
 
 
 class JobOut(CamelModel):

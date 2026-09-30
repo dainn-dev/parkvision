@@ -246,7 +246,7 @@ export const PlatformAdminsPage: React.FC = () => {
                   variant="outline"
                   size="sm"
                   icon={RotateCcw}
-                  onClick={() => openMfaModal('reset_admin', selectedAdmin.name)}
+                  onClick={() => openMfaModal('reset_admin', selectedAdmin.name, selectedAdmin.id)}
                 >
                   {t('Reset MFA Secret')}
                 </Button>

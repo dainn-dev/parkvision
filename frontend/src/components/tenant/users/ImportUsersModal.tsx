@@ -9,41 +9,141 @@ interface ImportUsersModalProps {
   onClose: () => void;
 }
 
+interface ImportResult {
+  importedCount: number;
+  failedCount: number;
+  skippedCount: number;
+  errors: string[];
+}
+
+/** Minimal CSV parser: handles quoted fields, commas inside quotes, CRLF. */
+const parseCsv = (text: string): string[][] => {
+  const rows: string[][] = [];
+  let field = '';
+  let row: string[] = [];
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      row.push(field);
+      field = '';
+    } else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i += 1;
+      row.push(field);
+      field = '';
+      if (row.some((c) => c.trim() !== '')) rows.push(row);
+      row = [];
+    } else {
+      field += ch;
+    }
+  }
+  row.push(field);
+  if (row.some((c) => c.trim() !== '')) rows.push(row);
+  return rows;
+};
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onClose }) => {
-  const { addToast } = usePlatform();
+  const { addToast, importTenantUsers } = usePlatform();
   const { t } = useTranslation('tenant');
   const [dragOver, setDragOver] = useState(false);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [result, setResult] = useState<ImportResult | null>(null);
 
   if (!isOpen) return null;
 
-  const handleFileDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setFileName(e.dataTransfer.files[0].name);
+  const pickFile = (f: File | undefined) => {
+    if (f) {
+      setFile(f);
+      setResult(null);
     }
   };
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setFileName(e.target.files[0].name);
-    }
+  const handleClose = () => {
+    setFile(null);
+    setResult(null);
+    onClose();
   };
 
-  const handleImport = () => {
-    if (!fileName) return;
+  const handleImport = async () => {
+    if (!file) return;
     setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      addToast({
-        type: 'success',
-        title: t('Users Imported Successfully'),
-        description: t('Imported records from {{file}}. Invitations dispatched.', { file: fileName })
+    try {
+      const text = await file.text();
+      const rows = parseCsv(text);
+      if (rows.length < 2) {
+        addToast({ type: 'error', title: t('Import failed'), description: t('CSV has no data rows.') });
+        return;
+      }
+      const headers = rows[0].map((h) => h.trim().toLowerCase().replace(/[^a-z]/g, ''));
+      const col = (names: string[]) => headers.findIndex((h) => names.includes(h));
+      const iName = col(['fullname', 'name']);
+      const iEmail = col(['email', 'emailaddress']);
+      const iRole = col(['role']);
+      if (iEmail < 0) {
+        addToast({
+          type: 'error',
+          title: t('Import failed'),
+          description: t('CSV must contain an Email column.'),
+        });
+        return;
+      }
+
+      const skipped: string[] = [];
+      const toInvite: Array<{ fullName: string; email: string; role: string }> = [];
+      for (const r of rows.slice(1)) {
+        const email = (r[iEmail] ?? '').trim().toLowerCase();
+        if (!EMAIL_RE.test(email)) {
+          skipped.push(email || `(row ${rows.indexOf(r) + 1})`);
+          continue;
+        }
+        toInvite.push({
+          fullName: iName >= 0 ? (r[iName] ?? '').trim() : '',
+          email,
+          role: iRole >= 0 ? (r[iRole] ?? '').trim() : '',
+        });
+      }
+
+      const res = await importTenantUsers(toInvite);
+      setResult({
+        importedCount: res.importedCount,
+        failedCount: res.failedCount,
+        skippedCount: skipped.length,
+        errors: [...skipped.map((s) => `${s}: ${t('missing or invalid email')}`), ...res.errors],
       });
-      onClose();
-    }, 800);
+      addToast({
+        type: res.failedCount === 0 ? 'success' : 'warning',
+        title: t('Import finished'),
+        description: t('{{imported}} invited, {{failed}} failed, {{skipped}} skipped.', {
+          imported: res.importedCount,
+          failed: res.failedCount,
+          skipped: skipped.length,
+        }),
+      });
+    } catch (e) {
+      addToast({
+        type: 'error',
+        title: t('Import failed'),
+        description: e instanceof Error ? e.message : t('Could not read the CSV file.'),
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const downloadSampleCsv = () => {
@@ -74,7 +174,7 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-[#8b949e] hover:text-white p-1.5 rounded-lg hover:bg-[#21262d] transition-colors"
           >
             <X className="w-5 h-5" />
@@ -90,7 +190,11 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
               setDragOver(true);
             }}
             onDragLeave={() => setDragOver(false)}
-            onDrop={handleFileDrop}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              pickFile(e.dataTransfer.files?.[0]);
+            }}
             className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
               dragOver
                 ? 'border-[#58a6ff] bg-[#58a6ff]/10'
@@ -99,7 +203,7 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
           >
             <UploadCloud className="w-8 h-8 text-[#58a6ff] mx-auto mb-2" />
             <p className="font-bold text-white text-xs">
-              {fileName ? fileName : t('Drag and drop your CSV file here')}
+              {file ? file.name : t('Drag and drop your CSV file here')}
             </p>
             <p className="text-[11px] text-[#8b949e] mt-1">{t('Supports UTF-8 CSV with standard header mapping')}</p>
 
@@ -107,9 +211,37 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
               <span className="px-3 py-1.5 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-white text-xs font-semibold cursor-pointer border border-[#30363d] transition-colors">
                 {t('Browse File')}
               </span>
-              <input type="file" accept=".csv" onChange={handleFileInput} className="hidden" />
+              <input type="file" accept=".csv" onChange={(e) => pickFile(e.target.files?.[0])} className="hidden" />
             </label>
           </div>
+
+          {/* Result summary */}
+          {result && (
+            <div className="p-3.5 bg-[#0d0e12] border border-[#30363d] rounded-xl space-y-1.5">
+              <div className="flex items-center gap-2 font-semibold text-white">
+                {result.failedCount === 0 ? (
+                  <CheckCircle2 className="w-4 h-4 text-[#3fb950]" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-[#d29922]" />
+                )}
+                {t('{{imported}} invited · {{failed}} failed · {{skipped}} skipped', {
+                  imported: result.importedCount,
+                  failed: result.failedCount,
+                  skipped: result.skippedCount,
+                })}
+              </div>
+              {result.errors.length > 0 && (
+                <ul className="max-h-28 overflow-y-auto text-[11px] text-[#8b949e] font-mono space-y-0.5 pt-1">
+                  {result.errors.slice(0, 20).map((err, i) => (
+                    <li key={i} className="truncate">{err}</li>
+                  ))}
+                  {result.errors.length > 20 && (
+                    <li>{t('…and {{count}} more', { count: result.errors.length - 20 })}</li>
+                  )}
+                </ul>
+              )}
+            </div>
+          )}
 
           {/* Template Download */}
           <div className="p-3.5 bg-[#0d0e12] border border-[#30363d] rounded-xl flex items-center justify-between">
@@ -133,13 +265,13 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
 
         {/* Footer */}
         <div className="p-4 border-t border-[#30363d] bg-[#0d0e12]/80 flex items-center justify-end gap-2.5">
-          <Button variant="secondary" onClick={onClose} className="text-xs">
-            {t('Cancel')}
+          <Button variant="secondary" onClick={handleClose} className="text-xs">
+            {result ? t('Close') : t('Cancel')}
           </Button>
           <Button
             type="button"
             variant="primary"
-            disabled={!fileName || isProcessing}
+            disabled={!file || isProcessing}
             onClick={handleImport}
             className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white font-bold gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >

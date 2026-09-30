@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import WRITE_ROLES, csrf_protect, require_roles
 from app.api.v1.tenant import TenantCtx, get_tenant_db, tenant_ctx
 from app.core.errors import bad_request, conflict, not_found
-from app.models import BackgroundJob, RegisteredVehicle
+from app.models import BackgroundJob, RegisteredVehicle, TenantUser
 from app.schemas.common import MessageOut, Page, paginate
 from app.schemas.resources import (
     ImportResultOut,
@@ -74,6 +74,17 @@ async def create_vehicle(
     db: AsyncSession = Depends(get_tenant_db),
     _: None = Depends(require_roles(*WRITE_ROLES)),
 ) -> VehicleOut:
+    if body.member_user_id is not None:
+        member = (
+            await db.execute(
+                select(TenantUser.id).where(
+                    TenantUser.id == body.member_user_id,
+                    TenantUser.tenant_id == ctx.tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if member is None:
+            raise bad_request("member_user_id does not reference a user of this tenant") from None
     row = RegisteredVehicle(
         tenant_id=ctx.tenant_id,
         plate_number=body.plate_number.upper(),
@@ -85,6 +96,7 @@ async def create_vehicle(
         valid_from=body.valid_from,
         valid_to=body.valid_to,
         notes=body.notes,
+        member_user_id=body.member_user_id,
     )
     db.add(row)
     try:
@@ -144,6 +156,17 @@ async def update_vehicle(
     if row is None:
         raise not_found("vehicle", vehicle_id) from None
     changes = body.model_dump(exclude_unset=True)
+    member_id = changes.get("member_user_id")
+    if "member_user_id" in changes and member_id is not None:
+        member = (
+            await db.execute(
+                select(TenantUser.id).where(
+                    TenantUser.id == member_id, TenantUser.tenant_id == ctx.tenant_id
+                )
+            )
+        ).scalar_one_or_none()
+        if member is None:
+            raise bad_request("member_user_id does not reference a user of this tenant") from None
     if "plate_number" in changes and changes["plate_number"]:
         row.plate_number = changes.pop("plate_number").upper()
         row.plate_normalized = normalize_plate(row.plate_number)

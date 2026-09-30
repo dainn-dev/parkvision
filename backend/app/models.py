@@ -129,6 +129,9 @@ class TenantUser(TimestampMixin, Base):
     invite_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     password_reset_token_hash: Mapped[str | None] = mapped_column(String(128))
     password_reset_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Free-form member profile: memberCode, phone, employeeId, department,
+    # membershipType, notes — populated by invite/update endpoints.
+    profile: Mapped[dict | None] = mapped_column(JSONB)
 
 
 class UserSession(Base):
@@ -533,6 +536,9 @@ class RegisteredVehicle(TimestampMixin, Base):
     valid_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
     notes: Mapped[str | None] = mapped_column(Text)
+    member_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenant_users.id", ondelete="SET NULL")
+    )
 
     __table_args__ = (UniqueConstraint("tenant_id", "plate_normalized", name="uq_vehicle_plate"),)
 
@@ -611,6 +617,33 @@ class AuditLog(Base):
     __table_args__ = (
         Index("ix_audit_tenant_time", "tenant_id", "created_at"),
         Index("ix_audit_actor", "actor_type", "actor_id"),
+    )
+
+
+class SecurityAlert(Base):
+    __tablename__ = "security_alerts"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    type: Mapped[str] = mapped_column(String(40), nullable=False)
+    severity: Mapped[str] = mapped_column(String(10), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="OPEN")
+    subject_email: Mapped[str | None] = mapped_column(String(320))
+    subject_user_type: Mapped[str | None] = mapped_column(String(30))
+    subject_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    source_ip: Mapped[str | None] = mapped_column(INET)
+    client_browser: Mapped[str | None] = mapped_column(String(300))
+    evidence: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    acknowledged_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        Index("ix_security_alerts_status", "status", "detected_at"),
     )
 
 

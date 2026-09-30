@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { usePlatform } from '../../context/PlatformContext';
+import { platformApi, ApiError } from '../../services/api';
 import { AuditLogItem } from '../../types/platform';
 import {
   FileText,
@@ -43,6 +44,7 @@ export const AuditLogsPage: React.FC = () => {
   const [selectedAuditModal, setSelectedAuditModal] = useState<AuditLogItem | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<'CSV' | 'JSON'>('CSV');
+  const [isExporting, setIsExporting] = useState(false);
 
   const filteredLogs = auditLogs.filter((log) => {
     const matchesSearch =
@@ -64,34 +66,63 @@ export const AuditLogsPage: React.FC = () => {
     currentPage * pageSize
   );
 
-  const handleExport = () => {
-    const dataString =
-      exportFormat === 'JSON'
-        ? JSON.stringify(filteredLogs, null, 2)
-        : 'Timestamp,Actor,Action,Resource,Result,IP\n' +
-          filteredLogs
-            .map(
-              (l) =>
-                `"${l.timestamp}","${l.actorEmail}","${l.action}","${l.resourceType}:${l.resourceId}","${l.result}","${l.ipAddress}"`
-            )
-            .join('\n');
-
-    const blob = new Blob([dataString], {
-      type: exportFormat === 'JSON' ? 'application/json' : 'text/csv'
-    });
+  const downloadJson = () => {
+    const blob = new Blob([JSON.stringify(filteredLogs, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `platform_audit_logs_${Date.now()}.${exportFormat.toLowerCase()}`;
+    link.download = `platform_audit_logs_${Date.now()}.json`;
     link.click();
-
+    URL.revokeObjectURL(url);
     addToast({
       type: 'success',
       title: t('Audit Trail Exported'),
       description: t('Downloaded {{count}} matching audit logs in {{format}} format.', { count: filteredLogs.length, format: exportFormat })
     });
-
     setIsExportModalOpen(false);
+  };
+
+  const handleExport = async () => {
+    // JSON exports the currently loaded page; CSV goes through the backend
+    // job which covers the full filtered audit history, not just this page.
+    if (exportFormat === 'JSON') {
+      downloadJson();
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const job = await platformApi.exportAudit({});
+      addToast({ type: 'info', title: t('Export queued'), description: t('Preparing CSV export…') });
+      // Poll the job until the presigned download URL is ready.
+      const deadline = Date.now() + 60_000;
+      let done = job;
+      while (done.status !== 'done' && done.status !== 'failed' && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 1500));
+        done = await platformApi.job(job.id);
+      }
+      const url = done.status === 'done' ? (done.result as { downloadUrl?: string }).downloadUrl : undefined;
+      if (!url) {
+        throw new ApiError(500, { code: 'export_failed', message: done.error || 'Export job did not produce a download URL' });
+      }
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `platform_audit_logs_${Date.now()}.csv`;
+      link.click();
+      addToast({
+        type: 'success',
+        title: t('Audit Trail Exported'),
+        description: t('CSV export ready — {{count}} rows.', { count: done.rowCount ?? 0 })
+      });
+      setIsExportModalOpen(false);
+    } catch (e) {
+      addToast({
+        type: 'error',
+        title: t('Export failed'),
+        description: e instanceof Error ? e.message : t('Could not export audit logs.')
+      });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -294,8 +325,8 @@ export const AuditLogsPage: React.FC = () => {
             <Button variant="ghost" size="sm" onClick={() => setIsExportModalOpen(false)}>
               {t('Cancel')}
             </Button>
-            <Button variant="primary" size="sm" icon={Download} onClick={handleExport}>
-              {t('Download Export')}
+            <Button variant="primary" size="sm" icon={Download} onClick={handleExport} isLoading={isExporting} disabled={isExporting}>
+              {isExporting ? t('Preparing Export…') : t('Download Export')}
             </Button>
           </div>
         </div>

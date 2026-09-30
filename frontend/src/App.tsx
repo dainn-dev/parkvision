@@ -33,7 +33,6 @@ import { AuditLogsPage } from './pages/audit/AuditLogsPage';
 // Tenant Portal & Site Management Pages
 import { TenantDashboardPage } from './pages/tenant/TenantDashboardPage';
 import { TenantLocationPage } from './pages/tenant/TenantLocationPage';
-import { TenantSitesPage } from './pages/tenant/TenantSitesPage';
 import { TenantEventsPage } from './pages/tenant/TenantEventsPage';
 import { TenantVehiclesPage } from './pages/tenant/TenantVehiclesPage';
 import { TenantEdgeDevicesPage } from './pages/tenant/TenantEdgeDevicesPage';
@@ -60,6 +59,7 @@ const PlatformAppContent: React.FC = () => {
     closeMfaModal,
     mfaModalMode,
     mfaTargetAdminName,
+    mfaTargetAdminId,
     impersonation,
     exitImpersonation
   } = usePlatform();
@@ -301,6 +301,7 @@ const PlatformAppContent: React.FC = () => {
         onClose={closeMfaModal}
         mode={mfaModalMode}
         targetAdminName={mfaTargetAdminName}
+        targetAdminId={mfaTargetAdminId}
       />
 
       <ToastContainer />

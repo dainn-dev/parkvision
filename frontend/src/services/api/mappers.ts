@@ -12,10 +12,12 @@ import type {
   FeatureFlagOut,
   GateOut,
   IncidentOut,
+  LoginEventOut,
   PlanOut,
   PlatformAdminOut,
   PlatformSettingOut,
   RuleOut,
+  SecurityAlertOut,
   SessionOut,
   SiteOut,
   TenantOut,
@@ -31,9 +33,11 @@ import type {
   EdgeDeviceHealth,
   FeatureFlag,
   GateHealth,
+  LoginActivityEvent,
   OperationalIncident,
   PlatformAdmin,
   PlatformSettings,
+  SecurityAlert,
   ServiceHealthItem,
   Tenant,
 } from '../../types/platform';
@@ -44,6 +48,7 @@ import type {
   TenantEdgeDevice,
   TenantInvitation,
   TenantMember,
+  TenantMemberProfile,
   TenantSite,
   TenantUser,
   TenantVehicle,
@@ -184,7 +189,53 @@ export const mapAuditLog = (a: AuditLogOut): AuditLogItem => ({
   metadata: a.details,
 });
 
+export const mapSecurityAlert = (a: SecurityAlertOut): SecurityAlert => {
+  const ev = (a.evidence ?? {}) as Record<string, unknown>;
+  return {
+    id: a.id,
+    type: upper(a.type, 'SUSPICIOUS_LOGIN') as SecurityAlert['type'],
+    severity: upper(a.severity, 'MEDIUM') as SecurityAlert['severity'],
+    status: upper(a.status, 'OPEN') as SecurityAlert['status'],
+    subjectEmail: a.subjectEmail ?? '',
+    subjectUserType: a.subjectUserType ?? '',
+    detectedAt: a.detectedAt,
+    sourceIp: a.sourceIp ?? '',
+    clientBrowser: a.clientBrowser ?? '',
+    evidence: {
+      failedAttempts: typeof ev.failedAttempts === 'number' ? ev.failedAttempts : undefined,
+      timeWindowMinutes: typeof ev.timeWindowMinutes === 'number' ? ev.timeWindowMinutes : undefined,
+      location: typeof ev.location === 'string' ? ev.location : undefined,
+      details: typeof ev.details === 'string' ? ev.details : undefined,
+    },
+  };
+};
+
+export const mapLoginEvent = (e: LoginEventOut, tenantName?: string): LoginActivityEvent => ({
+  id: e.id,
+  timestamp: e.timestamp,
+  userEmail: e.userEmail ?? '',
+  userType:
+    e.userType === 'PLATFORM_ADMIN'
+      ? 'PLATFORM_ADMIN'
+      : e.userType === 'TENANT_USER'
+        ? 'MEMBER'
+        : 'SYSTEM',
+  tenantName,
+  result: upper(e.result, 'FAILED') as LoginActivityEvent['result'],
+  sourceIp: e.sourceIp ?? '',
+  clientDevice: e.clientDevice ?? '',
+  failureReason: e.failureReason ?? undefined,
+});
+
 // ---------- Tenant ----------
+
+const siteOperatingHoursLabel = (oh: SiteOut['operatingHours'] | undefined): string => {
+  if (!oh || typeof oh !== 'object') return '';
+  const o = oh as Record<string, unknown>;
+  if (typeof o.label === 'string') return o.label;
+  if (o.isOpen24_7 === true) return '24/7';
+  return '';
+};
 
 export const mapSite = (s: SiteOut, tenantId: string, tenantName = ''): TenantSite => ({
   id: s.id,
@@ -203,7 +254,9 @@ export const mapSite = (s: SiteOut, tenantId: string, tenantName = ''): TenantSi
   vehicleCount: 0,
   todayAccessCount: 0,
   lanesCount: 0,
-  operatingHours: s.timezone,
+  operatingHours: siteOperatingHoursLabel(s.operatingHours),
+  managerName: s.managerName ?? undefined,
+  managerPhone: s.contactPhone ?? undefined,
   capacity: s.capacity ?? undefined,
   currentOccupancy: s.currentOccupancy ?? undefined,
   coordinates:
@@ -313,7 +366,7 @@ export const mapVehicle = (v: VehicleOut, tenantId: string): TenantVehicle => ({
   status: upper(v.status, 'ACTIVE') as TenantVehicle['status'],
   currentPlate: plateOf(v),
   previousPlates: [],
-  memberId: null,
+  memberId: v.memberUserId ?? null,
   member: v.ownerName
     ? {
         id: v.id,
@@ -382,6 +435,27 @@ export const mapRule = (r: RuleOut, siteName?: string): TenantAccessRule => {
   };
 };
 
+const mapMembership = (u: UserOut): TenantUser['membership'] => {
+  const p = u.profile as Record<string, unknown> | null | undefined;
+  if (!p || Object.keys(p).length === 0) return null;
+  return {
+    id: u.id,
+    userId: u.id,
+    memberCode: String(p.memberCode ?? `MEM-${u.id.slice(0, 8).toUpperCase()}`),
+    fullName: u.fullName,
+    email: u.email,
+    phone: typeof p.phone === 'string' ? p.phone : undefined,
+    employeeId: typeof p.employeeId === 'string' ? p.employeeId : undefined,
+    department: typeof p.department === 'string' ? p.department : undefined,
+    type: upper(String(p.membershipType ?? 'EMPLOYEE'), 'EMPLOYEE') as TenantMemberProfile['type'],
+    status:
+      u.status === 'invited' ? 'PENDING' : u.status === 'active' ? 'ACTIVE' : 'SUSPENDED',
+    vehicles: [],
+    notes: typeof p.notes === 'string' ? p.notes : undefined,
+    joinedAt: '',
+  };
+};
+
 export const mapUser = (u: UserOut): TenantUser => ({
   id: u.id,
   name: u.fullName,
@@ -389,7 +463,7 @@ export const mapUser = (u: UserOut): TenantUser => ({
   username: u.email,
   role: upper(u.role, 'MEMBER') as TenantUser['role'],
   status: upper(u.status, 'ACTIVE') as TenantUser['status'],
-  membership: null,
+  membership: mapMembership(u),
   lastLoginAt: u.lastLoginAt ?? undefined,
   createdAt: '',
 });

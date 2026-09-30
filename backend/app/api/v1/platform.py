@@ -17,6 +17,7 @@ from app.models import (
     AccessEvent,
     ApiCredential,
     AuditLog,
+    BackgroundJob,
     BarrierGate,
     BarrierIncident,
     EdgeDevice,
@@ -25,6 +26,7 @@ from app.models import (
     GateTelemetryLog,
     PlatformAdmin,
     PlatformSetting,
+    SecurityAlert,
     Tenant,
     TenantSite,
     TenantUser,
@@ -36,16 +38,21 @@ from app.schemas.resources import (
     ApiCredentialCreatedOut,
     ApiCredentialCreateIn,
     ApiCredentialOut,
+    AuditExportIn,
     AuditLogOut,
     EdgeRebootOut,
     FeatureFlagIn,
     FeatureFlagOut,
     ImpersonateOut,
+    JobOut,
+    LoginEventOut,
     MetricsOverviewOut,
     PlatformAdminIn,
     PlatformAdminOut,
+    PlatformAdminUpdateIn,
     PlatformSettingIn,
     PlatformSettingOut,
+    SecurityAlertOut,
     SnapshotDevice,
     SnapshotGate,
     TelemetrySnapshotOut,
@@ -65,8 +72,10 @@ from app.security import (
 )
 from app.services.audit_service import write_audit
 from app.services.command_service import issue_command
+from app.workers.jobs import enqueue_audit_export
 from app.services.credential_service import new_api_key as _new_api_key
 from app.services.infra_service import infra_status
+from app.services.security_service import emit_alert
 
 router = APIRouter(
     prefix="/platform",
@@ -306,6 +315,123 @@ async def create_admin(
     return PlatformAdminOut.model_validate(row)
 
 
+@router.patch("/admins/{admin_id}", response_model=PlatformAdminOut)
+async def update_admin(
+    admin_id: uuid.UUID,
+    body: PlatformAdminUpdateIn,
+    request: Request,
+    auth: AuthContext = Depends(require_platform_admin((PlatformAdminRole.SUPER_ADMIN,))),
+) -> PlatformAdminOut:
+    """Update an admin's name/role, or disable them. Disabling also revokes
+    all of the admin's active sessions."""
+    async with platform_session() as db:
+        admin = (
+            await db.execute(select(PlatformAdmin).where(PlatformAdmin.id == admin_id))
+        ).scalar_one_or_none()
+        if admin is None:
+            raise not_found("platform_admin", admin_id) from None
+        changes = body.model_dump(exclude_unset=True)
+        reason = changes.pop("reason", None)
+        new_status = changes.get("status")
+        if admin.id == auth.user_id and new_status == "disabled":
+            raise conflict("You cannot disable your own account") from None
+        if new_status is not None and new_status not in ("active", "disabled"):
+            raise bad_request("status must be 'active' or 'disabled'") from None
+        old_role = admin.role
+        for k, v in changes.items():
+            if v is not None:
+                setattr(admin, k, v)
+        if "role" in changes and admin.role != old_role:
+            await emit_alert(
+                db,
+                type="PRIVILEGE_CHANGE",
+                severity="MEDIUM",
+                subject_email=admin.email,
+                subject_user_type=str(ActorType.PLATFORM_ADMIN),
+                subject_user_id=admin.id,
+                ip=request.client.host if request.client else None,
+                evidence={
+                    "details": f"Role changed {old_role} → {admin.role} by {auth.user_id}",
+                },
+            )
+        action = "platform.admin.updated"
+        if new_status == "disabled" and admin.status == "disabled":
+            await db.execute(
+                update(UserSession)
+                .where(
+                    UserSession.user_id == admin_id,
+                    UserSession.user_type == str(ActorType.PLATFORM_ADMIN),
+                    UserSession.revoked_at.is_(None),
+                )
+                .values(revoked_at=datetime.now(timezone.utc))
+            )
+            action = "platform.admin.disabled"
+        await write_audit(
+            db,
+            tenant_id=None,
+            actor_type=ActorType.PLATFORM_ADMIN,
+            actor_id=auth.user_id,
+            actor_email=None,
+            action=action,
+            resource_type="platform_admin",
+            resource_id=str(admin_id),
+            details={"changes": list(changes.keys()), "reason": reason},
+            ip=request.client.host if request.client else None,
+        )
+        await db.flush()
+        return PlatformAdminOut.model_validate(admin)
+
+
+@router.post("/admins/{admin_id}/mfa/reset", response_model=MessageOut)
+async def reset_admin_mfa(
+    admin_id: uuid.UUID,
+    request: Request,
+    auth: AuthContext = Depends(require_platform_admin((PlatformAdminRole.SUPER_ADMIN,))),
+) -> MessageOut:
+    """Revoke an admin's TOTP secret + backup codes and kill their sessions,
+    forcing re-enrollment on next sign-in."""
+    async with platform_session() as db:
+        admin = (
+            await db.execute(select(PlatformAdmin).where(PlatformAdmin.id == admin_id))
+        ).scalar_one_or_none()
+        if admin is None:
+            raise not_found("platform_admin", admin_id) from None
+        admin.mfa_enabled = False
+        admin.mfa_secret = None
+        admin.mfa_backup_hashes = None
+        await db.execute(
+            update(UserSession)
+            .where(
+                UserSession.user_id == admin_id,
+                UserSession.user_type == str(ActorType.PLATFORM_ADMIN),
+                UserSession.revoked_at.is_(None),
+            )
+            .values(revoked_at=datetime.now(timezone.utc))
+        )
+        await emit_alert(
+            db,
+            type="MFA_RESET",
+            severity="MEDIUM",
+            subject_email=admin.email,
+            subject_user_type=str(ActorType.PLATFORM_ADMIN),
+            subject_user_id=admin.id,
+            ip=request.client.host if request.client else None,
+            evidence={"details": "MFA secret revoked by platform admin"},
+        )
+        await write_audit(
+            db,
+            tenant_id=None,
+            actor_type=ActorType.PLATFORM_ADMIN,
+            actor_id=auth.user_id,
+            actor_email=None,
+            action="platform.admin.mfa_reset",
+            resource_type="platform_admin",
+            resource_id=str(admin_id),
+            ip=request.client.host if request.client else None,
+        )
+    return MessageOut(message="Admin MFA credentials revoked")
+
+
 # ---------- settings & feature flags ----------
 @router.get("/settings", response_model=list[PlatformSettingOut])
 async def list_settings() -> list[PlatformSettingOut]:
@@ -478,7 +604,180 @@ async def list_platform_audit_logs(
     return paginate([AuditLogOut.model_validate(r) for r in rows], total, page, limit)
 
 
+@router.post("/audit-logs/export", response_model=JobOut, status_code=202)
+async def export_platform_audit_logs(
+    body: AuditExportIn,
+    request: Request,
+    auth: AuthContext = Depends(require_platform_admin()),
+) -> JobOut:
+    """Queue a CSV export of platform-scope audit logs; poll /platform/jobs/{id}."""
+    async with platform_session() as db:
+        job = BackgroundJob(
+            tenant_id=None,
+            job_type="audit_export",
+            created_by=auth.user_id,
+            result={
+                "scope": "platform",
+                "from": body.from_ts.isoformat() if body.from_ts else None,
+                "to": body.to_ts.isoformat() if body.to_ts else None,
+                "action": body.action,
+            },
+        )
+        db.add(job)
+        await db.flush()
+        await enqueue_audit_export(
+            job_id=str(job.id),
+            tenant_id=None,
+            from_ts=body.from_ts.isoformat() if body.from_ts else None,
+            to_ts=body.to_ts.isoformat() if body.to_ts else None,
+            action=body.action,
+        )
+        await write_audit(
+            db,
+            tenant_id=None,
+            actor_type=ActorType.PLATFORM_ADMIN,
+            actor_id=auth.user_id,
+            actor_email=None,
+            action="audit.export.queued",
+            resource_type="background_job",
+            resource_id=str(job.id),
+            ip=request.client.host if request.client else None,
+        )
+        return JobOut.model_validate(job)
+
+
+@router.get("/jobs/{job_id}", response_model=JobOut)
+async def get_platform_job(job_id: uuid.UUID) -> JobOut:
+    async with platform_session() as db:
+        job = (
+            await db.execute(select(BackgroundJob).where(BackgroundJob.id == job_id))
+        ).scalar_one_or_none()
+        if job is None:
+            raise not_found("job", job_id) from None
+        return JobOut.model_validate(job)
+
+
 # ---------- metrics ----------
+# ---------- security alerts & login activity ----------
+_LOGIN_EVENT_ACTIONS = {
+    "auth.login_success": "SUCCESS",
+    "auth.mfa_success": "SUCCESS",
+    "auth.mfa_required": "CHALLENGED",
+    "auth.login_failed": "FAILED",
+    "auth.mfa_failed": "FAILED",
+    "auth.account_locked": "BLOCKED",
+}
+
+
+@router.get("/security/alerts", response_model=list[SecurityAlertOut])
+async def list_security_alerts(
+    status: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+) -> list[SecurityAlertOut]:
+    async with platform_session() as db:
+        q = select(SecurityAlert).order_by(SecurityAlert.detected_at.desc()).limit(limit)
+        if status:
+            q = q.where(SecurityAlert.status == status.upper())
+        rows = (await db.execute(q)).scalars().all()
+    return [SecurityAlertOut.model_validate(r) for r in rows]
+
+
+async def _set_alert_status(
+    alert_id: uuid.UUID,
+    to: str,
+    request: Request,
+    auth: AuthContext,
+) -> MessageOut:
+    async with platform_session() as db:
+        alert = (
+            await db.execute(select(SecurityAlert).where(SecurityAlert.id == alert_id))
+        ).scalar_one_or_none()
+        if alert is None:
+            raise not_found("security_alert", alert_id) from None
+        now = datetime.now(timezone.utc)
+        alert.status = to
+        if to == "ACKNOWLEDGED":
+            alert.acknowledged_by = auth.user_id
+            alert.acknowledged_at = now
+        else:
+            alert.resolved_by = auth.user_id
+            alert.resolved_at = now
+        await write_audit(
+            db,
+            tenant_id=None,
+            actor_type=ActorType.PLATFORM_ADMIN,
+            actor_id=auth.user_id,
+            actor_email=None,
+            action=f"platform.security_alert.{to.lower()}",
+            resource_type="security_alert",
+            resource_id=str(alert_id),
+            ip=request.client.host if request.client else None,
+        )
+    return MessageOut(message=f"Alert {to.lower()}")
+
+
+@router.post("/security/alerts/{alert_id}/acknowledge", response_model=MessageOut)
+async def acknowledge_security_alert(
+    alert_id: uuid.UUID,
+    request: Request,
+    auth: AuthContext = Depends(require_platform_admin()),
+) -> MessageOut:
+    return await _set_alert_status(alert_id, "ACKNOWLEDGED", request, auth)
+
+
+@router.post("/security/alerts/{alert_id}/resolve", response_model=MessageOut)
+async def resolve_security_alert(
+    alert_id: uuid.UUID,
+    request: Request,
+    auth: AuthContext = Depends(require_platform_admin()),
+) -> MessageOut:
+    return await _set_alert_status(alert_id, "RESOLVED", request, auth)
+
+
+@router.get("/security/login-events", response_model=list[LoginEventOut])
+async def list_login_events(
+    limit: int = Query(200, ge=1, le=1000),
+) -> list[LoginEventOut]:
+    """Authentication activity derived from the audit log — every auth
+    success/failure/lockout is already written there by auth_service."""
+    async with platform_session() as db:
+        rows = (
+            (
+                await db.execute(
+                    select(AuditLog)
+                    .where(AuditLog.action.in_(list(_LOGIN_EVENT_ACTIONS)))
+                    .order_by(AuditLog.created_at.desc())
+                    .limit(limit)
+                )
+            )
+            .scalars()
+            .all()
+        )
+    out: list[LoginEventOut] = []
+    for r in rows:
+        result = _LOGIN_EVENT_ACTIONS.get(r.action, "FAILED")
+        reason = (r.details or {}).get("reason")
+        if r.action == "auth.login_failed" and reason in (
+            "account_locked",
+            "account_disabled",
+        ):
+            result = "BLOCKED"
+        out.append(
+            LoginEventOut(
+                id=r.id,
+                timestamp=r.created_at,
+                user_email=r.actor_email,
+                user_type=(r.actor_type or "unknown").upper(),
+                tenant_id=r.tenant_id,
+                result=result,
+                source_ip=r.ip,
+                client_device=r.user_agent,
+                failure_reason=reason,
+            )
+        )
+    return out
+
+
 @router.get("/metrics/overview", response_model=MetricsOverviewOut)
 async def metrics_overview() -> MetricsOverviewOut:
     now = datetime.now(timezone.utc)

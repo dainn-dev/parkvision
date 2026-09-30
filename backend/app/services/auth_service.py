@@ -47,6 +47,7 @@ from app.security import (
     verify_totp,
 )
 from app.services.audit_service import write_audit
+from app.services.security_service import emit_alert
 
 
 @dataclass
@@ -184,9 +185,38 @@ async def _fail_login(
     """
     if user is not None:
         user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+        if user.failed_login_attempts == 3:
+            await emit_alert(
+                db,
+                type="MULTIPLE_FAILED_LOGINS",
+                severity="MEDIUM",
+                subject_email=email,
+                subject_user_type=str(user_type) if user_type else None,
+                subject_user_id=user.id,
+                tenant_id=tenant_id,
+                ip=ip,
+                evidence={
+                    "failedAttempts": user.failed_login_attempts,
+                    "details": "Repeated failed login attempts",
+                },
+            )
         if user.failed_login_attempts >= settings.login_max_attempts:
             user.locked_until = datetime.now(timezone.utc) + timedelta(
                 seconds=settings.login_lockout_seconds
+            )
+            await emit_alert(
+                db,
+                type="ACCOUNT_LOCKED",
+                severity="HIGH",
+                subject_email=email,
+                subject_user_type=str(user_type) if user_type else None,
+                subject_user_id=user.id,
+                tenant_id=tenant_id,
+                ip=ip,
+                evidence={
+                    "failedAttempts": user.failed_login_attempts,
+                    "details": f"Account locked after {user.failed_login_attempts} failed logins",
+                },
             )
             await _audit_login(
                 db,
@@ -368,6 +398,28 @@ async def _fail_mfa(db, sess: UserSession, ip: str | None) -> None:
         ip=ip,
         details={"attempt": sess.mfa_attempts, "exhausted": exhausted},
     )
+    if exhausted:
+        subject = (
+            await db.execute(
+                select(TenantUser.email).where(TenantUser.id == sess.user_id)
+                if sess.user_type == ActorType.TENANT_USER
+                else select(PlatformAdmin.email).where(PlatformAdmin.id == sess.user_id)
+            )
+        ).scalar_one_or_none()
+        await emit_alert(
+            db,
+            type="MFA_FAILURE",
+            severity="HIGH",
+            subject_email=subject,
+            subject_user_type=sess.user_type,
+            subject_user_id=sess.user_id,
+            tenant_id=sess.tenant_id,
+            ip=ip,
+            evidence={
+                "failedAttempts": sess.mfa_attempts,
+                "details": "MFA verification attempts exhausted; session revoked",
+            },
+        )
     await db.commit()
     if exhausted:
         raise mfa_too_many_attempts() from None
@@ -500,6 +552,28 @@ async def refresh_session(raw_refresh_token: str) -> TokenBundle:
                 # theft and revoke the whole session family.
                 await db.execute(
                     update(UserSession).where(UserSession.family_id == sess.family_id).values(revoked_at=now)
+                )
+                subject = (
+                    await db.execute(
+                        select(TenantUser.email).where(TenantUser.id == sess.user_id)
+                        if sess.user_type == ActorType.TENANT_USER
+                        else select(PlatformAdmin.email).where(
+                            PlatformAdmin.id == sess.user_id
+                        )
+                    )
+                ).scalar_one_or_none()
+                await emit_alert(
+                    db,
+                    type="SUSPICIOUS_LOGIN",
+                    severity="CRITICAL",
+                    subject_email=subject,
+                    subject_user_type=sess.user_type,
+                    subject_user_id=sess.user_id,
+                    tenant_id=sess.tenant_id,
+                    ip=sess.ip,
+                    evidence={
+                        "details": "Refresh token reuse detected; session family revoked",
+                    },
                 )
                 # Commit the revocation before raising — raising inside
                 # session.begin() would roll it back.

@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import EmailStr, Field, field_validator
 
@@ -59,6 +60,9 @@ class UserOut(CamelModel):
     mfa_enabled: bool
     tenant_id: uuid.UUID | None = None
     last_login_at: datetime | None = None
+    # Member profile fields (memberCode/phone/employeeId/department/
+    # membershipType/notes); None when the user has no member profile.
+    profile: dict[str, Any] | None = None
 
 
 class MeOut(CamelModel):

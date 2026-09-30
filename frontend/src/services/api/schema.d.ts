@@ -1947,6 +1947,54 @@ export interface components {
              */
             createdAt: string;
         };
+        /** SecurityAlertOut */
+        SecurityAlertOut: {
+            /** Id — Format: uuid */
+            id: string;
+            /** Type */
+            type: string;
+            /** Severity */
+            severity: string;
+            /** Status */
+            status: string;
+            /** Subjectemail */
+            subjectEmail: string | null;
+            /** Subjectusertype */
+            subjectUserType: string | null;
+            /** Detectedat — Format: date-time */
+            detectedAt: string;
+            /** Sourceip */
+            sourceIp: string | null;
+            /** Clientbrowser */
+            clientBrowser: string | null;
+            /** Evidence */
+            evidence: Record<string, unknown>;
+            /** Acknowledgedat */
+            acknowledgedAt: string | null;
+            /** Resolvedat */
+            resolvedAt: string | null;
+        };
+        /** LoginEventOut */
+        LoginEventOut: {
+            /** Id — Format: uuid */
+            id: string;
+            /** Timestamp — Format: date-time */
+            timestamp: string;
+            /** Useremail */
+            userEmail: string | null;
+            /** Usertype */
+            userType: string;
+            /** Tenantid */
+            tenantId: string | null;
+            /** Result */
+            result: string;
+            /** Sourceip */
+            sourceIp: string | null;
+            /** Clientdevice */
+            clientDevice: string | null;
+            /** Failurereason */
+            failureReason?: string | null;
+        };
         /** SessionOut */
         SessionOut: {
             /**
@@ -2335,6 +2383,8 @@ export interface components {
             tenantId?: string | null;
             /** Lastloginat */
             lastLoginAt?: string | null;
+            /** Profile */
+            profile?: Record<string, unknown> | null;
         };
         /** UserUpdateIn */
         UserUpdateIn: {
@@ -2434,6 +2484,11 @@ export interface components {
             validTo: string | null;
             /** Status */
             status: string;
+            /**
+             * Memberuserid
+             * Format: uuid
+             */
+            memberUserId?: string | null;
             /**
              * Createdat
              * Format: date-time

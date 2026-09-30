@@ -74,7 +74,9 @@ import {
   mapIncident,
   mapInfraHealth,
   mapInvitation,
+  mapLoginEvent,
   mapMember,
+  mapSecurityAlert,
   mapPlatformAdmin,
   mapRegisteredVehicle,
   mapRule,
@@ -88,17 +90,30 @@ import {
 } from '../services/api/mappers';
 import {
   INITIAL_TENANT_LOCATION,
-  INITIAL_TENANT_SUMMARY,
-  INITIAL_TENANT_HEALTH,
-  INITIAL_TENANT_ALERTS,
-  INITIAL_ACCESS_ACTIVITY,
-  INITIAL_TENANT_INVITATIONS,
-  INITIAL_USER_AUDIT_LOGS,
 } from '../data/tenantMockData';
 import {
   INITIAL_SETTINGS,
 } from '../data/mockData';
 import i18n from '../i18n';
+// Honest-empty defaults — no fabricated numbers render before APIs respond.
+const EMPTY_TENANT_SUMMARY: TenantDashboardSummary = {
+  sites: { total: 0, active: 0, inactive: 0 },
+  cameras: { total: 0, online: 0, offline: 0 },
+  gates: { total: 0, online: 0, offline: 0 },
+  vehicles: { total: 0, active: 0, inactive: 0, newThisMonth: 0 },
+  accessToday: { total: 0, allowed: 0, denied: 0, unknown: 0, percentChange: 0 },
+};
+
+const EMPTY_TENANT_HEALTH: TenantSystemHealth = {
+  overall: 'OFFLINE',
+  cameras: { total: 0, online: 0, offline: 0 },
+  gates: { total: 0, online: 0, offline: 0 },
+  edgeDevices: { total: 0, online: 0, offline: 0 },
+  api: 'DOWN',
+  websocket: 'DISCONNECTED',
+  apiLatencyMs: 0,
+};
+
 // UI role labels -> backend TenantUserRole enum
 const mapUiRoleToBackend = (role: string): string => {
   const r = (role ?? '').toUpperCase();
@@ -135,8 +150,9 @@ interface PlatformContextType {
   isMfaModalOpen: boolean;
   mfaModalMode: 'enroll' | 'challenge' | 'reset_admin' | 'disable';
   mfaTargetAdminName?: string;
+  mfaTargetAdminId?: string;
   isMfaVerified: boolean;
-  openMfaModal: (mode?: 'enroll' | 'challenge' | 'reset_admin' | 'disable', targetAdminName?: string) => void;
+  openMfaModal: (mode?: 'enroll' | 'challenge' | 'reset_admin' | 'disable', targetAdminName?: string, targetAdminId?: string) => void;
   closeMfaModal: () => void;
 
   primaryTab: PrimaryTab;
@@ -372,6 +388,8 @@ interface PlatformContextType {
   endTenantMembership: (userId: string) => void;
   resendTenantInvitation: (invitationId: string) => void;
   cancelTenantInvitation: (invitationId: string) => void;
+  importTenantUsers: (rows: Array<{ fullName: string; email: string; role: string }>) =>
+    Promise<{ importedCount: number; failedCount: number; errors: string[] }>;
 }
 
 const PlatformContext = createContext<PlatformContextType | undefined>(undefined);
@@ -468,10 +486,12 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [isMfaModalOpen, setIsMfaModalOpen] = useState(false);
   const [mfaModalMode, setMfaModalMode] = useState<'enroll' | 'challenge' | 'reset_admin' | 'disable'>('enroll');
   const [mfaTargetAdminName, setMfaTargetAdminName] = useState<string | undefined>(undefined);
+  const [mfaTargetAdminId, setMfaTargetAdminId] = useState<string | undefined>(undefined);
   const [isMfaVerified, setIsMfaVerified] = useState(false);
-  const openMfaModal = (mode: 'enroll' | 'challenge' | 'reset_admin' | 'disable' = 'enroll', targetAdminName?: string) => {
+  const openMfaModal = (mode: 'enroll' | 'challenge' | 'reset_admin' | 'disable' = 'enroll', targetAdminName?: string, targetAdminId?: string) => {
     setMfaModalMode(mode);
     setMfaTargetAdminName(targetAdminName);
+    setMfaTargetAdminId(targetAdminId);
     setIsMfaModalOpen(true);
   };
   const closeMfaModal = () => setIsMfaModalOpen(false);
@@ -527,8 +547,8 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [parkingMap, setParkingMap] = useState<MapLevelOut[]>([]);
   const [parkingPresences, setParkingPresences] = useState<PresenceOut[]>([]);
   const parkingPresencesRef = useRef<PresenceOut[]>([]);
-  const [securityAlerts] = useState<SecurityAlert[]>([]);
-  const [loginEvents] = useState<LoginActivityEvent[]>([]);
+  const [securityAlerts, setSecurityAlerts] = useState<SecurityAlert[]>([]);
+  const [loginEvents, setLoginEvents] = useState<LoginActivityEvent[]>([]);
   const [credentials, setCredentials] = useState<ApiCredential[]>([]);
   const [issuedSecret, setIssuedSecret] = useState<{ name: string; key: string } | null>(null);
   const [impersonation, setImpersonation] = useState<{ tenantId: string; tenantName: string; expiresIn: number } | null>(null);
@@ -536,19 +556,19 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const [tenantLocation, setTenantLocation] = useState<TenantLocation>(INITIAL_TENANT_LOCATION);
   const [tenantSites, setTenantSites] = useState<TenantSite[]>([]);
-  const [tenantSummary, setTenantSummary] = useState<TenantDashboardSummary>(INITIAL_TENANT_SUMMARY);
-  const [tenantHealth, setTenantHealth] = useState<TenantSystemHealth>(INITIAL_TENANT_HEALTH);
-  const [tenantAlerts, setTenantAlerts] = useState<TenantAlertItem[]>(INITIAL_TENANT_ALERTS);
+  const [tenantSummary, setTenantSummary] = useState<TenantDashboardSummary>(EMPTY_TENANT_SUMMARY);
+  const [tenantHealth, setTenantHealth] = useState<TenantSystemHealth>(EMPTY_TENANT_HEALTH);
+  const [tenantAlerts, setTenantAlerts] = useState<TenantAlertItem[]>([]);
   const [accessEvents, setAccessEvents] = useState<AccessEvent[]>([]);
-  const [accessActivity, setAccessActivity] = useState<AccessActivityDataPoint[]>(INITIAL_ACCESS_ACTIVITY);
+  const [accessActivity, setAccessActivity] = useState<AccessActivityDataPoint[]>([]);
   const [tenantLanes, setTenantLanes] = useState<LaneOut[]>([]);
   const [registeredVehicles, setRegisteredVehicles] = useState<RegisteredVehicle[]>([]);
   const [tenantVehicles, setTenantVehicles] = useState<TenantVehicle[]>([]);
   const [tenantAccessRules, setTenantAccessRules] = useState<TenantAccessRule[]>([]);
   const [tenantMembers, setTenantMembers] = useState<TenantMember[]>([]);
   const [tenantUsers, setTenantUsers] = useState<TenantUser[]>([]);
-  const [tenantInvitations, setTenantInvitations] = useState<TenantInvitation[]>(INITIAL_TENANT_INVITATIONS);
-  const [userAuditLogs, setUserAuditLogs] = useState<UserAuditLog[]>(INITIAL_USER_AUDIT_LOGS);
+  const [tenantInvitations, setTenantInvitations] = useState<TenantInvitation[]>([]);
+  const [userAuditLogs, setUserAuditLogs] = useState<UserAuditLog[]>([]);
 
   const siteNameOf = (id?: string | null) => tenantSites.find((s) => s.id === id)?.name;
   const gateNameOf = (id?: string | null) => gates.find((g) => g.id === id)?.gateName;
@@ -556,7 +576,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   // ---------- Loaders ----------
   const loadPlatformData = useCallback(async () => {
     try {
-      const [tenantsPage, adminsRows, sessionRows, flags, settingsRows, health, credentialRows] = await Promise.all([
+      const [tenantsPage, adminsRows, sessionRows, flags, settingsRows, health, credentialRows, alertRows, loginRows] = await Promise.all([
         platformApi.listTenants({ limit: 200 }),
         platformApi.listAdmins(),
         platformApi.listSessions({ activeOnly: true }).catch(() => []),
@@ -564,6 +584,8 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         platformApi.getSettings().catch(() => []),
         platformApi.infraHealth().catch(() => null),
         platformApi.credentials().catch(() => []),
+        platformApi.securityAlerts({ limit: 200 }).catch(() => []),
+        platformApi.loginEvents(200).catch(() => []),
       ]);
       platformApi
         .auditLogs({ limit: 100 })
@@ -582,6 +604,12 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       setCredentials(
         credentialRows.map((c) =>
           mapApiCredential(c, mappedTenants.find((t) => t.id === c.tenantId)?.name)
+        )
+      );
+      setSecurityAlerts(alertRows.map(mapSecurityAlert));
+      setLoginEvents(
+        loginRows.map((e) =>
+          mapLoginEvent(e, mappedTenants.find((t) => t.id === e.tenantId)?.name)
         )
       );
       setSettings((prev) => settingsFromRows(settingsRows, prev));
@@ -647,6 +675,9 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
       const primarySite = sitesPage.data[0];
       if (primarySite) {
+        // operating_hours is a free-form JSONB dict; only hydrate the
+        // structured schedule when it carries the dialog's shape.
+        const oh = primarySite.operatingHours as Partial<OperatingHoursSchedule> | undefined;
         setTenantLocation((prev) => ({
           ...prev,
           name: primarySite.name,
@@ -655,7 +686,16 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
           address: {
             ...prev.address,
             line1: primarySite.address ?? prev.address.line1
-          }
+          },
+          ...(oh && (Array.isArray(oh.days) || oh.isOpen24_7 != null)
+            ? {
+                operatingHours: {
+                  timezone: oh.timezone || prev.operatingHours.timezone,
+                  isOpen24_7: oh.isOpen24_7 ?? false,
+                  days: Array.isArray(oh.days) && oh.days.length ? oh.days : prev.operatingHours.days,
+                },
+              }
+            : {}),
         }));
       }
 
@@ -1134,13 +1174,32 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
-  // Not supported by the API (no PATCH/DELETE admin, no per-user MFA reset):
-  const updateAdmin = (_id: string, _updateData: Partial<PlatformAdmin>) =>
-    addToast({ type: 'info', title: 'Not supported', description: 'The backend does not expose admin updates.' });
-  const disableAdmin = (_id: string, _reason?: string) =>
-    addToast({ type: 'info', title: 'Not supported', description: 'The backend does not expose disabling admins.' });
-  const resetAdminMfa = (_id: string) =>
-    addToast({ type: 'info', title: 'Not supported', description: 'The backend does not expose per-user MFA reset.' });
+  // Security alerts have no backend entity yet — keep an honest stub.
+  const updateAdmin = (id: string, updateData: Partial<PlatformAdmin>) => {
+    platformApi
+      .updateAdmin(id, {
+        fullName: updateData.name,
+        role: updateData.role?.toLowerCase(),
+        status: updateData.status?.toLowerCase() as 'active' | 'disabled' | undefined,
+      })
+      .then(() => loadPlatformData())
+      .then(() => addToast({ type: 'success', title: 'Admin updated' }))
+      .catch(toastErr('Failed to update admin'));
+  };
+  const disableAdmin = (id: string, reason?: string) => {
+    platformApi
+      .updateAdmin(id, { status: 'disabled', reason })
+      .then(() => loadPlatformData())
+      .then(() => addToast({ type: 'success', title: 'Admin disabled', description: 'All sessions revoked.' }))
+      .catch(toastErr('Failed to disable admin'));
+  };
+  const resetAdminMfa = (id: string) => {
+    platformApi
+      .resetAdminMfa(id)
+      .then(() => loadPlatformData())
+      .then(() => addToast({ type: 'success', title: 'MFA reset', description: 'Admin must re-enroll on next sign-in.' }))
+      .catch(toastErr('Failed to reset admin MFA'));
+  };
 
   const createFeatureFlag = (key: string, description: string) => {
     platformApi
@@ -1199,8 +1258,22 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       .catch(toastErr('Failed to bulk-resolve incidents'));
   };
 
-  const acknowledgeAlert = (_id: string) => addToast({ type: 'info', title: 'Not supported by API' });
-  const resolveAlert = (_id: string) => addToast({ type: 'info', title: 'Not supported by API' });
+  const acknowledgeAlert = (id: string) =>
+    platformApi
+      .acknowledgeAlert(id)
+      .then(() => {
+        setSecurityAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, status: 'ACKNOWLEDGED' } : a)));
+        addToast({ type: 'success', title: 'Alert acknowledged' });
+      })
+      .catch(toastErr('Failed to acknowledge alert'));
+  const resolveAlert = (id: string) =>
+    platformApi
+      .resolveAlert(id)
+      .then(() => {
+        setSecurityAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, status: 'RESOLVED' } : a)));
+        addToast({ type: 'success', title: 'Alert resolved' });
+      })
+      .catch(toastErr('Failed to resolve alert'));
 
   const revokeSession = (id: string) => {
     (userType === 'platform_admin' ? platformApi.revokeSession(id) : authApi.revokeSession(id))
@@ -1291,6 +1364,18 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const updateLocationOperatingHours = (hours: OperatingHoursSchedule) => {
     setTenantLocation((prev) => ({ ...prev, operatingHours: hours }));
+    const site = tenantSites[0];
+    if (activeTenantId && site) {
+      tenantApi
+        .updateSite(activeTenantId, site.id, {
+          name: site.name,
+          operatingHours: hours as unknown as Record<string, unknown>,
+          timezone: hours.timezone || undefined,
+        })
+        .then(() => loadTenantData(activeTenantId))
+        .then(() => addToast({ type: 'success', title: 'Operating hours saved' }))
+        .catch(toastErr('Failed to save operating hours'));
+    }
   };
 
   const toggleLocationStatus = (status: 'ACTIVE' | 'INACTIVE') => {
@@ -1298,7 +1383,8 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     const site = tenantSites[0];
     if (activeTenantId && site) {
       tenantApi
-        .updateSite(activeTenantId, site.id, { status: status.toLowerCase() })
+        // SiteIn requires `name` — PATCH omits it → 422.
+        .updateSite(activeTenantId, site.id, { name: site.name, status: status.toLowerCase() })
         .then(() => loadTenantData(activeTenantId))
         .catch(toastErr('Failed to update site status'));
     }
@@ -1307,7 +1393,17 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const addTenantSite = (siteData: Partial<TenantSite>) => {
     if (!activeTenantId) return;
     tenantApi
-      .createSite(activeTenantId, { name: siteData.name ?? '', address: siteData.address, timezone: siteData.operatingHours })
+      .createSite(activeTenantId, {
+        name: siteData.name ?? '',
+        code: siteData.code || undefined,
+        address: siteData.address,
+        capacity: siteData.capacity,
+        latitude: siteData.coordinates?.lat,
+        longitude: siteData.coordinates?.lng,
+        managerName: siteData.managerName || undefined,
+        contactPhone: siteData.managerPhone || undefined,
+        operatingHours: siteData.operatingHours ? { label: siteData.operatingHours } : undefined,
+      })
       .then(() => loadTenantData(activeTenantId))
       .then(() => addToast({ type: 'success', title: 'Site created' }))
       .catch(toastErr('Failed to create site'));
@@ -1315,8 +1411,19 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const updateTenantSite = (siteId: string, siteData: Partial<TenantSite>) => {
     if (!activeTenantId) return;
+    const site = tenantSites.find((s) => s.id === siteId);
     tenantApi
-      .updateSite(activeTenantId, siteId, { name: siteData.name, address: siteData.address, timezone: siteData.operatingHours })
+      .updateSite(activeTenantId, siteId, {
+        name: siteData.name ?? site?.name,
+        code: siteData.code || undefined,
+        address: siteData.address,
+        capacity: siteData.capacity,
+        latitude: siteData.coordinates?.lat,
+        longitude: siteData.coordinates?.lng,
+        managerName: siteData.managerName || undefined,
+        contactPhone: siteData.managerPhone || undefined,
+        operatingHours: siteData.operatingHours ? { label: siteData.operatingHours } : undefined,
+      })
       .then(() => loadTenantData(activeTenantId))
       .catch(toastErr('Failed to update site'));
   };
@@ -1576,9 +1683,19 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       .catch(toastErr('Failed to update vehicle'));
   };
 
-  // Vehicle-member assignment does not exist in the API — surface honestly.
-  const assignVehicleMember = (_vehicleId: string, _memberId: string | null) =>
-    addToast({ type: 'info', title: 'Not supported', description: 'The API has no vehicle-member assignment.' });
+  const assignVehicleMember = (vehicleId: string, memberId: string | null) => {
+    if (!activeTenantId) return;
+    tenantApi
+      .updateVehicle(activeTenantId, vehicleId, { memberUserId: memberId })
+      .then(() => loadTenantData(activeTenantId))
+      .then(() =>
+        addToast({
+          type: 'success',
+          title: memberId ? 'Member assigned' : 'Member unassigned',
+        })
+      )
+      .catch(toastErr('Failed to assign member'));
+  };
 
   const setVehicleStatus = (vehicleId: string, status: string, successMsg: string) => {
     if (!activeTenantId) return;
@@ -1835,8 +1952,13 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
-  const resetTenantUserPassword = (_userId: string) =>
-    addToast({ type: 'info', title: 'Not supported', description: 'The API has no per-user password reset.' });
+  const resetTenantUserPassword = (userId: string) => {
+    if (!activeTenantId) return;
+    tenantApi
+      .resetUserPassword(activeTenantId, userId)
+      .then(() => addToast({ type: 'success', title: 'Password reset sent', description: 'Reset link emailed; existing sessions revoked.' }))
+      .catch(toastErr('Failed to send password reset'));
+  };
 
   const updateTenantUser = (userId: string, data: Partial<TenantUser>) => {
     if (!activeTenantId) return;
@@ -1850,16 +1972,54 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       .catch(toastErr('Failed to update user'));
   };
 
-  const updateTenantMemberProfile = (_userId: string, _data: Partial<TenantMemberProfile>) =>
-    addToast({ type: 'info', title: 'Not supported', description: 'The API has no member profile fields.' });
+  const updateTenantMemberProfile = (userId: string, data: Partial<TenantMemberProfile>) => {
+    if (!activeTenantId) return;
+    tenantApi
+      .updateUser(activeTenantId, userId, {
+        memberCode: data.memberCode,
+        phone: data.phone,
+        employeeId: data.employeeId,
+        department: data.department,
+        membershipType: data.type?.toLowerCase(),
+      })
+      .then(() => loadTenantData(activeTenantId))
+      .then(() => addToast({ type: 'success', title: 'Member profile updated' }))
+      .catch(toastErr('Failed to update member profile'));
+  };
 
   const suspendTenantMembership = (userId: string, _reason: string) => void toggleTenantUserStatus(userId, 'INACTIVE');
   const activateTenantMembership = (userId: string) => void toggleTenantUserStatus(userId, 'ACTIVE');
   const endTenantMembership = (userId: string) => deleteTenantMember(userId);
 
-  const resendTenantInvitation = (_invitationId: string) =>
-    addToast({ type: 'info', title: 'Not supported', description: 'The API has no resend-invite endpoint.' });
+  const resendTenantInvitation = (invitationId: string) => {
+    if (!activeTenantId) return;
+    tenantApi
+      .resendInvite(activeTenantId, invitationId)
+      .then(() => addToast({ type: 'success', title: 'Invitation resent' }))
+      .catch(toastErr('Failed to resend invitation'));
+  };
   const cancelTenantInvitation = (invitationId: string) => deleteTenantMember(invitationId);
+
+  // No bulk-invite endpoint — invite per row, then reload once.
+  const importTenantUsers: PlatformContextType['importTenantUsers'] = async (rows) => {
+    if (!activeTenantId) return { importedCount: 0, failedCount: rows.length, errors: ['No tenant selected'] };
+    const errors: string[] = [];
+    let imported = 0;
+    for (const row of rows) {
+      try {
+        await tenantApi.inviteUser(activeTenantId, {
+          email: row.email,
+          fullName: row.fullName || row.email,
+          role: mapUiRoleToBackend(row.role),
+        });
+        imported += 1;
+      } catch (e) {
+        errors.push(`${row.email}: ${errText(e)}`);
+      }
+    }
+    await loadTenantData(activeTenantId);
+    return { importedCount: imported, failedCount: errors.length, errors };
+  };
 
   const createTenantDevice = async (data: TenantEdgeDeviceInput) => {
     if (!activeTenantId) return { success: false, message: 'No tenant selected' };
@@ -1964,6 +2124,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         isMfaModalOpen,
         mfaModalMode,
         mfaTargetAdminName,
+        mfaTargetAdminId,
         isMfaVerified,
         openMfaModal,
         closeMfaModal,
@@ -2122,6 +2283,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         endTenantMembership,
         resendTenantInvitation,
         cancelTenantInvitation,
+        importTenantUsers,
       }}
     >
       {children}
