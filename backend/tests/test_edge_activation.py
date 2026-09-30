@@ -293,9 +293,9 @@ async def test_activate_wrong_code_401(client: AsyncClient, tenant, activation_s
 async def test_activate_expired_code_410(
     client: AsyncClient, tenant, activation_setup, admin_engine
 ):
-    from app.models import DeviceActivationCode
-
     from sqlalchemy import update
+
+    from app.models import DeviceActivationCode
 
     Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
     async with Session() as db:
@@ -516,8 +516,9 @@ async def test_mqtt_authz_scopes_topics_to_tenant(client: AsyncClient, tenant, a
 
 def _edge_client(ip: str) -> AsyncClient:
     """Unauthenticated client whose requests appear to originate from `ip`."""
-    from app.main import app
     from httpx import ASGITransport
+
+    from app.main import app
 
     return AsyncClient(
         transport=ASGITransport(app=app, client=(ip, 4444)), base_url="http://test"

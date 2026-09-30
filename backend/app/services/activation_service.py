@@ -49,8 +49,8 @@ async def build_activation_bundle(
     lanes: dict[uuid.UUID, SiteLane] = {}
     if lane_ids:
         lanes = {
-            l.id: l
-            for l in (
+            lane.id: lane
+            for lane in (
                 (await db.execute(select(SiteLane).where(SiteLane.id.in_(lane_ids))))
                 .scalars()
                 .all()

@@ -72,10 +72,10 @@ from app.security import (
 )
 from app.services.audit_service import write_audit
 from app.services.command_service import issue_command
-from app.workers.jobs import enqueue_audit_export
 from app.services.credential_service import new_api_key as _new_api_key
 from app.services.infra_service import infra_status
 from app.services.security_service import emit_alert
+from app.workers.jobs import enqueue_audit_export
 
 router = APIRouter(
     prefix="/platform",

@@ -26,8 +26,8 @@ from app.models import (
     TenantAccessRule,
 )
 from app.schemas.resources import (
-    ActivationBundleOut,
     ActivateIn,
+    ActivationBundleOut,
     EdgeRuleEntry,
     EdgeVehicleEntry,
     EdgeWhitelistOut,
