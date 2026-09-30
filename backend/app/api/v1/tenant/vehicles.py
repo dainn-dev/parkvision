@@ -160,9 +160,7 @@ async def update_vehicle(
     if "member_user_id" in changes and member_id is not None:
         member = (
             await db.execute(
-                select(TenantUser.id).where(
-                    TenantUser.id == member_id, TenantUser.tenant_id == ctx.tenant_id
-                )
+                select(TenantUser.id).where(TenantUser.id == member_id, TenantUser.tenant_id == ctx.tenant_id)
             )
         ).scalar_one_or_none()
         if member is None:

@@ -143,9 +143,7 @@ async def edge_activate(body: ActivateIn, request: Request) -> ActivationBundleO
         if row is None:
             raise unauthorized("Invalid activation code")
         if row.expires_at <= datetime.now(timezone.utc):
-            raise ApiError(
-                status.HTTP_410_GONE, "activation_code_expired", "Activation code expired"
-            )
+            raise ApiError(status.HTTP_410_GONE, "activation_code_expired", "Activation code expired")
         if row.consumed_at is not None:
             raise conflict("Activation code already redeemed")
         if row.allowed_ip and not _ip_allowed(row.allowed_ip, request):
@@ -160,11 +158,7 @@ async def edge_activate(body: ActivateIn, request: Request) -> ActivationBundleO
         # A device with no bound gates yields an empty bundle the client
         # rejects — refuse BEFORE consuming so the code survives the fix.
         has_gate = (
-            await db.execute(
-                select(BarrierGate.id)
-                .where(BarrierGate.edge_device_id == device.id)
-                .limit(1)
-            )
+            await db.execute(select(BarrierGate.id).where(BarrierGate.edge_device_id == device.id).limit(1))
         ).first() is not None
         if not has_gate:
             raise ApiError(
@@ -207,9 +201,7 @@ async def edge_config(cred: ApiCredential = Depends(edge_device_ctx)) -> Activat
     """Re-emit the device's config bundle (gates/lanes/cameras) — no secrets."""
     async with platform_session() as db:
         device = (
-            await db.execute(
-                select(EdgeDevice).where(EdgeDevice.id == cred.edge_device_id)
-            )
+            await db.execute(select(EdgeDevice).where(EdgeDevice.id == cred.edge_device_id))
         ).scalar_one_or_none()
         if device is None or device.status == "decommissioned":
             raise unauthorized("Device is decommissioned")
@@ -296,6 +288,8 @@ async def edge_presign_upload(
     if body.kind not in _EDGE_UPLOAD_KINDS:
         raise bad_request(f"kind must be one of {sorted(_EDGE_UPLOAD_KINDS)}")
     return PresignOut(**presign_upload(tenant_id, body.kind, body.content_type))
+
+
 _DENY = MqttAuthOut(result="deny")
 
 
@@ -322,12 +316,10 @@ async def mqtt_auth(body: MqttAuthIn) -> MqttAuthOut:
         else:
             # authz path: resolve device from its MQTT username
             rows = (
-                await db.execute(
-                    select(EdgeDevice).where(
-                        EdgeDevice.mqtt_client_id == body.username
-                    )
-                )
-            ).scalars().all()
+                (await db.execute(select(EdgeDevice).where(EdgeDevice.mqtt_client_id == body.username)))
+                .scalars()
+                .all()
+            )
             if len(rows) == 1:
                 device = rows[0]
             elif body.username.startswith("edge-"):
@@ -337,14 +329,18 @@ async def mqtt_auth(body: MqttAuthIn) -> MqttAuthOut:
                     device = None
             if device is not None:
                 cred = (
-                    await db.execute(
-                        select(ApiCredential).where(
-                            ApiCredential.edge_device_id == device.id,
-                            ApiCredential.status == "active",
-                            ApiCredential.revoked_at.is_(None),
+                    (
+                        await db.execute(
+                            select(ApiCredential).where(
+                                ApiCredential.edge_device_id == device.id,
+                                ApiCredential.status == "active",
+                                ApiCredential.revoked_at.is_(None),
+                            )
                         )
                     )
-                ).scalars().first()
+                    .scalars()
+                    .first()
+                )
         if device is None or cred is None:
             return _DENY
         if body.username != (device.mqtt_client_id or f"edge-{device.id}"):

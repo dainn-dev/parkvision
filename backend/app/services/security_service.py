@@ -45,8 +45,7 @@ async def emit_alert(
                     SecurityAlert.type == type,
                     SecurityAlert.subject_email == subject_email,
                     SecurityAlert.status == "OPEN",
-                    SecurityAlert.detected_at
-                    > datetime.now(timezone.utc) - _DEDUP_WINDOW,
+                    SecurityAlert.detected_at > datetime.now(timezone.utc) - _DEDUP_WINDOW,
                 )
             )
             if dup.scalar_one() > 0:

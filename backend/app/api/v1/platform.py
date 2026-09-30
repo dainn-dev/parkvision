@@ -649,9 +649,7 @@ async def export_platform_audit_logs(
 @router.get("/jobs/{job_id}", response_model=JobOut)
 async def get_platform_job(job_id: uuid.UUID) -> JobOut:
     async with platform_session() as db:
-        job = (
-            await db.execute(select(BackgroundJob).where(BackgroundJob.id == job_id))
-        ).scalar_one_or_none()
+        job = (await db.execute(select(BackgroundJob).where(BackgroundJob.id == job_id))).scalar_one_or_none()
         if job is None:
             raise not_found("job", job_id) from None
         return JobOut.model_validate(job)

@@ -51,21 +51,15 @@ def invalid_credentials() -> ApiError:
 
 
 def account_disabled() -> ApiError:
-    return ApiError(
-        status.HTTP_403_FORBIDDEN, "account_disabled", "This account is currently unavailable."
-    )
+    return ApiError(status.HTTP_403_FORBIDDEN, "account_disabled", "This account is currently unavailable.")
 
 
 def account_locked() -> ApiError:
-    return ApiError(
-        status.HTTP_423_LOCKED, "account_locked", "This account is temporarily locked."
-    )
+    return ApiError(status.HTTP_423_LOCKED, "account_locked", "This account is temporarily locked.")
 
 
 def invalid_mfa_code() -> ApiError:
-    return ApiError(
-        status.HTTP_401_UNAUTHORIZED, "invalid_mfa_code", "The authentication code is invalid."
-    )
+    return ApiError(status.HTTP_401_UNAUTHORIZED, "invalid_mfa_code", "The authentication code is invalid.")
 
 
 def mfa_session_invalid() -> ApiError:

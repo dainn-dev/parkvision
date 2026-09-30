@@ -1180,7 +1180,7 @@ class MqttAuthIn(CamelModel):
     password: str | None = None
     clientid: str | None = None
     action: str | None = None  # authz only: publish | subscribe
-    topic: str | None = None   # authz only
+    topic: str | None = None  # authz only
 
 
 class MqttAuthOut(CamelModel):

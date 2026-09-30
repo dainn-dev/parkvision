@@ -40,9 +40,7 @@ def upgrade() -> None:
         sa.Column("resolved_by", UUID(as_uuid=True), nullable=True),
         sa.Column("resolved_at", sa.DateTime(timezone=True), nullable=True),
     )
-    op.create_index(
-        "ix_security_alerts_status", "security_alerts", ["status", "detected_at"]
-    )
+    op.create_index("ix_security_alerts_status", "security_alerts", ["status", "detected_at"])
 
 
 def downgrade() -> None:

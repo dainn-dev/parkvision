@@ -201,9 +201,7 @@ async def _fail_login(
                 },
             )
         if user.failed_login_attempts >= settings.login_max_attempts:
-            user.locked_until = datetime.now(timezone.utc) + timedelta(
-                seconds=settings.login_lockout_seconds
-            )
+            user.locked_until = datetime.now(timezone.utc) + timedelta(seconds=settings.login_lockout_seconds)
             await emit_alert(
                 db,
                 type="ACCOUNT_LOCKED",
@@ -293,17 +291,13 @@ async def login(email: str, password: str, ip: str | None, user_agent: str | Non
                 raise account_disabled() from None
 
         if user is None or not verify_password(password, user.password_hash):
-            await _fail_login(
-                db, user=user, user_type=user_type, tenant_id=tenant_id, email=email, ip=ip
-            )
+            await _fail_login(db, user=user, user_type=user_type, tenant_id=tenant_id, email=email, ip=ip)
             raise invalid_credentials() from None
 
         if user.status != AccountStatus.ACTIVE:
             # e.g. invited-but-not-activated — same error as a bad password so
             # the response never reveals account state.
-            await _fail_login(
-                db, user=user, user_type=user_type, tenant_id=tenant_id, email=email, ip=ip
-            )
+            await _fail_login(db, user=user, user_type=user_type, tenant_id=tenant_id, email=email, ip=ip)
             raise invalid_credentials() from None
 
         user.failed_login_attempts = 0
@@ -434,12 +428,7 @@ async def complete_mfa(
         sess = (
             await db.execute(select(UserSession).where(UserSession.id == session_id))
         ).scalar_one_or_none()
-        if (
-            sess is None
-            or sess.revoked_at is not None
-            or sess.user_id != user_id
-            or sess.mfa_verified
-        ):
+        if sess is None or sess.revoked_at is not None or sess.user_id != user_id or sess.mfa_verified:
             raise mfa_session_invalid() from None
         if sess.expires_at < datetime.now(timezone.utc):
             raise mfa_session_expired() from None
@@ -499,9 +488,7 @@ async def pending_mfa_status(user_id: uuid.UUID, session_id: uuid.UUID) -> list[
     async with platform_session() as db:
         sess = (
             await db.execute(
-                select(UserSession).where(
-                    UserSession.id == session_id, UserSession.user_id == user_id
-                )
+                select(UserSession).where(UserSession.id == session_id, UserSession.user_id == user_id)
             )
         ).scalar_one_or_none()
         if (
@@ -557,9 +544,7 @@ async def refresh_session(raw_refresh_token: str) -> TokenBundle:
                     await db.execute(
                         select(TenantUser.email).where(TenantUser.id == sess.user_id)
                         if sess.user_type == ActorType.TENANT_USER
-                        else select(PlatformAdmin.email).where(
-                            PlatformAdmin.id == sess.user_id
-                        )
+                        else select(PlatformAdmin.email).where(PlatformAdmin.id == sess.user_id)
                     )
                 ).scalar_one_or_none()
                 await emit_alert(
@@ -777,9 +762,7 @@ async def request_password_reset(email: str, ip: str | None) -> str | None:
         ).scalar_one_or_none()
         if user is None:
             user = (
-                await db.execute(
-                    select(PlatformAdmin).where(PlatformAdmin.email == email.lower())
-                )
+                await db.execute(select(PlatformAdmin).where(PlatformAdmin.email == email.lower()))
             ).scalar_one_or_none()
         if user is None or user.status != AccountStatus.ACTIVE:
             return None
@@ -792,7 +775,9 @@ async def request_password_reset(email: str, ip: str | None) -> str | None:
         await write_audit(
             db,
             tenant_id=user.tenant_id if isinstance(user, TenantUser) else None,
-            actor_type=str(ActorType.TENANT_USER if isinstance(user, TenantUser) else ActorType.PLATFORM_ADMIN),
+            actor_type=str(
+                ActorType.TENANT_USER if isinstance(user, TenantUser) else ActorType.PLATFORM_ADMIN
+            ),
             actor_id=user.id,
             actor_email=user.email,
             action="auth.password_reset_requested",
@@ -807,16 +792,12 @@ async def reset_password(token: str, new_password: str, ip: str | None) -> None:
     async with platform_session() as db:
         token_hash = hashlib.sha256(token.encode()).hexdigest()
         user: TenantUser | PlatformAdmin | None = (
-            await db.execute(
-                select(TenantUser).where(TenantUser.password_reset_token_hash == token_hash)
-            )
+            await db.execute(select(TenantUser).where(TenantUser.password_reset_token_hash == token_hash))
         ).scalar_one_or_none()
         if user is None:
             user = (
                 await db.execute(
-                    select(PlatformAdmin).where(
-                        PlatformAdmin.password_reset_token_hash == token_hash
-                    )
+                    select(PlatformAdmin).where(PlatformAdmin.password_reset_token_hash == token_hash)
                 )
             ).scalar_one_or_none()
         if (
@@ -837,16 +818,16 @@ async def reset_password(token: str, new_password: str, ip: str | None) -> None:
             .where(
                 UserSession.user_id == user.id,
                 UserSession.user_type
-                == str(
-                    ActorType.TENANT_USER if isinstance(user, TenantUser) else ActorType.PLATFORM_ADMIN
-                ),
+                == str(ActorType.TENANT_USER if isinstance(user, TenantUser) else ActorType.PLATFORM_ADMIN),
             )
             .values(revoked_at=datetime.now(timezone.utc))
         )
         await write_audit(
             db,
             tenant_id=user.tenant_id if isinstance(user, TenantUser) else None,
-            actor_type=str(ActorType.TENANT_USER if isinstance(user, TenantUser) else ActorType.PLATFORM_ADMIN),
+            actor_type=str(
+                ActorType.TENANT_USER if isinstance(user, TenantUser) else ActorType.PLATFORM_ADMIN
+            ),
             actor_id=user.id,
             actor_email=user.email,
             action="auth.password_changed",

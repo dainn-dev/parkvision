@@ -138,9 +138,7 @@ async def test_generate_code_returns_plaintext_once(
 
 
 @pytest.mark.asyncio
-async def test_regenerate_supersedes_prior_code(
-    client: AsyncClient, tenant, site_and_device, admin_engine
-):
+async def test_regenerate_supersedes_prior_code(client: AsyncClient, tenant, site_and_device, admin_engine):
     from app.models import DeviceActivationCode
 
     tid = tenant["tenant_id"]
@@ -163,9 +161,7 @@ async def test_regenerate_supersedes_prior_code(
 
 
 @pytest.mark.asyncio
-async def test_generate_code_requires_write_role(
-    client: AsyncClient, tenant, site_and_device, viewer_user
-):
+async def test_generate_code_requires_write_role(client: AsyncClient, tenant, site_and_device, viewer_user):
     tid = tenant["tenant_id"]
     _, device = site_and_device
     await login(client, viewer_user, "Password!123")
@@ -177,9 +173,7 @@ async def test_generate_code_requires_write_role(
 
 
 @pytest.mark.asyncio
-async def test_generate_code_cross_tenant_404(
-    client: AsyncClient, tenant, other_tenant, site_and_device
-):
+async def test_generate_code_cross_tenant_404(client: AsyncClient, tenant, other_tenant, site_and_device):
     _, device = site_and_device
     await login(client, other_tenant["email"], other_tenant["password"])
     res = await client.post(
@@ -249,9 +243,7 @@ async def activation_setup(client: AsyncClient, tenant, site_and_device):
 
 
 @pytest.mark.asyncio
-async def test_activate_returns_bundle_and_mints_credential(
-    client: AsyncClient, tenant, activation_setup
-):
+async def test_activate_returns_bundle_and_mints_credential(client: AsyncClient, tenant, activation_setup):
     s = activation_setup
     res = await client.post(
         "/api/v1/edge/activate",
@@ -277,9 +269,7 @@ async def test_activate_returns_bundle_and_mints_credential(
     assert body["mqtt"]["password"] == token
 
     # minted token authenticates existing edge sync endpoints
-    wl = await client.get(
-        f"/api/v1/edge/tenants/{s['tenant_id']}/whitelist", headers={"X-Api-Key": token}
-    )
+    wl = await client.get(f"/api/v1/edge/tenants/{s['tenant_id']}/whitelist", headers={"X-Api-Key": token})
     assert wl.status_code == 200, wl.text
 
 
@@ -290,9 +280,7 @@ async def test_activate_wrong_code_401(client: AsyncClient, tenant, activation_s
 
 
 @pytest.mark.asyncio
-async def test_activate_expired_code_410(
-    client: AsyncClient, tenant, activation_setup, admin_engine
-):
+async def test_activate_expired_code_410(client: AsyncClient, tenant, activation_setup, admin_engine):
     from sqlalchemy import update
 
     from app.models import DeviceActivationCode
@@ -300,9 +288,7 @@ async def test_activate_expired_code_410(
     Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
     async with Session() as db:
         await db.execute(
-            update(DeviceActivationCode).values(
-                expires_at=datetime.now(timezone.utc) - timedelta(hours=1)
-            )
+            update(DeviceActivationCode).values(expires_at=datetime.now(timezone.utc) - timedelta(hours=1))
         )
         await db.commit()
     res = await client.post("/api/v1/edge/activate", json={"code": activation_setup["code"]})
@@ -310,9 +296,7 @@ async def test_activate_expired_code_410(
 
 
 @pytest.mark.asyncio
-async def test_activate_consumed_code_rejected(
-    client: AsyncClient, tenant, activation_setup
-):
+async def test_activate_consumed_code_rejected(client: AsyncClient, tenant, activation_setup):
     first = await client.post("/api/v1/edge/activate", json={"code": activation_setup["code"]})
     assert first.status_code == 200, first.text
     second = await client.post("/api/v1/edge/activate", json={"code": activation_setup["code"]})
@@ -352,9 +336,7 @@ async def test_activate_device_without_gates_rejected_before_consume(
 
 
 @pytest.mark.asyncio
-async def test_edge_config_returns_bundle_without_secrets(
-    client: AsyncClient, tenant, activation_setup
-):
+async def test_edge_config_returns_bundle_without_secrets(client: AsyncClient, tenant, activation_setup):
     act = await client.post("/api/v1/edge/activate", json={"code": activation_setup["code"]})
     token = act.json()["api"]["token"]
 
@@ -391,9 +373,7 @@ async def test_edge_config_rejects_sync_only_key(client: AsyncClient, tenant, ad
 
 
 @pytest.mark.asyncio
-async def test_revoke_device_token_kills_rest_access(
-    client: AsyncClient, tenant, activation_setup
-):
+async def test_revoke_device_token_kills_rest_access(client: AsyncClient, tenant, activation_setup):
     """Tenant admin revokes the device credential; /edge/config must 401 after."""
     s = activation_setup
     act = await client.post("/api/v1/edge/activate", json={"code": s["code"]})
@@ -413,9 +393,7 @@ async def test_revoke_device_token_kills_rest_access(
     dead = await client.get("/api/v1/edge/config", headers={"X-Api-Key": token})
     assert dead.status_code == 401
 
-    wl = await client.get(
-        f"/api/v1/edge/tenants/{s['tenant_id']}/whitelist", headers={"X-Api-Key": token}
-    )
+    wl = await client.get(f"/api/v1/edge/tenants/{s['tenant_id']}/whitelist", headers={"X-Api-Key": token})
     assert wl.status_code == 401
 
 
@@ -520,9 +498,7 @@ def _edge_client(ip: str) -> AsyncClient:
 
     from app.main import app
 
-    return AsyncClient(
-        transport=ASGITransport(app=app, client=(ip, 4444)), base_url="http://test"
-    )
+    return AsyncClient(transport=ASGITransport(app=app, client=(ip, 4444)), base_url="http://test")
 
 
 async def _bind_gate(client: AsyncClient, tenant, site_id: str, device_id: str) -> None:
@@ -557,9 +533,7 @@ async def _gen_code(client: AsyncClient, tenant, device_id: str, body=None) -> s
 
 
 @pytest.mark.asyncio
-async def test_generate_code_stores_allowed_ip(
-    client: AsyncClient, tenant, site_and_device, admin_engine
-):
+async def test_generate_code_stores_allowed_ip(client: AsyncClient, tenant, site_and_device, admin_engine):
     from app.models import DeviceActivationCode
 
     _, device = site_and_device
@@ -578,9 +552,7 @@ async def test_generate_code_stores_allowed_ip(
 
 
 @pytest.mark.asyncio
-async def test_activate_rejects_wrong_source_ip(
-    client: AsyncClient, tenant, site_and_device
-):
+async def test_activate_rejects_wrong_source_ip(client: AsyncClient, tenant, site_and_device):
     _, device = site_and_device
     code = await _gen_code(client, tenant, device["id"], {"allowedIp": "203.0.113.10"})
 
@@ -590,9 +562,7 @@ async def test_activate_rejects_wrong_source_ip(
 
 
 @pytest.mark.asyncio
-async def test_failed_ip_check_does_not_consume_code(
-    client: AsyncClient, tenant, site_and_device
-):
+async def test_failed_ip_check_does_not_consume_code(client: AsyncClient, tenant, site_and_device):
     """A wrong-IP attempt must not burn the one-time code."""
     site_id, device = site_and_device
     await _bind_gate(client, tenant, site_id, device["id"])
@@ -609,9 +579,7 @@ async def test_failed_ip_check_does_not_consume_code(
 
 
 @pytest.mark.asyncio
-async def test_activate_cidr_range_allows_subnet(
-    client: AsyncClient, tenant, site_and_device
-):
+async def test_activate_cidr_range_allows_subnet(client: AsyncClient, tenant, site_and_device):
     site_id, device = site_and_device
     await _bind_gate(client, tenant, site_id, device["id"])
     code = await _gen_code(client, tenant, device["id"], {"allowedIp": "203.0.113.0/24"})
@@ -622,9 +590,7 @@ async def test_activate_cidr_range_allows_subnet(
 
 
 @pytest.mark.asyncio
-async def test_xff_honored_when_peer_is_private(
-    client: AsyncClient, tenant, site_and_device
-):
+async def test_xff_honored_when_peer_is_private(client: AsyncClient, tenant, site_and_device):
     """Behind a proxy the peer is private/loopback — first XFF hop is the real IP."""
     site_id, device = site_and_device
     await _bind_gate(client, tenant, site_id, device["id"])
@@ -640,9 +606,7 @@ async def test_xff_honored_when_peer_is_private(
 
 
 @pytest.mark.asyncio
-async def test_xff_ignored_when_peer_is_public(
-    client: AsyncClient, tenant, site_and_device
-):
+async def test_xff_ignored_when_peer_is_public(client: AsyncClient, tenant, site_and_device):
     """On a direct connection a client-set XFF must not bypass the check.
 
     Uses a globally-routable peer (8.8.8.8): TEST-NET ranges like
@@ -662,9 +626,7 @@ async def test_xff_ignored_when_peer_is_public(
 
 
 @pytest.mark.asyncio
-async def test_generate_code_rejects_invalid_ip(
-    client: AsyncClient, tenant, site_and_device
-):
+async def test_generate_code_rejects_invalid_ip(client: AsyncClient, tenant, site_and_device):
     _, device = site_and_device
     res = await client.post(
         f"/api/v1/tenants/{tenant['tenant_id']}/devices/{device['id']}/activation-codes",
@@ -687,7 +649,5 @@ async def test_client_ip_endpoint_reports_peer(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_client_ip_endpoint_honors_xff_behind_proxy(client: AsyncClient):
     async with _edge_client("127.0.0.1") as edge:
-        res = await edge.get(
-            "/api/v1/edge/client-ip", headers={"X-Forwarded-For": "203.0.113.77, 10.0.0.1"}
-        )
+        res = await edge.get("/api/v1/edge/client-ip", headers={"X-Forwarded-For": "203.0.113.77, 10.0.0.1"})
     assert res.json()["ip"] == "203.0.113.77"

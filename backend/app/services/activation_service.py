@@ -37,13 +37,7 @@ async def build_activation_bundle(
     itself. `token` is set only at activate time — /edge/config never
     re-emits it."""
     gates = (
-        (
-            await db.execute(
-                select(BarrierGate).where(BarrierGate.edge_device_id == device.id)
-            )
-        )
-        .scalars()
-        .all()
+        (await db.execute(select(BarrierGate).where(BarrierGate.edge_device_id == device.id))).scalars().all()
     )
     lane_ids = [g.lane_id for g in gates if g.lane_id is not None]
     lanes: dict[uuid.UUID, SiteLane] = {}
@@ -51,9 +45,7 @@ async def build_activation_bundle(
         lanes = {
             lane.id: lane
             for lane in (
-                (await db.execute(select(SiteLane).where(SiteLane.id.in_(lane_ids))))
-                .scalars()
-                .all()
+                (await db.execute(select(SiteLane).where(SiteLane.id.in_(lane_ids)))).scalars().all()
             )
         }
     cam_rows = (
@@ -75,9 +67,7 @@ async def build_activation_bundle(
     for g in gates:
         lane = lanes.get(g.lane_id) if g.lane_id else None
         gate_cams = [
-            ActivationCameraOut(
-                id=c.id, name=c.name, stream_url=c.stream_url, purpose=c.purpose
-            )
+            ActivationCameraOut(id=c.id, name=c.name, stream_url=c.stream_url, purpose=c.purpose)
             for c in cam_rows
             if c.lane_id == g.lane_id or (c.lane_id is None and c.edge_device_id == device.id)
         ]
@@ -110,9 +100,7 @@ async def build_activation_bundle(
 async def find_activation_code(db: AsyncSession, code: str) -> DeviceActivationCode | None:
     return (
         await db.execute(
-            select(DeviceActivationCode).where(
-                DeviceActivationCode.code_hash == hash_activation_code(code)
-            )
+            select(DeviceActivationCode).where(DeviceActivationCode.code_hash == hash_activation_code(code))
         )
     ).scalar_one_or_none()
 

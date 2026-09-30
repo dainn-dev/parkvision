@@ -31,9 +31,7 @@ def upgrade() -> None:
             nullable=True,
         ),
     )
-    op.create_index(
-        "ix_registered_vehicles_member", "registered_vehicles", ["member_user_id"]
-    )
+    op.create_index("ix_registered_vehicles_member", "registered_vehicles", ["member_user_id"])
 
 
 def downgrade() -> None:

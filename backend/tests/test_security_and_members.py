@@ -39,6 +39,7 @@ async def _platform_admin(admin_engine, role: str = "super_admin", mfa: bool = F
 
 # ---------- member profile / invite / reset ----------
 
+
 @pytest.mark.asyncio
 async def test_invite_with_member_profile(client: AsyncClient, tenant):
     await login(client, tenant["email"], tenant["password"])
@@ -113,11 +114,7 @@ async def test_vehicle_member_assignment(client: AsyncClient, admin_engine, tena
     Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
     async with Session() as db:
         other_id = (
-            await db.execute(
-                select(TenantUser.id).where(
-                    TenantUser.tenant_id == other_tenant["tenant_id"]
-                )
-            )
+            await db.execute(select(TenantUser.id).where(TenantUser.tenant_id == other_tenant["tenant_id"]))
         ).scalar_one()
 
     res = await client.post(
@@ -153,6 +150,7 @@ async def test_vehicle_member_assignment(client: AsyncClient, admin_engine, tena
 
 
 # ---------- platform security ----------
+
 
 @pytest.mark.asyncio
 async def test_failed_logins_emit_alerts(client: AsyncClient, admin_engine, tenant):
@@ -205,9 +203,7 @@ async def test_alert_acknowledge_resolve(client: AsyncClient, admin_engine):
         f"/api/v1/platform/security/alerts/{found['id']}/acknowledge", headers=csrf(client)
     )
     assert res.status_code == 200, res.text
-    res = await client.post(
-        f"/api/v1/platform/security/alerts/{found['id']}/resolve", headers=csrf(client)
-    )
+    res = await client.post(f"/api/v1/platform/security/alerts/{found['id']}/resolve", headers=csrf(client))
     assert res.status_code == 200, res.text
 
     res = await client.get("/api/v1/platform/security/alerts?status=RESOLVED")
@@ -227,9 +223,7 @@ async def test_admin_patch_and_mfa_reset_emit_alerts(client: AsyncClient, admin_
     )
     assert res.status_code == 200, res.text
 
-    res = await client.post(
-        f"/api/v1/platform/admins/{target_id}/mfa/reset", headers=csrf(client)
-    )
+    res = await client.post(f"/api/v1/platform/admins/{target_id}/mfa/reset", headers=csrf(client))
     assert res.status_code == 200, res.text
 
     res = await client.get("/api/v1/platform/security/alerts?limit=50")

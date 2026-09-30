@@ -258,9 +258,7 @@ async def test_password_reset_flow(client: AsyncClient, tenant):
     # forgot: always 200 — never reveals whether the email exists
     res = await client.post("/api/v1/auth/password/forgot", json={"email": tenant["email"]})
     assert res.status_code == 200
-    res = await client.post(
-        "/api/v1/auth/password/forgot", json={"email": "nobody@example.com"}
-    )
+    res = await client.post("/api/v1/auth/password/forgot", json={"email": "nobody@example.com"})
     assert res.status_code == 200
 
     # The service returns the plaintext token (endpoint never exposes it).
@@ -294,9 +292,7 @@ async def test_access_token_amr_claim(client: AsyncClient, admin_engine, tenant)
     from app.config import settings
 
     secret = await _enable_mfa(admin_engine, tenant["email"])
-    await client.post(
-        "/api/v1/auth/login", json={"email": tenant["email"], "password": tenant["password"]}
-    )
+    await client.post("/api/v1/auth/login", json={"email": tenant["email"], "password": tenant["password"]})
     import pyotp
 
     res = await client.post("/api/v1/auth/mfa/verify", json={"code": pyotp.TOTP(secret).now()})

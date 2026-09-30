@@ -41,12 +41,10 @@ def upgrade() -> None:
         """
     )
     op.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS ux_activation_code_hash "
-        "ON device_activation_codes (code_hash)"
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_activation_code_hash " "ON device_activation_codes (code_hash)"
     )
     op.execute(
-        "CREATE INDEX IF NOT EXISTS ix_activation_codes_device "
-        "ON device_activation_codes (edge_device_id)"
+        "CREATE INDEX IF NOT EXISTS ix_activation_codes_device " "ON device_activation_codes (edge_device_id)"
     )
 
     op.execute("ALTER TABLE device_activation_codes ENABLE ROW LEVEL SECURITY")
@@ -63,9 +61,7 @@ def upgrade() -> None:
             )
         """
     )
-    op.execute(
-        "GRANT SELECT, INSERT, UPDATE, DELETE ON device_activation_codes TO vehicle_app"
-    )
+    op.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON device_activation_codes TO vehicle_app")
 
     op.add_column(
         "api_credentials",
@@ -76,10 +72,7 @@ def upgrade() -> None:
             nullable=True,
         ),
     )
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS ix_api_credentials_device "
-        "ON api_credentials (edge_device_id)"
-    )
+    op.execute("CREATE INDEX IF NOT EXISTS ix_api_credentials_device " "ON api_credentials (edge_device_id)")
 
 
 def downgrade() -> None:

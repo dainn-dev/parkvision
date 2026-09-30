@@ -162,9 +162,7 @@ async def mfa_verify(body: MfaVerifyIn, request: Request, response: Response) ->
 async def mfa_session_status(request: Request) -> dict:
     """Pending-transaction status — lets the SPA resume MFA after a refresh."""
     claims = _pending_claims(request)
-    methods = await auth_service.pending_mfa_status(
-        uuid.UUID(claims["sub"]), uuid.UUID(claims["sid"])
-    )
+    methods = await auth_service.pending_mfa_status(uuid.UUID(claims["sub"]), uuid.UUID(claims["sid"]))
     expires_in = max(0, int(claims["exp"] - datetime.now(timezone.utc).timestamp()))
     return {"data": {"status": "mfa_required", "methods": methods, "expiresIn": expires_in}}
 
@@ -174,9 +172,7 @@ async def mfa_resend(request: Request) -> dict:
     """Re-present the pending MFA challenge. TOTP needs nothing sent — this
     validates the transaction and echoes methods + remaining lifetime."""
     claims = _pending_claims(request)
-    methods = await auth_service.pending_mfa_status(
-        uuid.UUID(claims["sub"]), uuid.UUID(claims["sid"])
-    )
+    methods = await auth_service.pending_mfa_status(uuid.UUID(claims["sub"]), uuid.UUID(claims["sid"]))
     expires_in = max(0, int(claims["exp"] - datetime.now(timezone.utc).timestamp()))
     return {"data": {"status": "mfa_required", "methods": methods, "expiresIn": expires_in}}
 

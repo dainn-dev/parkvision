@@ -642,9 +642,7 @@ class SecurityAlert(Base):
     resolved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    __table_args__ = (
-        Index("ix_security_alerts_status", "status", "detected_at"),
-    )
+    __table_args__ = (Index("ix_security_alerts_status", "status", "detected_at"),)
 
 
 class GateCommand(Base):
