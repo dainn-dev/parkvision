@@ -136,7 +136,7 @@ async def update_me(
 async def _clear_other_primaries(db, driver_id: uuid.UUID, keep_id: uuid.UUID | None) -> None:
     q = update(DriverVehicle).where(
         DriverVehicle.driver_id == driver_id, DriverVehicle.is_primary.is_(True)
-    )
+    ).values(is_primary=False)
     if keep_id is not None:
         q = q.where(DriverVehicle.id != keep_id)
     await db.execute(q)

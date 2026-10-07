@@ -101,3 +101,128 @@ async def test_driver_login_wrong_password(client):
         "/api/v1/driver/auth/login", json={"email": d["email"], "password": "WrongPass99"}
     )
     assert r.status_code == 401
+
+
+# ---------- Task 4/5: fixtures (listed_site defined here per plan ruling) ----------
+
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+
+@pytest_asyncio.fixture
+async def listed_site(tenant, admin_engine):
+    """Active tenant → listed TenantSite with coords + pricing, plus a
+    second listed site without coordinates."""
+    from app.models import TenantSite
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        s1 = TenantSite(
+            tenant_id=tenant["tenant_id"],
+            name="Test Parking One",
+            code="TP1",
+            address="450 Nguyen Van Linh",
+            city="Ho Chi Minh City",
+            latitude=10.7328,
+            longitude=106.7218,
+            capacity=100,
+            current_occupancy=65,
+            operating_hours={"open": "00:00", "close": "23:59"},
+            contact_phone="0901234567",
+            status="active",
+            public_profile={
+                "listed": True,
+                "parkingType": "indoor",
+                "facilities": ["CCTV", "Security"],
+                "description": "Test parking",
+                "pricing": {"hourlyFrom": 20000},
+            },
+        )
+        s2 = TenantSite(
+            tenant_id=tenant["tenant_id"],
+            name="No Coords Lot",
+            code="NC1",
+            status="active",
+            capacity=10,
+            public_profile={"listed": True},
+        )
+        db.add_all([s1, s2])
+        await db.commit()
+    return {
+        "id": s1.id,
+        "tenant_id": tenant["tenant_id"],
+        "slug": tenant["slug"],
+        "no_coords_id": s2.id,
+    }
+
+
+# ---------- Task 4: driver vehicles + favorites ----------
+
+
+async def test_vehicle_crud_and_primary(client):
+    d = await driver(client)
+    v1 = (
+        await client.post(
+            "/api/v1/driver/vehicles",
+            headers=d["headers"],
+            json={"plateNumber": "51A-123.45", "label": "Camry"},
+        )
+    ).json()
+    assert v1["plateNormalized"] == "51A12345" and v1["isPrimary"] is True
+    v2 = (
+        await client.post(
+            "/api/v1/driver/vehicles",
+            headers=d["headers"],
+            json={"plateNumber": "51F-882.11", "isPrimary": True},
+        )
+    ).json()
+    lst = (await client.get("/api/v1/driver/vehicles", headers=d["headers"])).json()
+    assert [v["isPrimary"] for v in lst] == [True, False] and lst[0]["id"] == v2["id"]
+    dup = await client.post(
+        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": "51a12345"}
+    )
+    assert dup.status_code == 409
+    assert (
+        await client.delete(f"/api/v1/driver/vehicles/{v2['id']}", headers=d["headers"])
+    ).status_code == 200
+    assert (await client.get("/api/v1/driver/vehicles", headers=d["headers"])).json()[0][
+        "isPrimary"
+    ] is True
+
+
+async def test_two_drivers_may_share_a_plate(client):
+    a, b = await driver(client), await driver(client)
+    for d in (a, b):
+        assert (
+            await client.post(
+                "/api/v1/driver/vehicles",
+                headers=d["headers"],
+                json={"plateNumber": "30A-000.01"},
+            )
+        ).status_code == 201
+
+
+async def test_vehicle_not_owned_404(client):
+    a, b = await driver(client), await driver(client)
+    v = (
+        await client.post(
+            "/api/v1/driver/vehicles", headers=a["headers"], json={"plateNumber": "30A-000.02"}
+        )
+    ).json()
+    assert (
+        await client.delete(f"/api/v1/driver/vehicles/{v['id']}", headers=b["headers"])
+    ).status_code == 404
+
+
+async def test_favorites_roundtrip(client, listed_site):
+    d = await driver(client)
+    assert (
+        await client.put(f"/api/v1/driver/favorites/{listed_site['id']}", headers=d["headers"])
+    ).status_code == 200
+    favs = (await client.get("/api/v1/driver/favorites", headers=d["headers"])).json()
+    assert [f["id"] for f in favs] == [str(listed_site["id"])]
+    assert favs[0]["isFavorite"] is True
+    assert (
+        await client.delete(f"/api/v1/driver/favorites/{listed_site['id']}", headers=d["headers"])
+    ).status_code == 200
+    assert (await client.get("/api/v1/driver/favorites", headers=d["headers"])).json() == []
