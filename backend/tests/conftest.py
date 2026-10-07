@@ -184,3 +184,22 @@ async def login(client: AsyncClient, email: str, password: str) -> dict:
 def csrf(client: AsyncClient) -> dict:
     token = client.cookies.get("vm_csrf")
     return {"x-csrf-token": token} if token else {}
+
+
+async def driver(client: AsyncClient) -> dict:
+    """Register a fresh driver account via the API; return tokens + headers."""
+    suffix = uuid.uuid4().hex[:8]
+    email = f"drv-{suffix}@example.com"
+    res = await client.post(
+        "/api/v1/driver/auth/register",
+        json={"email": email, "password": "Password!123", "fullName": f"Driver {suffix}"},
+    )
+    assert res.status_code == 201, res.text
+    body = res.json()
+    return {
+        "email": email,
+        "password": "Password!123",
+        "access": body["accessToken"],
+        "refresh": body["refreshToken"],
+        "headers": {"Authorization": f"Bearer {body['accessToken']}"},
+    }

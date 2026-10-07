@@ -31,7 +31,7 @@ from app.core.errors import (
     unauthorized,
 )
 from app.database import platform_session
-from app.models import PlatformAdmin, Tenant, TenantUser, UserSession
+from app.models import DriverUser, PlatformAdmin, Tenant, TenantUser, UserSession
 from app.security import (
     create_access_token,
     decrypt_secret,
@@ -145,11 +145,26 @@ async def _create_session(
     return sess
 
 
+async def _load_user(
+    db, user_type: str, user_id: uuid.UUID
+) -> TenantUser | PlatformAdmin | DriverUser | None:
+    """Single user dispatch for refresh/change_password/session paths."""
+    if user_type == ActorType.TENANT_USER:
+        model = TenantUser
+    elif user_type == ActorType.PLATFORM_ADMIN:
+        model = PlatformAdmin
+    elif user_type == ActorType.DRIVER:
+        model = DriverUser
+    else:
+        return None
+    return (await db.execute(select(model).where(model.id == user_id))).scalar_one_or_none()
+
+
 async def _audit_login(
     db,
     *,
     action: str,
-    user: TenantUser | PlatformAdmin | None,
+    user: TenantUser | PlatformAdmin | DriverUser | None,
     user_type: str | None,
     tenant_id: uuid.UUID | None,
     email: str,
@@ -172,7 +187,7 @@ async def _audit_login(
 async def _fail_login(
     db,
     *,
-    user: TenantUser | PlatformAdmin | None,
+    user: TenantUser | PlatformAdmin | DriverUser | None,
     user_type: str | None,
     tenant_id: uuid.UUID | None,
     email: str,
@@ -540,13 +555,8 @@ async def refresh_session(raw_refresh_token: str) -> TokenBundle:
                 await db.execute(
                     update(UserSession).where(UserSession.family_id == sess.family_id).values(revoked_at=now)
                 )
-                subject = (
-                    await db.execute(
-                        select(TenantUser.email).where(TenantUser.id == sess.user_id)
-                        if sess.user_type == ActorType.TENANT_USER
-                        else select(PlatformAdmin.email).where(PlatformAdmin.id == sess.user_id)
-                    )
-                ).scalar_one_or_none()
+                subject_user = await _load_user(db, sess.user_type, sess.user_id)
+                subject = subject_user.email if subject_user else None
                 await emit_alert(
                     db,
                     type="SUSPICIOUS_LOGIN",
@@ -570,15 +580,7 @@ async def refresh_session(raw_refresh_token: str) -> TokenBundle:
         if sess.expires_at < now:
             raise unauthorized("Session expired")
 
-        user: TenantUser | PlatformAdmin | None = None
-        if sess.user_type == ActorType.TENANT_USER:
-            user = (
-                await db.execute(select(TenantUser).where(TenantUser.id == sess.user_id))
-            ).scalar_one_or_none()
-        else:
-            user = (
-                await db.execute(select(PlatformAdmin).where(PlatformAdmin.id == sess.user_id))
-            ).scalar_one_or_none()
+        user = await _load_user(db, sess.user_type, sess.user_id)
         if user is None or user.status != AccountStatus.ACTIVE:
             raise unauthorized("Account is not active")
 
@@ -588,7 +590,7 @@ async def refresh_session(raw_refresh_token: str) -> TokenBundle:
             sess.last_seen_at = now
             sess.refresh_token_plain = raw_refresh_token
             await db.flush()
-            return _bundle(sess, user.id, sess.user_type, sess.tenant_id, user.role, sess.mfa_verified)
+            return _bundle(sess, user.id, sess.user_type, sess.tenant_id, getattr(user, "role", None), sess.mfa_verified)
 
         new_plain = new_refresh_token()
         sess.prev_refresh_token_hash = sess.refresh_token_hash
@@ -608,7 +610,7 @@ async def refresh_session(raw_refresh_token: str) -> TokenBundle:
             resource_id=str(sess.id),
         )
         await db.flush()
-        return _bundle(sess, user.id, sess.user_type, sess.tenant_id, user.role, sess.mfa_verified)
+        return _bundle(sess, user.id, sess.user_type, sess.tenant_id, getattr(user, "role", None), sess.mfa_verified)
 
 
 async def flag_family_compromised(session_id: uuid.UUID) -> None:
@@ -719,8 +721,7 @@ async def mfa_disable(user_id: uuid.UUID, user_type: str, password: str, code: s
 
 async def change_password(user_id: uuid.UUID, user_type: str, current: str, new: str) -> None:
     async with platform_session() as db:
-        model = TenantUser if user_type == ActorType.TENANT_USER else PlatformAdmin
-        row = (await db.execute(select(model).where(model.id == user_id))).scalar_one_or_none()
+        row = await _load_user(db, user_type, user_id)
         if row is None or not verify_password(current, row.password_hash):
             raise unauthorized("Current password is incorrect")
         row.password_hash = hash_password(new)
