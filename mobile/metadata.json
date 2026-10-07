@@ -1,0 +1,6 @@
+{
+  "name": "Vision License Plate - Smart Parking Platform",
+  "description": "Smart Parking Mobile Application for discovering nearby parking lots with realtime capacity, pricing, memberships, indoor maps, and active session tracking.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
