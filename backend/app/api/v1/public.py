@@ -1,11 +1,13 @@
-"""Public endpoints: plans, legal documents, tenant self-registration."""
+"""Public endpoints: plans, legal documents, tenant self-registration, site discovery."""
 
 import re
+import uuid
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
+from app.api.deps import AuthContext, optional_driver
 from app.core.enums import AccountStatus, TenantStatus, TenantUserRole
 from app.core.errors import bad_request, conflict, not_found
 from app.core.rate_limit import rate_limited
@@ -21,6 +23,7 @@ from app.models import (
 )
 from app.schemas.auth import RegisterTenantIn, RegisterTenantOut
 from app.schemas.common import Page, paginate
+from app.schemas.driver import PublicSiteDetailOut, PublicSiteOut
 from app.schemas.resources import (
     CheckCodeOut,
     LegalDocOut,
@@ -30,6 +33,7 @@ from app.schemas.resources import (
     PublicMapZoneOut,
 )
 from app.security import hash_password
+from app.services import driver_service, public_site_service
 from app.services.parking_service import locate_presence
 from app.services.storage import presign_download
 
@@ -144,58 +148,51 @@ async def _tenant_by_slug(db, slug: str) -> Tenant:
     return tenant
 
 
-@router.get(
-    "/public/tenants/{slug}/parking/map",
-    response_model=list[PublicMapLevelOut],
-    dependencies=[Depends(rate_limited("public-parking-map", 60, 60))],
-)
-async def public_parking_map(slug: str) -> list[PublicMapLevelOut]:
-    """Levels + zones + occupancy only — no presence/plate data."""
-    async with platform_session() as db:
-        tenant = await _tenant_by_slug(db, slug)
-        levels = (
+async def _levels_with_occupancy(db, tenant_id: uuid.UUID, site_id: uuid.UUID | None = None) -> list[PublicMapLevelOut]:
+    """Levels + zones + occupancy only — no presence/plate data. Optionally
+    site-scoped for the mobile site-detail view."""
+    q = select(ParkingLevel).where(
+        ParkingLevel.tenant_id == tenant_id, ParkingLevel.status == "active"
+    )
+    if site_id is not None:
+        q = q.where(ParkingLevel.site_id == site_id)
+    levels = (
+        (await db.execute(q.order_by(ParkingLevel.sort_order, ParkingLevel.created_at)))
+        .scalars()
+        .all()
+    )
+    if not levels:
+        return []
+    level_ids = [lv.id for lv in levels]
+    zones = (
+        (
+            await db.execute(
+                select(ParkingZone)
+                .where(ParkingZone.tenant_id == tenant_id, ParkingZone.level_id.in_(level_ids))
+                .order_by(ParkingZone.code)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    zone_ids = [z.id for z in zones]
+    occupancy = (
+        dict(
             (
                 await db.execute(
-                    select(ParkingLevel)
-                    .where(ParkingLevel.tenant_id == tenant.id, ParkingLevel.status == "active")
-                    .order_by(ParkingLevel.sort_order, ParkingLevel.created_at)
-                )
-            )
-            .scalars()
-            .all()
-        )
-        if not levels:
-            return []
-        level_ids = [lv.id for lv in levels]
-        zones = (
-            (
-                await db.execute(
-                    select(ParkingZone)
-                    .where(ParkingZone.tenant_id == tenant.id, ParkingZone.level_id.in_(level_ids))
-                    .order_by(ParkingZone.code)
-                )
-            )
-            .scalars()
-            .all()
-        )
-        zone_ids = [z.id for z in zones]
-        occupancy = (
-            dict(
-                (
-                    await db.execute(
-                        select(VehiclePresence.zone_id, func.count())
-                        .where(
-                            VehiclePresence.tenant_id == tenant.id,
-                            VehiclePresence.zone_id.in_(zone_ids),
-                            VehiclePresence.status.in_(("parked", "stale")),
-                        )
-                        .group_by(VehiclePresence.zone_id)
+                    select(VehiclePresence.zone_id, func.count())
+                    .where(
+                        VehiclePresence.tenant_id == tenant_id,
+                        VehiclePresence.zone_id.in_(zone_ids),
+                        VehiclePresence.status.in_(("parked", "stale")),
                     )
-                ).all()
-            )
-            if zone_ids
-            else {}
+                    .group_by(VehiclePresence.zone_id)
+                )
+            ).all()
         )
+        if zone_ids
+        else {}
+    )
 
     out: list[PublicMapLevelOut] = []
     for lv in levels:
@@ -216,6 +213,60 @@ async def public_parking_map(slug: str) -> list[PublicMapLevelOut]:
         ]
         out.append(lv_out)
     return out
+
+
+@router.get(
+    "/public/tenants/{slug}/parking/map",
+    response_model=list[PublicMapLevelOut],
+    dependencies=[Depends(rate_limited("public-parking-map", 60, 60))],
+)
+async def public_parking_map(slug: str) -> list[PublicMapLevelOut]:
+    """Levels + zones + occupancy only — no presence/plate data."""
+    async with platform_session() as db:
+        tenant = await _tenant_by_slug(db, slug)
+        return await _levels_with_occupancy(db, tenant.id)
+
+
+# ---------- public site discovery (mobile app) ----------
+
+
+@router.get(
+    "/public/sites",
+    response_model=list[PublicSiteOut],
+    dependencies=[Depends(rate_limited("public-sites", 120, 60))],
+)
+async def public_sites(
+    lat: float | None = Query(None, ge=-90, le=90),
+    lng: float | None = Query(None, ge=-180, le=180),
+    radiusKm: float = Query(5, gt=0, le=50),
+    q: str | None = Query(None, max_length=120),
+    driver: AuthContext | None = Depends(optional_driver),
+) -> list[PublicSiteOut]:
+    async with platform_session() as db:
+        fav_ids = (
+            await driver_service.list_favorite_site_ids(db, driver.user_id) if driver else set()
+        )
+        return await public_site_service.list_sites(
+            db, lat=lat, lng=lng, radius_km=radiusKm, q=q, favorite_ids=fav_ids
+        )
+
+
+@router.get(
+    "/public/sites/{site_id}",
+    response_model=PublicSiteDetailOut,
+    dependencies=[Depends(rate_limited("public-sites", 120, 60))],
+)
+async def public_site_detail(
+    site_id: uuid.UUID, driver: AuthContext | None = Depends(optional_driver)
+) -> PublicSiteDetailOut:
+    async with platform_session() as db:
+        tenant, site = await public_site_service.get_site(db, site_id)
+        fav_ids = (
+            await driver_service.list_favorite_site_ids(db, driver.user_id) if driver else set()
+        )
+        base = (await public_site_service.sites_by_ids(db, [site.id], fav_ids))[0]
+        levels = await _levels_with_occupancy(db, tenant.id, site.id)
+        return PublicSiteDetailOut(**base.model_dump(), levels=levels)
 
 
 @router.get(

@@ -1,7 +1,7 @@
 import ipaddress
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import ConfigDict, EmailStr, Field, field_validator
 from pydantic.alias_generators import to_camel
@@ -132,6 +132,22 @@ class PlatformSettingOut(CamelModel):
 
 
 # ---------- sites / lanes / devices / gates ----------
+class SitePricing(CamelModel):
+    hourly_from: int | None = None
+    daily_from: int | None = None
+    overnight_from: int | None = None
+    monthly_from: int | None = None
+
+
+class SitePublicProfile(CamelModel):
+    listed: bool = True
+    description: str | None = None
+    image_url: str | None = None
+    parking_type: Literal["indoor", "outdoor", "covered"] | None = None
+    facilities: list[str] = []
+    pricing: SitePricing = Field(default_factory=SitePricing)
+
+
 class SiteIn(CamelModel):
     name: str = Field(min_length=2, max_length=200)
     code: str | None = Field(default=None, max_length=20)
@@ -145,6 +161,9 @@ class SiteIn(CamelModel):
     manager_name: str | None = None
     timezone: str = "UTC"
     status: str | None = None
+    # Mobile-app listing profile (validated shape); stored as JSONB
+    # (camelCase keys) on tenant_sites.public_profile.
+    public_profile: SitePublicProfile | None = None
 
 
 class SiteOut(CamelModel):
@@ -158,6 +177,7 @@ class SiteOut(CamelModel):
     capacity: int | None
     current_occupancy: int
     operating_hours: dict[str, Any]
+    public_profile: dict[str, Any] = {}
     overall_health: str
     contact_phone: str | None
     manager_name: str | None

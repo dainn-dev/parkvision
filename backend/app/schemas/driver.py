@@ -7,7 +7,11 @@ from typing import Literal
 from pydantic import EmailStr, Field
 
 from app.schemas.common import CamelModel
-from app.schemas.resources import PublicMapLevelOut
+from app.schemas.resources import (  # noqa: F401  (re-exported for driver API consumers)
+    PublicMapLevelOut,
+    SitePricing,
+    SitePublicProfile,
+)
 
 
 class DriverRegisterIn(CamelModel):
@@ -69,22 +73,6 @@ class DriverVehicleOut(CamelModel):
     vehicle_type: str
     is_primary: bool
     created_at: datetime
-
-
-class SitePricing(CamelModel):
-    hourly_from: int | None = None
-    daily_from: int | None = None
-    overnight_from: int | None = None
-    monthly_from: int | None = None
-
-
-class SitePublicProfile(CamelModel):
-    listed: bool = True
-    description: str | None = None
-    image_url: str | None = None
-    parking_type: Literal["indoor", "outdoor", "covered"] | None = None
-    facilities: list[str] = []
-    pricing: SitePricing = Field(default_factory=SitePricing)
 
 
 CapacityStatus = Literal["AVAILABLE", "LIMITED", "ALMOST_FULL", "FULL"]

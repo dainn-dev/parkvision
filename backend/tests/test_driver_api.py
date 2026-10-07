@@ -226,3 +226,135 @@ async def test_favorites_roundtrip(client, listed_site):
         await client.delete(f"/api/v1/driver/favorites/{listed_site['id']}", headers=d["headers"])
     ).status_code == 200
     assert (await client.get("/api/v1/driver/favorites", headers=d["headers"])).json() == []
+
+
+# ---------- Task 5: public site discovery ----------
+
+
+@pytest_asyncio.fixture
+async def level_zone_for_site(listed_site, admin_engine):
+    from app.models import ParkingLevel, ParkingZone
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        lv = ParkingLevel(
+            tenant_id=listed_site["tenant_id"], site_id=listed_site["id"], name="B1", code="B1"
+        )
+        db.add(lv)
+        await db.flush()
+        db.add(
+            ParkingZone(
+                tenant_id=listed_site["tenant_id"],
+                site_id=listed_site["id"],
+                level_id=lv.id,
+                name="Zone A",
+                code="A",
+                capacity=10,
+            )
+        )
+        await db.commit()
+
+
+def test_capacity_status_thresholds():
+    from app.services.public_site_service import capacity_status as cs
+
+    assert cs(0, 100) == "FULL"
+    assert cs(31, 100) == "AVAILABLE"
+    assert cs(10, 100) == "LIMITED"
+    assert cs(5, 100) == "ALMOST_FULL"
+    assert cs(5, 0) == "FULL"
+
+
+async def test_public_sites_without_coords_returns_all_listed(client, listed_site):
+    r = await client.get("/api/v1/public/sites")
+    assert r.status_code == 200
+    ids = [s["id"] for s in r.json()]
+    assert str(listed_site["id"]) in ids and str(listed_site["no_coords_id"]) in ids
+    assert all(s["distanceMeters"] is None for s in r.json())
+
+
+async def test_public_sites_radius_filters_and_sorts(client, listed_site):
+    # DB is session-scoped: earlier tests' listed sites may also be returned,
+    # so assert membership + invariants rather than exact equality.
+    r = await client.get(
+        "/api/v1/public/sites", params={"lat": 10.7324, "lng": 106.7210, "radiusKm": 2}
+    )
+    assert r.status_code == 200
+    body = r.json()
+    ids = [s["id"] for s in body]
+    assert str(listed_site["id"]) in ids
+    assert str(listed_site["no_coords_id"]) not in ids  # no coords → excluded under geo filter
+    assert all(s["distanceMeters"] is not None and s["distanceMeters"] <= 2000 for s in body)
+    dists = [s["distanceMeters"] for s in body]
+    assert dists == sorted(dists)
+    s = next(x for x in body if x["id"] == str(listed_site["id"]))
+    assert s["capacityStatus"] == "AVAILABLE" and s["available"] == 35
+    assert s["tenantSlug"] == listed_site["slug"] and s["profile"]["pricing"]["hourlyFrom"] == 20000
+
+
+async def test_public_sites_hides_unlisted_and_inactive_tenant(client, listed_site, admin_engine):
+    from app.models import Tenant, TenantSite
+    from sqlalchemy import update as sa_update
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+
+    # unlist the site
+    async with Session() as db:
+        await db.execute(
+            sa_update(TenantSite)
+            .where(TenantSite.id == listed_site["id"])
+            .values(public_profile={"listed": False})
+        )
+        await db.commit()
+    ids = [s["id"] for s in (await client.get("/api/v1/public/sites")).json()]
+    assert str(listed_site["id"]) not in ids
+
+    # relist, then suspend the tenant
+    async with Session() as db:
+        await db.execute(
+            sa_update(TenantSite)
+            .where(TenantSite.id == listed_site["id"])
+            .values(public_profile={"listed": True})
+        )
+        await db.execute(
+            sa_update(Tenant).where(Tenant.id == listed_site["tenant_id"]).values(status="suspended")
+        )
+        await db.commit()
+    ids = [s["id"] for s in (await client.get("/api/v1/public/sites")).json()]
+    assert str(listed_site["id"]) not in ids
+
+
+async def test_public_site_detail_has_levels(client, listed_site, level_zone_for_site):
+    r = await client.get(f"/api/v1/public/sites/{listed_site['id']}")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["levels"][0]["zones"][0]["occupiedCount"] == 0
+    assert body["levels"][0]["zones"][0]["code"] == "A"
+
+
+async def test_public_site_detail_unlisted_404(client, listed_site, admin_engine):
+    from app.models import TenantSite
+    from sqlalchemy import update as sa_update
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        await db.execute(
+            sa_update(TenantSite)
+            .where(TenantSite.id == listed_site["id"])
+            .values(public_profile={"listed": False})
+        )
+        await db.commit()
+    assert (await client.get(f"/api/v1/public/sites/{listed_site['id']}")).status_code == 404
+
+
+async def test_public_sites_marks_favorites_for_driver(client, listed_site):
+    d = await driver(client)
+    await client.put(f"/api/v1/driver/favorites/{listed_site['id']}", headers=d["headers"])
+    r = await client.get("/api/v1/public/sites", headers=d["headers"])
+    assert next(s for s in r.json() if s["id"] == str(listed_site["id"]))["isFavorite"] is True
+
+
+async def test_public_sites_search_query(client, listed_site):
+    r = await client.get("/api/v1/public/sites", params={"q": "Test Parking One"})
+    ids = [s["id"] for s in r.json()]
+    assert str(listed_site["id"]) in ids and str(listed_site["no_coords_id"]) not in ids

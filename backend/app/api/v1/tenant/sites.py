@@ -76,6 +76,9 @@ async def create_site(
         longitude=body.longitude,
         capacity=body.capacity or 0,
         operating_hours=body.operating_hours,
+        public_profile=body.public_profile.model_dump(by_alias=True)
+        if body.public_profile
+        else {},
         contact_phone=body.contact_phone,
         manager_name=body.manager_name,
         timezone=body.timezone,
@@ -134,6 +137,12 @@ async def update_site(
         raise not_found("site", site_id) from None
     for k, v in body.model_dump(exclude_unset=True).items():
         if v is not None:
+            if k == "public_profile":
+                v = (
+                    body.public_profile.model_dump(by_alias=True)
+                    if body.public_profile
+                    else {}
+                )
             setattr(row, k, v)
     await write_audit(
         db,
