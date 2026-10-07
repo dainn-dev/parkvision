@@ -358,3 +358,101 @@ async def test_public_sites_search_query(client, listed_site):
     r = await client.get("/api/v1/public/sites", params={"q": "Test Parking One"})
     ids = [s["id"] for s in r.json()]
     assert str(listed_site["id"]) in ids and str(listed_site["no_coords_id"]) not in ids
+
+
+# ---------- Task 6: driver parking sessions ----------
+
+from datetime import datetime, timedelta, timezone
+
+
+async def access_event(admin_engine, tenant_id, site_id, plate, direction, decision="allow", at=None):
+    """Insert an AccessEvent via the real service (keeps occupancy/presence consistent)."""
+    from app.services.event_service import record_access_event
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        ev = await record_access_event(
+            db,
+            tenant_id=tenant_id,
+            site_id=site_id,
+            gate_id=None,
+            lane_id=None,
+            plate_number=plate,
+            direction=direction,
+            source="anpr",
+            occurred_at=at,
+            force_decision=decision,
+            force_reason="test",
+        )
+        await db.commit()
+        return ev
+
+
+@pytest.mark.asyncio
+async def test_active_session_after_entry(client, listed_site, admin_engine):
+    d = await driver(client)
+    await client.post(
+        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": "51A-123.45"}
+    )
+    await access_event(admin_engine, listed_site["tenant_id"], listed_site["id"], "51A12345", "entry")
+    r = (
+        await client.get("/api/v1/driver/sessions/active", headers=d["headers"])
+    ).json()
+    assert len(r) == 1
+    assert r[0]["status"] == "PARKED"
+    assert r[0]["siteId"] == str(listed_site["id"])
+    assert r[0]["durationSeconds"] >= 0
+
+
+@pytest.mark.asyncio
+async def test_no_active_session_after_exit_and_history_has_pair(client, listed_site, admin_engine):
+    # unique plate — access events persist across tests in a session and
+    # session derivation keys on the normalized plate, not the driver
+    d = await driver(client)
+    await client.post(
+        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": "51B-456.78"}
+    )
+    t0 = datetime.now(timezone.utc) - timedelta(hours=2)
+    await access_event(
+        admin_engine, listed_site["tenant_id"], listed_site["id"], "51B-456.78", "entry", at=t0
+    )
+    await access_event(
+        admin_engine,
+        listed_site["tenant_id"],
+        listed_site["id"],
+        "51B45678",
+        "exit",
+        at=t0 + timedelta(hours=1),
+    )
+    assert (
+        await client.get("/api/v1/driver/sessions/active", headers=d["headers"])
+    ).json() == []
+    h = (
+        await client.get("/api/v1/driver/sessions/history", headers=d["headers"])
+    ).json()
+    assert h["meta"]["total"] == 1
+    assert h["data"][0]["status"] == "COMPLETED"
+    assert h["data"][0]["durationSeconds"] == 3600
+
+
+@pytest.mark.asyncio
+async def test_denied_entry_is_not_a_session(client, listed_site, admin_engine):
+    d = await driver(client)
+    await client.post(
+        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": "51A-999.99"}
+    )
+    await access_event(
+        admin_engine, listed_site["tenant_id"], listed_site["id"], "51A99999", "entry", decision="deny"
+    )
+    assert (
+        await client.get("/api/v1/driver/sessions/active", headers=d["headers"])
+    ).json() == []
+
+
+@pytest.mark.asyncio
+async def test_sessions_only_for_own_plates(client, listed_site, admin_engine):
+    d = await driver(client)  # no vehicles
+    await access_event(admin_engine, listed_site["tenant_id"], listed_site["id"], "51A12345", "entry")
+    assert (
+        await client.get("/api/v1/driver/sessions/active", headers=d["headers"])
+    ).json() == []
