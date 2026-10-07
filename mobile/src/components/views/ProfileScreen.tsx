@@ -1,20 +1,18 @@
 import React, { useState } from 'react';
-import { Car, Bell, Shield, CreditCard, ChevronRight, CheckCircle2, Plus, Globe, LogOut, Star, Trash2 } from 'lucide-react';
+import { Car, Bell, Shield, CreditCard, ChevronRight, CheckCircle2, Plus, Globe, LogOut, Star, Trash2, Loader2 } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { LanguageSelector } from '../common/LanguageSelector';
 import { NotificationSettingsModal } from '../profile/NotificationSettingsModal';
 import { PaymentEWalletModal } from '../profile/PaymentEWalletModal';
 import { SecurityPrivacyModal } from '../profile/SecurityPrivacyModal';
-import { VehicleModal, Vehicle } from '../profile/VehicleModal';
+import { VehicleModal, VehicleFormValues } from '../profile/VehicleModal';
+import { DriverProfile, DriverVehicle } from '../../types';
+import { useVehicles } from '../../hooks/useVehicles';
+import { ApiError } from '../../lib/api';
 
 export interface ProfileScreenProps {
-  user?: {
-    name: string;
-    email: string;
-    avatar?: string;
-    provider?: string;
-  } | null;
-  onLogout?: () => void;
+  user: DriverProfile;
+  onLogout: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) => {
@@ -25,73 +23,74 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) 
   const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  const [vehicles, setVehicles] = useState<Vehicle[]>([
-    { id: '1', plate: "51A-123.45", model: "Toyota Camry 2.5Q", isPrimary: true },
-    { id: '2', plate: "51F-882.11", model: "Honda SH 150i", isPrimary: false }
-  ]);
+  const { vehicles, loading: vehiclesLoading, add, update, remove } = useVehicles(true);
 
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
-  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
-  const [deletingVehicle, setDeletingVehicle] = useState<Vehicle | null>(null);
+  const [editingVehicle, setEditingVehicle] = useState<DriverVehicle | null>(null);
+  const [deletingVehicle, setDeletingVehicle] = useState<DriverVehicle | null>(null);
+  const [vehicleError, setVehicleError] = useState('');
+  const [vehicleBusy, setVehicleBusy] = useState(false);
 
-  const userName = user?.name || "Dainn Dev";
-  const userEmail = user?.email || "dainn.dev1112@gmail.com";
-  const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || "DD";
+  const userName = user.fullName;
+  const userEmail = user.email;
+  const userInitials = userName.split(' ').map(n => n[0]).filter(Boolean).join('').toUpperCase().slice(0, 2) || userEmail.slice(0, 2).toUpperCase();
 
   const handleOpenAddVehicle = () => {
     setEditingVehicle(null);
     setIsVehicleModalOpen(true);
   };
 
-  const handleOpenEditVehicle = (vehicle: Vehicle) => {
+  const handleOpenEditVehicle = (vehicle: DriverVehicle) => {
     setEditingVehicle(vehicle);
     setIsVehicleModalOpen(true);
   };
 
-  const handleSaveVehicle = (savedVehicle: Vehicle, originalPlate?: string) => {
-    setVehicles(prevVehicles => {
-      let updatedList = [...prevVehicles];
-
-      if (originalPlate) {
-        // Editing existing vehicle
-        updatedList = updatedList.map(v => v.plate === originalPlate ? { ...v, ...savedVehicle } : v);
-      } else {
-        // Adding new vehicle
-        const newVehicleItem: Vehicle = {
-          id: Date.now().toString(),
-          ...savedVehicle
-        };
-        updatedList.push(newVehicleItem);
-      }
-
-      // If set as primary or if it's the only vehicle, make it primary and unset others
-      if (savedVehicle.isPrimary || updatedList.length === 1) {
-        updatedList = updatedList.map(v => ({
-          ...v,
-          isPrimary: v.plate === savedVehicle.plate
-        }));
-      }
-
-      return updatedList;
-    });
+  const handleSaveVehicle = async (values: VehicleFormValues, editingId?: string) => {
+    if (editingId) {
+      await update(editingId, {
+        plateNumber: values.plateNumber,
+        label: values.label || null,
+        vehicleType: values.vehicleType,
+        isPrimary: values.isPrimary
+      });
+    } else {
+      await add({
+        plateNumber: values.plateNumber,
+        label: values.label || undefined,
+        vehicleType: values.vehicleType,
+        isPrimary: values.isPrimary
+      });
+    }
   };
 
-  const handleDeleteVehicle = (plateToDelete: string) => {
-    setVehicles(prevVehicles => {
-      const filtered = prevVehicles.filter(v => v.plate !== plateToDelete);
-      // If deleted vehicle was primary and remaining exist, make first vehicle primary
-      if (filtered.length > 0 && !filtered.some(v => v.isPrimary)) {
-        filtered[0].isPrimary = true;
-      }
-      return filtered;
-    });
+  const handleSetPrimary = async (vehicle: DriverVehicle) => {
+    if (vehicle.isPrimary || vehicleBusy) return;
+    setVehicleBusy(true);
+    setVehicleError('');
+    try {
+      await update(vehicle.id, { isPrimary: true });
+    } catch (e) {
+      setVehicleError(e instanceof ApiError ? e.message : t('networkError'));
+    } finally {
+      setVehicleBusy(false);
+    }
+  };
+
+  const handleDeleteVehicle = async (vehicle: DriverVehicle) => {
+    setVehicleBusy(true);
+    setVehicleError('');
+    try {
+      await remove(vehicle.id);
+    } catch (e) {
+      setVehicleError(e instanceof ApiError ? e.message : t('networkError'));
+    } finally {
+      setVehicleBusy(false);
+    }
   };
 
   const handleConfirmLogout = () => {
     setShowLogoutConfirm(false);
-    if (onLogout) {
-      onLogout();
-    }
+    onLogout();
   };
 
   return (
@@ -99,9 +98,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) 
       {/* Profile Header */}
       <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between gap-3.5">
         <div className="flex items-center gap-3.5">
-          {user?.avatar ? (
+          {user.avatarUrl ? (
             <img
-              src={user.avatar}
+              src={user.avatarUrl}
               alt={userName}
               referrerPolicy="no-referrer"
               className="w-14 h-14 rounded-full border-2 border-blue-400 shadow-md object-cover"
@@ -114,9 +113,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) 
           <div>
             <h2 className="text-base font-bold text-white">{userName}</h2>
             <p className="text-xs text-slate-400">{userEmail}</p>
+            {user.phone && (
+              <p className="text-xs text-slate-500 font-mono mt-0.5">{user.phone}</p>
+            )}
             <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
               <CheckCircle2 className="w-3 h-3" />
-              <span>{user?.provider === 'google' ? 'GOOGLE Verified Account' : 'MEMBER Global Account'}</span>
+              <span>{language === 'vi' ? 'Tài khoản tài xế' : 'Driver Account'}</span>
             </div>
           </div>
         </div>
@@ -156,50 +158,88 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) 
           </button>
         </div>
 
-        <div className="space-y-2">
-          {vehicles.map((v, i) => (
-            <div
-              key={v.id || i}
-              onClick={() => handleOpenEditVehicle(v)}
-              className="p-3.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 rounded-xl flex items-center justify-between cursor-pointer transition-all group"
-            >
-              <div className="flex items-center gap-3">
-                <span className="px-2.5 py-1 bg-amber-400 text-slate-950 font-mono font-extrabold text-xs rounded shadow-sm border border-amber-300">
-                  {v.plate}
-                </span>
-                <div>
-                  <div className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors flex items-center gap-1.5">
-                    <span>{v.model}</span>
+        {vehicleError && (
+          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold rounded-xl">
+            {vehicleError}
+          </div>
+        )}
+
+        {vehiclesLoading ? (
+          <div className="p-6 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>{t('loading')}</span>
+          </div>
+        ) : vehicles.length === 0 ? (
+          <div className="p-6 text-center bg-slate-900 border border-slate-800 rounded-2xl space-y-2">
+            <h3 className="text-sm font-bold text-white">
+              {language === 'vi' ? 'Chưa có xe nào' : 'No vehicles yet'}
+            </h3>
+            <p className="text-xs text-slate-400 max-w-xs mx-auto">
+              {language === 'vi'
+                ? 'Thêm biển số xe để hệ thống ANPR nhận diện và theo dõi phiên đỗ xe của bạn.'
+                : 'Add your license plate so ANPR can recognise your vehicle and track parking sessions.'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {vehicles.map((v) => (
+              <div
+                key={v.id}
+                onClick={() => handleOpenEditVehicle(v)}
+                className="p-3.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 rounded-xl flex items-center justify-between cursor-pointer transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="px-2.5 py-1 bg-amber-400 text-slate-950 font-mono font-extrabold text-xs rounded shadow-sm border border-amber-300">
+                    {v.plateNumber}
+                  </span>
+                  <div>
+                    <div className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors flex items-center gap-1.5">
+                      <span>{v.label || (v.vehicleType === 'car' ? t('carSuv') : t('motorcycle'))}</span>
+                    </div>
+                    {v.isPrimary ? (
+                      <div className="text-[10px] text-blue-400 font-bold flex items-center gap-1 mt-0.5">
+                        <Star className="w-3 h-3 fill-blue-400" />
+                        <span>{t('primaryVehicle')}</span>
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        {language === 'vi' ? 'Bấm để chỉnh sửa' : 'Click to edit'}
+                      </div>
+                    )}
                   </div>
-                  {v.isPrimary ? (
-                    <div className="text-[10px] text-blue-400 font-bold flex items-center gap-1 mt-0.5">
-                      <Star className="w-3 h-3 fill-blue-400" />
-                      <span>{t('primaryVehicle')}</span>
-                    </div>
-                  ) : (
-                    <div className="text-[10px] text-slate-500 mt-0.5">
-                      {language === 'vi' ? 'Bấm để chỉnh sửa' : 'Click to edit'}
-                    </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {!v.isPrimary && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleSetPrimary(v);
+                      }}
+                      disabled={vehicleBusy}
+                      title={language === 'vi' ? 'Đặt làm xe chính' : 'Set as primary'}
+                      className="p-1.5 bg-slate-800 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Star className="w-3.5 h-3.5" />
+                    </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingVehicle(v);
+                    }}
+                    title={t('deleteVehicle') || 'Remove'}
+                    className="p-1.5 bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeletingVehicle(v);
-                  }}
-                  title={t('deleteVehicle') || 'Remove'}
-                  className="p-1.5 bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Account Settings List */}
@@ -209,7 +249,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) 
         </h3>
         {[
           { id: 'notif', label: t('notificationSettings'), sub: t('notificationSub'), icon: Bell },
-          { id: 'payment', label: t('paymentEwallets'), sub: t('paymentSub'), icon: CreditCard },
+          { id: 'payment', label: t('paymentEwallets'), sub: t('comingSoon'), icon: CreditCard },
           { id: 'security', label: t('securityPrivacy'), sub: t('securitySub'), icon: Shield }
         ].map((item, idx) => {
           const Icon = item.icon;
@@ -228,7 +268,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) 
                   <Icon className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-white">{item.label}</div>
+                  <div className="text-xs font-semibold text-white flex items-center gap-2">
+                    <span>{item.label}</span>
+                    {item.id === 'payment' && (
+                      <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                        {t('comingSoon')}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-[10px] text-slate-400">{item.sub}</div>
                 </div>
               </div>
@@ -278,7 +325,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) 
         isOpen={isVehicleModalOpen}
         onClose={() => setIsVehicleModalOpen(false)}
         onSave={handleSaveVehicle}
-        onDelete={handleDeleteVehicle}
         editingVehicle={editingVehicle}
       />
 
@@ -327,8 +373,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) 
               </h3>
               <p className="text-xs text-slate-300">
                 {language === 'vi'
-                  ? `Bạn có chắc chắn muốn xóa xe ${deletingVehicle.plate} (${deletingVehicle.model}) khỏi danh sách?`
-                  : `Are you sure you want to remove ${deletingVehicle.plate} (${deletingVehicle.model})?`}
+                  ? `Bạn có chắc chắn muốn xóa xe ${deletingVehicle.plateNumber}${deletingVehicle.label ? ` (${deletingVehicle.label})` : ''} khỏi danh sách?`
+                  : `Are you sure you want to remove ${deletingVehicle.plateNumber}${deletingVehicle.label ? ` (${deletingVehicle.label})` : ''}?`}
               </p>
             </div>
 
@@ -340,11 +386,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) 
                 {t('cancel')}
               </button>
               <button
-                onClick={() => {
-                  handleDeleteVehicle(deletingVehicle.plate);
+                onClick={async () => {
+                  await handleDeleteVehicle(deletingVehicle);
                   setDeletingVehicle(null);
                 }}
-                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-600/30 transition-all flex items-center justify-center gap-1.5"
+                disabled={vehicleBusy}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-600/30 transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>{t('deleteVehicle') || (language === 'vi' ? 'Xóa xe' : 'Delete')}</span>

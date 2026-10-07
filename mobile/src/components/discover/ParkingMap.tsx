@@ -104,6 +104,7 @@ export const ParkingMap: React.FC<ParkingMapProps> = ({
     markersGroup.clearLayers();
 
     tenants.forEach((tenant) => {
+      if (tenant.lat == null || tenant.lng == null) return;
       const isSelected = selectedTenant?.id === tenant.id;
       const isFull = tenant.capacity.available <= 0;
       const isLimited = tenant.capacity.status === 'LIMITED' || tenant.capacity.status === 'ALMOST_FULL';
@@ -118,10 +119,12 @@ export const ParkingMap: React.FC<ParkingMapProps> = ({
         bgClass = "bg-amber-500 text-slate-950 border-amber-300 font-bold";
       }
 
+      const priceLabel =
+        tenant.pricing.hourlyFrom != null ? `${tenant.pricing.hourlyFrom / 1000}k` : '—';
       const customHtml = `
         <div class="cursor-pointer transition-all transform ${isSelected ? 'scale-110 z-50' : 'hover:scale-105'}">
           <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full shadow-xl border ${bgClass} font-mono text-xs whitespace-nowrap">
-            <span class="font-extrabold">🅿️ ${(tenant.pricing.hourlyFrom / 1000)}k</span>
+            <span class="font-extrabold">🅿️ ${priceLabel}</span>
             <span class="w-1 h-1 rounded-full bg-white opacity-80"></span>
             <span class="text-[10px] uppercase">${statusBadge}</span>
           </div>

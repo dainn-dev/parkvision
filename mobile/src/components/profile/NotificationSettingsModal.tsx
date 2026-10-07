@@ -7,30 +7,61 @@ interface NotificationSettingsModalProps {
   onClose: () => void;
 }
 
+interface NotifPrefs {
+  pushMaster: boolean;
+  anprAlerts: boolean;
+  capacityAlerts: boolean;
+  paymentReceipts: boolean;
+  passExpiry: boolean;
+  promotions: boolean;
+  soundVibration: boolean;
+}
+
+const PREFS_KEY = 'pv_notif_prefs';
+
+const DEFAULT_PREFS: NotifPrefs = {
+  pushMaster: true,
+  anprAlerts: true,
+  capacityAlerts: true,
+  paymentReceipts: true,
+  passExpiry: true,
+  promotions: false,
+  soundVibration: true
+};
+
+// Push delivery is not wired to a backend channel yet — preferences are
+// persisted locally on this device so the toggles are honest about scope.
+function loadPrefs(): NotifPrefs {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    return raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw) } : DEFAULT_PREFS;
+  } catch {
+    return DEFAULT_PREFS;
+  }
+}
+
 export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({
   isOpen,
   onClose
 }) => {
-  if (!isOpen) return null;
-
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [isSaved, setIsSaved] = useState(false);
 
-  const [settings, setSettings] = useState({
-    pushMaster: true,
-    anprAlerts: true,
-    capacityAlerts: true,
-    paymentReceipts: true,
-    passExpiry: true,
-    promotions: false,
-    soundVibration: true
-  });
+  const [settings, setSettings] = useState<NotifPrefs>(loadPrefs);
 
-  const toggleSetting = (key: keyof typeof settings) => {
-    setSettings(prev => ({ ...prev, [key]: !prev[key] }));
+  const toggleSetting = (key: keyof NotifPrefs) => {
+    setSettings(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      try {
+        localStorage.setItem(PREFS_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
@@ -211,10 +242,14 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
         {/* Footer */}
         <div className="p-4 border-t border-slate-800 bg-slate-900 flex items-center justify-between">
           <div className="text-xs text-emerald-400 font-semibold flex items-center gap-1.5 min-h-[20px]">
-            {isSaved && (
+            {isSaved ? (
               <span className="flex items-center gap-1 animate-fadeIn">
                 <Check className="w-4 h-4 text-emerald-400" />
-                <span>Saved automatically</span>
+                <span>{language === 'vi' ? 'Đã lưu trên thiết bị' : 'Saved on this device'}</span>
+              </span>
+            ) : (
+              <span className="text-[10px] text-slate-500">
+                {language === 'vi' ? 'Cài đặt lưu trên thiết bị này' : 'Preferences stored on this device'}
               </span>
             )}
           </div>

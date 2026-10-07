@@ -49,15 +49,23 @@ export const TenantPreviewSheet: React.FC<TenantPreviewSheetProps> = ({
       <div className="flex items-start gap-3">
         {/* Tenant thumbnail image */}
         <div className="w-20 h-20 rounded-xl overflow-hidden bg-slate-800 flex-shrink-0 relative border border-slate-700">
-          <img
-            src={tenant.image}
-            alt={tenant.name}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute top-1 left-1 bg-slate-950/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-400 flex items-center gap-0.5">
-            <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
-            <span>{tenant.rating}</span>
-          </div>
+          {tenant.image ? (
+            <img
+              src={tenant.image}
+              alt={tenant.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-slate-600">
+              <MapPin className="w-7 h-7" />
+            </div>
+          )}
+          {tenant.rating != null && (
+            <div className="absolute top-1 left-1 bg-slate-950/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-400 flex items-center gap-0.5">
+              <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+              <span>{tenant.rating}</span>
+            </div>
+          )}
         </div>
 
         {/* Core Info */}
@@ -65,7 +73,13 @@ export const TenantPreviewSheet: React.FC<TenantPreviewSheetProps> = ({
           <h3 className="text-sm font-bold text-white truncate">{tenant.name}</h3>
           <p className="text-xs text-slate-400 truncate mt-0.5 flex items-center gap-1">
             <MapPin className="w-3 h-3 text-slate-500 flex-shrink-0" />
-            <span>{tenant.distanceMeters}m · {tenant.district}</span>
+            <span>
+              {tenant.distanceMeters != null
+                ? tenant.distanceMeters >= 1000
+                  ? `${(tenant.distanceMeters / 1000).toFixed(1)}km`
+                  : `${tenant.distanceMeters}m`
+                : '—'} · {tenant.district || '—'}
+            </span>
           </p>
 
           {/* Realtime capacity badge */}
@@ -77,11 +91,15 @@ export const TenantPreviewSheet: React.FC<TenantPreviewSheetProps> = ({
           <div className="mt-2 text-xs font-mono text-slate-300 flex items-center gap-3">
             <div>
               <span className="text-slate-500">{t('hourlyRateLabel')}: </span>
-              <span className="text-emerald-400 font-bold">{tenant.pricing.hourlyFrom.toLocaleString()} đ</span>
+              <span className="text-emerald-400 font-bold">
+                {tenant.pricing.hourlyFrom != null ? `${tenant.pricing.hourlyFrom.toLocaleString()} đ` : '—'}
+              </span>
             </div>
             <div>
               <span className="text-slate-500">{t('overnightFeeLabel')}: </span>
-              <span className="text-blue-400 font-bold">{tenant.pricing.overnightFrom.toLocaleString()} đ</span>
+              <span className="text-blue-400 font-bold">
+                {tenant.pricing.overnightFrom != null ? `${tenant.pricing.overnightFrom.toLocaleString()} đ` : '—'}
+              </span>
             </div>
           </div>
         </div>

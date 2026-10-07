@@ -1,19 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { X, Star, Check, Edit3, Plus } from 'lucide-react';
+import { X, Star, Check, Edit3, Plus, Loader2 } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { DriverVehicle } from '../../types';
+import { ApiError } from '../../lib/api';
 
-export interface Vehicle {
-  id?: string;
-  plate: string;
-  model: string;
+export interface VehicleFormValues {
+  plateNumber: string;
+  label: string;
+  vehicleType: 'car' | 'motorcycle';
   isPrimary: boolean;
 }
 
 interface VehicleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (vehicle: Vehicle, originalPlate?: string) => void;
-  editingVehicle?: Vehicle | null;
+  onSave: (values: VehicleFormValues, editingId?: string) => Promise<void>;
+  editingVehicle?: DriverVehicle | null;
 }
 
 export const VehicleModal: React.FC<VehicleModalProps> = ({
@@ -22,30 +24,35 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
   onSave,
   editingVehicle
 }) => {
-  if (!isOpen) return null;
-
   const { t, language } = useLanguage();
   const isEditing = !!editingVehicle;
 
   const [plate, setPlate] = useState('');
-  const [model, setModel] = useState('');
+  const [label, setLabel] = useState('');
+  const [vehicleType, setVehicleType] = useState<'car' | 'motorcycle'>('car');
   const [isPrimary, setIsPrimary] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (editingVehicle) {
-      setPlate(editingVehicle.plate);
-      setModel(editingVehicle.model);
+      setPlate(editingVehicle.plateNumber);
+      setLabel(editingVehicle.label ?? '');
+      setVehicleType(editingVehicle.vehicleType);
       setIsPrimary(editingVehicle.isPrimary);
     } else {
       setPlate('');
-      setModel('');
+      setLabel('');
+      setVehicleType('car');
       setIsPrimary(false);
     }
     setErrorMsg('');
+    setSaving(false);
   }, [editingVehicle, isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedPlate = plate.trim().toUpperCase();
     if (!trimmedPlate) {
@@ -53,17 +60,19 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       return;
     }
 
-    onSave(
-      {
-        id: editingVehicle?.id,
-        plate: trimmedPlate,
-        model: model.trim() || (language === 'vi' ? 'Ô tô / Xe máy' : 'Vehicle'),
-        isPrimary
-      },
-      editingVehicle?.plate
-    );
-
-    onClose();
+    setSaving(true);
+    setErrorMsg('');
+    try {
+      await onSave(
+        { plateNumber: trimmedPlate, label: label.trim(), vehicleType, isPrimary },
+        editingVehicle?.id
+      );
+      onClose();
+    } catch (err) {
+      setErrorMsg(err instanceof ApiError ? err.message : t('networkError'));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -126,7 +135,7 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             </div>
           </div>
 
-          {/* Model / Name Input */}
+          {/* Label / Model Input */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-300">
               {language === 'vi' ? 'Tên xe / Dòng xe' : 'Vehicle Model / Brand'}
@@ -134,10 +143,31 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             <input
               type="text"
               placeholder={language === 'vi' ? 'Ví dụ: Toyota Camry 2.5Q, Honda SH...' : 'e.g. Mazda CX-5, Honda SH...'}
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
               className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-medium text-white focus:outline-none focus:border-blue-500 transition-colors"
             />
+          </div>
+
+          {/* Vehicle Type */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-300">{t('vehicleType')}</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(['car', 'motorcycle'] as const).map((vt) => (
+                <button
+                  key={vt}
+                  type="button"
+                  onClick={() => setVehicleType(vt)}
+                  className={`py-2.5 rounded-xl border text-xs font-semibold transition-all ${
+                    vehicleType === vt
+                      ? 'bg-blue-950/80 text-blue-300 border-blue-500 font-bold'
+                      : 'bg-slate-950/60 text-slate-300 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  {vt === 'car' ? t('carSuv') : t('motorcycle')}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Make Primary Vehicle Toggle Card */}
@@ -188,9 +218,10 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-1.5"
+              disabled={saving}
+              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
             >
-              <Check className="w-4 h-4" />
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
               <span>{t('saveVehicle')}</span>
             </button>
           </div>

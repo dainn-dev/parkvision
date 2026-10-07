@@ -30,7 +30,9 @@ export const MapViewScreen: React.FC<MapViewScreenProps> = ({
   // Find nearest tenant if none selected
   const nearestTenant = useMemo(() => {
     if (!tenants || tenants.length === 0) return null;
-    return [...tenants].sort((a, b) => a.distanceMeters - b.distanceMeters)[0];
+    return [...tenants].sort(
+      (a, b) => (a.distanceMeters ?? Number.MAX_SAFE_INTEGER) - (b.distanceMeters ?? Number.MAX_SAFE_INTEGER)
+    )[0];
   }, [tenants]);
 
   const activeTenant = selectedTenant || (!dismissedAutoSuggest ? nearestTenant : null);
@@ -64,7 +66,10 @@ export const MapViewScreen: React.FC<MapViewScreenProps> = ({
             {isAutoSuggested && (
               <div className="mx-auto w-max bg-blue-600/90 text-white font-bold text-[11px] px-3 py-1 rounded-full shadow-lg border border-blue-400/40 backdrop-blur-md flex items-center gap-1.5 animate-bounce">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>{t('suggestedNearest')} ({activeTenant.distanceMeters}m)</span>
+                <span>
+                  {t('suggestedNearest')}
+                  {activeTenant.distanceMeters != null && ` (${Math.round(activeTenant.distanceMeters)}m)`}
+                </span>
               </div>
             )}
             <TenantPreviewSheet

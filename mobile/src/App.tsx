@@ -1,19 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Tenant,
-  ActiveParkingSession,
   UserLocation,
-  FilterState,
-  UserMembership,
-  MembershipPlan
+  FilterState
 } from './types';
-import {
-  INITIAL_TENANTS,
-  INITIAL_ACTIVE_SESSION,
-  DEFAULT_USER_LOCATION,
-  getCapacityStatus
-} from './data/mockTenants';
-import { LanguageProvider } from './i18n/LanguageContext';
+import { DEFAULT_USER_LOCATION } from './lib/location';
+import { useAuth } from './hooks/useAuth';
+import { useSites } from './hooks/useSites';
+import { useActiveSession } from './hooks/useActiveSession';
+import { useFavorites } from './hooks/useFavorites';
+import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
+import { pushRecentSearch } from './lib/recentSearches';
+import { LogIn } from 'lucide-react';
 
 import { DiscoverHeader } from './components/discover/DiscoverHeader';
 import { LocationSelectorModal } from './components/discover/LocationSelectorModal';
@@ -25,7 +23,6 @@ import { ParkingMap } from './components/discover/ParkingMap';
 import { TenantPreviewSheet } from './components/discover/TenantPreviewSheet';
 import { NearbyParking } from './components/discover/NearbyParking';
 import { TenantDetailModal } from './components/discover/TenantDetailModal';
-import { MembershipModal } from './components/discover/MembershipModal';
 import { FindMyVehicleModal } from './components/discover/FindMyVehicleModal';
 import { BottomNavigation } from './components/discover/BottomNavigation';
 
@@ -33,7 +30,7 @@ import { MapViewScreen } from './components/views/MapViewScreen';
 import { MyParkingScreen } from './components/views/MyParkingScreen';
 import { MembershipsScreen } from './components/views/MembershipsScreen';
 import { ProfileScreen } from './components/views/ProfileScreen';
-import { LoginScreen, UserProfile } from './components/auth/LoginScreen';
+import { LoginScreen } from './components/auth/LoginScreen';
 
 const DEFAULT_FILTERS: FilterState = {
   keyword: '',
@@ -47,19 +44,39 @@ const DEFAULT_FILTERS: FilterState = {
   sortBy: 'recommended'
 };
 
+function GuestGate({ onSignIn }: { onSignIn: () => void }) {
+  const { t } = useLanguage();
+  return (
+    <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-2xl m-4 space-y-3">
+      <div className="w-12 h-12 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center mx-auto border border-blue-500/20">
+        <LogIn className="w-6 h-6" />
+      </div>
+      <h3 className="text-sm font-bold text-white">{t('signInRequired')}</h3>
+      <p className="text-xs text-slate-400 max-w-xs mx-auto">{t('guestNotice')}</p>
+      <button
+        onClick={onSignIn}
+        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+      >
+        {t('signIn')}
+      </button>
+    </div>
+  );
+}
+
 function MainAppContent() {
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>({
-    name: "Dainn Dev",
-    email: "dainn.dev1112@gmail.com",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-    provider: "google"
-  });
+  const auth = useAuth();
+  const isAuthed = auth.status === 'authed';
 
   const [userLocation, setUserLocation] = useState<UserLocation>(DEFAULT_USER_LOCATION);
-  const [tenants, setTenants] = useState<Tenant[]>(INITIAL_TENANTS);
-  const [activeSession, setActiveSession] = useState<ActiveParkingSession | null>(INITIAL_ACTIVE_SESSION);
-  const [memberships, setMemberships] = useState<UserMembership[]>([]);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+
+  const { sites: tenants, loading: sitesLoading } = useSites({
+    location: userLocation,
+    keyword: filters.keyword,
+    enabled: auth.status === 'authed' || auth.status === 'guest'
+  });
+  const { session: activeSession } = useActiveSession(isAuthed);
+  const favorites = useFavorites(isAuthed);
 
   // Modals & Navigation state
   const [activeTab, setActiveTab] = useState<'discover' | 'map' | 'parking' | 'memberships' | 'profile'>('discover');
@@ -67,49 +84,14 @@ function MainAppContent() {
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [selectedTenantPreview, setSelectedTenantPreview] = useState<Tenant | null>(null);
   const [selectedTenantDetail, setSelectedTenantDetail] = useState<Tenant | null>(null);
-  const [membershipModalData, setMembershipModalData] = useState<{ tenant: Tenant; plan: MembershipPlan } | null>(null);
   const [isFindVehicleModalOpen, setIsFindVehicleModalOpen] = useState(false);
 
-  // Realtime Simulation State
-  const [isAutoStreaming, setIsAutoStreaming] = useState(true);
-  const [lastUpdatedTime, setLastUpdatedTime] = useState<string>("Just now");
-
-  // Realtime auto-stream capacity simulator
-  useEffect(() => {
-    if (!isAutoStreaming) return;
-
-    const interval = setInterval(() => {
-      setTenants((prevTenants) => {
-        const randomIndex = Math.floor(Math.random() * prevTenants.length);
-        const tenant = prevTenants[randomIndex];
-
-        // Decide random entry or exit (-1 or +1 spot)
-        const delta = Math.random() > 0.5 ? 1 : -1;
-        const newAvailable = Math.min(tenant.capacity.total, Math.max(0, tenant.capacity.available + delta));
-        const newOccupied = tenant.capacity.total - newAvailable;
-        const newStatus = getCapacityStatus(newAvailable, tenant.capacity.total);
-
-        const updatedTenant: Tenant = {
-          ...tenant,
-          capacity: {
-            ...tenant.capacity,
-            available: newAvailable,
-            occupied: newOccupied,
-            status: newStatus,
-            lastUpdatedAt: new Date().toISOString()
-          }
-        };
-
-        const next = [...prevTenants];
-        next[randomIndex] = updatedTenant;
-        return next;
-      });
-
-      setLastUpdatedTime(new Date().toLocaleTimeString());
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [isAutoStreaming]);
+  // Merge favorite ids into displayed tenants
+  const tenantsWithFavs = useMemo(
+    () =>
+      tenants.map((t) => ({ ...t, isFavorite: favorites.ids.has(t.id) })),
+    [tenants, favorites.ids]
+  );
 
   // Handle GPS Request
   const handleRequestGps = () => {
@@ -144,55 +126,17 @@ function MainAppContent() {
     }
   };
 
-  // Manual capacity simulation controls
-  const handleSimulateEntry = () => {
-    setTenants(prev => prev.map((t, idx) => {
-      if (idx === 0) { // update first tenant
-        const avail = Math.max(0, t.capacity.available - 1);
-        return {
-          ...t,
-          capacity: {
-            ...t.capacity,
-            available: avail,
-            occupied: t.capacity.total - avail,
-            status: getCapacityStatus(avail, t.capacity.total),
-            lastUpdatedAt: new Date().toISOString()
-          }
-        };
-      }
-      return t;
-    }));
-    setLastUpdatedTime("Just now");
-  };
-
-  const handleSimulateExit = () => {
-    setTenants(prev => prev.map((t, idx) => {
-      if (idx === 0) {
-        const avail = Math.min(t.capacity.total, t.capacity.available + 1);
-        return {
-          ...t,
-          capacity: {
-            ...t.capacity,
-            available: avail,
-            occupied: t.capacity.total - avail,
-            status: getCapacityStatus(avail, t.capacity.total),
-            lastUpdatedAt: new Date().toISOString()
-          }
-        };
-      }
-      return t;
-    }));
-    setLastUpdatedTime("Just now");
-  };
-
-  // Toggle Favorite
-  const handleToggleFavorite = (tenantId: string) => {
-    setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, isFavorite: !t.isFavorite } : t));
+  const handleToggleFavorite = (siteId: string) => {
+    if (!isAuthed) {
+      auth.requireLogin();
+      return;
+    }
+    void favorites.toggle(siteId);
   };
 
   // Filter & Sort Pipeline
   const filteredTenants = useMemo(() => {
-    return tenants.filter((tenant) => {
+    return tenantsWithFavs.filter((tenant) => {
       // Keyword search
       if (filters.keyword) {
         const q = filters.keyword.toLowerCase();
@@ -207,15 +151,14 @@ function MainAppContent() {
       if (filters.availability === 'limited' && (tenant.capacity.status !== 'LIMITED' && tenant.capacity.status !== 'ALMOST_FULL')) return false;
       if (filters.availability === 'hide_full' && tenant.capacity.available <= 0) return false;
 
-      // Distance filter
-      const distanceKm = tenant.distanceMeters / 1000;
-      if (distanceKm > filters.distanceKm) return false;
+      // Distance filter (sites without coordinates have no distance)
+      if (tenant.distanceMeters != null && tenant.distanceMeters / 1000 > filters.distanceKm) return false;
 
-      // Price filter
-      if (tenant.pricing.hourlyFrom > filters.maxHourlyPrice) return false;
+      // Price filter — sites without published pricing are not excluded
+      if (tenant.pricing.hourlyFrom != null && tenant.pricing.hourlyFrom > filters.maxHourlyPrice) return false;
 
       // Parking structure type
-      if (filters.parkingTypes.length > 0 && !filters.parkingTypes.includes(tenant.parkingType)) return false;
+      if (filters.parkingTypes.length > 0 && (!tenant.parkingType || !filters.parkingTypes.includes(tenant.parkingType))) return false;
 
       // Facilities
       if (filters.facilities.length > 0) {
@@ -223,19 +166,20 @@ function MainAppContent() {
         if (!hasAllFacilities) return false;
       }
 
-      // Membership availability filter
+      // Membership availability filter (no memberships supported yet)
       if (filters.membershipOnly && !tenant.supportsMembership) return false;
 
       return true;
     }).sort((a, b) => {
-      if (filters.sortBy === 'nearest') return a.distanceMeters - b.distanceMeters;
-      if (filters.sortBy === 'cheapest') return a.pricing.hourlyFrom - b.pricing.hourlyFrom;
+      const distA = a.distanceMeters ?? Number.MAX_SAFE_INTEGER;
+      const distB = b.distanceMeters ?? Number.MAX_SAFE_INTEGER;
+      if (filters.sortBy === 'nearest') return distA - distB;
+      if (filters.sortBy === 'cheapest') return (a.pricing.hourlyFrom ?? Number.MAX_SAFE_INTEGER) - (b.pricing.hourlyFrom ?? Number.MAX_SAFE_INTEGER);
       if (filters.sortBy === 'availability') return b.capacity.available - a.capacity.available;
-      if (filters.sortBy === 'rating') return b.rating - a.rating;
-      // Recommended default: weighted score based on distance & availability
-      return a.distanceMeters - b.distanceMeters;
+      if (filters.sortBy === 'rating') return (b.rating ?? 0) - (a.rating ?? 0);
+      return distA - distB;
     });
-  }, [tenants, filters]);
+  }, [tenantsWithFavs, filters]);
 
   // Count active filter criteria
   const activeFilterCount = useMemo(() => {
@@ -249,30 +193,22 @@ function MainAppContent() {
     return count;
   }, [filters]);
 
-  // Simulate Check-In
-  const handleParkNow = (tenant: Tenant) => {
-    const newSession: ActiveParkingSession = {
-      id: `SESS-${Math.floor(100000 + Math.random() * 900000)}`,
-      vehiclePlate: "51A-123.45",
-      tenantId: tenant.id,
-      tenantName: tenant.name,
-      floor: tenant.floors[0] || "Floor 1",
-      zone: tenant.zones[0] || "Zone A",
-      spotNumber: "A-12",
-      entryTime: new Date().toISOString(),
-      durationSeconds: 1,
-      currentFeeVnd: tenant.pricing.hourlyFrom,
-      status: 'PARKED',
-      anprConfidence: 99.8,
-      entrancePhotoUrl: tenant.image
-    };
-    setActiveSession(newSession);
-    setSelectedTenantDetail(null);
-    setActiveTab('parking');
-  };
+  if (auth.status === 'loading') {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
-  if (!currentUser) {
-    return <LoginScreen onLogin={(userData) => setCurrentUser(userData)} />;
+  if (auth.status === 'unauthenticated') {
+    return (
+      <LoginScreen
+        onLogin={auth.login}
+        onRegister={auth.register}
+        onGuest={auth.continueAsGuest}
+      />
+    );
   }
 
   return (
@@ -282,7 +218,7 @@ function MainAppContent() {
         <DiscoverHeader
           userLocation={userLocation}
           onOpenLocationSelector={() => setIsLocationModalOpen(true)}
-          onOpenNotifications={() => alert("Notification Center: Live ANPR check-in verified for 51A-123.45.")}
+          onOpenNotifications={() => {}}
         />
       )}
 
@@ -296,7 +232,7 @@ function MainAppContent() {
               value={filters.keyword}
               onChange={(val) => setFilters(prev => ({ ...prev, keyword: val }))}
               onClear={() => setFilters(prev => ({ ...prev, keyword: '' }))}
-              onSelectRecent={(query) => setFilters(prev => ({ ...prev, keyword: query }))}
+              onSubmitSearch={(query) => pushRecentSearch(query)}
             />
 
             {/* Quick Filter Chips */}
@@ -313,7 +249,7 @@ function MainAppContent() {
                 session={activeSession}
                 onOpenFindVehicle={() => setIsFindVehicleModalOpen(true)}
                 onOpenTenantDetail={(id) => {
-                  const found = tenants.find(t => t.id === id);
+                  const found = tenantsWithFavs.find(t => t.id === id);
                   if (found) setSelectedTenantDetail(found);
                 }}
               />
@@ -338,7 +274,9 @@ function MainAppContent() {
                   setSelectedTenantPreview(null);
                 }}
                 onOpenDirections={(t) => {
-                  window.open(`https://www.google.com/maps/search/?api=1&query=${t.lat},${t.lng}`, '_blank');
+                  if (t.lat != null && t.lng != null) {
+                    window.open(`https://www.google.com/maps/search/?api=1&query=${t.lat},${t.lng}`, '_blank');
+                  }
                 }}
               />
             )}
@@ -348,12 +286,15 @@ function MainAppContent() {
               tenants={filteredTenants}
               onOpenDetails={(t) => setSelectedTenantDetail(t)}
               onOpenDirections={(t) => {
-                window.open(`https://www.google.com/maps/search/?api=1&query=${t.lat},${t.lng}`, '_blank');
+                if (t.lat != null && t.lng != null) {
+                  window.open(`https://www.google.com/maps/search/?api=1&query=${t.lat},${t.lng}`, '_blank');
+                }
               }}
               onToggleFavorite={handleToggleFavorite}
               sortBy={filters.sortBy}
               onSortChange={(sort) => setFilters(prev => ({ ...prev, sortBy: sort }))}
               onClearFilters={() => setFilters(DEFAULT_FILTERS)}
+              isLoading={sitesLoading && tenants.length === 0}
             />
           </div>
         )}
@@ -367,36 +308,52 @@ function MainAppContent() {
             userLocation={userLocation}
             onRecenterGps={handleRequestGps}
             onOpenDetails={(t) => setSelectedTenantDetail(t)}
-            onOpenDirections={(t) => window.open(`https://www.google.com/maps/search/?api=1&query=${t.lat},${t.lng}`, '_blank')}
+            onOpenDirections={(t) => {
+              if (t.lat != null && t.lng != null) {
+                window.open(`https://www.google.com/maps/search/?api=1&query=${t.lat},${t.lng}`, '_blank');
+              }
+            }}
           />
         )}
 
         {/* TAB 3: MY PARKING */}
         {activeTab === 'parking' && (
-          <MyParkingScreen
-            activeSession={activeSession}
-            onOpenFindVehicle={() => setIsFindVehicleModalOpen(true)}
-            onOpenTenantDetail={(id) => {
-              const found = tenants.find(t => t.id === id);
-              if (found) setSelectedTenantDetail(found);
-            }}
-          />
+          isAuthed ? (
+            <MyParkingScreen
+              activeSession={activeSession}
+              onOpenFindVehicle={() => setIsFindVehicleModalOpen(true)}
+              onOpenTenantDetail={(id) => {
+                const found = tenantsWithFavs.find(t => t.id === id);
+                if (found) setSelectedTenantDetail(found);
+              }}
+            />
+          ) : (
+            <GuestGate onSignIn={auth.requireLogin} />
+          )
         )}
 
         {/* TAB 4: MEMBERSHIPS */}
         {activeTab === 'memberships' && (
-          <MembershipsScreen
-            memberships={memberships}
-            onOpenDiscover={() => setActiveTab('discover')}
-          />
+          isAuthed ? (
+            <MembershipsScreen
+              memberships={[]}
+              onOpenDiscover={() => setActiveTab('discover')}
+            />
+          ) : (
+            <GuestGate onSignIn={auth.requireLogin} />
+          )
         )}
 
         {/* TAB 5: PROFILE */}
         {activeTab === 'profile' && (
-          <ProfileScreen
-            user={currentUser}
-            onLogout={() => setCurrentUser(null)}
-          />
+          isAuthed && auth.user ? (
+            <ProfileScreen
+              user={auth.user}
+              onLogout={() => void auth.logout()}
+            />
+          ) : (
+            <GuestGate onSignIn={auth.requireLogin} />
+          )
         )}
       </main>
 
@@ -405,7 +362,7 @@ function MainAppContent() {
         activeTab={activeTab}
         onChangeTab={(tab) => setActiveTab(tab)}
         hasActiveSession={!!activeSession}
-        membershipsCount={memberships.length}
+        membershipsCount={0}
       />
 
       {/* Global Modals */}
@@ -429,31 +386,18 @@ function MainAppContent() {
       <TenantDetailModal
         tenant={selectedTenantDetail}
         onClose={() => setSelectedTenantDetail(null)}
-        onOpenMembershipModal={(tenant, plan) => setMembershipModalData({ tenant, plan })}
-        onOpenDirections={(tenant) => window.open(`https://www.google.com/maps/search/?api=1&query=${tenant.lat},${tenant.lng}`, '_blank')}
-        onToggleFavorite={handleToggleFavorite}
-        onParkNow={handleParkNow}
-      />
-
-      <MembershipModal
-        isOpen={!!membershipModalData}
-        tenant={membershipModalData?.tenant || null}
-        plan={membershipModalData?.plan || null}
-        onClose={() => setMembershipModalData(null)}
-        onSuccess={(newMem) => {
-          setMemberships(prev => [newMem, ...prev]);
-          setActiveTab('memberships');
+        onOpenDirections={(tenant) => {
+          if (tenant.lat != null && tenant.lng != null) {
+            window.open(`https://www.google.com/maps/search/?api=1&query=${tenant.lat},${tenant.lng}`, '_blank');
+          }
         }}
+        onToggleFavorite={handleToggleFavorite}
       />
 
       <FindMyVehicleModal
         isOpen={isFindVehicleModalOpen}
         session={activeSession}
         onClose={() => setIsFindVehicleModalOpen(false)}
-        onPayEarly={() => {
-          alert("Exit fee paid via MoMo E-Wallet! Barrier will automatically open upon exit LPR scanner.");
-          setActiveSession(null);
-        }}
       />
     </div>
   );

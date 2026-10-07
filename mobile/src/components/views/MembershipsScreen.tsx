@@ -31,7 +31,7 @@ export const MembershipsScreen: React.FC<MembershipsScreenProps> = ({
           </div>
           <h3 className="text-sm font-bold text-white">{t('noMemberships')}</h3>
           <p className="text-xs text-slate-400 max-w-xs mx-auto">
-            {t('noMembershipsDesc')}
+            {t('membershipsComingSoon')}
           </p>
           <button
             onClick={onOpenDiscover}

@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, X, History } from 'lucide-react';
-import { RECENT_SEARCHES_MOCK } from '../../data/mockTenants';
+import { getRecentSearches } from '../../lib/recentSearches';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 interface ParkingSearchBarProps {
   value: string;
   onChange: (val: string) => void;
   onClear: () => void;
-  recentSearches?: string[];
+  onSubmitSearch?: (query: string) => void;
   onSelectRecent?: (query: string) => void;
 }
 
@@ -15,10 +15,11 @@ export const ParkingSearchBar: React.FC<ParkingSearchBarProps> = ({
   value,
   onChange,
   onClear,
-  recentSearches = RECENT_SEARCHES_MOCK,
+  onSubmitSearch,
   onSelectRecent
 }) => {
   const [isFocused, setIsFocused] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const { t } = useLanguage();
 
@@ -32,6 +33,18 @@ export const ParkingSearchBar: React.FC<ParkingSearchBarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleFocus = () => {
+    setRecentSearches(getRecentSearches());
+    setIsFocused(true);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && value.trim()) {
+      onSubmitSearch?.(value);
+      setIsFocused(false);
+    }
+  };
+
   return (
     <div ref={containerRef} className="relative z-20 px-4 pt-3 pb-2 bg-slate-900">
       <div className={`relative flex items-center bg-slate-800 border rounded-2xl shadow-inner transition-all ${
@@ -43,7 +56,8 @@ export const ParkingSearchBar: React.FC<ParkingSearchBarProps> = ({
         <input
           type="text"
           value={value}
-          onFocus={() => setIsFocused(true)}
+          onFocus={handleFocus}
+          onKeyDown={handleKeyDown}
           onChange={(e) => onChange(e.target.value)}
           placeholder={t('searchPlaceholder')}
           className="w-full py-2.5 pr-8 text-sm text-slate-100 placeholder-slate-400 bg-transparent focus:outline-none"

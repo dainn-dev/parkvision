@@ -38,11 +38,17 @@ export const ParkingCard: React.FC<ParkingCardProps> = ({
       {/* Top Banner Image & Details */}
       <div className="flex items-start gap-3.5">
         <div className="w-24 h-24 rounded-xl overflow-hidden bg-slate-800 flex-shrink-0 relative border border-slate-700/80">
-          <img
-            src={tenant.image}
-            alt={tenant.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
+          {tenant.image ? (
+            <img
+              src={tenant.image}
+              alt={tenant.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-slate-600">
+              <MapPin className="w-8 h-8" />
+            </div>
+          )}
           {/* Favorite button */}
           <button
             onClick={(e) => {
@@ -54,13 +60,15 @@ export const ParkingCard: React.FC<ParkingCardProps> = ({
           >
             <Heart className={`w-3.5 h-3.5 ${tenant.isFavorite ? 'fill-rose-500 text-rose-500' : ''}`} />
           </button>
-          
-          {/* Rating tag */}
-          <div className="absolute bottom-1.5 left-1.5 bg-slate-950/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-400 flex items-center gap-0.5 backdrop-blur-sm">
-            <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
-            <span>{tenant.rating}</span>
-            <span className="text-slate-400 font-normal">({tenant.reviewCount})</span>
-          </div>
+
+          {/* Rating tag — only when the site has reviews */}
+          {tenant.rating != null && (
+            <div className="absolute bottom-1.5 left-1.5 bg-slate-950/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-400 flex items-center gap-0.5 backdrop-blur-sm">
+              <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+              <span>{tenant.rating}</span>
+              <span className="text-slate-400 font-normal">({tenant.reviewCount ?? 0})</span>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -75,7 +83,13 @@ export const ParkingCard: React.FC<ParkingCardProps> = ({
 
           <div className="mt-1 text-xs text-slate-400 flex items-center gap-1">
             <MapPin className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
-            <span className="font-semibold text-slate-300">{tenant.distanceMeters}m</span>
+            <span className="font-semibold text-slate-300">
+              {tenant.distanceMeters != null
+                ? tenant.distanceMeters >= 1000
+                  ? `${(tenant.distanceMeters / 1000).toFixed(1)}km`
+                  : `${tenant.distanceMeters}m`
+                : '—'}
+            </span>
             <span>·</span>
             <span className="truncate">{tenant.district}</span>
           </div>
@@ -90,10 +104,12 @@ export const ParkingCard: React.FC<ParkingCardProps> = ({
           <div className="mt-2 text-xs font-mono flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-300">
             <div>
               <span className="text-slate-400">{t('from')} </span>
-              <span className="text-emerald-400 font-extrabold text-sm">{tenant.pricing.hourlyFrom.toLocaleString()}đ</span>
+              <span className="text-emerald-400 font-extrabold text-sm">
+                {tenant.pricing.hourlyFrom != null ? `${tenant.pricing.hourlyFrom.toLocaleString()}đ` : '—'}
+              </span>
               <span className="text-slate-400 text-[10px]">{t('perHour')}</span>
             </div>
-            {tenant.pricing.overnightFrom && (
+            {tenant.pricing.overnightFrom != null && (
               <div className="text-[11px] text-slate-400">
                 {t('night')}: <span className="text-slate-200 font-bold">{tenant.pricing.overnightFrom.toLocaleString()}đ</span>
               </div>
@@ -115,7 +131,7 @@ export const ParkingCard: React.FC<ParkingCardProps> = ({
           )}
         </div>
 
-        {tenant.supportsMembership && (
+        {tenant.supportsMembership && tenant.pricing.monthlyFrom != null && (
           <div className="text-blue-400 font-medium text-[11px] flex items-center gap-1 whitespace-nowrap">
             <span>{t('membershipFrom')} {(tenant.pricing.monthlyFrom / 1000).toLocaleString()}k{t('perMonth')}</span>
           </div>

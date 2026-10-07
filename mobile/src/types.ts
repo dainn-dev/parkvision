@@ -8,11 +8,13 @@ export interface TenantCapacity {
   lastUpdatedAt: string; // ISO string
 }
 
+// All price fields are null when the site has not published pricing —
+// the UI must render "—" rather than a fabricated number.
 export interface PricingInfo {
-  hourlyFrom: number; // VND
-  overnightFrom: number; // VND
-  monthlyFrom: number; // VND
-  dailyFrom?: number; // VND
+  hourlyFrom: number | null; // VND
+  dailyFrom: number | null; // VND
+  overnightFrom: number | null; // VND
+  monthlyFrom: number | null; // VND
 }
 
 export interface MembershipPlan {
@@ -26,25 +28,28 @@ export interface MembershipPlan {
 }
 
 export interface Tenant {
-  id: string;
+  id: string; // site id
+  siteId: string;
+  tenantId: string;
+  tenantSlug: string;
   name: string;
   address: string;
   district: string;
-  lat: number;
-  lng: number;
-  distanceMeters: number;
-  rating: number;
-  reviewCount: number;
+  lat: number | null;
+  lng: number | null;
+  distanceMeters: number | null;
+  rating?: number;
+  reviewCount?: number;
   capacity: TenantCapacity;
   pricing: PricingInfo;
   openNow: boolean;
   operatingHours: string;
   supportsMembership: boolean;
-  parkingType: 'indoor' | 'outdoor' | 'covered';
+  parkingType: 'indoor' | 'outdoor' | 'covered' | null;
   facilities: string[];
-  image: string;
-  phone: string;
-  description: string;
+  image?: string;
+  phone?: string;
+  description?: string;
   membershipPlans: MembershipPlan[];
   floors: string[];
   zones: string[];
@@ -54,17 +59,36 @@ export interface Tenant {
 export interface ActiveParkingSession {
   id: string;
   vehiclePlate: string;
-  tenantId: string;
+  tenantId: string; // site id
   tenantName: string;
-  floor: string;
-  zone: string;
-  spotNumber: string;
-  entryTime: string; // ISO string or timestamp
+  tenantSlug: string;
+  floor?: string;
+  zone?: string;
+  entryTime: string; // ISO string
   durationSeconds: number;
-  currentFeeVnd: number;
-  status: 'PARKED' | 'PAYMENT_PENDING' | 'COMPLETED';
+  currentFeeVnd: number | null; // null until pricing is supported (Phase 3)
+  status: 'PARKED' | 'COMPLETED';
   entrancePhotoUrl?: string;
   anprConfidence?: number;
+}
+
+export type ParkingHistoryItem = ActiveParkingSession;
+
+export interface DriverProfile {
+  id: string;
+  email: string;
+  fullName: string;
+  phone?: string | null;
+  avatarUrl?: string | null;
+}
+
+export interface DriverVehicle {
+  id: string;
+  plateNumber: string;
+  plateNormalized: string;
+  label?: string | null;
+  vehicleType: 'car' | 'motorcycle';
+  isPrimary: boolean;
 }
 
 export interface FilterState {

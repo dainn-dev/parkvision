@@ -32,9 +32,7 @@ export const ActiveParkingCard: React.FC<ActiveParkingCardProps> = ({
   const minutes = Math.floor((elapsedSeconds % 3600) / 60);
   const seconds = elapsedSeconds % 60;
 
-  // Calculate live dynamic fee (e.g. 20,000 VND per hour started)
-  const hoursBillable = Math.ceil(elapsedSeconds / 3600);
-  const currentFee = Math.max(20000, hoursBillable * 20000);
+  const currentFee = session.currentFeeVnd;
 
   return (
     <div className="w-full bg-gradient-to-br from-blue-950 via-slate-900 to-indigo-950 border border-blue-500/40 rounded-2xl shadow-xl overflow-hidden relative group animate-fadeIn">
@@ -45,7 +43,7 @@ export const ActiveParkingCard: React.FC<ActiveParkingCardProps> = ({
           <span className="uppercase tracking-wider">{t('activeSession')}</span>
         </div>
         <span className="bg-blue-500/20 px-2 py-0.5 rounded text-[10px] font-mono border border-blue-400/30 text-blue-200">
-          {t('anprVerified')} ({session.anprConfidence || 99}%)
+          {t('anprVerified')}{session.anprConfidence != null ? ` (${Math.round(session.anprConfidence * (session.anprConfidence <= 1 ? 100 : 1))}%)` : ''}
         </span>
       </div>
 
@@ -63,12 +61,8 @@ export const ActiveParkingCard: React.FC<ActiveParkingCardProps> = ({
             </div>
             <div className="mt-1.5 text-xs text-slate-300 flex items-center gap-1 font-mono">
               <MapPin className="w-3.5 h-3.5 text-blue-400" />
-              <span className="font-semibold text-white">{session.floor}</span>
-              <span>·</span>
-              <span className="font-semibold text-white">{session.zone}</span>
-              <span>·</span>
-              <span className="bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">
-                {session.spotNumber}
+              <span className="font-semibold text-white">
+                {[session.floor, session.zone].filter(Boolean).join(' · ') || '—'}
               </span>
             </div>
           </div>
@@ -100,7 +94,7 @@ export const ActiveParkingCard: React.FC<ActiveParkingCardProps> = ({
               <span>{t('currentFee')}</span>
             </div>
             <div className="text-base font-extrabold text-emerald-400 font-mono">
-              {currentFee.toLocaleString()} đ
+              {currentFee != null ? `${currentFee.toLocaleString()} đ` : '—'}
             </div>
           </div>
         </div>

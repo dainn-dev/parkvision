@@ -185,7 +185,32 @@ export const translations = {
     simulateEntryTitle: "Simulate Car Entrance (Occupies 1 spot)",
     simulateExitTitle: "Simulate Car Exit (Frees 1 spot)",
     pauseStream: "Pause Live Camera Auto-Update",
-    startStream: "Start Live Camera Auto-Update"
+    startStream: "Start Live Camera Auto-Update",
+
+    // Auth & API states
+    signIn: "Sign In",
+    signUp: "Create Account",
+    signInRequired: "Sign in required",
+    fullName: "Full Name",
+    invalidCredentials: "Incorrect email or password.",
+    networkError: "Network error. Please check your connection and try again.",
+    guestNotice: "Browse parking as a guest. Sign in to save favorites, manage vehicles and see your parking sessions.",
+    continueAsGuest: "Continue as Guest",
+
+    // Honest empty states
+    comingSoon: "Coming soon",
+    membershipsComingSoon: "Monthly passes will be available once the parking operator enables them.",
+    noHistory: "No parking history yet",
+    noHistoryDesc: "Your completed parking sessions will appear here.",
+    completed: "Completed",
+    noReviews: "No reviews yet",
+    noReviewsDesc: "Reviews are not available for this site yet.",
+    noFloorData: "No indoor map published for this site yet.",
+    occupiedShort: "occupied",
+    notLocatedYet: "Vehicle not located inside this site yet — indoor positioning depends on camera coverage.",
+    locatingVehicle: "Locating vehicle...",
+    parkedSince: "Parked since",
+    loading: "Loading..."
   },
   vi: {
     // Header
@@ -371,6 +396,31 @@ export const translations = {
     simulateEntryTitle: "Mô phỏng xe vào bãi (Chiếm 1 chỗ)",
     simulateExitTitle: "Mô phỏng xe ra bãi (Giải phóng 1 chỗ)",
     pauseStream: "Tạm dừng tự động cập nhật camera",
-    startStream: "Bắt đầu tự động cập nhật camera"
+    startStream: "Bắt đầu tự động cập nhật camera",
+
+    // Auth & API states
+    signIn: "Đăng nhập",
+    signUp: "Tạo tài khoản",
+    signInRequired: "Cần đăng nhập",
+    fullName: "Họ và tên",
+    invalidCredentials: "Email hoặc mật khẩu không đúng.",
+    networkError: "Lỗi kết nối. Vui lòng kiểm tra mạng và thử lại.",
+    guestNotice: "Bạn đang xem bãi xe ở chế độ khách. Đăng nhập để lưu yêu thích, quản lý xe và xem phiên đỗ xe.",
+    continueAsGuest: "Trải nghiệm không cần đăng nhập",
+
+    // Honest empty states
+    comingSoon: "Sắp ra mắt",
+    membershipsComingSoon: "Vé tháng sẽ khả dụng khi đơn vị vận hành bãi xe kích hoạt.",
+    noHistory: "Chưa có lịch sử đỗ xe",
+    noHistoryDesc: "Các phiên đỗ xe đã hoàn tất sẽ hiển thị tại đây.",
+    completed: "Hoàn tất",
+    noReviews: "Chưa có đánh giá",
+    noReviewsDesc: "Bãi xe này chưa có đánh giá nào.",
+    noFloorData: "Bãi xe chưa công bố sơ đồ tầng.",
+    occupiedShort: "đang đỗ",
+    notLocatedYet: "Chưa định vị được xe trong bãi — phụ thuộc vào vùng phủ camera.",
+    locatingVehicle: "Đang định vị xe...",
+    parkedSince: "Đỗ từ",
+    loading: "Đang tải..."
   }
 };
