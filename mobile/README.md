@@ -1,20 +1,36 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# ParkVision Driver (mobile)
 
-# Run and deploy your AI Studio app
+Driver-facing app for discovering nearby parking with realtime capacity,
+favorites, vehicle management, and parking-session tracking — backed by the
+ParkVision FastAPI backend (`/api/v1`).
 
-This contains everything you need to run your app locally.
+## Run locally
 
-View your app in AI Studio: https://ai.studio/apps/33f45e0c-5276-4e02-aeb5-7d3841789c93
+**Prerequisites:** Node.js 20+, and the backend running
+(`cd ../backend && docker compose up -d`).
 
-## Run Locally
+1. Install dependencies: `npm install`
+2. Copy `.env.example` to `.env` (defaults work when the backend is on
+   `localhost:8000` — the dev server proxies `/api` there)
+3. `npm run dev` → http://localhost:3000
 
-**Prerequisites:**  Node.js
+## Verify
 
+- `npm run lint` — TypeScript typecheck (`tsc --noEmit`)
+- `npm test` — vitest unit tests
+- `npm run build` — production build
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Environment variables
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | `/api/v1` | Request prefix used by `src/lib/api.ts` |
+| `VITE_API_PROXY` | `http://localhost:8000` | Dev-server proxy target for `/api/*` |
+
+## Auth
+
+Email/password driver accounts via `POST /api/v1/driver/auth/*` (bearer
+tokens in `localStorage`, refresh-once on 401). Guest mode is browse-only.
+
+Wallet, payments, and memberships are not yet supported by the backend —
+those screens render honest "coming soon" states.
