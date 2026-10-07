@@ -16,7 +16,7 @@ export const DiscoverHeader: React.FC<DiscoverHeaderProps> = ({
   userLocation,
   onOpenLocationSelector,
   onOpenNotifications,
-  unreadNotificationsCount = 2,
+  unreadNotificationsCount = 0,
   isRealtimeActive = true
 }) => {
   const { t } = useLanguage();

@@ -1,13 +1,16 @@
 # ParkVision
 
 ANPR parking system: `backend` (API), `frontend` (tenant dashboard),
-`anpr-worker` (camera/ANPR), `edge-client` (Tauri kiosk app on Windows —
-gate FSM, barrier relay HAL, offline queue).
+`mobile` (driver app), `anpr-worker` (camera/ANPR), `edge-client` (Tauri
+kiosk app on Windows — gate FSM, barrier relay HAL, offline queue).
 
 ## Verification commands
 
 - Edge Rust tests: `cd edge-client/src-tauri && cargo test`
 - Edge frontend typecheck: `cd edge-client && npm run lint` (tsc --noEmit)
+- Mobile (Vite/React): `cd mobile && npm run lint` (tsc --noEmit),
+  `npm test` (vitest), `npm run build`. `npm run dev` proxies `/api` to
+  `VITE_API_PROXY` (default `http://localhost:8000`).
 
 ## Docker
 
