@@ -180,6 +180,10 @@ class TenantSite(TimestampMixin, Base):
     capacity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     current_occupancy: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     operating_hours: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # Mobile-app listing profile (validated by SitePublicProfile schema):
+    # {listed, description, imageUrl, parkingType, facilities, pricing:
+    #  {hourlyFrom, dailyFrom, overnightFrom, monthlyFrom}}
+    public_profile: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     overall_health: Mapped[str] = mapped_column(String(20), nullable=False, default="healthy")
     contact_phone: Mapped[str | None] = mapped_column(String(50))
     manager_name: Mapped[str | None] = mapped_column(String(120))
@@ -541,6 +545,63 @@ class RegisteredVehicle(TimestampMixin, Base):
     )
 
     __table_args__ = (UniqueConstraint("tenant_id", "plate_normalized", name="uq_vehicle_plate"),)
+
+
+class DriverUser(TimestampMixin, Base):
+    """Mobile-app end user. Platform-scoped (no tenant_id, no RLS);
+    sessions ride on `user_sessions` with user_type='driver'."""
+
+    __tablename__ = "driver_users"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(50))
+    avatar_url: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DriverVehicle(TimestampMixin, Base):
+    """A plate the driver owns; `plate_normalized` joins access_events for
+    session derivation. Unique per driver — drivers may share a plate."""
+
+    __tablename__ = "driver_vehicles"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    driver_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("driver_users.id", ondelete="CASCADE"), nullable=False
+    )
+    plate_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    plate_normalized: Mapped[str] = mapped_column(String(20), nullable=False)
+    label: Mapped[str | None] = mapped_column(String(120))
+    vehicle_type: Mapped[str] = mapped_column(String(20), nullable=False, default="car")
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    __table_args__ = (
+        UniqueConstraint("driver_id", "plate_normalized", name="uq_driver_vehicle_plate"),
+        Index("ix_driver_vehicles_driver", "driver_id"),
+        Index("ix_driver_vehicles_plate", "plate_normalized"),
+    )
+
+
+class DriverFavorite(Base):
+    """Driver → site pin for the discovery map."""
+
+    __tablename__ = "driver_favorites"
+
+    driver_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("driver_users.id", ondelete="CASCADE"), primary_key=True
+    )
+    site_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenant_sites.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class TenantAccessRule(TimestampMixin, Base):

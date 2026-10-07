@@ -9,6 +9,7 @@ class StrEnum(str, enum.Enum):
 class ActorType(StrEnum):
     TENANT_USER = "tenant_user"
     PLATFORM_ADMIN = "platform_admin"
+    DRIVER = "driver"
     DEVICE = "edge_device"
     SYSTEM = "system"
 
