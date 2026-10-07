@@ -23,3 +23,22 @@ async def test_driver_tables_exist(admin_engine):
                 )
             )
         ).scalar() == 1
+
+
+# ---------- Task 2: schemas ----------
+
+from pydantic import ValidationError
+
+
+def test_vehicle_in_rejects_short_plate():
+    from app.schemas.driver import DriverVehicleIn
+
+    with pytest.raises(ValidationError):
+        DriverVehicleIn(plate_number="51A")
+
+
+def test_site_profile_defaults():
+    from app.schemas.driver import SitePublicProfile
+
+    p = SitePublicProfile()
+    assert p.listed is True and p.facilities == [] and p.pricing.hourly_from is None

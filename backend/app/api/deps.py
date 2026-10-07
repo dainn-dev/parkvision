@@ -97,6 +97,40 @@ def require_tenant_user(auth: AuthContext = Depends(get_auth_context)) -> AuthCo
     return auth
 
 
+def require_driver(auth: AuthContext = Depends(get_auth_context)) -> AuthContext:
+    if auth.user_type != ActorType.DRIVER:
+        raise forbidden("Driver account required") from None
+    return auth
+
+
+async def optional_driver(request: Request) -> AuthContext | None:
+    """Driver auth context when a valid bearer token is present, else None.
+
+    Used by public endpoints that personalize results for signed-in drivers
+    without requiring auth (e.g. isFavorite on site listings).
+    """
+    header = request.headers.get("authorization", "")
+    if not header.lower().startswith("bearer "):
+        return None
+    try:
+        claims = decode_access_token(header.split(" ", 1)[1])
+        if claims.get("mfa_pending") or claims.get("typ") != ActorType.DRIVER:
+            return None
+        if not await validate_session_state(uuid.UUID(claims["sid"])):
+            return None
+    except Exception:
+        return None
+    return AuthContext(
+        user_id=uuid.UUID(claims["sub"]),
+        user_type=claims["typ"],
+        session_id=uuid.UUID(claims["sid"]),
+        tenant_id=None,
+        role=None,
+        mfa_verified=False,
+        claims=claims,
+    )
+
+
 def require_platform_admin(
     roles: tuple[PlatformAdminRole, ...] | None = None,
 ):
