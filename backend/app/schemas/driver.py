@@ -96,6 +96,8 @@ class PublicSiteOut(CamelModel):
     contact_phone: str | None
     profile: SitePublicProfile
     is_favorite: bool = False
+    supports_membership: bool = False
+    membership_price_from: int | None = None
     updated_at: datetime
 
 

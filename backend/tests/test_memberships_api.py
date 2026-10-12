@@ -147,6 +147,27 @@ async def test_public_plans_hides_inactive(client, tenant, listed_site):
     assert "Secret Plan" not in [x["name"] for x in r.json()]
 
 
+@pytest.mark.asyncio
+async def test_site_list_supports_membership_flag(client, tenant, listed_site):
+    await make_plan(client, tenant, listed_site["id"], price=900000)
+    r = await client.get("/api/v1/public/sites")
+    site = next(x for x in r.json() if x["id"] == str(listed_site["id"]))
+    assert site["supportsMembership"] is True
+    assert site["membershipPriceFrom"] == 900000
+
+    # inactive plans stop advertising membership support
+    plans = await client.get(f"/api/v1/public/sites/{listed_site['id']}/plans")
+    for p in plans.json():
+        await client.patch(
+            f"/api/v1/tenants/{tenant['tenant_id']}/membership-plans/{p['id']}",
+            json={"status": "inactive"},
+            headers=csrf(client),
+        )
+    r = await client.get("/api/v1/public/sites")
+    site = next(x for x in r.json() if x["id"] == str(listed_site["id"]))
+    assert site["supportsMembership"] is False
+
+
 # ---------- driver request ----------
 
 

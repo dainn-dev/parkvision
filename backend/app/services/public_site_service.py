@@ -10,7 +10,7 @@ import uuid
 
 from sqlalchemy import func, select
 
-from app.models import Tenant, TenantSite
+from app.models import SiteMembershipPlan, Tenant, TenantSite
 from app.schemas.driver import PublicSiteOut, SitePublicProfile
 
 MAX_RESULTS = 200
@@ -39,7 +39,13 @@ def _listed_condition():
     return func.coalesce(TenantSite.public_profile["listed"].astext, "true") != "false"
 
 
-def _site_out(site: TenantSite, tenant: Tenant, favorite_ids: set[uuid.UUID], distance_m) -> PublicSiteOut:
+def _site_out(
+    site: TenantSite,
+    tenant: Tenant,
+    favorite_ids: set[uuid.UUID],
+    distance_m,
+    membership_price_from: int | None = None,
+) -> PublicSiteOut:
     capacity = site.capacity or 0
     occupied = min(site.current_occupancy or 0, capacity) if capacity else (site.current_occupancy or 0)
     available = max(capacity - occupied, 0)
@@ -61,8 +67,27 @@ def _site_out(site: TenantSite, tenant: Tenant, favorite_ids: set[uuid.UUID], di
         contact_phone=site.contact_phone,
         profile=SitePublicProfile.model_validate(site.public_profile or {}),
         is_favorite=site.id in favorite_ids,
+        supports_membership=membership_price_from is not None,
+        membership_price_from=membership_price_from,
         updated_at=site.updated_at,
     )
+
+
+async def _plan_prices(db, site_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
+    """site_id → min price of its active membership plans."""
+    if not site_ids:
+        return {}
+    rows = (
+        await db.execute(
+            select(SiteMembershipPlan.site_id, func.min(SiteMembershipPlan.price_vnd))
+            .where(
+                SiteMembershipPlan.site_id.in_(site_ids),
+                SiteMembershipPlan.status == "active",
+            )
+            .group_by(SiteMembershipPlan.site_id)
+        )
+    ).all()
+    return {site_id: price for site_id, price in rows}
 
 
 async def _base_rows(db):
@@ -93,7 +118,7 @@ async def list_sites(
     limit: int = MAX_RESULTS,
 ) -> list[PublicSiteOut]:
     rows = await _base_rows(db)
-    out: list[PublicSiteOut] = []
+    kept: list[tuple[TenantSite, Tenant, int | None]] = []
     geo = lat is not None and lng is not None
     for site, tenant in rows:
         if q:
@@ -110,7 +135,12 @@ async def list_sites(
             dist = haversine_m(lat, lng, float(site.latitude), float(site.longitude))
             if dist > radius_km * 1000:
                 continue
-        out.append(_site_out(site, tenant, favorite_ids, dist))
+        kept.append((site, tenant, dist))
+    prices = await _plan_prices(db, [s.id for s, _, _ in kept])
+    out = [
+        _site_out(site, tenant, favorite_ids, dist, prices.get(site.id))
+        for site, tenant, dist in kept
+    ]
     out.sort(key=(lambda s: (s.distance_meters or 0)) if geo else (lambda s: s.name))
     return out[:limit]
 
@@ -130,7 +160,11 @@ async def sites_by_ids(
         )
         .all()
     )
-    return [_site_out(site, tenant, favorite_ids, None) for site, tenant in rows]
+    prices = await _plan_prices(db, [s.id for s, _ in rows])
+    return [
+        _site_out(site, tenant, favorite_ids, None, prices.get(site.id))
+        for site, tenant in rows
+    ]
 
 
 async def get_site(db, site_id: uuid.UUID) -> tuple[Tenant, TenantSite]:
