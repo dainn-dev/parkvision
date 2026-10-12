@@ -1,12 +1,14 @@
 import { api, tokenStore } from '../lib/api';
 import {
   ActiveParkingSession,
+  DriverMembership,
   DriverProfile,
   DriverVehicle,
   ParkingHistoryItem,
 } from '../types';
 import {
   AuthSessionOut,
+  DriverMembershipOut,
   DriverOut,
   DriverSessionOut,
   DriverTokenOut,
@@ -203,5 +205,42 @@ export const sessions = {
       `/driver/sessions/history?page=${page}&limit=${limit}`
     );
     return { items: p.data.map(mapSession), total: p.meta.total };
+  },
+};
+
+// ---------- memberships ----------
+
+function mapMembership(m: DriverMembershipOut): DriverMembership {
+  return {
+    id: m.id,
+    siteId: m.siteId,
+    siteName: m.siteName,
+    tenantSlug: m.tenantSlug,
+    plateNumber: m.plateNumber,
+    plan: m.plan,
+    status: m.status,
+    startsAt: m.startsAt,
+    endsAt: m.endsAt,
+    createdAt: m.createdAt,
+  };
+}
+
+export const memberships = {
+  async list(): Promise<DriverMembership[]> {
+    const rows = await api<DriverMembershipOut[]>('/driver/memberships');
+    return rows.map(mapMembership);
+  },
+  async request(planId: string, vehicleId: string): Promise<DriverMembership> {
+    const m = await api<DriverMembershipOut>('/driver/memberships', {
+      method: 'POST',
+      body: JSON.stringify({ planId, vehicleId }),
+    });
+    return mapMembership(m);
+  },
+  async cancel(id: string): Promise<DriverMembership> {
+    const m = await api<DriverMembershipOut>(`/driver/memberships/${id}/cancel`, {
+      method: 'POST',
+    });
+    return mapMembership(m);
   },
 };

@@ -9,6 +9,7 @@ import { useAuth } from './hooks/useAuth';
 import { useSites } from './hooks/useSites';
 import { useActiveSession } from './hooks/useActiveSession';
 import { useFavorites } from './hooks/useFavorites';
+import { useMemberships } from './hooks/useMemberships';
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
 import { pushRecentSearch } from './lib/recentSearches';
 import { LogIn } from 'lucide-react';
@@ -77,6 +78,7 @@ function MainAppContent() {
   });
   const { session: activeSession } = useActiveSession(isAuthed);
   const favorites = useFavorites(isAuthed);
+  const membershipHook = useMemberships(isAuthed);
 
   // Modals & Navigation state
   const [activeTab, setActiveTab] = useState<'discover' | 'map' | 'parking' | 'memberships' | 'profile'>('discover');
@@ -336,7 +338,9 @@ function MainAppContent() {
         {activeTab === 'memberships' && (
           isAuthed ? (
             <MembershipsScreen
-              memberships={[]}
+              memberships={membershipHook.memberships}
+              loading={membershipHook.loading}
+              onCancel={membershipHook.cancel}
               onOpenDiscover={() => setActiveTab('discover')}
             />
           ) : (
@@ -362,7 +366,7 @@ function MainAppContent() {
         activeTab={activeTab}
         onChangeTab={(tab) => setActiveTab(tab)}
         hasActiveSession={!!activeSession}
-        membershipsCount={0}
+        membershipsCount={membershipHook.activeCount}
       />
 
       {/* Global Modals */}
@@ -385,6 +389,8 @@ function MainAppContent() {
 
       <TenantDetailModal
         tenant={selectedTenantDetail}
+        isAuthed={isAuthed}
+        memberships={membershipHook.memberships}
         onClose={() => setSelectedTenantDetail(null)}
         onOpenDirections={(tenant) => {
           if (tenant.lat != null && tenant.lng != null) {
@@ -392,6 +398,8 @@ function MainAppContent() {
           }
         }}
         onToggleFavorite={handleToggleFavorite}
+        onRequireLogin={auth.requireLogin}
+        onRequestMembership={membershipHook.request}
       />
 
       <FindMyVehicleModal

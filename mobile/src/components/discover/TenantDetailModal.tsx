@@ -1,31 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import { X, MapPin, Phone, Clock, Navigation, Heart, Check, Car, Layers } from 'lucide-react';
-import { Tenant } from '../../types';
+import { X, MapPin, Phone, Clock, Navigation, Heart, Check, Car, Layers, BadgeCheck, Loader2 } from 'lucide-react';
+import { DriverMembership, DriverVehicle, Tenant } from '../../types';
 import { useLanguage } from '../../i18n/LanguageContext';
-import { getSite, PublicMapLevelOut } from '../../api/public';
+import { getSite, listSitePlans, PublicMapLevelOut } from '../../api/public';
+import { PublicPlanOut } from '../../api/types';
+import { vehicles as vehiclesApi } from '../../api/driver';
 
 interface TenantDetailModalProps {
   tenant: Tenant | null;
+  isAuthed: boolean;
+  memberships: DriverMembership[];
   onClose: () => void;
   onOpenDirections: (tenant: Tenant) => void;
   onToggleFavorite: (tenantId: string) => void;
+  onRequireLogin: () => void;
+  onRequestMembership: (planId: string, vehicleId: string) => Promise<DriverMembership>;
 }
 
 const fmtVnd = (v: number | null) => (v == null ? '—' : `${v.toLocaleString()} đ`);
 
 export const TenantDetailModal: React.FC<TenantDetailModalProps> = ({
   tenant,
+  isAuthed,
+  memberships,
   onClose,
   onOpenDirections,
-  onToggleFavorite
+  onToggleFavorite,
+  onRequireLogin,
+  onRequestMembership
 }) => {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'overview' | 'floors' | 'memberships' | 'reviews'>('overview');
   const [levels, setLevels] = useState<PublicMapLevelOut[] | null>(null);
+  const [plans, setPlans] = useState<PublicPlanOut[] | null>(null);
+
+  // membership request state
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
+  const [vehicles, setVehicles] = useState<DriverVehicle[] | null>(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
 
   const siteId = tenant?.id;
   useEffect(() => {
     setLevels(null);
+    setPlans(null);
+    setExpandedPlanId(null);
+    setSelectedVehicleId(null);
+    setRequestError(null);
     setActiveTab('overview');
     if (!siteId) return;
     let cancelled = false;
@@ -36,10 +58,55 @@ export const TenantDetailModal: React.FC<TenantDetailModalProps> = ({
       .catch(() => {
         if (!cancelled) setLevels([]);
       });
+    listSitePlans(siteId)
+      .then((rows) => {
+        if (!cancelled) setPlans(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setPlans([]);
+      });
     return () => {
       cancelled = true;
     };
   }, [siteId]);
+
+  const siteMemberships = siteId
+    ? memberships.filter(
+        (m) => m.siteId === siteId && (m.status === 'pending' || m.status === 'active')
+      )
+    : [];
+
+  const startRequest = (planId: string) => {
+    if (!isAuthed) {
+      onRequireLogin();
+      return;
+    }
+    setRequestError(null);
+    setExpandedPlanId(expandedPlanId === planId ? null : planId);
+    if (vehicles === null) {
+      vehiclesApi
+        .list()
+        .then((rows) => {
+          setVehicles(rows);
+          setSelectedVehicleId(rows.find((v) => v.isPrimary)?.id ?? rows[0]?.id ?? null);
+        })
+        .catch(() => setVehicles([]));
+    }
+  };
+
+  const submitRequest = async (planId: string) => {
+    if (!selectedVehicleId) return;
+    setSubmitting(true);
+    setRequestError(null);
+    try {
+      await onRequestMembership(planId, selectedVehicleId);
+      setExpandedPlanId(null);
+    } catch (e) {
+      setRequestError(e instanceof Error ? e.message : 'network_error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (!tenant) return null;
 
@@ -297,12 +364,140 @@ export const TenantDetailModal: React.FC<TenantDetailModalProps> = ({
             </div>
           )}
 
-          {/* TAB 3: MEMBERSHIP PLANS — not yet supported by the backend */}
+          {/* TAB 3: MEMBERSHIP PLANS — real plans + request flow */}
           {activeTab === 'memberships' && (
-            <div className="p-6 text-center bg-slate-800/40 border border-slate-800 rounded-xl space-y-2">
-              <Car className="w-8 h-8 text-slate-500 mx-auto" />
-              <h4 className="text-sm font-bold text-white">{t('comingSoon')}</h4>
-              <p className="text-xs text-slate-400 max-w-xs mx-auto">{t('membershipsComingSoon')}</p>
+            <div className="space-y-3">
+              {siteMemberships.length > 0 && (
+                <div className="space-y-2">
+                  {siteMemberships.map((m) => (
+                    <div
+                      key={m.id}
+                      className="p-3 bg-emerald-950/40 border border-emerald-700/40 rounded-xl flex items-center gap-2.5"
+                    >
+                      <BadgeCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                      <div className="text-xs">
+                        <div className="font-bold text-emerald-300">
+                          {m.status === 'pending' ? t('membershipPending') : t('membershipActive')}
+                        </div>
+                        <div className="text-slate-300 font-mono">
+                          {m.plateNumber} · {m.plan.name}
+                          {m.endsAt ? ` · ${t('validUntil')} ${new Date(m.endsAt).toLocaleDateString()}` : ''}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {plans === null ? (
+                <div className="p-6 text-center text-slate-400 text-xs">{t('loading')}</div>
+              ) : plans.length === 0 ? (
+                <div className="p-6 text-center bg-slate-800/40 border border-slate-800 rounded-xl space-y-2">
+                  <Car className="w-8 h-8 text-slate-500 mx-auto" />
+                  <p className="text-xs text-slate-400 max-w-xs mx-auto">{t('noPlansForSite')}</p>
+                </div>
+              ) : (
+                plans.map((plan) => (
+                  <div
+                    key={plan.id}
+                    className="p-3.5 bg-slate-800/60 border border-slate-700/60 rounded-xl space-y-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-white">{plan.name}</span>
+                          {plan.badge && (
+                            <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[9px] font-bold rounded uppercase">
+                              {plan.badge}
+                            </span>
+                          )}
+                        </div>
+                        {plan.description && (
+                          <p className="text-[11px] text-slate-400 mt-0.5">{plan.description}</p>
+                        )}
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-sm font-black text-emerald-400 font-mono">
+                          {plan.priceVnd.toLocaleString()}đ
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          / {plan.durationDays} {t('days')}
+                        </div>
+                      </div>
+                    </div>
+
+                    {plan.perks.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {plan.perks.map((perk, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px] text-slate-300 flex items-center gap-1"
+                          >
+                            <Check className="w-3 h-3 text-blue-400" /> {perk}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {expandedPlanId === plan.id ? (
+                      <div className="pt-2 border-t border-slate-700/60 space-y-2">
+                        {vehicles === null ? (
+                          <div className="text-center text-slate-400 text-xs py-2">{t('loading')}</div>
+                        ) : vehicles.length === 0 ? (
+                          <p className="text-[11px] text-amber-300">{t('addVehicleFirst')}</p>
+                        ) : (
+                          <>
+                            <div className="text-[10px] text-slate-400 uppercase tracking-wider">
+                              {t('selectVehicle')}
+                            </div>
+                            <div className="space-y-1">
+                              {vehicles.map((v) => (
+                                <label
+                                  key={v.id}
+                                  className={`flex items-center gap-2 p-2 rounded-lg border text-xs font-mono cursor-pointer ${
+                                    selectedVehicleId === v.id
+                                      ? 'border-blue-500 bg-blue-500/10 text-white'
+                                      : 'border-slate-700 bg-slate-900 text-slate-300'
+                                  }`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name="membership-vehicle"
+                                    checked={selectedVehicleId === v.id}
+                                    onChange={() => setSelectedVehicleId(v.id)}
+                                    className="accent-blue-500"
+                                  />
+                                  <span className="font-bold">{v.plateNumber}</span>
+                                  {v.label && <span className="text-slate-400">· {v.label}</span>}
+                                </label>
+                              ))}
+                            </div>
+                            {requestError && (
+                              <p className="text-[11px] text-rose-400">{requestError}</p>
+                            )}
+                            <button
+                              onClick={() => void submitRequest(plan.id)}
+                              disabled={!selectedVehicleId || submitting}
+                              className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 disabled:opacity-50"
+                            >
+                              {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                              <span>{t('confirmRequest')}</span>
+                            </button>
+                            <p className="text-[10px] text-slate-500">{t('requestNote')}</p>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => startRequest(plan.id)}
+                        className="w-full py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 font-bold text-xs rounded-xl transition-colors"
+                      >
+                        {t('requestMembership')}
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           )}
 

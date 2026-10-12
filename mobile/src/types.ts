@@ -20,11 +20,11 @@ export interface PricingInfo {
 export interface MembershipPlan {
   id: string;
   name: string;
-  price: number; // VND
-  durationLabel: string; // e.g. "month"
+  description: string | null;
+  priceVnd: number;
+  durationDays: number;
   perks: string[];
-  recommended?: boolean;
-  badge?: string;
+  badge: string | null;
 }
 
 export interface Tenant {
@@ -51,6 +51,7 @@ export interface Tenant {
   phone?: string;
   description?: string;
   membershipPlans: MembershipPlan[];
+  membershipPriceFrom: number | null;
   floors: string[];
   zones: string[];
   isFavorite?: boolean;
@@ -113,14 +114,23 @@ export interface UserLocation {
   permissionStatus: 'granted' | 'denied' | 'prompt' | 'simulated';
 }
 
-export interface UserMembership {
+export type MembershipStatus =
+  | 'pending'
+  | 'active'
+  | 'rejected'
+  | 'cancelled'
+  | 'expired'
+  | 'revoked';
+
+export interface DriverMembership {
   id: string;
-  tenantId: string;
-  tenantName: string;
-  planName: string;
-  vehiclePlate: string;
-  startDate: string;
-  expiryDate: string;
-  status: 'ACTIVE' | 'EXPIRED';
-  pricePaid: number;
+  siteId: string;
+  siteName: string;
+  tenantSlug: string;
+  plateNumber: string;
+  plan: MembershipPlan;
+  status: MembershipStatus;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
 }

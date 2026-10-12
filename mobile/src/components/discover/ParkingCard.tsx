@@ -131,9 +131,9 @@ export const ParkingCard: React.FC<ParkingCardProps> = ({
           )}
         </div>
 
-        {tenant.supportsMembership && tenant.pricing.monthlyFrom != null && (
+        {tenant.supportsMembership && tenant.membershipPriceFrom != null && (
           <div className="text-blue-400 font-medium text-[11px] flex items-center gap-1 whitespace-nowrap">
-            <span>{t('membershipFrom')} {(tenant.pricing.monthlyFrom / 1000).toLocaleString()}k{t('perMonth')}</span>
+            <span>{t('membershipFrom')} {(tenant.membershipPriceFrom / 1000).toLocaleString()}k</span>
           </div>
         )}
       </div>

@@ -41,6 +41,8 @@ export interface PublicSiteOut {
   contactPhone: string | null;
   profile: SiteProfileOut;
   isFavorite: boolean;
+  supportsMembership: boolean;
+  membershipPriceFrom: number | null;
   updatedAt: string;
 }
 
@@ -117,6 +119,37 @@ export interface DriverSessionOut {
   confidence: number | null;
   levelName: string | null;
   zoneName: string | null;
+}
+
+export interface PublicPlanOut {
+  id: string;
+  name: string;
+  description: string | null;
+  priceVnd: number;
+  durationDays: number;
+  perks: string[];
+  badge: string | null;
+}
+
+export type MembershipStatus =
+  | 'pending'
+  | 'active'
+  | 'rejected'
+  | 'cancelled'
+  | 'expired'
+  | 'revoked';
+
+export interface DriverMembershipOut {
+  id: string;
+  plan: PublicPlanOut;
+  siteId: string;
+  siteName: string;
+  tenantSlug: string;
+  plateNumber: string;
+  status: MembershipStatus;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
 }
 
 export interface AuthSessionOut {

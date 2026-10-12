@@ -27,6 +27,8 @@ const baseSite: PublicSiteOut = {
     pricing: { hourlyFrom: 20000, dailyFrom: null, overnightFrom: 80000, monthlyFrom: null },
   },
   isFavorite: false,
+  supportsMembership: false,
+  membershipPriceFrom: null,
   updatedAt: '2026-01-01T00:00:00Z',
 };
 
@@ -49,7 +51,14 @@ describe('mapSite', () => {
     expect(t.operatingHours).toBe('06:00–23:00');
     expect(t.membershipPlans).toEqual([]);
     expect(t.supportsMembership).toBe(false);
+    expect(t.membershipPriceFrom).toBeNull();
     expect(t.distanceMeters).toBe(420);
+  });
+
+  it('maps membership support flags from the site payload', () => {
+    const t = mapSite({ ...baseSite, supportsMembership: true, membershipPriceFrom: 900000 });
+    expect(t.supportsMembership).toBe(true);
+    expect(t.membershipPriceFrom).toBe(900000);
   });
 
   it('leaves missing backend fields empty instead of fabricating them', () => {

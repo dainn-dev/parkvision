@@ -3,6 +3,7 @@ import { Tenant } from '../types';
 import {
   PublicLocateOut,
   PublicMapLevelOut,
+  PublicPlanOut,
   PublicSiteDetailOut,
   PublicSiteOut,
 } from './types';
@@ -43,13 +44,14 @@ export function mapSite(s: PublicSiteOut): Tenant {
     },
     openNow: isOpenNow(s.operatingHours),
     operatingHours: formatOperatingHours(s.operatingHours),
-    supportsMembership: false,
+    supportsMembership: s.supportsMembership,
     parkingType: s.profile.parkingType,
     facilities: s.profile.facilities,
     image: s.profile.imageUrl ?? undefined,
     phone: s.contactPhone ?? undefined,
     description: s.profile.description ?? undefined,
     membershipPlans: [],
+    membershipPriceFrom: s.membershipPriceFrom,
     floors: [],
     zones: [],
     isFavorite: s.isFavorite,
@@ -104,6 +106,10 @@ export async function getSite(
 ): Promise<Tenant & { levels: PublicMapLevelOut[] }> {
   const s = await api<PublicSiteDetailOut>(`/public/sites/${id}`);
   return { ...mapSite(s), levels: s.levels };
+}
+
+export async function listSitePlans(siteId: string): Promise<PublicPlanOut[]> {
+  return api<PublicPlanOut[]>(`/public/sites/${siteId}/plans`);
 }
 
 export async function locatePlate(

@@ -32,5 +32,10 @@ ParkVision FastAPI backend (`/api/v1`).
 Email/password driver accounts via `POST /api/v1/driver/auth/*` (bearer
 tokens in `localStorage`, refresh-once on 401). Guest mode is browse-only.
 
-Wallet, payments, and memberships are not yet supported by the backend —
-those screens render honest "coming soon" states.
+Memberships are real: plans are published per-site by the tenant
+(`GET /api/v1/public/sites/{id}/plans`), drivers request via
+`POST /api/v1/driver/memberships`, and the tenant activates them (which
+whitelists the plate for ANPR entry). Wallets and in-app payments are not
+yet supported by the backend — those screens render honest "coming soon"
+states, and membership payment itself is handled offline by the operator
+before activation.
