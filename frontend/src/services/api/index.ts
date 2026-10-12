@@ -12,7 +12,9 @@ export type UserOut = S['UserOut'];
 export type PlatformAdminOut = S['PlatformAdminOut'];
 export type FeatureFlagOut = S['FeatureFlagOut'];
 export type PlatformSettingOut = S['PlatformSettingOut'];
-export type SiteOut = S['SiteOut'];
+// SiteOut predates the driver listing profile in the generated schema —
+// intersect the field until the schema is regenerated.
+export type SiteOut = S['SiteOut'] & { publicProfile?: import('../../types/tenant').SitePublicProfile };
 export type LaneOut = S['LaneOut'];
 export type GateOut = S['GateOut'];
 export type DeviceOut = S['DeviceOut'];
@@ -362,6 +364,7 @@ export const tenantApi = {
     managerName?: string;
     timezone?: string;
     status?: string;
+    publicProfile?: import('../../types/tenant').SitePublicProfile;
   }) => api.post<SiteOut>(T(t, '/sites'), body),
   updateSite: (t: string, id: string, body: Partial<{
     name: string;
@@ -376,6 +379,7 @@ export const tenantApi = {
     managerName: string;
     timezone: string;
     status: string;
+    publicProfile: import('../../types/tenant').SitePublicProfile;
   }>) => api.patch<SiteOut>(T(t, `/sites/${id}`), body),
   deleteSite: (t: string, id: string) => api.del(T(t, `/sites/${id}`)),
 

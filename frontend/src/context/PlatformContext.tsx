@@ -687,6 +687,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
             ...prev.address,
             line1: primarySite.address ?? prev.address.line1
           },
+          publicProfile: primarySite.publicProfile ?? prev.publicProfile,
           ...(oh && (Array.isArray(oh.days) || oh.isOpen24_7 != null)
             ? {
                 operatingHours: {
@@ -1355,7 +1356,10 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
             ? updatedData.address
             : [updatedData.address?.line1, updatedData.address?.city, updatedData.address?.country]
                 .filter(Boolean)
-                .join(', ') || undefined
+                .join(', ') || undefined,
+          // public_profile is replaced wholesale on PATCH — send the
+          // merged profile so unrelated fields aren't wiped.
+          ...(updatedData.publicProfile ? { publicProfile: updatedData.publicProfile } : {}),
         })
         .then(() => loadTenantData(activeTenantId))
         .catch(toastErr('Failed to update site'));

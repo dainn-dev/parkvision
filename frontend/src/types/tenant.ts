@@ -51,7 +51,47 @@ export interface TenantLocation {
   createdAt: string;
   updatedAt: string;
   description?: string;
+  publicProfile?: SitePublicProfile;
 }
+
+/** Driver-app listing + fee rules persisted on tenant_sites.public_profile. */
+export interface SitePublicProfile {
+  listed: boolean;
+  description?: string | null;
+  imageUrl?: string | null;
+  parkingType?: 'indoor' | 'outdoor' | 'covered' | null;
+  facilities: string[];
+  pricing: SitePricingRules;
+}
+
+export interface SitePricingRules {
+  hourlyFrom: number | null;
+  dailyFrom: number | null;
+  overnightFrom: number | null;
+  monthlyFrom: number | null;
+  graceMinutes: number;
+  blockMinutes: number;
+  overnightStartHour: number;
+  overnightEndHour: number;
+}
+
+export const DEFAULT_SITE_PUBLIC_PROFILE: SitePublicProfile = {
+  listed: false,
+  description: null,
+  imageUrl: null,
+  parkingType: null,
+  facilities: [],
+  pricing: {
+    hourlyFrom: null,
+    dailyFrom: null,
+    overnightFrom: null,
+    monthlyFrom: null,
+    graceMinutes: 0,
+    blockMinutes: 60,
+    overnightStartHour: 22,
+    overnightEndHour: 6,
+  },
+};
 
 export interface TenantSite {
   id: string;

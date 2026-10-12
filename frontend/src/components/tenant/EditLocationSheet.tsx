@@ -14,8 +14,17 @@ import {
   Check
 } from 'lucide-react';
 import { Button } from '../ui';
-import { TenantLocation } from '../../types/tenant';
+import {
+  DEFAULT_SITE_PUBLIC_PROFILE,
+  TenantLocation,
+  SitePublicProfile
+} from '../../types/tenant';
 import { useTranslation } from 'react-i18next';
+
+const num = (v: string): number | null => (v.trim() === '' ? null : Math.max(0, Math.round(Number(v) || 0)));
+const intOr = (v: string, dflt: number): number =>
+  v.trim() === '' ? dflt : Math.max(0, Math.round(Number(v) || 0));
+const clampHour = (v: string, dflt: number): number => Math.min(23, Math.max(0, intOr(v, dflt)));
 
 interface EditLocationSheetProps {
   isOpen: boolean;
@@ -49,7 +58,21 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
     emergencyContact: clean(location.emergencyContact),
     contactPerson: clean(location.contactPerson),
     capacity: (location.capacity || 0).toString(),
-    description: location.description === 'Create a site to activate this location.' ? '' : location.description || ''
+    description: location.description === 'Create a site to activate this location.' ? '' : location.description || '',
+    // --- public listing & pricing (tenant_sites.public_profile) ---
+    listed: location.publicProfile?.listed ?? false,
+    publicDescription: location.publicProfile?.description ?? '',
+    imageUrl: location.publicProfile?.imageUrl ?? '',
+    parkingType: location.publicProfile?.parkingType ?? '',
+    facilitiesCsv: (location.publicProfile?.facilities ?? []).join(', '),
+    hourlyFrom: location.publicProfile?.pricing.hourlyFrom?.toString() ?? '',
+    dailyFrom: location.publicProfile?.pricing.dailyFrom?.toString() ?? '',
+    overnightFrom: location.publicProfile?.pricing.overnightFrom?.toString() ?? '',
+    monthlyFrom: location.publicProfile?.pricing.monthlyFrom?.toString() ?? '',
+    graceMinutes: (location.publicProfile?.pricing.graceMinutes ?? 0).toString(),
+    blockMinutes: (location.publicProfile?.pricing.blockMinutes ?? 60).toString(),
+    overnightStartHour: (location.publicProfile?.pricing.overnightStartHour ?? 22).toString(),
+    overnightEndHour: (location.publicProfile?.pricing.overnightEndHour ?? 6).toString()
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -76,7 +99,20 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
         emergencyContact: clean(location.emergencyContact),
         contactPerson: clean(location.contactPerson),
         capacity: (location.capacity || 0).toString(),
-        description: location.description === 'Create a site to activate this location.' ? '' : location.description || ''
+        description: location.description === 'Create a site to activate this location.' ? '' : location.description || '',
+        listed: location.publicProfile?.listed ?? false,
+        publicDescription: location.publicProfile?.description ?? '',
+        imageUrl: location.publicProfile?.imageUrl ?? '',
+        parkingType: location.publicProfile?.parkingType ?? '',
+        facilitiesCsv: (location.publicProfile?.facilities ?? []).join(', '),
+        hourlyFrom: location.publicProfile?.pricing.hourlyFrom?.toString() ?? '',
+        dailyFrom: location.publicProfile?.pricing.dailyFrom?.toString() ?? '',
+        overnightFrom: location.publicProfile?.pricing.overnightFrom?.toString() ?? '',
+        monthlyFrom: location.publicProfile?.pricing.monthlyFrom?.toString() ?? '',
+        graceMinutes: (location.publicProfile?.pricing.graceMinutes ?? 0).toString(),
+        blockMinutes: (location.publicProfile?.pricing.blockMinutes ?? 60).toString(),
+        overnightStartHour: (location.publicProfile?.pricing.overnightStartHour ?? 22).toString(),
+        overnightEndHour: (location.publicProfile?.pricing.overnightEndHour ?? 6).toString()
       });
       setErrors({});
       setIsDirty(false);
@@ -144,10 +180,35 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
     e.preventDefault();
     if (!validate()) return;
 
+    const pricing = {
+      hourlyFrom: num(formData.hourlyFrom),
+      dailyFrom: num(formData.dailyFrom),
+      overnightFrom: num(formData.overnightFrom),
+      monthlyFrom: num(formData.monthlyFrom),
+      graceMinutes: intOr(formData.graceMinutes, 0),
+      blockMinutes: Math.max(5, intOr(formData.blockMinutes, 60)),
+      overnightStartHour: clampHour(formData.overnightStartHour, 22),
+      overnightEndHour: clampHour(formData.overnightEndHour, 6)
+    };
+    const publicProfile: SitePublicProfile = {
+      ...DEFAULT_SITE_PUBLIC_PROFILE,
+      ...(location.publicProfile ?? {}),
+      listed: formData.listed,
+      description: formData.publicDescription.trim() || null,
+      imageUrl: formData.imageUrl.trim() || null,
+      parkingType: (formData.parkingType || null) as SitePublicProfile['parkingType'],
+      facilities: formData.facilitiesCsv
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+      pricing
+    };
+
     setIsSaving(true);
     setTimeout(() => {
       onSave({
         name: formData.name.trim(),
+        publicProfile,
         address: {
           line1: formData.line1.trim(),
           line2: formData.line2.trim(),
@@ -483,6 +544,126 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
                 />
               </div>
             </div>
+          </div>
+
+          {/* Section 5: Public listing & session pricing (driver app) */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-white font-semibold border-b border-[#30363d] pb-2">
+              <Globe className="w-4 h-4 text-[#f778ba]" />
+              <h3>{t('Driver App Listing & Pricing')}</h3>
+            </div>
+
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.listed}
+                onChange={(e) => {
+                  setFormData((prev) => ({ ...prev, listed: e.target.checked }));
+                  setIsDirty(true);
+                }}
+                className="mt-0.5 accent-[#58a6ff]"
+              />
+              <span>
+                <span className="block text-[11px] font-medium text-[#c9d1d9]">
+                  {t('List this site in the driver app')}
+                </span>
+                <span className="block text-[10px] text-[#8b949e]">
+                  {t('When off, the site is hidden from discovery and membership plans cannot be requested.')}
+                </span>
+              </span>
+            </label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-[#8b949e]">{t('Parking Type')}</label>
+                <select
+                  value={formData.parkingType}
+                  onChange={(e) => handleChange('parkingType', e.target.value)}
+                  className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs focus:outline-hidden cursor-pointer"
+                >
+                  <option value="">{t('Not specified')}</option>
+                  <option value="indoor">{t('Indoor')}</option>
+                  <option value="outdoor">{t('Outdoor')}</option>
+                  <option value="covered">{t('Covered')}</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-[#8b949e]">{t('Listing image URL')}</label>
+                <input
+                  type="text"
+                  value={formData.imageUrl}
+                  onChange={(e) => handleChange('imageUrl', e.target.value)}
+                  placeholder="https://..."
+                  className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-[#8b949e]">{t('Public description (shown in app)')}</label>
+              <textarea
+                rows={2}
+                value={formData.publicDescription}
+                onChange={(e) => handleChange('publicDescription', e.target.value)}
+                placeholder={t('Short public description shown to drivers...')}
+                className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden resize-none"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-[#8b949e]">{t('Facilities (comma-separated)')}</label>
+              <input
+                type="text"
+                value={formData.facilitiesCsv}
+                onChange={(e) => handleChange('facilitiesCsv', e.target.value)}
+                placeholder="CCTV, Security, EV Charging, 24/7"
+                className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-[#c9d1d9]">{t('Hourly rate (VND)')}</label>
+                <input type="number" min="0" value={formData.hourlyFrom} onChange={(e) => handleChange('hourlyFrom', e.target.value)} placeholder="20000" className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden font-mono" />
+                <p className="text-[10px] text-[#8b949e]">{t('Empty = fee not estimated')}</p>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-[#8b949e]">{t('Daily cap (VND)')}</label>
+                <input type="number" min="0" value={formData.dailyFrom} onChange={(e) => handleChange('dailyFrom', e.target.value)} placeholder="100000" className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden font-mono" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-[#8b949e]">{t('Overnight fee (VND)')}</label>
+                <input type="number" min="0" value={formData.overnightFrom} onChange={(e) => handleChange('overnightFrom', e.target.value)} placeholder="80000" className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden font-mono" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-[#8b949e]">{t('Monthly from (VND)')}</label>
+                <input type="number" min="0" value={formData.monthlyFrom} onChange={(e) => handleChange('monthlyFrom', e.target.value)} placeholder="1500000" className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden font-mono" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-[#8b949e]">{t('Free grace (min)')}</label>
+                <input type="number" min="0" value={formData.graceMinutes} onChange={(e) => handleChange('graceMinutes', e.target.value)} placeholder="0" className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden font-mono" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-[#8b949e]">{t('Billing block (min)')}</label>
+                <input type="number" min="5" value={formData.blockMinutes} onChange={(e) => handleChange('blockMinutes', e.target.value)} placeholder="60" className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden font-mono" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-[#8b949e]">{t('Overnight from (hour)')}</label>
+                <input type="number" min="0" max="23" value={formData.overnightStartHour} onChange={(e) => handleChange('overnightStartHour', e.target.value)} placeholder="22" className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden font-mono" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-[#8b949e]">{t('Overnight to (hour)')}</label>
+                <input type="number" min="0" max="23" value={formData.overnightEndHour} onChange={(e) => handleChange('overnightEndHour', e.target.value)} placeholder="6" className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden font-mono" />
+              </div>
+            </div>
+
+            <p className="text-[10px] text-[#8b949e]">
+              {t('Session fees in the driver app are estimates computed from these rules; the cashier confirms the final amount at exit.')}
+            </p>
           </div>
         </form>
 
