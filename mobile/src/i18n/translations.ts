@@ -228,7 +228,21 @@ export const translations = {
     notLocatedYet: "Vehicle not located inside this site yet — indoor positioning depends on camera coverage.",
     locatingVehicle: "Locating vehicle...",
     parkedSince: "Parked since",
-    loading: "Loading..."
+    loading: "Loading...",
+    realtimeCapacity: "Realtime Capacity",
+    availableTotal: "spots free",
+    overview: "Overview",
+    floorSpots: "Floors & Zones",
+    reviews: "Reviews",
+    pricingTariff: "Pricing & Tariff",
+    hourlyRateLabel: "Hourly Rate",
+    overnightFeeLabel: "Overnight",
+    monthlyPassLabel: "Monthly Pass",
+    aboutFacility: "About this facility",
+    operatingHours: "Hours",
+    contactDesk: "Contact",
+    availableFacilities: "Facilities",
+    navigateHere: "Navigate"
   },
   vi: {
     // Header
@@ -457,6 +471,20 @@ export const translations = {
     notLocatedYet: "Chưa định vị được xe trong bãi — phụ thuộc vào vùng phủ camera.",
     locatingVehicle: "Đang định vị xe...",
     parkedSince: "Đỗ từ",
-    loading: "Đang tải..."
+    loading: "Đang tải...",
+    realtimeCapacity: "Sức chứa trực tiếp",
+    availableTotal: "chỗ trống",
+    overview: "Tổng quan",
+    floorSpots: "Tầng & Khu vực",
+    reviews: "Đánh giá",
+    pricingTariff: "Bảng giá",
+    hourlyRateLabel: "Giá theo giờ",
+    overnightFeeLabel: "Qua đêm",
+    monthlyPassLabel: "Vé tháng",
+    aboutFacility: "Giới thiệu bãi xe",
+    operatingHours: "Giờ mở cửa",
+    contactDesk: "Liên hệ",
+    availableFacilities: "Tiện ích",
+    navigateHere: "Dẫn đường"
   }
 };
