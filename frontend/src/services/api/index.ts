@@ -292,7 +292,7 @@ export const authApi = {
 
 // ---------- Public ----------
 export const publicApi = {
-  plans: () => api.get<PlanOut[]>('/plans'),
+  plans: () => api.get<Page<PlanOut>>('/plans').then((r) => r.data),
   legal: (doc: 'terms' | 'privacy' | 'dpa' | 'sla') => api.get<LegalDocOut>(`/legal/${doc}`),
   checkCode: (slug: string) => api.get<S['CheckCodeOut']>(`/tenants/check-code${qs({ slug })}`),
   register: (body: {
