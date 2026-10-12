@@ -117,3 +117,37 @@ class DriverSessionOut(CamelModel):
     confidence: float | None = None
     level_name: str | None = None
     zone_name: str | None = None
+
+
+# ---------- memberships ----------
+
+
+class PublicPlanOut(CamelModel):
+    id: uuid.UUID
+    name: str
+    description: str | None
+    price_vnd: int
+    duration_days: int
+    perks: list[str]
+    badge: str | None
+
+
+class DriverMembershipIn(CamelModel):
+    plan_id: uuid.UUID
+    vehicle_id: uuid.UUID
+
+
+MembershipStatus = Literal["pending", "active", "rejected", "cancelled", "expired", "revoked"]
+
+
+class DriverMembershipOut(CamelModel):
+    id: uuid.UUID
+    plan: PublicPlanOut
+    site_id: uuid.UUID
+    site_name: str
+    tenant_slug: str
+    plate_number: str
+    status: MembershipStatus
+    starts_at: datetime | None
+    ends_at: datetime | None
+    created_at: datetime

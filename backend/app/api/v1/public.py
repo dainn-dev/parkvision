@@ -23,7 +23,7 @@ from app.models import (
 )
 from app.schemas.auth import RegisterTenantIn, RegisterTenantOut
 from app.schemas.common import Page, paginate
-from app.schemas.driver import PublicSiteDetailOut, PublicSiteOut
+from app.schemas.driver import PublicPlanOut, PublicSiteDetailOut, PublicSiteOut
 from app.schemas.resources import (
     CheckCodeOut,
     LegalDocOut,
@@ -33,7 +33,7 @@ from app.schemas.resources import (
     PublicMapZoneOut,
 )
 from app.security import hash_password
-from app.services import driver_service, public_site_service
+from app.services import driver_service, membership_service, public_site_service
 from app.services.parking_service import locate_presence
 from app.services.storage import presign_download
 
@@ -267,6 +267,18 @@ async def public_site_detail(
         base = (await public_site_service.sites_by_ids(db, [site.id], fav_ids))[0]
         levels = await _levels_with_occupancy(db, tenant.id, site.id)
         return PublicSiteDetailOut(**base.model_dump(), levels=levels)
+
+
+@router.get(
+    "/public/sites/{site_id}/plans",
+    response_model=list[PublicPlanOut],
+    dependencies=[Depends(rate_limited("public-sites", 120, 60))],
+)
+async def public_site_plans(site_id: uuid.UUID) -> list[PublicPlanOut]:
+    """Active membership plans of a listed site (404 unless listed)."""
+    async with platform_session() as db:
+        plans = await membership_service.list_public_plans(db, site_id)
+        return [PublicPlanOut(**p) for p in plans]
 
 
 @router.get(

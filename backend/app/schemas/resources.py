@@ -1205,3 +1205,67 @@ class MqttAuthIn(CamelModel):
 
 class MqttAuthOut(CamelModel):
     result: str  # "allow" | "deny"
+
+
+# ---------- driver memberships (tenant admin view) ----------
+
+MembershipPlanStatus = Literal["active", "inactive"]
+
+
+class MembershipPlanIn(CamelModel):
+    name: str = Field(min_length=2, max_length=120)
+    description: str | None = Field(None, max_length=500)
+    price_vnd: int = Field(ge=0)
+    duration_days: int = Field(ge=1, le=3650)
+    perks: list[str] = []
+    badge: str | None = Field(None, max_length=60)
+    status: MembershipPlanStatus = "active"
+
+
+class MembershipPlanUpdateIn(CamelModel):
+    name: str | None = Field(None, min_length=2, max_length=120)
+    description: str | None = Field(None, max_length=500)
+    price_vnd: int | None = Field(None, ge=0)
+    duration_days: int | None = Field(None, ge=1, le=3650)
+    perks: list[str] | None = None
+    badge: str | None = Field(None, max_length=60)
+    status: MembershipPlanStatus | None = None
+
+
+class MembershipPlanOut(CamelModel):
+    id: uuid.UUID
+    site_id: uuid.UUID
+    name: str
+    description: str | None
+    price_vnd: int
+    duration_days: int
+    perks: list[str]
+    badge: str | None
+    status: str
+    created_at: datetime
+
+
+MembershipStatus = Literal["pending", "active", "rejected", "cancelled", "expired", "revoked"]
+
+
+class TenantMembershipOut(CamelModel):
+    """Admin view of a driver's membership request."""
+
+    id: uuid.UUID
+    driver_id: uuid.UUID
+    driver_name: str
+    driver_email: str
+    plate_number: str
+    plan_id: uuid.UUID
+    plan_name: str
+    site_id: uuid.UUID
+    site_name: str
+    status: str
+    starts_at: datetime | None
+    ends_at: datetime | None
+    admin_note: str | None
+    created_at: datetime
+
+
+class MembershipActionIn(CamelModel):
+    admin_note: str | None = Field(None, max_length=300)

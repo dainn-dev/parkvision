@@ -604,6 +604,75 @@ class DriverFavorite(Base):
     )
 
 
+class SiteMembershipPlan(TimestampMixin, Base):
+    """Tenant-managed monthly-pass plan for a site. Driver purchases land as
+    `driver_memberships` (pending until a tenant activates)."""
+
+    __tablename__ = "site_membership_plans"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    site_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenant_sites.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(500))
+    price_vnd: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    duration_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    perks: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    badge: Mapped[str | None] = mapped_column(String(60))
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+
+    __table_args__ = (
+        Index("ix_membership_plans_site", "site_id"),
+        Index("ix_membership_plans_tenant", "tenant_id"),
+    )
+
+
+class DriverMembership(TimestampMixin, Base):
+    """Driver membership request → (tenant activate) → whitelist vehicle.
+
+    pending → active | rejected | cancelled
+    active  → expired | revoked | cancelled
+    """
+
+    __tablename__ = "driver_memberships"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    driver_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("driver_users.id", ondelete="CASCADE"), nullable=False
+    )
+    plan_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("site_membership_plans.id"), nullable=False
+    )
+    site_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenant_sites.id", ondelete="CASCADE"), nullable=False
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    driver_vehicle_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("driver_vehicles.id", ondelete="SET NULL")
+    )
+    plate_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    plate_normalized: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    registered_vehicle_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("registered_vehicles.id", ondelete="SET NULL")
+    )
+    admin_note: Mapped[str | None] = mapped_column(String(300))
+
+    __table_args__ = (
+        Index("ix_driver_memberships_driver", "driver_id"),
+        Index("ix_driver_memberships_tenant", "tenant_id"),
+        Index("ix_driver_memberships_status", "status"),
+    )
+
+
 class TenantAccessRule(TimestampMixin, Base):
     __tablename__ = "tenant_access_rules"
 
