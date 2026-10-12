@@ -105,6 +105,21 @@ export async function api<T>(
   return body as T;
 }
 
+/** WS URL for /ws/driver/sessions, derived from BASE_URL's origin. */
+export function driverSessionsWsUrl(): string {
+  const { access } = tokenStore.get();
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  let base: URL;
+  try {
+    const http = new URL(BASE_URL, window.location.origin);
+    base = new URL(`${proto}//${http.host}/ws/driver/sessions`);
+  } catch {
+    base = new URL(`${proto}//${window.location.host}/ws/driver/sessions`);
+  }
+  if (access) base.searchParams.set("token", access);
+  return base.toString();
+}
+
 export const onLogout = (fn: () => void): (() => void) => {
   const handler = () => fn();
   window.addEventListener("pv:logout", handler);

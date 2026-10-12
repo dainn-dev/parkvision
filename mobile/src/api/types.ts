@@ -126,24 +126,41 @@ export interface DriverSessionOut {
   feeVnd: number | null;
 }
 
-export type PaymentStatus = 'created' | 'paid' | 'failed' | 'cancelled' | 'expired';
+export type PaymentStatus = 'created' | 'paid' | 'failed' | 'cancelled' | 'expired' | 'refunded';
 
 export interface DriverPaymentOut {
   id: string;
-  kind: 'membership' | 'session';
+  kind: 'membership' | 'session' | 'topup';
   membershipId: string | null;
   sessionId: string | null;
-  siteId: string;
+  siteId: string | null;
   siteName: string | null;
   plateNumber: string | null;
   amountVnd: number;
   currency: string;
   provider: string;
+  method: 'momo' | 'wallet' | string;
   status: PaymentStatus;
   payUrl: string | null;
   paidAt: string | null;
+  refundedAt: string | null;
   expiresAt: string | null;
   createdAt: string;
+}
+
+export interface WalletTransactionOut {
+  id: string;
+  kind: 'topup_credit' | 'spend_debit' | 'refund_credit' | 'refund_debit' | string;
+  amountVnd: number;
+  balanceAfterVnd: number;
+  paymentId: string | null;
+  note: string;
+  createdAt: string;
+}
+
+export interface WalletOut {
+  balanceVnd: number;
+  transactions: WalletTransactionOut[];
 }
 
 export interface PublicPlanOut {

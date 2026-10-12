@@ -5,7 +5,9 @@ import {
   DriverPayment,
   DriverProfile,
   DriverVehicle,
+  DriverWallet,
   ParkingHistoryItem,
+  PaymentMethod,
 } from '../types';
 import {
   AuthSessionOut,
@@ -16,6 +18,7 @@ import {
   DriverTokenOut,
   DriverVehicleOut,
   Page,
+  WalletOut,
 } from './types';
 
 // ---------- auth ----------
@@ -253,6 +256,11 @@ function mapPayment(p: DriverPaymentOut): DriverPayment {
   return { ...p };
 }
 
+export type PaymentCreateBody =
+  | { kind: 'membership'; membershipId: string; method?: PaymentMethod }
+  | { kind: 'session'; sessionId: string; method?: PaymentMethod }
+  | { kind: 'topup'; amountVnd: number };
+
 export const payments = {
   async list(): Promise<DriverPayment[]> {
     const rows = await api<DriverPaymentOut[]>('/driver/payments');
@@ -261,9 +269,7 @@ export const payments = {
   async get(id: string): Promise<DriverPayment> {
     return mapPayment(await api<DriverPaymentOut>(`/driver/payments/${id}`));
   },
-  async create(
-    body: { kind: 'membership'; membershipId: string } | { kind: 'session'; sessionId: string }
-  ): Promise<DriverPayment> {
+  async create(body: PaymentCreateBody): Promise<DriverPayment> {
     return mapPayment(
       await api<DriverPaymentOut>('/driver/payments', {
         method: 'POST',
@@ -275,5 +281,12 @@ export const payments = {
     return mapPayment(
       await api<DriverPaymentOut>(`/driver/payments/${id}/cancel`, { method: 'POST' })
     );
+  },
+};
+
+export const wallet = {
+  async get(): Promise<DriverWallet> {
+    const w = await api<WalletOut>('/driver/wallet');
+    return { balanceVnd: w.balanceVnd, transactions: w.transactions };
   },
 };

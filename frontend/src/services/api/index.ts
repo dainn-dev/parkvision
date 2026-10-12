@@ -226,6 +226,27 @@ export interface TenantMembershipOut {
   createdAt: string;
 }
 
+export interface TenantPaymentOut {
+  id: string;
+  driverId: string;
+  driverName: string;
+  driverEmail: string;
+  kind: 'membership' | 'session' | 'topup' | string;
+  membershipId: string | null;
+  sessionId: string | null;
+  siteId: string | null;
+  siteName: string | null;
+  plateNumber: string | null;
+  amountVnd: number;
+  currency: string;
+  provider: string;
+  method: 'momo' | 'wallet' | string;
+  status: 'created' | 'paid' | 'failed' | 'cancelled' | 'expired' | 'refunded' | string;
+  paidAt: string | null;
+  refundedAt: string | null;
+  createdAt: string;
+}
+
 const qs = (params: Record<string, string | number | boolean | undefined | null>) => {
   const q = Object.entries(params)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
@@ -541,6 +562,11 @@ export const tenantApi = {
     api.post<TenantMembershipOut>(T(t, `/memberships/${id}/reject`), { adminNote }),
   revokeMembership: (t: string, id: string, adminNote?: string) =>
     api.post<TenantMembershipOut>(T(t, `/memberships/${id}/revoke`), { adminNote }),
+
+  payments: (t: string, p: { page?: number; limit?: number; status?: string; kind?: string; siteId?: string } = {}) =>
+    api.get<Page<TenantPaymentOut>>(T(t, `/payments${qs({ page: p.page, limit: p.limit, status: p.status, kind: p.kind, site_id: p.siteId })}`)),
+  refundPayment: (t: string, id: string) =>
+    api.post<TenantPaymentOut>(T(t, `/payments/${id}/refund`), {}),
 };
 
 // ---------- WebSocket ----------

@@ -1,23 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { payments as paymentsApi } from '../api/driver';
-import { DriverPayment } from '../types';
+import { payments as paymentsApi, wallet as walletApi, PaymentCreateBody } from '../api/driver';
+import { DriverPayment, DriverWallet, PaymentMethod } from '../types';
 
 const POLL_MS = 4000;
 const POLL_TIMEOUT_MS = 120000;
 
-/** Payments list + create/cancel. `payAndWatch` creates a payment, opens
- * the provider's payUrl in a new tab, and polls the status endpoint until
- * the payment reaches a terminal state (the backend refreshes from the
- * gateway's query API, so sandbox works without a public IPN URL). */
+/** Payments list + create/cancel + driver wallet. `payAndWatch` creates a
+ * payment, opens the provider's payUrl in a new tab (momo) or settles
+ * instantly (wallet), and polls the status endpoint until the payment
+ * reaches a terminal state. */
 export function usePayments(enabled: boolean) {
   const [payments, setPayments] = useState<DriverPayment[]>([]);
+  const [wallet, setWallet] = useState<DriverWallet | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refetch = useCallback(async () => {
     try {
-      setPayments(await paymentsApi.list());
+      const [p, w] = await Promise.all([paymentsApi.list(), walletApi.get()]);
+      setPayments(p);
+      setWallet(w);
     } finally {
       setLoading(false);
     }
@@ -26,6 +29,7 @@ export function usePayments(enabled: boolean) {
   useEffect(() => {
     if (!enabled) {
       setPayments([]);
+      setWallet(null);
       setLoading(false);
       return;
     }
@@ -64,22 +68,27 @@ export function usePayments(enabled: boolean) {
     [refetch]
   );
 
-  /** Create + open payUrl + watch. Resolves the created payment; throws
-   * ApiError('payments_not_configured') when the deployment has no
+  /** Create + open payUrl (momo) or settle instantly (wallet) + watch.
+   * Throws ApiError('payments_not_configured') when the deployment has no
    * gateway — callers should render the honest coming-soon state. */
   const payAndWatch = useCallback(
     async (
-      body: { kind: 'membership'; membershipId: string } | { kind: 'session'; sessionId: string },
+      body: PaymentCreateBody,
       onDone?: (p: DriverPayment) => void
     ): Promise<DriverPayment> => {
       const p = await paymentsApi.create(body);
       setPayments((prev) => [p, ...prev]);
       if (p.payUrl) window.open(p.payUrl, '_blank', 'noopener');
-      setBusyId(p.id);
-      watchUntilTerminal(p.id, onDone);
+      if (p.status === 'created') {
+        setBusyId(p.id);
+        watchUntilTerminal(p.id, onDone);
+      } else {
+        await refetch();
+        onDone?.(p);
+      }
       return p;
     },
-    [watchUntilTerminal]
+    [watchUntilTerminal, refetch]
   );
 
   const cancel = useCallback(
@@ -88,6 +97,12 @@ export function usePayments(enabled: boolean) {
       await refetch();
     },
     [refetch]
+  );
+
+  const canAfford = useCallback(
+    (amountVnd: number, method: PaymentMethod) =>
+      method === 'momo' || (wallet?.balanceVnd ?? 0) >= amountVnd,
+    [wallet]
   );
 
   const hasPaymentFor = useCallback(
@@ -100,5 +115,5 @@ export function usePayments(enabled: boolean) {
     [payments]
   );
 
-  return { payments, loading, busyId, refetch, payAndWatch, cancel, hasPaymentFor };
+  return { payments, wallet, loading, busyId, refetch, payAndWatch, cancel, hasPaymentFor, canAfford };
 }

@@ -259,7 +259,17 @@ export const translations = {
     payPaid: "Paid",
     payFailed: "Failed",
     payCancelled: "Cancelled",
-    payExpired: "Expired"
+    payExpired: "Expired",
+    payRefunded: "Refunded",
+    walletBalance: "Wallet balance",
+    topUp: "Top up",
+    payWithWallet: "Wallet",
+    insufficientBalance: "Insufficient wallet balance",
+    topUpPayment: "Wallet top-up",
+    txnTopup: "Top-up",
+    txnSpend: "Payment",
+    txnRefundCredit: "Refund",
+    txnRefundDebit: "Top-up refund"
   },
   vi: {
     // Header
@@ -519,6 +529,16 @@ export const translations = {
     payPaid: "Đã thanh toán",
     payFailed: "Thất bại",
     payCancelled: "Đã hủy",
-    payExpired: "Hết hạn"
+    payExpired: "Hết hạn",
+    payRefunded: "Đã hoàn",
+    walletBalance: "Số dư ví",
+    topUp: "Nạp tiền",
+    payWithWallet: "Ví",
+    insufficientBalance: "Số dư ví không đủ",
+    topUpPayment: "Nạp ví",
+    txnTopup: "Nạp ví",
+    txnSpend: "Thanh toán",
+    txnRefundCredit: "Hoàn tiền",
+    txnRefundDebit: "Hoàn tiền nạp ví"
   }
 };

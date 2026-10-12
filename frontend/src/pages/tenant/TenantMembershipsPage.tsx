@@ -15,11 +15,12 @@ import {
   MembershipPlanIn,
   MembershipPlanOut,
   TenantMembershipOut,
+  TenantPaymentOut,
   tenantApi
 } from '../../services/api';
 import { useTranslation } from 'react-i18next';
 
-type Tab = 'requests' | 'plans';
+type Tab = 'requests' | 'plans' | 'payments';
 type ActionKind = 'activate' | 'reject' | 'revoke';
 
 const MEMBERSHIP_STATUS_VARIANT: Record<TenantMembershipOut['status'], 'emerald' | 'amber' | 'red' | 'slate'> = {
@@ -29,6 +30,15 @@ const MEMBERSHIP_STATUS_VARIANT: Record<TenantMembershipOut['status'], 'emerald'
   cancelled: 'slate',
   expired: 'slate',
   revoked: 'red'
+};
+
+const PAYMENT_STATUS_VARIANT: Record<string, 'emerald' | 'amber' | 'red' | 'slate' | 'blue'> = {
+  created: 'amber',
+  paid: 'emerald',
+  failed: 'red',
+  cancelled: 'slate',
+  expired: 'slate',
+  refunded: 'blue'
 };
 
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '—');
@@ -64,6 +74,16 @@ export const TenantMembershipsPage: React.FC = () => {
     status: 'active'
   });
   const [perksText, setPerksText] = useState('');
+
+  // ---------- payments state ----------
+  const [payments, setPayments] = useState<TenantPaymentOut[]>([]);
+  const [payTotal, setPayTotal] = useState(0);
+  const [payPage, setPayPage] = useState(1);
+  const [payStatus, setPayStatus] = useState('');
+  const [paySiteId, setPaySiteId] = useState('');
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [refundRow, setRefundRow] = useState<TenantPaymentOut | null>(null);
+  const [refunding, setRefunding] = useState(false);
 
   const pendingCount = useMemo(
     () => memberships.filter((m) => m.status === 'pending').length,
@@ -111,6 +131,51 @@ export const TenantMembershipsPage: React.FC = () => {
   useEffect(() => {
     if (tab === 'plans') void loadPlans();
   }, [tab, loadPlans]);
+
+  const loadPayments = useCallback(async () => {
+    if (!activeTenantId) return;
+    setLoadingPayments(true);
+    try {
+      const res = await tenantApi.payments(activeTenantId, {
+        page: payPage,
+        limit: 20,
+        status: payStatus || undefined,
+        siteId: paySiteId || undefined
+      });
+      setPayments(res.data);
+      setPayTotal(res.meta.total);
+    } catch {
+      addToast({ type: 'error', title: t('Failed to load payments') });
+    } finally {
+      setLoadingPayments(false);
+    }
+  }, [activeTenantId, payPage, payStatus, paySiteId, addToast, t]);
+
+  useEffect(() => {
+    if (tab === 'payments') void loadPayments();
+  }, [tab, loadPayments]);
+
+  const runRefund = async () => {
+    if (!refundRow || !activeTenantId) return;
+    setRefunding(true);
+    try {
+      await tenantApi.refundPayment(activeTenantId, refundRow.id);
+      addToast({
+        type: 'success',
+        title: t('Payment refunded'),
+        description: t('{{amount}} returned via {{method}}', {
+          amount: fmtVnd(refundRow.amountVnd),
+          method: refundRow.method
+        })
+      });
+      setRefundRow(null);
+      await loadPayments();
+    } catch (e) {
+      addToast({ type: 'error', title: t('Refund failed'), description: e instanceof Error ? e.message : undefined });
+    } finally {
+      setRefunding(false);
+    }
+  };
 
   const runAction = async () => {
     if (!action || !activeTenantId) return;
@@ -224,7 +289,7 @@ export const TenantMembershipsPage: React.FC = () => {
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-xl bg-[#161b22] border border-[#30363d] w-fit">
-        {(['requests', 'plans'] as Tab[]).map((k) => (
+        {(['requests', 'plans', 'payments'] as Tab[]).map((k) => (
           <button
             key={k}
             onClick={() => setTab(k)}
@@ -232,7 +297,7 @@ export const TenantMembershipsPage: React.FC = () => {
               tab === k ? 'bg-[#388bfd] text-slate-950' : 'text-[#8b949e] hover:text-white'
             }`}
           >
-            {k === 'requests' ? t('Requests') : t('Plans')}
+            {k === 'requests' ? t('Requests') : k === 'plans' ? t('Plans') : t('Payments')}
           </button>
         ))}
       </div>
@@ -461,6 +526,122 @@ export const TenantMembershipsPage: React.FC = () => {
         </>
       )}
 
+      {tab === 'payments' && (
+        <>
+          {/* Filters */}
+          <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center gap-2 flex-wrap text-xs">
+            <select
+              value={payStatus}
+              onChange={(e) => { setPayStatus(e.target.value); setPayPage(1); }}
+              className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
+            >
+              <option value="">{t('Status: All')}</option>
+              {['created', 'paid', 'refunded', 'failed', 'cancelled', 'expired'].map((s) => (
+                <option key={s} value={s}>{t(s)}</option>
+              ))}
+            </select>
+            <select
+              value={paySiteId}
+              onChange={(e) => { setPaySiteId(e.target.value); setPayPage(1); }}
+              className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
+            >
+              <option value="">{t('Site: All')}</option>
+              {siteOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <p className="text-[11px] text-[#8b949e] ml-auto">
+              {t('Refunding a paid membership payment revokes the membership and suspends gate access.')}
+            </p>
+          </div>
+
+          {/* Table */}
+          <div className="rounded-2xl bg-[#161b22] border border-[#30363d] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px]">
+                  <tr>
+                    <th className="py-3 px-4">{t('Driver')}</th>
+                    <th className="py-3 px-4">{t('Kind')}</th>
+                    <th className="py-3 px-4">{t('Plate')}</th>
+                    <th className="py-3 px-4">{t('Site')}</th>
+                    <th className="py-3 px-4">{t('Amount')}</th>
+                    <th className="py-3 px-4">{t('Method')}</th>
+                    <th className="py-3 px-4">{t('Status')}</th>
+                    <th className="py-3 px-4">{t('Date')}</th>
+                    <th className="py-3 px-4 text-right">{t('Actions')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#30363d]/60 font-medium">
+                  {loadingPayments ? (
+                    <tr>
+                      <td colSpan={9} className="py-12 text-center text-[#8b949e]">{t('Loading…')}</td>
+                    </tr>
+                  ) : payments.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-12 text-center text-[#8b949e]">
+                        <CreditCard className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/50" />
+                        <p className="font-semibold text-white">{t('No payments yet')}</p>
+                        <p className="text-xs mt-1">{t('Driver membership and parking payments appear here.')}</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    payments.map((p) => (
+                      <tr key={p.id} className="hover:bg-[#21262d]/60 transition-colors">
+                        <td className="py-3.5 px-4">
+                          <div className="font-semibold text-white">{p.driverName}</div>
+                          <div className="text-[11px] text-[#8b949e]">{p.driverEmail}</div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <Badge variant="blue">{t(p.kind)}</Badge>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {p.plateNumber ? (
+                            <span className="font-mono font-bold text-white px-2.5 py-1 rounded bg-[#0d0e12] border border-[#30363d] text-xs tracking-wider">
+                              {p.plateNumber}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="py-3.5 px-4 text-[#8b949e]">{p.siteName ?? '—'}</td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-[#3fb950]">{fmtVnd(p.amountVnd)}</td>
+                        <td className="py-3.5 px-4 text-[#8b949e] uppercase text-[10px] font-bold">{p.method}</td>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <Badge variant={PAYMENT_STATUS_VARIANT[p.status] ?? 'slate'}>{t(p.status)}</Badge>
+                        </td>
+                        <td className="py-3.5 px-4 text-[#8b949e] whitespace-nowrap">{fmtDate(p.paidAt ?? p.createdAt)}</td>
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          {p.status === 'paid' && p.kind !== 'topup' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setRefundRow(p)}
+                              className="text-[11px] h-7 border-[#30363d] text-[#f85149]"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              {t('Refund')}
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-4 py-3 border-t border-[#30363d]">
+              <Pagination
+                currentPage={payPage}
+                totalPages={Math.max(1, Math.ceil(payTotal / 20))}
+                totalItems={payTotal}
+                pageSize={20}
+                onPageChange={setPayPage}
+                compact
+              />
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Action confirm modal */}
       <Modal
         isOpen={action !== null}
@@ -503,6 +684,45 @@ export const TenantMembershipsPage: React.FC = () => {
             placeholder={t('e.g. Paid at office, receipt #123')}
             className="bg-[#0d0e12] border-[#30363d]"
           />
+        </div>
+      </Modal>
+
+      {/* Refund confirm modal */}
+      <Modal
+        isOpen={refundRow !== null}
+        onClose={() => setRefundRow(null)}
+        title={t('Refund payment')}
+        subtitle={refundRow ? `${refundRow.driverName} — ${fmtVnd(refundRow.amountVnd)} · ${t(refundRow.kind)}` : undefined}
+        maxWidth="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setRefundRow(null)} className="border-[#30363d] text-[#c9d1d9]">
+              {t('Cancel')}
+            </Button>
+            <Button variant="danger" onClick={() => void runRefund()} isLoading={refunding}>
+              {t('Refund')}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-xs text-[#8b949e]">
+          {refundRow?.method === 'wallet' ? (
+            <p className="flex items-start gap-2">
+              <CreditCard className="w-4 h-4 text-[#58a6ff] shrink-0 mt-0.5" />
+              {t('The amount is credited back to the driver wallet immediately.')}
+            </p>
+          ) : (
+            <p className="flex items-start gap-2">
+              <CreditCard className="w-4 h-4 text-[#58a6ff] shrink-0 mt-0.5" />
+              {t('A refund request is sent to the payment provider (MoMo).')}
+            </p>
+          )}
+          {refundRow?.kind === 'membership' && (
+            <p className="flex items-start gap-2">
+              <XCircle className="w-4 h-4 text-[#f85149] shrink-0 mt-0.5" />
+              {t('The linked membership is revoked and its gate access suspended.')}
+            </p>
+          )}
         </div>
       </Modal>
 

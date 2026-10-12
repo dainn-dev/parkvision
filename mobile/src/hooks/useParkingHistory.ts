@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { sessions } from '../api/driver';
 import { ParkingHistoryItem } from '../types';
+import { useSessionHints } from './useSessionHints';
 
 const PAGE_SIZE = 20;
 
@@ -10,8 +11,7 @@ export function useParkingHistory(enabled = true) {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!enabled) return;
+  const refetch = useCallback(() => {
     setLoading(true);
     sessions
       .history(1, PAGE_SIZE)
@@ -22,7 +22,14 @@ export function useParkingHistory(enabled = true) {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [enabled]);
+  }, []);
+
+  useSessionHints(enabled, refetch);
+
+  useEffect(() => {
+    if (!enabled) return;
+    refetch();
+  }, [enabled, refetch]);
 
   const loadMore = useCallback(async () => {
     const nextPage = page + 1;

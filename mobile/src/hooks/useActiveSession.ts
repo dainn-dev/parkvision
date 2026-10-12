@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { sessions } from '../api/driver';
 import { ActiveParkingSession } from '../types';
+import { useSessionHints } from './useSessionHints';
 
 const POLL_MS = 20000;
 
@@ -18,6 +19,8 @@ export function useActiveSession(enabled: boolean) {
       setLoading(false);
     }
   }, []);
+
+  useSessionHints(enabled, refetch);
 
   useEffect(() => {
     if (!enabled) {
