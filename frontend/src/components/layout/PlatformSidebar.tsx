@@ -25,7 +25,8 @@ import {
   Camera,
   UserPlus,
   ArrowLeftRight,
-  MapPinned
+  MapPinned,
+  BadgeCheck
 } from 'lucide-react';
 import { PrimaryTab, PlatformSubTab, MonitoringSubTab, SecuritySubTab } from '../../types/platform';
 import { TenantNavTab } from '../../types/tenant';
@@ -179,6 +180,19 @@ export const PlatformSidebar: React.FC = () => {
               >
                 <ShieldCheck className={`w-4 h-4 shrink-0 ${tenantNavTab === 'access_rules' || tenantNavTab === 'access-rules' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
                 <span>{t('Access Rules')}</span>
+              </button>
+
+              {/* Memberships */}
+              <button
+                onClick={() => setTenantNavTab('memberships')}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all cursor-pointer ${
+                  tenantNavTab === 'memberships'
+                    ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
+                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                }`}
+              >
+                <BadgeCheck className={`w-4 h-4 shrink-0 ${tenantNavTab === 'memberships' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+                <span>{t('Memberships')}</span>
               </button>
             </div>
 

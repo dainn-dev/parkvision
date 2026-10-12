@@ -236,6 +236,7 @@ export type TenantNavigationTab =
   | 'access-events'
   | 'access_events'
   | 'team'
+  | 'memberships'
   | 'reports'
   | 'audit-logs'
   | 'settings';

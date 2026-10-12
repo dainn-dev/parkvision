@@ -183,6 +183,47 @@ export interface PublicLocateOut {
   sinceAt?: string | null;
 }
 
+// ---------- Driver memberships (hand-written; schema.d.ts has no regen) ----------
+export interface MembershipPlanOut {
+  id: string;
+  siteId: string;
+  name: string;
+  description: string | null;
+  priceVnd: number;
+  durationDays: number;
+  perks: string[];
+  badge: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface MembershipPlanIn {
+  name: string;
+  description?: string | null;
+  priceVnd: number;
+  durationDays: number;
+  perks?: string[];
+  badge?: string | null;
+  status?: 'active' | 'inactive';
+}
+
+export interface TenantMembershipOut {
+  id: string;
+  driverId: string;
+  driverName: string;
+  driverEmail: string;
+  plateNumber: string;
+  planId: string;
+  planName: string;
+  siteId: string;
+  siteName: string;
+  status: 'pending' | 'active' | 'rejected' | 'cancelled' | 'expired' | 'revoked';
+  startsAt: string | null;
+  endsAt: string | null;
+  adminNote: string | null;
+  createdAt: string;
+}
+
 const qs = (params: Record<string, string | number | boolean | undefined | null>) => {
   const q = Object.entries(params)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
@@ -480,6 +521,22 @@ export const tenantApi = {
 
   dashboardSummary: (t: string) => api.get<S['DashboardSummaryOut']>(T(t, '/dashboard/summary')),
   hourlyFlow: (t: string, hours = 24) => api.get<S['HourlyFlowOut']>(T(t, `/dashboard/hourly-flow${qs({ hours })}`)),
+
+  membershipPlans: (t: string, siteId: string) =>
+    api.get<MembershipPlanOut[]>(T(t, `/sites/${siteId}/membership-plans`)),
+  createMembershipPlan: (t: string, siteId: string, body: MembershipPlanIn) =>
+    api.post<MembershipPlanOut>(T(t, `/sites/${siteId}/membership-plans`), body),
+  updateMembershipPlan: (t: string, planId: string, body: Partial<MembershipPlanIn>) =>
+    api.patch<MembershipPlanOut>(T(t, `/membership-plans/${planId}`), body),
+
+  memberships: (t: string, p: { page?: number; limit?: number; status?: string; siteId?: string } = {}) =>
+    api.get<Page<TenantMembershipOut>>(T(t, `/memberships${qs({ page: p.page, limit: p.limit, status: p.status, site_id: p.siteId })}`)),
+  activateMembership: (t: string, id: string, adminNote?: string) =>
+    api.post<TenantMembershipOut>(T(t, `/memberships/${id}/activate`), { adminNote }),
+  rejectMembership: (t: string, id: string, adminNote?: string) =>
+    api.post<TenantMembershipOut>(T(t, `/memberships/${id}/reject`), { adminNote }),
+  revokeMembership: (t: string, id: string, adminNote?: string) =>
+    api.post<TenantMembershipOut>(T(t, `/memberships/${id}/revoke`), { adminNote }),
 };
 
 // ---------- WebSocket ----------
