@@ -8,6 +8,7 @@ interface MembershipsScreenProps {
   memberships: DriverMembership[];
   loading: boolean;
   onCancel: (id: string) => Promise<void>;
+  onPay?: (membershipId: string) => Promise<void>;
   onOpenDiscover: () => void;
 }
 
@@ -29,10 +30,13 @@ export const MembershipsScreen: React.FC<MembershipsScreenProps> = ({
   memberships,
   loading,
   onCancel,
+  onPay,
   onOpenDiscover
 }) => {
   const { t } = useLanguage();
   const [cancelling, setCancelling] = React.useState<string | null>(null);
+  const [paying, setPaying] = React.useState<string | null>(null);
+  const [payError, setPayError] = React.useState<string | null>(null);
 
   const handleCancel = async (id: string) => {
     setCancelling(id);
@@ -40,6 +44,19 @@ export const MembershipsScreen: React.FC<MembershipsScreenProps> = ({
       await onCancel(id);
     } finally {
       setCancelling(null);
+    }
+  };
+
+  const handlePay = async (id: string) => {
+    if (!onPay) return;
+    setPaying(id);
+    setPayError(null);
+    try {
+      await onPay(id);
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : 'payment_failed');
+    } finally {
+      setPaying(null);
     }
   };
 
@@ -107,6 +124,12 @@ export const MembershipsScreen: React.FC<MembershipsScreenProps> = ({
                   </div>
                 </div>
 
+                {payError && (
+                  <div className="text-[11px] text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-2 py-1.5">
+                    {payError}
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between text-xs text-slate-400 border-t border-slate-800/80 pt-2">
                   {mem.status === 'pending' ? (
                     <span className="flex items-center gap-1 text-amber-300 font-medium">
@@ -121,16 +144,28 @@ export const MembershipsScreen: React.FC<MembershipsScreenProps> = ({
                   ) : (
                     <span className="text-slate-500">{t('requestedOn')}: {fmtDate(mem.createdAt)}</span>
                   )}
-                  {cancellable && (
-                    <button
-                      onClick={() => void handleCancel(mem.id)}
-                      disabled={cancelling === mem.id}
-                      className="flex items-center gap-1 text-rose-400 hover:text-rose-300 font-semibold disabled:opacity-50"
-                    >
-                      <XCircle className="w-3.5 h-3.5" />
-                      <span>{mem.status === 'pending' ? t('cancelRequest') : t('cancelMembership')}</span>
-                    </button>
-                  )}
+                  <span className="flex items-center gap-3">
+                    {mem.status === 'pending' && mem.plan.priceVnd > 0 && onPay && (
+                      <button
+                        onClick={() => void handlePay(mem.id)}
+                        disabled={paying === mem.id}
+                        className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-semibold disabled:opacity-50"
+                      >
+                        <CreditCard className="w-3.5 h-3.5" />
+                        <span>{paying === mem.id ? t('paymentProcessing') : t('payToActivate')}</span>
+                      </button>
+                    )}
+                    {cancellable && (
+                      <button
+                        onClick={() => void handleCancel(mem.id)}
+                        disabled={cancelling === mem.id}
+                        className="flex items-center gap-1 text-rose-400 hover:text-rose-300 font-semibold disabled:opacity-50"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>{mem.status === 'pending' ? t('cancelRequest') : t('cancelMembership')}</span>
+                      </button>
+                    )}
+                  </span>
                 </div>
               </div>
             );

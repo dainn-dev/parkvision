@@ -67,7 +67,7 @@ export interface ActiveParkingSession {
   zone?: string;
   entryTime: string; // ISO string
   durationSeconds: number;
-  currentFeeVnd: number | null; // null until pricing is supported (Phase 3)
+  currentFeeVnd: number | null; // server estimate from site pricing rules; null = not estimable
   status: 'PARKED' | 'COMPLETED';
   entrancePhotoUrl?: string;
   anprConfidence?: number;
@@ -90,6 +90,26 @@ export interface DriverVehicle {
   label?: string | null;
   vehicleType: 'car' | 'motorcycle';
   isPrimary: boolean;
+}
+
+export type PaymentStatus = 'created' | 'paid' | 'failed' | 'cancelled' | 'expired';
+
+export interface DriverPayment {
+  id: string;
+  kind: 'membership' | 'session';
+  membershipId: string | null;
+  sessionId: string | null;
+  siteId: string;
+  siteName: string | null;
+  plateNumber: string | null;
+  amountVnd: number;
+  currency: string;
+  provider: string;
+  status: PaymentStatus;
+  payUrl: string | null;
+  paidAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
 }
 
 export interface FilterState {

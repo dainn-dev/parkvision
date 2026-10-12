@@ -94,8 +94,11 @@ export const ActiveParkingCard: React.FC<ActiveParkingCardProps> = ({
               <span>{t('currentFee')}</span>
             </div>
             <div className="text-base font-extrabold text-emerald-400 font-mono">
-              {currentFee != null ? `${currentFee.toLocaleString()} đ` : '—'}
+              {currentFee != null ? `~${currentFee.toLocaleString()} đ` : '—'}
             </div>
+            {currentFee != null && (
+              <div className="text-[9px] text-slate-500">{t('estFee')}</div>
+            )}
           </div>
         </div>
 

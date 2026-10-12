@@ -12,6 +12,10 @@ export interface SitePricingOut {
   dailyFrom: number | null;
   overnightFrom: number | null;
   monthlyFrom: number | null;
+  graceMinutes: number;
+  blockMinutes: number;
+  overnightStartHour: number;
+  overnightEndHour: number;
 }
 
 export interface SiteProfileOut {
@@ -119,6 +123,27 @@ export interface DriverSessionOut {
   confidence: number | null;
   levelName: string | null;
   zoneName: string | null;
+  feeVnd: number | null;
+}
+
+export type PaymentStatus = 'created' | 'paid' | 'failed' | 'cancelled' | 'expired';
+
+export interface DriverPaymentOut {
+  id: string;
+  kind: 'membership' | 'session';
+  membershipId: string | null;
+  sessionId: string | null;
+  siteId: string;
+  siteName: string | null;
+  plateNumber: string | null;
+  amountVnd: number;
+  currency: string;
+  provider: string;
+  status: PaymentStatus;
+  payUrl: string | null;
+  paidAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
 }
 
 export interface PublicPlanOut {

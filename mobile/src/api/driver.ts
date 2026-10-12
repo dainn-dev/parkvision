@@ -2,6 +2,7 @@ import { api, tokenStore } from '../lib/api';
 import {
   ActiveParkingSession,
   DriverMembership,
+  DriverPayment,
   DriverProfile,
   DriverVehicle,
   ParkingHistoryItem,
@@ -10,6 +11,7 @@ import {
   AuthSessionOut,
   DriverMembershipOut,
   DriverOut,
+  DriverPaymentOut,
   DriverSessionOut,
   DriverTokenOut,
   DriverVehicleOut,
@@ -185,7 +187,7 @@ function mapSession(s: DriverSessionOut): ParkingHistoryItem {
     zone: s.zoneName ?? undefined,
     entryTime: s.enteredAt,
     durationSeconds: s.durationSeconds,
-    currentFeeVnd: null,
+    currentFeeVnd: s.feeVnd,
     status: s.status,
     entrancePhotoUrl: s.entryImageUrl ?? undefined,
     anprConfidence: s.confidence ?? undefined,
@@ -242,5 +244,36 @@ export const memberships = {
       method: 'POST',
     });
     return mapMembership(m);
+  },
+};
+
+// ---------- payments ----------
+
+function mapPayment(p: DriverPaymentOut): DriverPayment {
+  return { ...p };
+}
+
+export const payments = {
+  async list(): Promise<DriverPayment[]> {
+    const rows = await api<DriverPaymentOut[]>('/driver/payments');
+    return rows.map(mapPayment);
+  },
+  async get(id: string): Promise<DriverPayment> {
+    return mapPayment(await api<DriverPaymentOut>(`/driver/payments/${id}`));
+  },
+  async create(
+    body: { kind: 'membership'; membershipId: string } | { kind: 'session'; sessionId: string }
+  ): Promise<DriverPayment> {
+    return mapPayment(
+      await api<DriverPaymentOut>('/driver/payments', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+    );
+  },
+  async cancel(id: string): Promise<DriverPayment> {
+    return mapPayment(
+      await api<DriverPaymentOut>(`/driver/payments/${id}/cancel`, { method: 'POST' })
+    );
   },
 };

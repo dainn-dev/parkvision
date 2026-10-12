@@ -34,8 +34,15 @@ tokens in `localStorage`, refresh-once on 401). Guest mode is browse-only.
 
 Memberships are real: plans are published per-site by the tenant
 (`GET /api/v1/public/sites/{id}/plans`), drivers request via
-`POST /api/v1/driver/memberships`, and the tenant activates them (which
-whitelists the plate for ANPR entry). Wallets and in-app payments are not
-yet supported by the backend — those screens render honest "coming soon"
-states, and membership payment itself is handled offline by the operator
-before activation.
+`POST /api/v1/driver/memberships`, and activation whitelists the plate
+for ANPR entry.
+
+Payments (Phase 3) are real when the backend has a gateway configured
+(`payment_provider=momo` + MoMo credentials): session fees are estimated
+server-side from the site's pricing rules, `POST /api/v1/driver/payments`
+returns a hosted `payUrl`, and paid membership payments auto-activate
+while paid session payments let the exit gate release the vehicle once
+within a grace window. When no gateway is configured the API answers
+`503 payments_not_configured` and the app shows an honest
+pay-at-the-office notice. An in-app wallet/ledger does not exist — there
+is no wallet UI by design.

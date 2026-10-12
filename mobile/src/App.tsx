@@ -10,6 +10,7 @@ import { useSites } from './hooks/useSites';
 import { useActiveSession } from './hooks/useActiveSession';
 import { useFavorites } from './hooks/useFavorites';
 import { useMemberships } from './hooks/useMemberships';
+import { usePayments } from './hooks/usePayments';
 import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
 import { pushRecentSearch } from './lib/recentSearches';
 import { LogIn } from 'lucide-react';
@@ -79,6 +80,7 @@ function MainAppContent() {
   const { session: activeSession } = useActiveSession(isAuthed);
   const favorites = useFavorites(isAuthed);
   const membershipHook = useMemberships(isAuthed);
+  const paymentsHook = usePayments(isAuthed);
 
   // Modals & Navigation state
   const [activeTab, setActiveTab] = useState<'discover' | 'map' | 'parking' | 'memberships' | 'profile'>('discover');
@@ -341,6 +343,12 @@ function MainAppContent() {
               memberships={membershipHook.memberships}
               loading={membershipHook.loading}
               onCancel={membershipHook.cancel}
+              onPay={async (membershipId) => {
+                await paymentsHook.payAndWatch(
+                  { kind: 'membership', membershipId },
+                  () => void membershipHook.refetch()
+                );
+              }}
               onOpenDiscover={() => setActiveTab('discover')}
             />
           ) : (

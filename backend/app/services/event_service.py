@@ -180,6 +180,7 @@ async def decide_access(
     if (
         base_decision == AccessDecision.DENY
         and direction == EventDirection.EXIT
+        and site_id is not None
         and (vehicle is None or vehicle.tag != VehicleTag.BLACKLIST)
     ):
         paid_payment = await _paid_exit(db, tenant_id, normalized, site_id)

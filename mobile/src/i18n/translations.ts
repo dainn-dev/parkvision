@@ -242,7 +242,24 @@ export const translations = {
     operatingHours: "Hours",
     contactDesk: "Contact",
     availableFacilities: "Facilities",
-    navigateHere: "Navigate"
+    navigateHere: "Navigate",
+
+    // Payments
+    toPay: "To pay",
+    nothingToPay: "Nothing to pay right now.",
+    paymentHistory: "Payment history",
+    noPaymentsYet: "No payments yet.",
+    membershipPayment: "Membership",
+    parkingFeePayment: "Parking fee",
+    payNow: "Pay",
+    estFee: "Estimated fee — final amount is confirmed at exit",
+    payToActivate: "Pay to activate",
+    paymentProcessing: "Waiting for payment...",
+    payCreated: "Pending",
+    payPaid: "Paid",
+    payFailed: "Failed",
+    payCancelled: "Cancelled",
+    payExpired: "Expired"
   },
   vi: {
     // Header
@@ -485,6 +502,23 @@ export const translations = {
     operatingHours: "Giờ mở cửa",
     contactDesk: "Liên hệ",
     availableFacilities: "Tiện ích",
-    navigateHere: "Dẫn đường"
+    navigateHere: "Dẫn đường",
+
+    // Payments
+    toPay: "Cần thanh toán",
+    nothingToPay: "Hiện không có khoản nào cần thanh toán.",
+    paymentHistory: "Lịch sử thanh toán",
+    noPaymentsYet: "Chưa có giao dịch nào.",
+    membershipPayment: "Vé tháng",
+    parkingFeePayment: "Phí đỗ xe",
+    payNow: "Thanh toán",
+    estFee: "Phí ước tính — số tiền cuối xác nhận khi xe ra",
+    payToActivate: "Thanh toán để kích hoạt",
+    paymentProcessing: "Đang chờ thanh toán...",
+    payCreated: "Chờ thanh toán",
+    payPaid: "Đã thanh toán",
+    payFailed: "Thất bại",
+    payCancelled: "Đã hủy",
+    payExpired: "Hết hạn"
   }
 };

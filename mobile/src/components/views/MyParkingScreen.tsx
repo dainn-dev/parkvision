@@ -111,8 +111,10 @@ export const MyParkingScreen: React.FC<MyParkingScreenProps> = ({
                   </div>
 
                   <div className="text-right flex-shrink-0">
-                    {/* Parking fee is not computed by the backend yet — render an honest dash */}
-                    <div className="text-sm font-extrabold text-slate-500 font-mono">—</div>
+                    {/* Server-estimated fee from the site's pricing rules; — when not estimable */}
+                    <div className={`text-sm font-extrabold font-mono ${item.currentFeeVnd != null ? 'text-emerald-400' : 'text-slate-500'}`}>
+                      {item.currentFeeVnd != null ? `~${item.currentFeeVnd.toLocaleString()} đ` : '—'}
+                    </div>
                     <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-semibold mt-1">
                       <CheckCircle2 className="w-2.5 h-2.5" />
                       <span>{item.status === 'COMPLETED' ? t('completed') : item.status}</span>
