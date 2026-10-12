@@ -13,7 +13,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.config import settings
 from app.core.enums import ActorType
-from app.redis_client import get_redis, ws_channel
+from app.redis_client import driver_plate_channel, get_redis, ws_channel
 from app.security import decode_access_token
 from app.services.auth_service import validate_session_state
 
@@ -79,4 +79,86 @@ async def barrier_telemetry(ws: WebSocket, tenant_id: uuid.UUID) -> None:
         fwd.cancel()
         hb.cancel()
         await pubsub.unsubscribe(ws_channel(tenant_id))
+        await pubsub.close()
+
+
+async def _driver_ws_auth(ws: WebSocket) -> uuid.UUID | None:
+    """Driver access-token auth (?token=); returns the driver id or closes."""
+    token = ws.query_params.get("token")
+    if not token:
+        await ws.close(code=4401)
+        return None
+    try:
+        claims = decode_access_token(token)
+    except pyjwt.PyJWTError:
+        await ws.close(code=4401)
+        return None
+    if claims.get("typ") != ActorType.DRIVER:
+        await ws.close(code=4403)
+        return None
+    if not await validate_session_state(uuid.UUID(claims["sid"])):
+        await ws.close(code=4401)
+        return None
+    return uuid.UUID(claims["sub"])
+
+
+@router.websocket("/ws/driver/sessions")
+async def driver_session_hints(ws: WebSocket) -> None:
+    """Fan-out of access-event hints for the caller's own plates.
+
+    Each message is `{type:'session_event', plate, direction, decision,
+    siteId, at}` — a hint to refetch over REST, not authoritative state.
+    """
+    await ws.accept()
+    driver_id = await _driver_ws_auth(ws)
+    if driver_id is None:
+        return
+
+    from sqlalchemy import select
+
+    from app.database import platform_session
+    from app.models import DriverVehicle
+
+    async with platform_session() as db:
+        plates = (
+            (
+                await db.execute(
+                    select(DriverVehicle.plate_normalized).where(
+                        DriverVehicle.driver_id == driver_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+    channels = [driver_plate_channel(p) for p in plates if p]
+    if not channels:
+        await ws.close(code=4404)
+        return
+
+    redis = get_redis()
+    pubsub = redis.pubsub()
+    await pubsub.subscribe(*channels)
+
+    async def forward() -> None:
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                await ws.send_text(message["data"])
+
+    async def heartbeat() -> None:
+        while True:
+            await asyncio.sleep(30)
+            await ws.send_text(json.dumps({"type": "ping"}))
+
+    fwd = asyncio.create_task(forward())
+    hb = asyncio.create_task(heartbeat())
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        fwd.cancel()
+        hb.cancel()
+        await pubsub.unsubscribe(*channels)
         await pubsub.close()

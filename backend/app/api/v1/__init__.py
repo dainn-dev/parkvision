@@ -9,7 +9,7 @@ from app.api.v1.driver import memberships as driver_memberships
 from app.api.v1.driver import payments as driver_payments
 from app.api.v1.driver import sessions as driver_sessions
 from app.api.v1.driver import vehicles as driver_vehicles
-from app.api.v1.tenant import audit, cameras, events, gates, memberships, parking, rules, sites, users, vehicles
+from app.api.v1.tenant import audit, cameras, events, gates, memberships, parking, payments, rules, sites, users, vehicles
 
 api_v1 = APIRouter()
 api_v1.include_router(public.router)
@@ -31,6 +31,7 @@ api_v1.include_router(users.router)
 api_v1.include_router(rules.router)
 api_v1.include_router(events.router)
 api_v1.include_router(memberships.router)
+api_v1.include_router(payments.router)
 api_v1.include_router(audit.router)
 
 # WebSocket routes live outside /api/v1 prefix semantics but are mounted at app level.

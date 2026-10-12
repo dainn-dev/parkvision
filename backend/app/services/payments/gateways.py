@@ -48,6 +48,11 @@ class PaymentGateway(Protocol):
         self, *, order_id: str, request_id: str
     ) -> str: ...  # 'paid' | 'failed' | 'pending'
 
+    async def refund(
+        self, *, order_id: str, request_id: str, trans_id: str, amount_vnd: int, description: str
+    ) -> None:
+        """Refund a paid transaction. Raises MomoRejected on provider reject."""
+
 
 class MomoGateway:
     """MoMo v2 gateway adapter (sandbox-safe; signature-verified)."""
@@ -160,6 +165,34 @@ class MomoGateway:
             return "paid"
         # 1000 = in-flight/unknown order on MoMo's side
         return "pending" if code == 1000 else "failed"
+
+    async def refund(
+        self, *, order_id: str, request_id: str, trans_id: str, amount_vnd: int, description: str
+    ) -> None:
+        raw = (
+            f"accessKey={self._access}&amount={amount_vnd}&description={description}"
+            f"&orderId={order_id}&partnerCode={self._partner}"
+            f"&requestId={request_id}&transId={trans_id}"
+        )
+        body = {
+            "partnerCode": self._partner,
+            "accessKey": self._access,
+            "requestId": request_id,
+            "amount": str(amount_vnd),
+            "orderId": order_id,
+            "transId": trans_id,
+            "description": description,
+            "lang": "vi",
+            "signature": self._sign(raw),
+        }
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(f"{self._endpoint}/refund", json=body)
+            resp.raise_for_status()
+            data = resp.json()
+        if int(data.get("resultCode", -1)) != 0:
+            raise MomoRejected(
+                int(data.get("resultCode", -1)), str(data.get("message", "MoMo refund rejected"))
+            )
 
 
 class MomoRejected(Exception):

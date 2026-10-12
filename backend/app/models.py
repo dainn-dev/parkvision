@@ -693,11 +693,12 @@ class DriverPayment(TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("driver_memberships.id", ondelete="SET NULL")
     )
     session_ref: Mapped[str | None] = mapped_column(String(80))
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    # NULL on kind='topup' — wallet funding is platform-scoped, not tenant-scoped
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE")
     )
-    site_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenant_sites.id", ondelete="CASCADE"), nullable=False
+    site_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenant_sites.id", ondelete="CASCADE")
     )
     plate_number: Mapped[str | None] = mapped_column(String(20))
     plate_normalized: Mapped[str | None] = mapped_column(String(20))
@@ -710,7 +711,9 @@ class DriverPayment(TimestampMixin, Base):
     provider_trans_id: Mapped[str | None] = mapped_column(String(80))
     pay_url: Mapped[str | None] = mapped_column(Text)
     raw_payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    method: Mapped[str] = mapped_column(String(16), nullable=False, default="momo")
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     exit_granted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -725,6 +728,44 @@ class DriverPayment(TimestampMixin, Base):
             "status",
         ),
     )
+
+
+class DriverWallet(TimestampMixin, Base):
+    """Driver VND balance funded by 'topup' payments; spent on membership/session."""
+
+    __tablename__ = "driver_wallets"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    driver_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("driver_users.id", ondelete="CASCADE"),
+        nullable=False, unique=True,
+    )
+    balance_vnd: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+
+    __table_args__ = (Index("ix_driver_wallets_driver", "driver_id"),)
+
+
+class WalletTransaction(Base):
+    """Append-only ledger; `balance_after_vnd` makes every row auditable."""
+
+    __tablename__ = "wallet_transactions"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    wallet_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("driver_wallets.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(24), nullable=False)
+    amount_vnd: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    balance_after_vnd: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    payment_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("driver_payments.id", ondelete="SET NULL")
+    )
+    note: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (Index("ix_wallet_transactions_wallet", "wallet_id", "created_at"),)
 
 
 class TenantAccessRule(TimestampMixin, Base):

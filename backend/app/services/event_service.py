@@ -1,5 +1,6 @@
 """Access decision + access-event recording (REST manual events & ANPR ingest)."""
 
+import asyncio
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -299,7 +300,39 @@ async def record_access_event(
 
         await close_presence_for_plate(db, tenant_id=tenant_id, plate_number=plate_number)
     await db.flush()
+    _publish_driver_hint(event)
     return event
+
+
+def _publish_driver_hint(event: AccessEvent) -> None:
+    """Fire-and-forget pub/sub hint for driver WebSocket clients.
+
+    Subscribers get `{type:'session_event', ...}` on `pv:plate:{norm}` and
+    refetch over REST — the socket carries no authoritative state, so a
+    Redis outage or a rolled-back transaction degrades to plain polling.
+    """
+    if not event.plate_number:
+        return
+    try:
+        import json as _json
+
+        from app.redis_client import driver_plate_channel, get_redis
+
+        payload = _json.dumps(
+            {
+                "type": "session_event",
+                "plate": normalize_plate(event.plate_number),
+                "direction": str(event.direction),
+                "decision": str(event.decision),
+                "siteId": str(event.site_id) if event.site_id else None,
+                "at": event.occurred_at.isoformat() if event.occurred_at else None,
+            }
+        )
+        asyncio.get_running_loop().create_task(
+            get_redis().publish(driver_plate_channel(normalize_plate(event.plate_number)), payload)
+        )
+    except Exception:  # noqa: BLE001 — never let a hint break a gate write
+        pass
 
 
 async def count_access_events_today(db: AsyncSession, tenant_id: uuid.UUID) -> int:

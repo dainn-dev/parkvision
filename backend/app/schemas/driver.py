@@ -161,30 +161,50 @@ class DriverMembershipOut(CamelModel):
 
 
 class PaymentCreateIn(CamelModel):
-    """Create a payment for a pending membership or a parking session.
-    Amount is always server-computed — never client-supplied."""
+    """Create a payment for a pending membership, a parking session, or a
+    wallet top-up. Amount is server-computed except kind='topup' where the
+    driver chooses it (bounded server-side)."""
 
-    kind: Literal["membership", "session"]
+    kind: Literal["membership", "session", "topup"]
     membership_id: uuid.UUID | None = None
     session_id: str | None = None  # entry access_event id
+    method: Literal["momo", "wallet"] = "momo"
+    amount_vnd: int | None = None  # kind='topup' only
 
 
-PaymentStatus = Literal["created", "paid", "failed", "cancelled", "expired"]
+PaymentStatus = Literal["created", "paid", "failed", "cancelled", "expired", "refunded"]
 
 
 class PaymentOut(CamelModel):
     id: uuid.UUID
-    kind: Literal["membership", "session"]
+    kind: Literal["membership", "session", "topup"]
     membership_id: uuid.UUID | None
     session_id: str | None
-    site_id: uuid.UUID
+    site_id: uuid.UUID | None
     site_name: str | None
     plate_number: str | None
     amount_vnd: int
     currency: str
     provider: str
+    method: str
     status: PaymentStatus
     pay_url: str | None
     paid_at: datetime | None
+    refunded_at: datetime | None
     expires_at: datetime | None
     created_at: datetime
+
+
+class WalletTransactionOut(CamelModel):
+    id: uuid.UUID
+    kind: str  # topup_credit | spend_debit | refund_credit | refund_debit
+    amount_vnd: int
+    balance_after_vnd: int
+    payment_id: uuid.UUID | None
+    note: str
+    created_at: datetime
+
+
+class WalletOut(CamelModel):
+    balance_vnd: int
+    transactions: list[WalletTransactionOut]

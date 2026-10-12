@@ -19,6 +19,11 @@ def ws_channel(tenant_id) -> str:
     return f"ws:tenant:{tenant_id}"
 
 
+def driver_plate_channel(plate_normalized: str) -> str:
+    """Pub/sub channel for driver session hints, keyed by normalized plate."""
+    return f"pv:plate:{plate_normalized}"
+
+
 async def close_redis() -> None:
     global _redis
     if _redis is not None:

@@ -1280,3 +1280,26 @@ class TenantMembershipOut(CamelModel):
 
 class MembershipActionIn(CamelModel):
     admin_note: str | None = Field(None, max_length=300)
+
+
+class TenantPaymentOut(CamelModel):
+    """Admin view of a driver's payment (membership fee / parking fee)."""
+
+    id: uuid.UUID
+    driver_id: uuid.UUID
+    driver_name: str
+    driver_email: str
+    kind: str
+    membership_id: uuid.UUID | None
+    session_id: str | None
+    site_id: uuid.UUID | None
+    site_name: str | None
+    plate_number: str | None
+    amount_vnd: int
+    currency: str
+    provider: str
+    method: str
+    status: str
+    paid_at: datetime | None
+    refunded_at: datetime | None
+    created_at: datetime
