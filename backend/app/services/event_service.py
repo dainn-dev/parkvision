@@ -2,13 +2,14 @@
 
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import AccessDecision, EventDirection, VehicleStatus, VehicleTag
-from app.models import AccessEvent, RegisteredVehicle, Tenant, TenantAccessRule, TenantSite
+from app.config import settings as app_settings
+from app.models import AccessEvent, DriverPayment, RegisteredVehicle, Tenant, TenantAccessRule, TenantSite
 
 
 def normalize_plate(plate: str) -> str:
@@ -72,11 +73,47 @@ async def _final(
     return decision, reason, vehicle_id
 
 
+async def _paid_exit(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    plate_normalized: str,
+    site_id: uuid.UUID | None,
+) -> DriverPayment | None:
+    """A paid 'session' payment for this plate+site within the grace window
+    that hasn't already granted an exit. Tenant setting
+    `paid_exit_grace_minutes` overrides the app-level default (15)."""
+    settings_row = (
+        await db.execute(select(Tenant.settings).where(Tenant.id == tenant_id))
+    ).scalar_one_or_none() or {}
+    try:
+        grace = int(
+            settings_row.get("paid_exit_grace_minutes") or app_settings.paid_exit_grace_minutes
+        )
+    except (TypeError, ValueError):
+        grace = app_settings.paid_exit_grace_minutes
+    cond = [
+        DriverPayment.tenant_id == tenant_id,
+        DriverPayment.plate_normalized == plate_normalized,
+        DriverPayment.kind == "session",
+        DriverPayment.status == "paid",
+        DriverPayment.exit_granted_at.is_(None),
+        DriverPayment.paid_at >= datetime.now(timezone.utc) - timedelta(minutes=grace),
+    ]
+    if site_id is not None:
+        cond.append(DriverPayment.site_id == site_id)
+    return (
+        await db.execute(
+            select(DriverPayment).where(*cond).order_by(DriverPayment.paid_at.desc()).limit(1)
+        )
+    ).scalar_one_or_none()
+
+
 async def decide_access(
     db: AsyncSession,
     tenant_id: uuid.UUID,
     plate_number: str | None,
     direction: str | None = None,
+    site_id: uuid.UUID | None = None,
 ) -> tuple[str, str, uuid.UUID | None]:
     """Evaluate registered vehicles + access rules → (decision, reason, vehicle_id)."""
     if not plate_number:
@@ -136,6 +173,26 @@ async def decide_access(
     else:
         base_decision, reason = AccessDecision.ALLOW, "vehicle_registered"
 
+    # Pay-before-exit: an otherwise-denied exit is allowed once per paid
+    # session payment within the grace window. Blacklist is never
+    # overridden; deny_list rules below still win over paid_exit.
+    paid_payment: DriverPayment | None = None
+    if (
+        base_decision == AccessDecision.DENY
+        and direction == EventDirection.EXIT
+        and (vehicle is None or vehicle.tag != VehicleTag.BLACKLIST)
+    ):
+        paid_payment = await _paid_exit(db, tenant_id, normalized, site_id)
+        if paid_payment is not None:
+            base_decision, reason = AccessDecision.ALLOW, "paid_exit"
+
+    async def _stamp_final(result: tuple[str, str, uuid.UUID | None]):
+        """Consume the paid exit only when the final outcome is allow."""
+        if paid_payment is not None and result[0] == AccessDecision.ALLOW:
+            paid_payment.exit_granted_at = datetime.now(timezone.utc)
+            await db.flush()
+        return result
+
     for rule in sorted(rules, key=lambda r: r.priority):
         applies = rule.conditions.get("tags") or rule.conditions.get("plates") or []
         if applies:
@@ -148,26 +205,30 @@ async def decide_access(
         if rule.rule_type == "deny_list":
             return AccessDecision.DENY, f"rule:{rule.name}", vehicle.id if vehicle else None
         if rule.rule_type == "allow_list":
-            return await _final(
-                db,
-                tenant_id,
-                plate_number,
-                normalized,
-                direction,
-                AccessDecision.ALLOW,
-                f"rule:{rule.name}",
-                vehicle.id if vehicle else None,
+            return await _stamp_final(
+                await _final(
+                    db,
+                    tenant_id,
+                    plate_number,
+                    normalized,
+                    direction,
+                    AccessDecision.ALLOW,
+                    f"rule:{rule.name}",
+                    vehicle.id if vehicle else None,
+                )
             )
 
-    return await _final(
-        db,
-        tenant_id,
-        plate_number,
-        normalized,
-        direction,
-        base_decision,
-        reason,
-        vehicle.id if vehicle else None,
+    return await _stamp_final(
+        await _final(
+            db,
+            tenant_id,
+            plate_number,
+            normalized,
+            direction,
+            base_decision,
+            reason,
+            vehicle.id if vehicle else None,
+        )
     )
 
 
@@ -188,7 +249,9 @@ async def record_access_event(
     force_decision: str | None = None,
     force_reason: str | None = None,
 ) -> AccessEvent:
-    decision, reason, vehicle_id = await decide_access(db, tenant_id, plate_number, direction=direction)
+    decision, reason, vehicle_id = await decide_access(
+        db, tenant_id, plate_number, direction=direction, site_id=site_id
+    )
     if force_decision:
         decision, reason = force_decision, force_reason or "manual_override"
     event = AccessEvent(

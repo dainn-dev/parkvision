@@ -68,6 +68,23 @@ class Settings(BaseSettings):
     smtp_tls: bool = False
     app_base_url: str = "http://localhost:3000"
 
+    # Driver payments (Phase 3). provider='none' disables payment creation
+    # with a 503 payments_not_configured; 'momo' requires the creds below.
+    payment_provider: str = "none"
+    momo_partner_code: str = ""
+    momo_access_key: str = ""
+    momo_secret_key: str = ""
+    momo_endpoint: str = "https://test-payment.momo.vn/v2/gateway/api"
+    # Public URL MoMo redirects the driver back to (mobile deep link or site).
+    payment_redirect_url: str = "parkvision://payments/return"
+    # Public base URL for the MoMo IPN callback; must be internet-reachable
+    # for real IPN delivery (sandbox polling via /query works without it).
+    payment_ipn_base_url: str | None = None
+    # How long a 'created' payment stays payable before lazy expiry.
+    payment_ttl_minutes: int = 30
+    # After a paid session payment, the exit gate grants within this window.
+    paid_exit_grace_minutes: int = 15
+
     cors_origins: list[str] = ["http://localhost:3000"]
 
     # When set, /metrics requires `Authorization: Bearer <token>`.

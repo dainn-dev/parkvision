@@ -6,6 +6,7 @@ from app.api.v1 import auth, edge, platform, public, ws
 from app.api.v1.driver import auth as driver_auth
 from app.api.v1.driver import favorites as driver_favorites
 from app.api.v1.driver import memberships as driver_memberships
+from app.api.v1.driver import payments as driver_payments
 from app.api.v1.driver import sessions as driver_sessions
 from app.api.v1.driver import vehicles as driver_vehicles
 from app.api.v1.tenant import audit, cameras, events, gates, memberships, parking, rules, sites, users, vehicles
@@ -18,6 +19,7 @@ api_v1.include_router(driver_vehicles.router)
 api_v1.include_router(driver_sessions.router)
 api_v1.include_router(driver_favorites.router)
 api_v1.include_router(driver_memberships.router)
+api_v1.include_router(driver_payments.router)
 api_v1.include_router(platform.router)
 api_v1.include_router(edge.router)
 api_v1.include_router(sites.router)

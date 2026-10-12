@@ -673,6 +673,60 @@ class DriverMembership(TimestampMixin, Base):
     )
 
 
+class DriverPayment(TimestampMixin, Base):
+    """One payment attempt for a membership or a parking session.
+
+    Amounts are server-computed (plan price / pricing-rule engine); the
+    gateway's pay_url is stored so the mobile app can hand the driver off
+    to MoMo. `session_ref` = entry access_event id for kind='session'.
+    `exit_granted_at` is stamped when decide_access grants the paid exit.
+    """
+
+    __tablename__ = "driver_payments"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    driver_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("driver_users.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    membership_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("driver_memberships.id", ondelete="SET NULL")
+    )
+    session_ref: Mapped[str | None] = mapped_column(String(80))
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    site_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenant_sites.id", ondelete="CASCADE"), nullable=False
+    )
+    plate_number: Mapped[str | None] = mapped_column(String(20))
+    plate_normalized: Mapped[str | None] = mapped_column(String(20))
+    amount_vnd: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False, default="VND")
+    provider: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="created")
+    provider_order_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    provider_request_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    provider_trans_id: Mapped[str | None] = mapped_column(String(80))
+    pay_url: Mapped[str | None] = mapped_column(Text)
+    raw_payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    exit_granted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_request_id", name="uq_driver_payments_request"),
+        Index("ix_driver_payments_driver", "driver_id"),
+        Index("ix_driver_payments_membership", "membership_id"),
+        Index(
+            "ix_driver_payments_exit_check",
+            "tenant_id",
+            "plate_normalized",
+            "status",
+        ),
+    )
+
+
 class TenantAccessRule(TimestampMixin, Base):
     __tablename__ = "tenant_access_rules"
 

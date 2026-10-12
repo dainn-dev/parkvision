@@ -119,6 +119,8 @@ class DriverSessionOut(CamelModel):
     confidence: float | None = None
     level_name: str | None = None
     zone_name: str | None = None
+    # Estimated VND fee from the site's pricing rules; None = not estimable.
+    fee_vnd: int | None = None
 
 
 # ---------- memberships ----------
@@ -152,4 +154,37 @@ class DriverMembershipOut(CamelModel):
     status: MembershipStatus
     starts_at: datetime | None
     ends_at: datetime | None
+    created_at: datetime
+
+
+# ---------- payments ----------
+
+
+class PaymentCreateIn(CamelModel):
+    """Create a payment for a pending membership or a parking session.
+    Amount is always server-computed — never client-supplied."""
+
+    kind: Literal["membership", "session"]
+    membership_id: uuid.UUID | None = None
+    session_id: str | None = None  # entry access_event id
+
+
+PaymentStatus = Literal["created", "paid", "failed", "cancelled", "expired"]
+
+
+class PaymentOut(CamelModel):
+    id: uuid.UUID
+    kind: Literal["membership", "session"]
+    membership_id: uuid.UUID | None
+    session_id: str | None
+    site_id: uuid.UUID
+    site_name: str | None
+    plate_number: str | None
+    amount_vnd: int
+    currency: str
+    provider: str
+    status: PaymentStatus
+    pay_url: str | None
+    paid_at: datetime | None
+    expires_at: datetime | None
     created_at: datetime

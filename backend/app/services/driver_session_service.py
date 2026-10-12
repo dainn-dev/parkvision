@@ -19,6 +19,7 @@ from app.models import AccessEvent, ParkingLevel, ParkingZone, Tenant, TenantSit
 from app.schemas.driver import DriverSessionOut
 from app.services.event_service import normalize_plate
 from app.services.parking_service import locate_presence
+from app.services.pricing_service import estimate_fee, pricing_from_profile
 from app.services.storage import presign_download
 
 _SCAN_LIMIT_PER_PLATE = 500
@@ -112,6 +113,12 @@ def _to_out(
         confidence=float(ev.confidence) if ev.confidence is not None else None,
         level_name=level_name,
         zone_name=zone_name,
+        fee_vnd=estimate_fee(
+            pricing_from_profile(site.public_profile),
+            ev.occurred_at,
+            end,
+            site.timezone or "UTC",
+        ),
     )
 
 

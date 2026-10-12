@@ -222,13 +222,13 @@ async def _suspend_whitelist(db, m: DriverMembership) -> None:
         )
 
 
-async def activate_membership(
-    db, tenant_id: uuid.UUID, mid: uuid.UUID, admin_note: str | None
+async def _activate_membership_row(
+    db, m: DriverMembership, admin_note: str | None
 ) -> DriverMembership:
-    await _expire_stale(db)
-    m = await _get_membership(db, tenant_id, mid)
-    if m.status != "pending":
-        raise conflict(f"Membership is {m.status}, not pending") from None
+    """Shared activation body: provisions/reuses the tenant whitelist
+    `RegisteredVehicle` (tag='member', membership window) and marks the
+    membership active. Used by both the tenant endpoint (tenant_session)
+    and the driver payment path (platform_session)."""
     plan = (
         await db.execute(
             select(SiteMembershipPlan).where(SiteMembershipPlan.id == m.plan_id)
@@ -244,7 +244,7 @@ async def activate_membership(
     rv = (
         await db.execute(
             select(RegisteredVehicle).where(
-                RegisteredVehicle.tenant_id == tenant_id,
+                RegisteredVehicle.tenant_id == m.tenant_id,
                 RegisteredVehicle.plate_normalized == m.plate_normalized,
             )
         )
@@ -253,7 +253,7 @@ async def activate_membership(
         raise conflict("Plate is blacklisted in this tenant") from None
     if rv is None:
         rv = RegisteredVehicle(
-            tenant_id=tenant_id,
+            tenant_id=m.tenant_id,
             plate_number=m.plate_number,
             plate_normalized=m.plate_normalized,
             owner_name=driver.full_name if driver else None,
@@ -285,6 +285,16 @@ async def activate_membership(
         m.admin_note = admin_note
     await db.flush()
     return m
+
+
+async def activate_membership(
+    db, tenant_id: uuid.UUID, mid: uuid.UUID, admin_note: str | None
+) -> DriverMembership:
+    await _expire_stale(db)
+    m = await _get_membership(db, tenant_id, mid)
+    if m.status != "pending":
+        raise conflict(f"Membership is {m.status}, not pending") from None
+    return await _activate_membership_row(db, m, admin_note)
 
 
 async def reject_membership(

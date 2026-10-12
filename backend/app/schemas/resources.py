@@ -133,10 +133,21 @@ class PlatformSettingOut(CamelModel):
 
 # ---------- sites / lanes / devices / gates ----------
 class SitePricing(CamelModel):
-    hourly_from: int | None = None
-    daily_from: int | None = None
-    overnight_from: int | None = None
-    monthly_from: int | None = None
+    """Tenant-configured pricing. Display fields double as the fee rules:
+    `hourly_from` is VND per billing block (`block_minutes`, default 60),
+    `daily_from` caps each rolling 24h window, `overnight_from` adds a flat
+    surcharge per overnight-window crossing (site-local `overnight_start_hour`
+    → `overnight_end_hour`). `hourly_from = None` → fee not estimable.
+    `monthly_from` is display-only (membership plans own monthly pricing)."""
+
+    hourly_from: int | None = Field(None, ge=0)
+    daily_from: int | None = Field(None, ge=0)
+    overnight_from: int | None = Field(None, ge=0)
+    monthly_from: int | None = Field(None, ge=0)
+    grace_minutes: int = Field(0, ge=0, le=1440)
+    block_minutes: int = Field(60, ge=5, le=1440)
+    overnight_start_hour: int = Field(22, ge=0, le=23)
+    overnight_end_hour: int = Field(6, ge=0, le=23)
 
 
 class SitePublicProfile(CamelModel):

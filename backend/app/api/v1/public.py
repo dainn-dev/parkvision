@@ -281,6 +281,19 @@ async def public_site_plans(site_id: uuid.UUID) -> list[PublicPlanOut]:
         return [PublicPlanOut(**p) for p in plans]
 
 
+@router.post(
+    "/public/payments/momo/ipn",
+    dependencies=[Depends(rate_limited("public-payments-ipn", 120, 60))],
+)
+async def momo_ipn(payload: dict) -> dict:
+    """MoMo server-to-server payment notification. Signature-verified in
+    payment_service; always 200-ish once verified (providers retry on
+    non-2xx), idempotent against terminal payments."""
+    from app.services import payment_service
+
+    return await payment_service.handle_momo_ipn(payload)
+
+
 @router.get(
     "/public/tenants/{slug}/parking/locate",
     response_model=PublicLocateOut,
