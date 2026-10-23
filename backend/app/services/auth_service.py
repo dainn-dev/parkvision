@@ -634,6 +634,30 @@ async def logout(session_id: uuid.UUID) -> None:
         )
 
 
+async def logout_by_refresh_token(raw_refresh_token: str, *, user_type: str) -> bool:
+    """Revoke a session by its refresh credential, including expired-access sessions."""
+    token_hash = hash_refresh_token(raw_refresh_token)
+    async with platform_session() as db:
+        session_id = (
+            await db.execute(
+                select(UserSession.id).where(
+                    UserSession.user_type == user_type,
+                    (UserSession.refresh_token_hash == token_hash)
+                    | (UserSession.prev_refresh_token_hash == token_hash),
+                    UserSession.revoked_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+        if session_id is None:
+            return False
+        await db.execute(
+            update(UserSession)
+            .where(UserSession.id == session_id)
+            .values(revoked_at=datetime.now(timezone.utc))
+        )
+        return True
+
+
 async def validate_session_state(session_id: uuid.UUID) -> bool:
     async with platform_session() as db:
         sess = (

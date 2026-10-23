@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as driverApi from '../api/driver';
-import { onLogout, tokenStore } from '../lib/api';
+import { migrateStoredDriverTokens, onLogout, tokenStore } from '../lib/api';
 import { DriverProfile } from '../types';
 
 const GUEST_KEY = 'pv_guest';
@@ -13,14 +13,18 @@ export function useAuth() {
 
   useEffect(() => {
     let cancelled = false;
-    const { access, refresh } = tokenStore.get();
-    if (access || refresh) {
-      driverApi
-        .me()
+    if (tokenStore.hasAuth()) {
+      // Exchange pre-cookie sessions first. Never send an old localStorage access
+      // token if the refresh exchange failed.
+      migrateStoredDriverTokens()
+        .then((migrated) => (migrated ? driverApi.me() : null))
         .then((u) => {
-          if (!cancelled) {
+          if (cancelled) return;
+          if (u) {
             setUser(u);
             setStatus('authed');
+          } else {
+            setStatus('unauthenticated');
           }
         })
         .catch(() => {

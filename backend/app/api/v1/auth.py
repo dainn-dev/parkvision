@@ -52,23 +52,34 @@ def _cookie_kwargs() -> dict:
     }
 
 
-def set_auth_cookies(response: Response, bundle: auth_service.TokenBundle) -> str:
+def set_cookie_triplet(
+    response: Response,
+    bundle: auth_service.TokenBundle,
+    *,
+    access_name: str,
+    refresh_name: str,
+    csrf_name: str,
+) -> str:
+    """Set HttpOnly access/refresh cookies plus a script-readable CSRF cookie."""
     csrf = new_csrf_token()
     response.set_cookie(
-        settings.access_cookie_name,
+        access_name,
         bundle.access_token,
         max_age=settings.access_token_ttl_seconds,
         **_cookie_kwargs(),
     )
     response.set_cookie(
-        settings.refresh_cookie_name,
+        refresh_name,
         bundle.refresh_token,
         max_age=settings.refresh_token_ttl_seconds,
         **_cookie_kwargs(),
     )
     response.set_cookie(
-        settings.csrf_cookie_name,
+        csrf_name,
         csrf,
+        # Outlives the access cookie and matches the refresh cookie, so the SPA can
+        # still tell a session exists (and refresh it) after a browser restart.
+        max_age=settings.refresh_token_ttl_seconds,
         httponly=False,  # the SPA must read it to echo X-CSRF-Token
         secure=settings.cookie_secure,
         samesite=settings.cookie_samesite,
@@ -78,13 +89,28 @@ def set_auth_cookies(response: Response, bundle: auth_service.TokenBundle) -> st
     return csrf
 
 
+def clear_cookie_triplet(response: Response, *names: str) -> None:
+    for name in names:
+        response.delete_cookie(name, domain=settings.cookie_domain, path="/")
+
+
+def set_auth_cookies(response: Response, bundle: auth_service.TokenBundle) -> str:
+    return set_cookie_triplet(
+        response,
+        bundle,
+        access_name=settings.access_cookie_name,
+        refresh_name=settings.refresh_cookie_name,
+        csrf_name=settings.csrf_cookie_name,
+    )
+
+
 def clear_auth_cookies(response: Response) -> None:
-    for name in (
+    clear_cookie_triplet(
+        response,
         settings.access_cookie_name,
         settings.refresh_cookie_name,
         settings.csrf_cookie_name,
-    ):
-        response.delete_cookie(name, domain=settings.cookie_domain, path="/")
+    )
 
 
 def _user_out(user: TenantUser | PlatformAdmin, tenant_id=None) -> UserOut:

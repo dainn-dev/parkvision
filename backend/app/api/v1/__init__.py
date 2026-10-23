@@ -1,7 +1,8 @@
 """API v1 router aggregation."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.api.deps import csrf_protect
 from app.api.v1 import auth, edge, platform, public, ws
 from app.api.v1.driver import auth as driver_auth
 from app.api.v1.driver import favorites as driver_favorites
@@ -14,12 +15,15 @@ from app.api.v1.tenant import audit, cameras, events, gates, memberships, parkin
 api_v1 = APIRouter()
 api_v1.include_router(public.router)
 api_v1.include_router(auth.router)
-api_v1.include_router(driver_auth.router)
-api_v1.include_router(driver_vehicles.router)
-api_v1.include_router(driver_sessions.router)
-api_v1.include_router(driver_favorites.router)
-api_v1.include_router(driver_memberships.router)
-api_v1.include_router(driver_payments.router)
+# Driver routes accept bearer tokens *or* HttpOnly cookies; csrf_protect is a
+# no-op for bearer clients and enforces double-submit for cookie clients.
+_driver_csrf = [Depends(csrf_protect)]
+api_v1.include_router(driver_auth.router, dependencies=_driver_csrf)
+api_v1.include_router(driver_vehicles.router, dependencies=_driver_csrf)
+api_v1.include_router(driver_sessions.router, dependencies=_driver_csrf)
+api_v1.include_router(driver_favorites.router, dependencies=_driver_csrf)
+api_v1.include_router(driver_memberships.router, dependencies=_driver_csrf)
+api_v1.include_router(driver_payments.router, dependencies=_driver_csrf)
 api_v1.include_router(platform.router)
 api_v1.include_router(edge.router)
 api_v1.include_router(sites.router)

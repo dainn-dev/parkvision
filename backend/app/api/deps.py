@@ -21,9 +21,23 @@ CSRF_EXEMPT_PATH_PREFIXES = (
     "/api/v1/auth/mfa",
     "/api/v1/auth/refresh",
     "/api/v1/register",
+    "/api/v1/driver/auth/login",
+    "/api/v1/driver/auth/register",
     "/api/v1/plans",
     "/api/v1/legal",
 )
+DRIVER_PATH_PREFIXES = ("/api/v1/driver/", "/ws/driver/")
+
+
+def _cookie_names(path: str) -> tuple[str, str]:
+    """(access cookie, csrf cookie) of the app that owns `path`.
+
+    The driver app and the dashboard use different cookie names so one browser
+    can hold both sessions without either overwriting the other.
+    """
+    if path.startswith(DRIVER_PATH_PREFIXES):
+        return settings.driver_access_cookie_name, settings.driver_csrf_cookie_name
+    return settings.access_cookie_name, settings.csrf_cookie_name
 
 
 @dataclass
@@ -42,12 +56,18 @@ class AuthContext:
 
 
 async def get_auth_context(request: Request) -> AuthContext:
-    """Authenticate via the HttpOnly access cookie (Authorization: Bearer works too)."""
-    token = request.cookies.get(settings.access_cookie_name)
+    """Authenticate via Authorization: Bearer header (preferred) or HttpOnly access cookie."""
+    token: str | None = None
+    header = request.headers.get("authorization", "")
+    if header.lower().startswith("bearer "):
+        token = header.split(" ", 1)[1]
     if token is None:
-        header = request.headers.get("authorization", "")
-        if header.lower().startswith("bearer "):
-            token = header.split(" ", 1)[1]
+        access_name, _ = _cookie_names(request.url.path)
+        token = request.cookies.get(access_name)
+        # Allow a dashboard identity to reach driver endpoints and be rejected
+        # by role checks (403), without sharing or overwriting driver cookies.
+        if token is None and request.url.path.startswith(DRIVER_PATH_PREFIXES):
+            token = request.cookies.get(settings.access_cookie_name)
     if not token:
         raise unauthorized() from None
 
@@ -83,9 +103,15 @@ async def csrf_protect(request: Request) -> None:
     # Bearer-token (non-cookie) clients are not vulnerable to CSRF.
     if "authorization" in request.headers:
         return
-    if settings.access_cookie_name not in request.cookies:
+    access_name, csrf_name = _cookie_names(path)
+    has_auth_cookie = access_name in request.cookies
+    if path.startswith(DRIVER_PATH_PREFIXES):
+        # Refresh can remain valid after the short-lived access cookie expires;
+        # it still needs CSRF protection because the browser sends it ambiently.
+        has_auth_cookie = has_auth_cookie or settings.driver_refresh_cookie_name in request.cookies
+    if not has_auth_cookie:
         return
-    cookie = request.cookies.get(settings.csrf_cookie_name)
+    cookie = request.cookies.get(csrf_name)
     header = request.headers.get("x-csrf-token")
     if not cookie or not header or cookie != header:
         raise forbidden("CSRF token missing or mismatched") from None
@@ -104,16 +130,20 @@ def require_driver(auth: AuthContext = Depends(get_auth_context)) -> AuthContext
 
 
 async def optional_driver(request: Request) -> AuthContext | None:
-    """Driver auth context when a valid bearer token is present, else None.
+    """Driver auth context when a valid bearer token or driver cookie is present, else None.
 
     Used by public endpoints that personalize results for signed-in drivers
     without requiring auth (e.g. isFavorite on site listings).
     """
     header = request.headers.get("authorization", "")
-    if not header.lower().startswith("bearer "):
+    if header.lower().startswith("bearer "):
+        token = header.split(" ", 1)[1]
+    else:
+        token = request.cookies.get(settings.driver_access_cookie_name)
+    if not token:
         return None
     try:
-        claims = decode_access_token(header.split(" ", 1)[1])
+        claims = decode_access_token(token)
         if claims.get("mfa_pending") or claims.get("typ") != ActorType.DRIVER:
             return None
         if not await validate_session_state(uuid.UUID(claims["sid"])):

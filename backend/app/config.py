@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     csrf_cookie_name: str = "vm_csrf"
     access_cookie_name: str = "vm_access"
     refresh_cookie_name: str = "vm_refresh"
+    # Driver app cookies are separate so a driver and a dashboard user on the
+    # same host never overwrite each other's session.
+    driver_access_cookie_name: str = "pv_driver_access"
+    driver_refresh_cookie_name: str = "pv_driver_refresh"
+    driver_csrf_cookie_name: str = "pv_driver_csrf"
 
     field_encryption_key: str = "change-me-fernet-key"
 
@@ -85,7 +90,7 @@ class Settings(BaseSettings):
     # After a paid session payment, the exit gate grants within this window.
     paid_exit_grace_minutes: int = 15
 
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
     # When set, /metrics requires `Authorization: Bearer <token>`.
     metrics_token: str | None = None

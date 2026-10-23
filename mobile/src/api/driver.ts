@@ -24,7 +24,13 @@ import {
 // ---------- auth ----------
 
 function storeTokens(t: DriverTokenOut): void {
-  tokenStore.set({ accessToken: t.accessToken, refreshToken: t.refreshToken });
+  if (t.accessToken && t.refreshToken) {
+    // Bearer-mode response (legacy backend): keep the pair.
+    tokenStore.set({ accessToken: t.accessToken, refreshToken: t.refreshToken });
+  } else {
+    // Cookie mode: the session is in HttpOnly cookies; discard any legacy copy.
+    tokenStore.clear();
+  }
 }
 
 export async function register(body: {
@@ -53,14 +59,11 @@ export async function login(email: string, password: string): Promise<DriverProf
 }
 
 export async function logout(): Promise<void> {
-  const { refresh } = tokenStore.get();
   try {
-    if (refresh) {
-      await api('/driver/auth/logout', {
-        method: 'POST',
-        body: JSON.stringify({ refreshToken: refresh }),
-      });
-    }
+    // The backend revokes the session and clears the HttpOnly cookies.
+    await api('/driver/auth/logout', { method: 'POST' });
+  } catch {
+    // Best-effort: local state is cleared regardless.
   } finally {
     tokenStore.clear();
   }

@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError, tokenStore } from '../api';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { api, ApiError, migrateStoredDriverTokens, tokenStore } from '../api';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -8,23 +8,31 @@ function jsonResponse(status: number, body: unknown): Response {
   });
 }
 
+function setCookie(value: string) {
+  Object.defineProperty(document, 'cookie', { configurable: true, value });
+}
+
 describe('api client', () => {
   beforeEach(() => {
     tokenStore.clear();
+    setCookie('');
     vi.restoreAllMocks();
   });
 
-  it('attaches bearer token and parses JSON', async () => {
+  afterEach(() => {
+    setCookie('');
+  });
+
+  it('attaches bearer token and parses JSON for legacy clients', async () => {
     tokenStore.set({ accessToken: 'a1', refreshToken: 'r1' });
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(jsonResponse(200, { ok: true }));
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(200, { ok: true }));
 
     const out = await api<{ ok: boolean }>('/driver/auth/me');
 
     expect(out).toEqual({ ok: true });
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect((init.headers as Headers).get('Authorization')).toBe('Bearer a1');
+    expect(init.credentials).toBe('include');
   });
 
   it('parses backend error envelope into ApiError', async () => {
@@ -40,7 +48,61 @@ describe('api client', () => {
     expect(apiErr.message).toBe('Email taken');
   });
 
-  it('refreshes once on concurrent 401s and retries both', async () => {
+  it('requests cookie mode for login and does not store returned null tokens', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse(200, { accessToken: null, refreshToken: null, expiresIn: 900 })
+    );
+
+    await api('/driver/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'synthetic@example.com', password: 'synthetic' }),
+      auth: false,
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Headers).get('X-Auth-Mode')).toBe('cookie');
+    expect(tokenStore.get()).toEqual({ access: null, refresh: null });
+  });
+
+  it('sends CSRF and cookies for cookie-authenticated mutations, never bearer', async () => {
+    setCookie('pv_driver_csrf=csrf-test');
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(200, { ok: true }));
+
+    await api('/driver/auth/me', { method: 'PATCH', body: JSON.stringify({ fullName: 'Synthetic' }) });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Headers;
+    expect(headers.get('X-Auth-Mode')).toBe('cookie');
+    expect(headers.get('X-CSRF-Token')).toBe('csrf-test');
+    expect(headers.get('Authorization')).toBeNull();
+    expect(init.credentials).toBe('include');
+  });
+
+  it('migrates legacy refresh credentials and clears readable token storage', async () => {
+    tokenStore.set({ accessToken: 'legacy-access', refreshToken: 'legacy-refresh' });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+      expect((init?.headers as Headers).get('X-Auth-Mode')).toBe('cookie');
+      setCookie('pv_driver_csrf=migrated-csrf');
+      return jsonResponse(200, { accessToken: null, refreshToken: null, expiresIn: 900 });
+    });
+
+    await expect(migrateStoredDriverTokens()).resolves.toBe(true);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(tokenStore.get()).toEqual({ access: null, refresh: null });
+  });
+
+  it('clears legacy tokens after failed migration', async () => {
+    tokenStore.set({ accessToken: 'legacy-access', refreshToken: 'legacy-refresh' });
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse(401, { error: { code: 'unauthorized' } })
+    );
+
+    await expect(migrateStoredDriverTokens()).resolves.toBe(false);
+    expect(tokenStore.get()).toEqual({ access: null, refresh: null });
+  });
+
+  it('refreshes once on concurrent 401s and retries both legacy requests', async () => {
     tokenStore.set({ accessToken: 'a1', refreshToken: 'r1' });
     const calls: { url: string; auth: string | null }[] = [];
 
@@ -58,7 +120,6 @@ describe('api client', () => {
 
     expect(calls.filter((c) => c.url.endsWith('/driver/auth/refresh'))).toHaveLength(1);
     expect(tokenStore.get().access).toBe('a2');
-    // both retried with the new token
     expect(calls.filter((c) => c.auth === 'Bearer a2')).toHaveLength(2);
   });
 

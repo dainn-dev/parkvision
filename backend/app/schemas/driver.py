@@ -27,12 +27,15 @@ class DriverLoginIn(CamelModel):
 
 
 class DriverRefreshIn(CamelModel):
-    refresh_token: str
+    # Optional: cookie-based clients send the HttpOnly vm_refresh cookie instead.
+    refresh_token: str | None = None
 
 
 class DriverTokenOut(CamelModel):
-    access_token: str
-    refresh_token: str
+    # Omitted (null) in cookie mode: the tokens travel as HttpOnly cookies
+    # so page scripts cannot read them from the response body.
+    access_token: str | None = None
+    refresh_token: str | None = None
     expires_in: int
     token_type: str = "bearer"
 

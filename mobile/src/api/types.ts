@@ -83,8 +83,9 @@ export interface PublicLocateOut {
 }
 
 export interface DriverTokenOut {
-  accessToken: string;
-  refreshToken: string;
+  // Absent in cookie mode: tokens only travel as HttpOnly cookies.
+  accessToken?: string | null;
+  refreshToken?: string | null;
   expiresIn: number;
   tokenType: string;
 }
