@@ -261,6 +261,99 @@ async def test_vehicle_not_owned_404(client):
     ).status_code == 404
 
 
+# ---------- Vehicle sharing (GAP-BE-002) ----------
+
+from datetime import date as _date
+
+
+async def test_share_vehicle_roundtrip(client):
+    """Owner shares vehicle with another driver for today; recipient
+    appears in shares list; owner can revoke."""
+    owner, recipient = await driver(client), await driver(client)
+    v = (await client.post(
+        "/api/v1/driver/vehicles", headers=owner["headers"],
+        json={"plateNumber": "51G-100.00"},
+    )).json()
+    today = _date.today().isoformat()
+    resp = await client.post(
+        f"/api/v1/driver/vehicles/{v['id']}/shares",
+        headers=owner["headers"],
+        json={"sharedWithEmail": recipient["email"], "shareDate": today},
+    )
+    assert resp.status_code == 201
+    share = resp.json()
+    assert share["shareDate"] == today
+
+    lst = (await client.get(
+        f"/api/v1/driver/vehicles/{v['id']}/shares", headers=owner["headers"],
+    )).json()
+    assert len(lst) == 1
+
+    shared = (await client.get(
+        "/api/v1/driver/shared-vehicles", headers=recipient["headers"],
+    )).json()
+    assert len(shared) == 1
+    assert shared[0]["plateNumber"] == "51G-100.00"
+
+    assert (await client.delete(
+        f"/api/v1/driver/vehicles/{v['id']}/shares/{share['id']}",
+        headers=owner["headers"],
+    )).status_code == 200
+
+    shared_after = (await client.get(
+        "/api/v1/driver/shared-vehicles", headers=recipient["headers"],
+    )).json()
+    assert shared_after == []
+
+
+async def test_share_past_date_rejected(client):
+    owner, recipient = await driver(client), await driver(client)
+    v = (await client.post(
+        "/api/v1/driver/vehicles", headers=owner["headers"],
+        json={"plateNumber": "51G-200.00"},
+    )).json()
+    resp = await client.post(
+        f"/api/v1/driver/vehicles/{v['id']}/shares",
+        headers=owner["headers"],
+        json={"sharedWithEmail": recipient["email"], "shareDate": "2020-01-01"},
+    )
+    assert resp.status_code in (400, 409, 422)
+
+
+async def test_non_owner_cannot_share(client):
+    owner, stranger = await driver(client), await driver(client)
+    recipient = await driver(client)
+    v = (await client.post(
+        "/api/v1/driver/vehicles", headers=owner["headers"],
+        json={"plateNumber": "51G-300.00"},
+    )).json()
+    resp = await client.post(
+        f"/api/v1/driver/vehicles/{v['id']}/shares",
+        headers=stranger["headers"],
+        json={"sharedWithEmail": recipient["email"], "shareDate": "2030-01-01"},
+    )
+    assert resp.status_code == 404
+
+
+async def test_share_cascade_on_vehicle_delete(client):
+    owner, recipient = await driver(client), await driver(client)
+    v = (await client.post(
+        "/api/v1/driver/vehicles", headers=owner["headers"],
+        json={"plateNumber": "51G-400.00"},
+    )).json()
+    today = _date.today().isoformat()
+    await client.post(
+        f"/api/v1/driver/vehicles/{v['id']}/shares",
+        headers=owner["headers"],
+        json={"sharedWithEmail": recipient["email"], "shareDate": today},
+    )
+    await client.delete(f"/api/v1/driver/vehicles/{v['id']}", headers=owner["headers"])
+    shared = (await client.get(
+        "/api/v1/driver/shared-vehicles", headers=recipient["headers"],
+    )).json()
+    assert shared == []
+
+
 async def test_favorites_roundtrip(client, listed_site):
     d = await driver(client)
     assert (
