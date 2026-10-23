@@ -190,16 +190,63 @@ async def test_vehicle_crud_and_primary(client):
     ] is True
 
 
-async def test_two_drivers_may_share_a_plate(client):
+async def test_second_driver_cannot_register_same_plate(client):
     a, b = await driver(client), await driver(client)
-    for d in (a, b):
-        assert (
-            await client.post(
-                "/api/v1/driver/vehicles",
-                headers=d["headers"],
-                json={"plateNumber": "30A-000.01"},
-            )
-        ).status_code == 201
+    assert (
+        await client.post(
+            "/api/v1/driver/vehicles",
+            headers=a["headers"],
+            json={"plateNumber": "30A-000.01"},
+        )
+    ).status_code == 201
+    resp = await client.post(
+        "/api/v1/driver/vehicles",
+        headers=b["headers"],
+        json={"plateNumber": "30A-000.01"},
+    )
+    assert resp.status_code == 409
+
+
+async def test_update_vehicle_to_taken_plate_409(client):
+    a, b = await driver(client), await driver(client)
+    await client.post(
+        "/api/v1/driver/vehicles",
+        headers=a["headers"],
+        json={"plateNumber": "30A-111.11"},
+    )
+    v2 = (
+        await client.post(
+            "/api/v1/driver/vehicles",
+            headers=b["headers"],
+            json={"plateNumber": "30A-222.22"},
+        )
+    ).json()
+    resp = await client.patch(
+        f"/api/v1/driver/vehicles/{v2['id']}",
+        headers=b["headers"],
+        json={"plateNumber": "30A-111.11"},
+    )
+    assert resp.status_code == 409
+    vehicles = (await client.get("/api/v1/driver/vehicles", headers=b["headers"])).json()
+    assert vehicles[0]["plateNormalized"] == "30A22222"
+
+
+async def test_same_driver_can_update_own_plate(client):
+    d = await driver(client)
+    vehicle = (
+        await client.post(
+            "/api/v1/driver/vehicles",
+            headers=d["headers"],
+            json={"plateNumber": "30A-333.33"},
+        )
+    ).json()
+    resp = await client.patch(
+        f"/api/v1/driver/vehicles/{vehicle['id']}",
+        headers=d["headers"],
+        json={"plateNumber": "30A-333.33", "label": "My car"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["label"] == "My car"
 
 
 async def test_vehicle_not_owned_404(client):

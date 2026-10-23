@@ -163,6 +163,16 @@ async def add_vehicle(
 ) -> DriverVehicle:
     async with platform_session() as db:
         normalized = normalize_plate(plate_number)
+        taken = (
+            await db.execute(
+                select(DriverVehicle.id).where(
+                    DriverVehicle.plate_normalized == normalized,
+                    DriverVehicle.driver_id != driver_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if taken is not None:
+            raise conflict("Plate already registered by another account")
         has_any = (
             await db.execute(
                 select(DriverVehicle.id).where(DriverVehicle.driver_id == driver_id).limit(1)
@@ -180,7 +190,7 @@ async def add_vehicle(
         try:
             await db.flush()
         except IntegrityError:
-            raise conflict("Plate already added") from None
+            raise conflict("Plate already registered") from None
         if v.is_primary:
             await _clear_other_primaries(db, driver_id, v.id)
         return v
@@ -193,8 +203,20 @@ async def update_vehicle(
         v = (await db.execute(select(DriverVehicle).where(DriverVehicle.id == vehicle_id))).scalar_one_or_none()
         if v is None or v.driver_id != driver_id:
             raise not_found("vehicle", vehicle_id) from None
+        normalized = normalize_plate(plate_number)
+        if normalized != v.plate_normalized:
+            taken = (
+                await db.execute(
+                    select(DriverVehicle.id).where(
+                        DriverVehicle.plate_normalized == normalized,
+                        DriverVehicle.id != vehicle_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if taken is not None:
+                raise conflict("Plate already registered by another account")
         v.plate_number = plate_number.strip().upper()
-        v.plate_normalized = normalize_plate(plate_number)
+        v.plate_normalized = normalized
         v.label = label
         v.vehicle_type = vehicle_type
         if is_primary and not v.is_primary:
@@ -205,7 +227,7 @@ async def update_vehicle(
         try:
             await db.flush()
         except IntegrityError:
-            raise conflict("Plate already added") from None
+            raise conflict("Plate already registered") from None
         return v
 
 
