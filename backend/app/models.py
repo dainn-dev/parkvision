@@ -6,7 +6,7 @@ idempotency/ack semantics. `plans`, `legal_documents`, `feature_flags` and
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     BigInteger,
@@ -567,7 +567,9 @@ class DriverUser(TimestampMixin, Base):
 
 class DriverVehicle(TimestampMixin, Base):
     """A plate the driver owns; `plate_normalized` joins access_events for
-    session derivation. Unique per driver — drivers may share a plate."""
+    session derivation. Globally unique — one driver owns each plate;
+    sharing with another driver for a specific date goes through
+    `DriverVehicleShare`."""
 
     __tablename__ = "driver_vehicles"
 
@@ -582,9 +584,33 @@ class DriverVehicle(TimestampMixin, Base):
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     __table_args__ = (
-        UniqueConstraint("driver_id", "plate_normalized", name="uq_driver_vehicle_plate"),
+        UniqueConstraint("plate_normalized", name="uq_driver_vehicle_plate_global"),
         Index("ix_driver_vehicles_driver", "driver_id"),
         Index("ix_driver_vehicles_plate", "plate_normalized"),
+    )
+
+
+class DriverVehicleShare(TimestampMixin, Base):
+    """Owner-granted, date-scoped read/pay access to a vehicle for another
+    driver account. Checked against the session's local event date, not
+    the querying driver's wall-clock date."""
+
+    __tablename__ = "driver_vehicle_shares"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    vehicle_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("driver_vehicles.id", ondelete="CASCADE"), nullable=False
+    )
+    shared_with_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("driver_users.id", ondelete="CASCADE"), nullable=False
+    )
+    share_date: Mapped[date] = mapped_column(nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "vehicle_id", "shared_with_id", "share_date", name="uq_vehicle_share"
+        ),
+        Index("ix_vehicle_shares_recipient", "shared_with_id", "share_date"),
     )
 
 

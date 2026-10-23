@@ -6,7 +6,7 @@ all queries run under platform_session — driver tables are platform-scoped
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from app.core.enums import AccountStatus, ActorType
 from app.core.errors import account_locked, conflict, invalid_credentials, not_found
 from app.database import platform_session
-from app.models import DriverFavorite, DriverUser, DriverVehicle, Tenant, TenantSite
+from app.models import DriverFavorite, DriverUser, DriverVehicle, DriverVehicleShare, Tenant, TenantSite
 from app.security import hash_password, verify_password
 from app.services import auth_service
 from app.services.auth_service import TokenBundle
@@ -163,6 +163,16 @@ async def add_vehicle(
 ) -> DriverVehicle:
     async with platform_session() as db:
         normalized = normalize_plate(plate_number)
+        taken = (
+            await db.execute(
+                select(DriverVehicle.id).where(
+                    DriverVehicle.plate_normalized == normalized,
+                    DriverVehicle.driver_id != driver_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if taken is not None:
+            raise conflict("Plate already registered by another account")
         has_any = (
             await db.execute(
                 select(DriverVehicle.id).where(DriverVehicle.driver_id == driver_id).limit(1)
@@ -180,7 +190,7 @@ async def add_vehicle(
         try:
             await db.flush()
         except IntegrityError:
-            raise conflict("Plate already added") from None
+            raise conflict("Plate already registered") from None
         if v.is_primary:
             await _clear_other_primaries(db, driver_id, v.id)
         return v
@@ -193,8 +203,20 @@ async def update_vehicle(
         v = (await db.execute(select(DriverVehicle).where(DriverVehicle.id == vehicle_id))).scalar_one_or_none()
         if v is None or v.driver_id != driver_id:
             raise not_found("vehicle", vehicle_id) from None
+        normalized = normalize_plate(plate_number)
+        if normalized != v.plate_normalized:
+            taken = (
+                await db.execute(
+                    select(DriverVehicle.id).where(
+                        DriverVehicle.plate_normalized == normalized,
+                        DriverVehicle.id != vehicle_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if taken is not None:
+                raise conflict("Plate already registered by another account")
         v.plate_number = plate_number.strip().upper()
-        v.plate_normalized = normalize_plate(plate_number)
+        v.plate_normalized = normalized
         v.label = label
         v.vehicle_type = vehicle_type
         if is_primary and not v.is_primary:
@@ -205,7 +227,7 @@ async def update_vehicle(
         try:
             await db.flush()
         except IntegrityError:
-            raise conflict("Plate already added") from None
+            raise conflict("Plate already registered") from None
         return v
 
 
@@ -227,6 +249,149 @@ async def delete_vehicle(driver_id: uuid.UUID, vehicle_id: uuid.UUID) -> None:
             ).scalar_one_or_none()
             if oldest is not None:
                 oldest.is_primary = True
+
+
+# ---------- vehicle sharing ----------
+
+
+async def create_share(
+    driver_id: uuid.UUID,
+    vehicle_id: uuid.UUID,
+    *,
+    shared_with_email: str,
+    share_date: date,
+) -> DriverVehicleShare:
+    async with platform_session() as db:
+        vehicle = (
+            await db.execute(
+                select(DriverVehicle).where(
+                    DriverVehicle.id == vehicle_id,
+                    DriverVehicle.driver_id == driver_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if vehicle is None:
+            raise not_found("vehicle", vehicle_id) from None
+        if share_date < date.today():
+            raise conflict("Share date must be today or later")
+        recipient = (
+            await db.execute(
+                select(DriverUser).where(DriverUser.email == shared_with_email.lower())
+            )
+        ).scalar_one_or_none()
+        if recipient is None:
+            raise not_found("driver", shared_with_email) from None
+        if recipient.id == driver_id:
+            raise conflict("Cannot share a vehicle with its owner")
+        share = DriverVehicleShare(
+            vehicle_id=vehicle_id,
+            shared_with_id=recipient.id,
+            share_date=share_date,
+        )
+        db.add(share)
+        try:
+            await db.flush()
+        except IntegrityError:
+            raise conflict("Vehicle already shared with this driver for this date") from None
+        return share
+
+
+async def list_shares(driver_id: uuid.UUID, vehicle_id: uuid.UUID) -> list[dict]:
+    async with platform_session() as db:
+        vehicle = (
+            await db.execute(
+                select(DriverVehicle).where(
+                    DriverVehicle.id == vehicle_id,
+                    DriverVehicle.driver_id == driver_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if vehicle is None:
+            raise not_found("vehicle", vehicle_id) from None
+        rows = (
+            await db.execute(
+                select(DriverVehicleShare, DriverUser.full_name)
+                .join(DriverUser, DriverUser.id == DriverVehicleShare.shared_with_id)
+                .where(DriverVehicleShare.vehicle_id == vehicle_id)
+                .order_by(DriverVehicleShare.share_date)
+            )
+        ).all()
+        return [
+            {"share": share, "plate_number": vehicle.plate_number, "shared_with_name": name}
+            for share, name in rows
+        ]
+
+
+async def delete_share(
+    driver_id: uuid.UUID, vehicle_id: uuid.UUID, share_id: uuid.UUID
+) -> None:
+    async with platform_session() as db:
+        vehicle = (
+            await db.execute(
+                select(DriverVehicle.id).where(
+                    DriverVehicle.id == vehicle_id,
+                    DriverVehicle.driver_id == driver_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if vehicle is None:
+            raise not_found("vehicle", vehicle_id) from None
+        share = (
+            await db.execute(
+                select(DriverVehicleShare).where(
+                    DriverVehicleShare.id == share_id,
+                    DriverVehicleShare.vehicle_id == vehicle_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if share is None:
+            raise not_found("share", share_id) from None
+        await db.delete(share)
+
+
+async def list_shared_with_me(driver_id: uuid.UUID) -> list[dict]:
+    async with platform_session() as db:
+        rows = (
+            await db.execute(
+                select(DriverVehicle, DriverVehicleShare.share_date, DriverUser.full_name)
+                .join(DriverVehicleShare, DriverVehicleShare.vehicle_id == DriverVehicle.id)
+                .join(DriverUser, DriverUser.id == DriverVehicle.driver_id)
+                .where(
+                    DriverVehicleShare.shared_with_id == driver_id,
+                    DriverVehicleShare.share_date >= date.today(),
+                )
+                .order_by(DriverVehicleShare.share_date, DriverVehicle.plate_number)
+            )
+        ).all()
+        return [
+            {
+                "vehicle_id": vehicle.id,
+                "plate_number": vehicle.plate_number,
+                "owner_name": owner_name,
+                "share_date": share_date,
+            }
+            for vehicle, share_date, owner_name in rows
+        ]
+
+
+async def plates_for_driver(driver_id: uuid.UUID) -> set[str]:
+    async with platform_session() as db:
+        owned = (
+            await db.execute(
+                select(DriverVehicle.plate_normalized).where(DriverVehicle.driver_id == driver_id)
+            )
+        ).scalars().all()
+        shared = (
+            await db.execute(
+                select(DriverVehicle.plate_normalized)
+                .join(DriverVehicleShare, DriverVehicleShare.vehicle_id == DriverVehicle.id)
+                .where(
+                    DriverVehicleShare.shared_with_id == driver_id,
+                    DriverVehicleShare.share_date == date.today(),
+                )
+            )
+        ).scalars().all()
+        return set(owned) | set(shared)
 
 
 # ---------- favorites ----------

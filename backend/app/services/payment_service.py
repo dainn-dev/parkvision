@@ -162,7 +162,23 @@ async def _resolve_session(
         )
     ).scalar_one_or_none()
     if owned is None:
-        raise not_found("session", session_ref) from None
+        from datetime import date
+
+        from app.models import DriverVehicleShare
+
+        share = (
+            await db.execute(
+                select(DriverVehicleShare.id)
+                .join(DriverVehicle, DriverVehicle.id == DriverVehicleShare.vehicle_id)
+                .where(
+                    DriverVehicleShare.shared_with_id == driver_id,
+                    DriverVehicle.plate_normalized == plate_norm,
+                    DriverVehicleShare.share_date == date.today(),
+                )
+            )
+        ).scalar_one_or_none()
+        if share is None:
+            raise not_found("session", session_ref) from None
 
     later = (
         (

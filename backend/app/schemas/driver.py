@@ -1,7 +1,7 @@
 """Driver-facing schemas: mobile app auth, profile, vehicles, sites, sessions."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import EmailStr, Field
@@ -76,6 +76,28 @@ class DriverVehicleOut(CamelModel):
     vehicle_type: str
     is_primary: bool
     created_at: datetime
+
+
+class VehicleShareIn(CamelModel):
+    shared_with_email: EmailStr
+    share_date: date
+
+
+class VehicleShareOut(CamelModel):
+    id: uuid.UUID
+    vehicle_id: uuid.UUID
+    plate_number: str
+    shared_with_id: uuid.UUID
+    shared_with_name: str
+    share_date: date
+    created_at: datetime
+
+
+class SharedVehicleOut(CamelModel):
+    vehicle_id: uuid.UUID
+    plate_number: str
+    owner_name: str
+    share_date: date
 
 
 CapacityStatus = Literal["AVAILABLE", "LIMITED", "ALMOST_FULL", "FULL"]

@@ -5,6 +5,8 @@ Note: `get_auth_context` prefers the auth cookie over a bearer header, so
 tests must `client.cookies.clear()` when switching from tenant (cookie)
 calls to driver (bearer) calls on the shared client."""
 
+import uuid as _uuid
+
 import pytest
 import pytest_asyncio
 from sqlalchemy import text
@@ -47,7 +49,8 @@ async def make_plan(client, tenant, site_id, name="Monthly Resident", price=1500
     return res.json()
 
 
-async def add_vehicle(client, d, plate="51M-111.22"):
+async def add_vehicle(client, d, plate=None):
+    plate = plate or f"51M-{_uuid.uuid4().hex[:8].upper()}"
     res = await client.post(
         "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate}
     )
@@ -181,7 +184,7 @@ async def test_request_membership_pending(client, tenant, listed_site):
     assert m["status"] == "pending"
     assert m["plan"]["name"] == "Monthly Resident"
     assert m["siteName"] == "Test Parking One"
-    assert m["plateNumber"] == "51M-111.22"
+    assert m["plateNumber"] == v["plateNumber"]
 
     mine = (await client.get("/api/v1/driver/memberships", headers=d["headers"])).json()
     assert len(mine) == 1 and mine[0]["id"] == m["id"]
@@ -257,7 +260,7 @@ async def test_activate_creates_whitelist_vehicle(client, tenant, listed_site, a
     assert body["status"] == "active" and body["endsAt"] is not None
 
     # whitelist row exists, tag=member, valid window set → decide_access allows
-    decision, reason, _vid = await decide(client, admin_engine, tenant["tenant_id"], "51M-111.22")
+    decision, reason, _vid = await decide(client, admin_engine, tenant["tenant_id"], v["plateNumber"])
     assert decision == "allow" and reason == "vehicle_registered", (decision, reason)
 
 
