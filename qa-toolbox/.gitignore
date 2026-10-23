@@ -1,0 +1,45 @@
+# Ignore Requirement Files (Original)
+docs/requirements/
+docs/requirements/*
+
+# Ignore Design Files (Original)
+docs/design/
+docs/design/*
+docs/designs/
+docs/designs/*
+
+# =========================
+# ❗ Ignore ALL Current Reports
+# =========================
+reports/
+reports/*
+
+# =========================
+# 🐍 Python Bytecode & Cache
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# =========================
+# 🧹 Temporary & Debug Files
+# =========================
+*.tmp
+*.temp
+*_debug.txt
+*_output.txt
+debug_output.txt
+
+# =========================
+# 💻 OS Metadata
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# 📝 Project Specific Notes
+# =========================
+docs/PROJECT_NOTES.md
+docs/project_notes.md
+
