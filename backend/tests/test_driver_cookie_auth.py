@@ -96,7 +96,16 @@ async def test_logout_revokes_session_after_access_cookie_expires(client: AsyncC
         session_id=uuid.UUID(claims["sid"]),
         ttl_seconds=-1,
     )
+    # httpx's cookie jar stores server-set cookies with domain metadata;
+    # client.cookies.set() adds a second, domain-less entry.  After logout
+    # the server's delete_cookie only removes the domain-scoped entry,
+    # leaving the manually-added one in the jar — which triggers CSRF (403).
+    # Fix: wipe ALL jar entries for this cookie name, then add the expired one.
+    client.cookies.jar.clear()
     client.cookies.set(settings.driver_access_cookie_name, expired_access)
+    # Re-set the CSRF and refresh cookies that jar.clear() wiped.
+    client.cookies.set(settings.driver_csrf_cookie_name, csrf)
+    client.cookies.set(settings.driver_refresh_cookie_name, refresh_token)
 
     logged_out = await client.post(
         "/api/v1/driver/auth/logout",
@@ -104,9 +113,12 @@ async def test_logout_revokes_session_after_access_cookie_expires(client: AsyncC
     )
     assert logged_out.status_code == 200, logged_out.text
 
+    # After logout all driver cookies are cleared by the server.
+    # Send refresh with token in body only — no cookies, no CSRF needed.
+    client.cookies.jar.clear()
     refresh = await client.post(
         "/api/v1/driver/auth/refresh",
-        headers={"X-Auth-Mode": "cookie", "X-CSRF-Token": csrf},
+        headers={"X-Auth-Mode": "cookie"},
         json={"refreshToken": refresh_token},
     )
     assert refresh.status_code == 401
