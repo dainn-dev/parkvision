@@ -227,7 +227,7 @@ Các nhóm bảng chính:
 - Vị trí: `parking_levels`, `parking_zones`, `camera_zone_coverage`, `vehicle_presences`, `vehicle_location_events`.
 - Driver/kinh doanh: `driver_users`, `driver_vehicles`, `driver_favorites`, `site_membership_plans`, `driver_memberships`, `driver_payments`, `driver_wallets`, `wallet_transactions`.
 
-Biển số được chuẩn hóa bằng uppercase và bỏ ký tự ngoài `A-Z0-9`. Whitelist là theo tenant; driver vehicle unique theo `(driver_id, plate_normalized)`, **hai driver có thể khai cùng biển số**. Driver session được truy ra theo biển số đã khai, không có quy trình chứng minh quyền sở hữu xe trong flow đăng ký xe hiện tại. Không mô tả nó như xác thực chủ xe pháp lý.
+Biển số được chuẩn hóa bằng uppercase và bỏ ký tự ngoài `A-Z0-9`. Whitelist là theo tenant; driver vehicle unique theo `plate_normalized` toàn hệ thống — mỗi biển số chỉ thuộc một tài khoản driver. Chủ xe có thể chia sẻ quyền xem phiên/thanh toán cho tài khoản khác theo ngày cụ thể qua bảng `driver_vehicle_shares` (`vehicle_id`, `shared_with_id`, `share_date`); quyền đó chỉ có hiệu lực cho đúng ngày được chia sẻ. Không mô tả nó như xác thực chủ xe pháp lý (không yêu cầu giấy tờ/OTP) — người đăng ký đầu tiên là chủ sở hữu.
 
 ### Lịch sử schema
 
@@ -644,7 +644,7 @@ Không thấy stub trả thành công giả cho payment trong service: gateway k
 
 - Rule quota/site/holiday/action tổng quát; recurring membership và billing SaaS.
 - Booking giữ chỗ, tự động thu phí mọi exit, hóa đơn/thuế, partial refund, chuyển/rút ví.
-- Chứng minh sở hữu biển số driver; hai tài khoản có thể chia sẻ plate theo thiết kế hiện tại.
+- ~~Chứng minh sở hữu biển số driver~~ — đã xử lý: mỗi biển số chỉ thuộc một tài khoản, chia sẻ theo ngày qua `driver_vehicle_shares` (GAP-BE-002).
 - Payment grant offline và enforcement giống nhau hoàn toàn giữa backend/edge.
 - Transactional outbox, telemetry dedupe, WS replay/revoke tức thời.
 - TTL presence cách ly theo tenant trong cron hiện tại, quyền DDL maintenance và di chuyển row DEFAULT tự động.
