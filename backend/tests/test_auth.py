@@ -7,6 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.config import settings
 from tests.conftest import csrf, login
 
 
@@ -301,3 +302,19 @@ async def test_access_token_amr_claim(client: AsyncClient, admin_engine, tenant)
         client.cookies.get("vm_access"), settings.jwt_secret, algorithms=[settings.jwt_algorithm]
     )
     assert claims["amr"] == ["pwd", "otp"]
+
+@pytest.mark.asyncio
+async def test_driver_account_locks_after_repeated_failures(client: AsyncClient):
+    from tests.conftest import driver
+
+    d = await driver(client)
+    client.cookies.clear()
+    for _ in range(settings.login_max_attempts):
+        bad = await client.post(
+            "/api/v1/driver/auth/login", json={"email": d["email"], "password": "wrong-password"}
+        )
+        assert bad.status_code == 401
+    locked = await client.post(
+        "/api/v1/driver/auth/login", json={"email": d["email"], "password": "Password!123"}
+    )
+    assert locked.status_code == 423

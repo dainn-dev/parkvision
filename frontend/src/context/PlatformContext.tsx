@@ -623,6 +623,23 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, []);
 
   const tenantNameRef = useRef('');
+  // Optional dashboard panels degrade to empty, but must say so: otherwise a
+  // 403 / outage looks identical to "no data". Warn once per panel until it recovers.
+  const failedPanelsRef = useRef<Set<string>>(new Set());
+  const softLoad = <T,>(panel: string, load: Promise<T>, fallback: T): Promise<T> =>
+    load.then(
+      (v) => {
+        failedPanelsRef.current.delete(panel);
+        return v;
+      },
+      (e: unknown) => {
+        if (!failedPanelsRef.current.has(panel)) {
+          failedPanelsRef.current.add(panel);
+          addToast({ type: 'warning', title: `Could not load ${panel}`, description: errText(e) });
+        }
+        return fallback;
+      },
+    );
   const loadTenantData = useCallback(async (tId: string) => {
     setIsTenantRefreshing(true);
     try {
@@ -637,11 +654,11 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
           tenantApi.users(tId, { limit: 200 }),
           tenantApi.accessEvents(tId, { limit: 100 }),
           tenantApi.incidents(tId, { limit: 100 }),
-          tenantApi.auditLogs(tId, { limit: 100 }).catch(() => ({ data: [], meta: { page: 1, limit: 100, total: 0 } })),
-          tenantApi.dashboardSummary(tId).catch(() => null),
-          tenantApi.hourlyFlow(tId, 24).catch(() => null),
-          tenantApi.parkingMap(tId).catch(() => null),
-          tenantApi.parkingPresence(tId, { limit: 200 }).catch(() => ({ data: [] as PresenceOut[], meta: { page: 1, limit: 200, total: 0 } })),
+          softLoad('audit logs', tenantApi.auditLogs(tId, { limit: 100 }), { data: [], meta: { page: 1, limit: 100, total: 0 } }),
+          softLoad('dashboard summary', tenantApi.dashboardSummary(tId), null),
+          softLoad('hourly flow', tenantApi.hourlyFlow(tId, 24), null),
+          softLoad('parking map', tenantApi.parkingMap(tId), null),
+          softLoad('parking presence', tenantApi.parkingPresence(tId, { limit: 200 }), { data: [] as PresenceOut[], meta: { page: 1, limit: 200, total: 0 } }),
         ]);
 
       setParkingMap(parkingMapRes?.levels ?? []);
@@ -654,7 +671,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       const gatesMapped = gatesPage.data.map((g) => mapGate(g, tId, tName));
       const gateNames = new Map(gatesPage.data.map((g) => [g.id, g.name]));
       const lanesNested = await Promise.all(
-        sitesPage.data.map((s) => tenantApi.lanes(tId, s.id).catch(() => [] as LaneOut[]))
+        sitesPage.data.map((s) => softLoad('lanes', tenantApi.lanes(tId, s.id), [] as LaneOut[]))
       );
       setTenantLanes(lanesNested.flat());
 
@@ -866,10 +883,14 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     let ws: WebSocket | null = null;
     let closed = false;
     let retry = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
     setLiveGateFrames({});
     const connect = () => {
       if (closed) return;
       ws = new WebSocket(barrierTelemetryWsUrl(activeTenantId));
+      ws.onopen = () => {
+        retry = 0;
+      };
       ws.onmessage = (ev) => {
         try {
           const msg = JSON.parse(ev.data);
@@ -1056,16 +1077,18 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         }
       };
       ws.onclose = () => {
-        if (!closed && retry < 5) {
-          retry += 1;
-          setTimeout(connect, 3000 * retry);
-        }
+        if (closed) return;
+        // Keep retrying with capped backoff; a dead socket otherwise leaves
+        // barrier map / occupancy stale until a full reload.
+        retry += 1;
+        retryTimer = setTimeout(connect, Math.min(3000 * retry, 30000));
       };
       ws.onerror = () => ws?.close();
     };
     connect();
     return () => {
       closed = true;
+      if (retryTimer) clearTimeout(retryTimer);
       ws?.close();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1588,7 +1611,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     tenantApi
       .sendCommand(activeTenantId, gateId, backendCommand, crypto.randomUUID())
       .then((cmd) => {
-        addToast({ type: 'success', title: `Command ${upper === 'RESET' ? 'REBOOT' : upper} sent`, description: cmd.id });
+        addToast({ type: 'info', title: `Command ${upper === 'RESET' ? 'REBOOT' : upper} queued`, description: `Waiting for the gate to acknowledge (${cmd.id})` });
         // Poll for the ack a couple of times, then surface the outcome.
         let tries = 0;
         const poll = setInterval(() => {
@@ -1601,7 +1624,14 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
             } else if (c.status === 'timeout' || c.status === 'failed' || tries >= 10) {
               clearInterval(poll);
               if (c.status !== 'acknowledged') {
-                addToast({ type: 'warning', title: `Command ${c.status}`, description: c.error ?? 'No ack received' });
+                const unacked = c.status !== 'timeout' && c.status !== 'failed';
+                addToast({
+                  type: 'warning',
+                  title: unacked ? 'Command not acknowledged' : `Command ${c.status}`,
+                  description: unacked
+                    ? 'The gate has not confirmed execution. Check the barrier on site before assuming it moved.'
+                    : c.error ?? 'No ack received',
+                });
               }
             }
           }).catch(() => clearInterval(poll));

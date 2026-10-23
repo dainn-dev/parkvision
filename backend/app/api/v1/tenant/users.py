@@ -13,8 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import ADMIN_ROLES, csrf_protect, require_roles
 from app.api.v1.tenant import TenantCtx, get_tenant_db, tenant_ctx
 from app.config import settings
-from app.core.enums import AccountStatus, ActorType
-from app.core.errors import bad_request, conflict, not_found
+from app.core.enums import AccountStatus, ActorType, TenantUserRole
+from app.core.errors import bad_request, conflict, forbidden, not_found
 from app.models import TenantUser, UserSession
 from app.schemas.auth import UserOut
 from app.schemas.common import MessageOut, Page, paginate
@@ -86,6 +86,30 @@ async def list_users(
     return paginate([_out(r) for r in rows], total, page, limit)
 
 
+_OWNER = str(TenantUserRole.OWNER)
+
+def _require_owner_for_owner_change(ctx: TenantCtx, *roles: str | None) -> None:
+    """Only an owner may grant, change or remove the owner role (no admin -> owner escalation)."""
+    if _OWNER in roles and ctx.auth.role != _OWNER:
+        raise forbidden("Only an owner can manage owner accounts") from None
+
+async def _require_other_active_owner(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """A tenant must always keep at least one active owner."""
+    others = (
+        await db.execute(
+            select(func.count())
+            .select_from(TenantUser)
+            .where(
+                TenantUser.tenant_id == tenant_id,
+                TenantUser.id != user_id,
+                TenantUser.role == _OWNER,
+                TenantUser.status == str(AccountStatus.ACTIVE),
+            )
+        )
+    ).scalar_one()
+    if others == 0:
+        raise conflict("A tenant must keep at least one active owner") from None
+
 @router.post("/users", response_model=UserOut, status_code=201)
 async def invite_user(
     body: UserInviteIn,
@@ -95,6 +119,7 @@ async def invite_user(
     _: None = Depends(require_roles(*ADMIN_ROLES)),
 ) -> UserOut:
     """Invite by email: creates an invited account and queues an activation email."""
+    _require_owner_for_owner_change(ctx, body.role)
     invite_token = secrets.token_urlsafe(32)
     row = TenantUser(
         tenant_id=ctx.tenant_id,
@@ -156,6 +181,13 @@ async def update_user(
         raise not_found("user", user_id) from None
     if row.id == ctx.auth.user_id and body.status == AccountStatus.DISABLED:
         raise conflict("You cannot disable your own account") from None
+    _require_owner_for_owner_change(ctx, row.role, body.role)
+    leaves_owner = row.role == _OWNER and (
+        (body.role is not None and body.role != _OWNER)
+        or (body.status is not None and body.status != str(AccountStatus.ACTIVE))
+    )
+    if leaves_owner:
+        await _require_other_active_owner(db, ctx.tenant_id, row.id)
     changes = body.model_dump(exclude_unset=True)
     profile_updates = {k: changes.pop(k) for k in _PROFILE_FIELDS if k in changes}
     for k, v in changes.items():
@@ -210,6 +242,9 @@ async def deactivate_user(
         raise not_found("user", user_id) from None
     if row.id == ctx.auth.user_id:
         raise conflict("You cannot remove your own account") from None
+    _require_owner_for_owner_change(ctx, row.role)
+    if row.role == _OWNER:
+        await _require_other_active_owner(db, ctx.tenant_id, row.id)
     row.status = str(AccountStatus.DISABLED)
     await write_audit(
         db,
@@ -286,6 +321,7 @@ async def admin_password_reset(
     ).scalar_one_or_none()
     if row is None:
         raise not_found("user", user_id) from None
+    _require_owner_for_owner_change(ctx, row.role)
     if row.status == str(AccountStatus.INVITED):
         raise bad_request("User has not activated yet — resend the invitation instead") from None
 

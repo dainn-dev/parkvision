@@ -14,7 +14,6 @@ import {
   X,
   Lock,
   ArrowRight,
-  Sparkles,
   AlertCircle,
   Clock,
   CheckCircle2,
@@ -162,10 +161,6 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
   };
 
   // Quick helper to auto-fill valid demo code
-  const handleFillDemoCode = () => {
-    setOtpDigits(['1', '2', '3', '4', '5', '6']);
-    setVerificationError(null);
-  };
 
   // Handle OTP verification submission
   const handleVerifyOtp = async () => {
@@ -201,28 +196,10 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
       return;
     }
 
-    // Demo challenge elevation (no backend counterpart — step-up auth is not
-    // exposed for already-authenticated sessions).
-    setTimeout(() => {
-      setIsVerifying(false);
-      if (fullCode === '000000') {
-        setVerificationError(t('Invalid passkey code or expired TOTP window. Please check your device time.'));
-        addToast({
-          type: 'error',
-          title: t('MFA Verification Failed'),
-          description: t('The provided code was rejected by the authentication server.')
-        });
-      } else {
-        addToast({
-          type: 'success',
-          title: t('MFA Verification Successful'),
-          description: t('Identity verified. Access session elevated.')
-        });
-        pushAuditLog('SECURITY', 'MFA_CHALLENGE_SUCCESS', 'USER', 'mfa-session', t('TOTP Authentication Verified'));
-        if (onSuccess) onSuccess();
-        onClose();
-      }
-    }, 1000);
+    // 'challenge' has no backend step-up endpoint. Never report success for
+    // a code the server did not verify.
+    setIsVerifying(false);
+    setVerificationError(t('Step-up verification is not available for active sessions.'));
   };
 
   // Disable MFA — strong re-auth (password + current OTP); the backend revokes
@@ -583,20 +560,6 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                 <div className="p-3 bg-[#da3633]/20 border border-[#f85149]/40 rounded-xl text-[#f85149] flex items-center gap-2.5 text-xs animate-in fade-in duration-150">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <p>{verificationError}</p>
-                </div>
-              )}
-
-              {/* Demo Fill Helper — only meaningful for the simulated challenge mode */}
-              {mode === 'challenge' && (
-                <div className="flex items-center justify-between text-[11px] pt-1">
-                  <button
-                    type="button"
-                    onClick={handleFillDemoCode}
-                    className="text-[#58a6ff] hover:underline flex items-center gap-1 font-mono cursor-pointer"
-                  >
-                    <Sparkles className="w-3 h-3" /> {t('Auto-fill test passcode (123456)')}
-                  </button>
-                  <span className="text-[#8b949e] font-mono">{t('Paste supported')}</span>
                 </div>
               )}
 

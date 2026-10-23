@@ -308,7 +308,9 @@ export const PlatformHeader: React.FC<{
                 <div className="mt-2 flex items-center justify-between">
                   <button
                     onClick={() => {
-                      openMfaModal('challenge');
+                      // Already-enrolled accounts have nothing to re-verify here;
+                      // only offer enrollment when MFA is off.
+                      if (!currentUser?.mfaEnabled) openMfaModal('enroll');
                       setIsProfileOpen(false);
                     }}
                     className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono hover:opacity-80 transition-all cursor-pointer ${
@@ -316,7 +318,7 @@ export const PlatformHeader: React.FC<{
                         ? 'bg-[#238636]/20 text-[#3fb950] border border-[#3fb950]/30'
                         : 'bg-[#d29922]/20 text-[#d29922] border border-[#d29922]/30'
                     }`}
-                    title={t('Click to verify TOTP passcode')}
+                    title={currentUser?.mfaEnabled ? t('TOTP Active') : t('Set up multi-factor authentication')}
                   >
                     <UserCheck className="w-3 h-3" />
                     {currentUser?.mfaEnabled ? t('MFA Verified') : t('MFA Off')}

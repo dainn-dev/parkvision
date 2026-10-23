@@ -105,9 +105,9 @@ export async function api<T>(
   return body as T;
 }
 
-/** WS URL for /ws/driver/sessions, derived from BASE_URL's origin. */
-export function driverSessionsWsUrl(): string {
-  const { access } = tokenStore.get();
+/** Obtain a single-use WS ticket from the backend (30 s TTL).
+ * Falls back to the long-lived JWT when the endpoint is unavailable. */
+export async function driverSessionsWsUrl(): Promise<string> {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   let base: URL;
   try {
@@ -116,7 +116,14 @@ export function driverSessionsWsUrl(): string {
   } catch {
     base = new URL(`${proto}//${window.location.host}/ws/driver/sessions`);
   }
-  if (access) base.searchParams.set("token", access);
+  try {
+    const res = await api<{ ticket: string }>("/driver/auth/ws-ticket", { method: "POST" });
+    base.searchParams.set("ticket", res.ticket);
+  } catch {
+    // Endpoint unavailable (older backend) — fall back to JWT in query string.
+    const { access } = tokenStore.get();
+    if (access) base.searchParams.set("token", access);
+  }
   return base.toString();
 }
 

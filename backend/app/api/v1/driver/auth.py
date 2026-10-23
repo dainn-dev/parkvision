@@ -4,6 +4,7 @@ Bearer-token only (mobile client); no cookies, no CSRF, no MFA. Sessions
 reuse auth_service's UserSession machinery with user_type='driver'.
 """
 
+import secrets
 import uuid
 
 from fastapi import APIRouter, Depends, Request
@@ -17,6 +18,7 @@ from app.models import UserSession
 from app.schemas.auth import SessionOut
 from app.schemas.common import MessageOut
 from app.schemas.driver import (
+    WsTicketOut,
     DriverLoginIn,
     DriverOut,
     DriverPasswordIn,
@@ -155,3 +157,21 @@ async def revoke_session(session_id: uuid.UUID, auth: AuthContext = Depends(requ
             resource_id=str(session_id),
         )
     return MessageOut(message="Session revoked")
+
+
+@router.post("/ws-ticket", response_model=WsTicketOut, dependencies=[Depends(rate_limited("ws_ticket", 10, 60))])
+async def ws_ticket(auth: AuthContext = Depends(require_driver)) -> WsTicketOut:
+    """Issue a short-lived, single-use ticket for WebSocket auth.
+
+    The mobile client exchanges its bearer token for a ticket, then opens
+    the socket with ``?ticket=<ticket>`` instead of leaking the long-lived
+    JWT in the query string (visible in server/proxy access logs).
+    """
+    from app.redis_client import get_redis
+
+    ticket = secrets.token_urlsafe(32)
+    redis = get_redis()
+    key = f"ws:ticket:{ticket}"
+    # Bind driver_id so the WS handler knows who connected.
+    await redis.set(key, str(auth.user_id), ex=30)  # 30 s TTL
+    return WsTicketOut(ticket=ticket, expires_in=30)

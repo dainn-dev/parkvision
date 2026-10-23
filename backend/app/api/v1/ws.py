@@ -83,7 +83,21 @@ async def barrier_telemetry(ws: WebSocket, tenant_id: uuid.UUID) -> None:
 
 
 async def _driver_ws_auth(ws: WebSocket) -> uuid.UUID | None:
-    """Driver access-token auth (?token=); returns the driver id or closes."""
+    """Authenticate driver WS via a single-use ticket (?ticket=) or legacy
+    bearer token (?token=).  Tickets are preferred because the opaque value
+    never appears in server/proxy access logs as a reusable credential."""
+    ticket = ws.query_params.get("ticket")
+    if ticket:
+        redis = get_redis()
+        key = f"ws:ticket:{ticket}"
+        driver_id_str = await redis.getdel(key)  # single-use: delete on read
+        if driver_id_str is None:
+            await ws.close(code=4401)
+            return None
+        return uuid.UUID(driver_id_str)
+
+    # Legacy path: long-lived JWT in query string (mobile clients that have
+    # not upgraded yet).  TODO: remove once all clients use tickets.
     token = ws.query_params.get("token")
     if not token:
         await ws.close(code=4401)

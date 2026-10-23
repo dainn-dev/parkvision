@@ -654,10 +654,12 @@ class PublicLocateOut(CamelModel):
 
 
 # ---------- tenant users ----------
+TenantRoleName = Literal["owner", "admin", "operator", "viewer"]
+
 class UserInviteIn(CamelModel):
     email: EmailStr
     full_name: str = Field(min_length=2, max_length=200)
-    role: str = "viewer"
+    role: TenantRoleName = "viewer"
     # Optional member-profile fields stored in tenant_users.profile
     member_code: str | None = Field(default=None, max_length=40)
     phone: str | None = Field(default=None, max_length=50)
@@ -668,7 +670,7 @@ class UserInviteIn(CamelModel):
 
 class UserUpdateIn(CamelModel):
     full_name: str | None = None
-    role: str | None = None
+    role: TenantRoleName | None = None
     status: str | None = None
     member_code: str | None = Field(default=None, max_length=40)
     phone: str | None = Field(default=None, max_length=50)

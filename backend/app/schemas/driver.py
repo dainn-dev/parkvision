@@ -208,3 +208,9 @@ class WalletTransactionOut(CamelModel):
 class WalletOut(CamelModel):
     balance_vnd: int
     transactions: list[WalletTransactionOut]
+
+
+class WsTicketOut(CamelModel):
+    """Short-lived opaque ticket for WS auth (replaces JWT in query string)."""
+    ticket: str
+    expires_in: int

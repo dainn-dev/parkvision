@@ -377,3 +377,34 @@ async def test_record_event_publishes_plate_hint(
     await asyncio.sleep(0.05)
     hit = [p for ch, p in published if ch == "pv:plate:30A99999"]
     assert hit and json.loads(hit[0])["type"] == "session_event"
+
+@pytest.mark.asyncio
+async def test_concurrent_wallet_refund_credits_once(
+    client, tenant, listed_site, gateway, admin_engine
+):
+    """Two simultaneous refunds of the same payment: one wins, one gets 409."""
+    import asyncio
+
+    p = await make_plan(client, tenant, listed_site["id"], price=200_000)
+    client.cookies.clear()
+    d = await driver(client)
+    await _seed_wallet(admin_engine, d["email"], 500_000)
+    v = await add_vehicle(client, d, "51F-555.55")
+    m = await request_membership(client, d, p["id"], v["id"])
+    r = await client.post(
+        "/api/v1/driver/payments",
+        headers=d["headers"],
+        json={"kind": "membership", "membershipId": m["id"], "method": "wallet"},
+    )
+    pay = r.json()
+    did = await _driver_id(admin_engine, d["email"])
+
+    await _tenant_login(client, tenant)
+    url = f"/api/v1/tenants/{tenant['tenant_id']}/payments/{pay['id']}/refund"
+    headers = csrf(client)
+    results = await asyncio.gather(
+        client.post(url, headers=headers), client.post(url, headers=headers)
+    )
+
+    assert sorted(r.status_code for r in results) == [200, 409], [r.text for r in results]
+    assert await _wallet_balance(admin_engine, did) == 500_000

@@ -604,10 +604,14 @@ async def refund_payment(db, tenant_id: uuid.UUID, payment_id: uuid.UUID) -> dic
     """
     p = (
         await db.execute(
-            select(DriverPayment).where(
+            select(DriverPayment)
+            .where(
                 DriverPayment.id == payment_id,
                 DriverPayment.tenant_id == tenant_id,
             )
+            # Serialise concurrent refunds: the loser re-reads status='refunded'
+            # and gets a 409 instead of crediting / calling the gateway twice.
+            .with_for_update()
         )
     ).scalar_one_or_none()
     if p is None:

@@ -18,23 +18,30 @@ export function useSessionHints(enabled: boolean, onHint: () => void) {
     let closed = false;
 
     const connect = () => {
-      try {
-        ws = new WebSocket(driverSessionsWsUrl());
-      } catch {
-        retry = setTimeout(connect, RETRY_MS);
-        return;
-      }
-      ws.onmessage = (ev) => {
-        try {
-          const msg = JSON.parse(String(ev.data));
-          if (msg?.type === 'session_event') cb.current();
-        } catch {
-          // non-JSON heartbeat / malformed frame — ignore
-        }
-      };
-      ws.onclose = () => {
-        if (!closed) retry = setTimeout(connect, RETRY_MS);
-      };
+      driverSessionsWsUrl()
+        .then((url) => {
+          if (closed) return;
+          try {
+            ws = new WebSocket(url);
+          } catch {
+            retry = setTimeout(connect, RETRY_MS);
+            return;
+          }
+          ws.onmessage = (ev) => {
+            try {
+              const msg = JSON.parse(String(ev.data));
+              if (msg?.type === 'session_event') cb.current();
+            } catch {
+              // non-JSON heartbeat / malformed frame — ignore
+            }
+          };
+          ws.onclose = () => {
+            if (!closed) retry = setTimeout(connect, RETRY_MS);
+          };
+        })
+        .catch(() => {
+          if (!closed) retry = setTimeout(connect, RETRY_MS);
+        });
     };
     connect();
     return () => {
