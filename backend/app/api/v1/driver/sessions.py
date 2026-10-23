@@ -15,7 +15,7 @@ router = APIRouter(
 
 
 async def _plates(driver_id) -> set[str]:
-    return {v.plate_normalized for v in await driver_service.list_vehicles(driver_id)}
+    return await driver_service.plates_for_driver(driver_id)
 
 
 @router.get("/active", response_model=list[DriverSessionOut])

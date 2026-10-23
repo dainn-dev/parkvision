@@ -596,3 +596,47 @@ async def test_sessions_only_for_own_plates(client, listed_site, admin_engine):
     assert (
         await client.get("/api/v1/driver/sessions/active", headers=d["headers"])
     ).json() == []
+
+
+# ---------- Session visibility for shared plates (GAP-BE-002) ----------
+
+
+@pytest.mark.asyncio
+async def test_shared_driver_sees_session(client, listed_site, admin_engine):
+    """Recipient of a share for today sees owner's active session."""
+    owner, recipient = await driver(client), await driver(client)
+    v = (await client.post(
+        "/api/v1/driver/vehicles", headers=owner["headers"],
+        json={"plateNumber": "51G-500.00"},
+    )).json()
+    today = _date.today().isoformat()
+    await client.post(
+        f"/api/v1/driver/vehicles/{v['id']}/shares",
+        headers=owner["headers"],
+        json={"sharedWithEmail": recipient["email"], "shareDate": today},
+    )
+    await access_event(
+        admin_engine, listed_site["tenant_id"], listed_site["id"], "51G50000", "entry"
+    )
+    sessions = (
+        await client.get("/api/v1/driver/sessions/active", headers=recipient["headers"])
+    ).json()
+    assert len(sessions) == 1
+    assert sessions[0]["plateNumber"] == "51G50000"
+
+
+@pytest.mark.asyncio
+async def test_unshared_driver_cannot_see_session(client, listed_site, admin_engine):
+    """Driver without a share for today cannot see the session."""
+    owner, stranger = await driver(client), await driver(client)
+    await client.post(
+        "/api/v1/driver/vehicles", headers=owner["headers"],
+        json={"plateNumber": "51G-600.00"},
+    )
+    await access_event(
+        admin_engine, listed_site["tenant_id"], listed_site["id"], "51G60000", "entry"
+    )
+    sessions = (
+        await client.get("/api/v1/driver/sessions/active", headers=stranger["headers"])
+    ).json()
+    assert sessions == []
