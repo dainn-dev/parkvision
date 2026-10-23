@@ -82,7 +82,7 @@ async def _paid_membership_payment(client, tenant, listed_site, gateway, admin_e
     p = await make_plan(client, tenant, listed_site["id"], price=200_000)
     client.cookies.clear()
     d = await driver(client)
-    v = await add_vehicle(client, d, "30A-777.77")
+    v = await add_vehicle(client, d)
     m = await request_membership(client, d, p["id"], v["id"])
     r = await client.post(
         "/api/v1/driver/payments",
@@ -177,7 +177,7 @@ async def test_refund_unpaid_payment_409(client, tenant, listed_site, gateway):
     p = await make_plan(client, tenant, listed_site["id"], price=50_000)
     client.cookies.clear()
     d = await driver(client)
-    v = await add_vehicle(client, d, "30A-111.11")
+    v = await add_vehicle(client, d, "30A-911.11")
     m = await request_membership(client, d, p["id"], v["id"])
     r = await client.post(
         "/api/v1/driver/payments",

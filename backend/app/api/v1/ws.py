@@ -118,7 +118,7 @@ async def _driver_ws_auth(ws: WebSocket) -> uuid.UUID | None:
 
 @router.websocket("/ws/driver/sessions")
 async def driver_session_hints(ws: WebSocket) -> None:
-    """Fan-out of access-event hints for the caller's own plates.
+    """Fan-out of access-event hints for the caller's owned + shared plates.
 
     Each message is `{type:'session_event', plate, direction, decision,
     siteId, at}` — a hint to refetch over REST, not authoritative state.
@@ -128,23 +128,9 @@ async def driver_session_hints(ws: WebSocket) -> None:
     if driver_id is None:
         return
 
-    from sqlalchemy import select
+    from app.services.driver_service import plates_for_driver
 
-    from app.database import platform_session
-    from app.models import DriverVehicle
-
-    async with platform_session() as db:
-        plates = (
-            (
-                await db.execute(
-                    select(DriverVehicle.plate_normalized).where(
-                        DriverVehicle.driver_id == driver_id
-                    )
-                )
-            )
-            .scalars()
-            .all()
-        )
+    plates = await plates_for_driver(driver_id)
     channels = [driver_plate_channel(p) for p in plates if p]
     if not channels:
         await ws.close(code=4404)

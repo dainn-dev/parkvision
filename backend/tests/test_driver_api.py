@@ -531,10 +531,14 @@ async def access_event(admin_engine, tenant_id, site_id, plate, direction, decis
 @pytest.mark.asyncio
 async def test_active_session_after_entry(client, listed_site, admin_engine):
     d = await driver(client)
+    suffix = _uuid.uuid4().hex[:5].upper()
+    plate = f"51A-{suffix}"
     await client.post(
-        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": "51A-123.45"}
+        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate}
     )
-    await access_event(admin_engine, listed_site["tenant_id"], listed_site["id"], "51A12345", "entry")
+    await access_event(
+        admin_engine, listed_site["tenant_id"], listed_site["id"], plate, "entry"
+    )
     r = (
         await client.get("/api/v1/driver/sessions/active", headers=d["headers"])
     ).json()
