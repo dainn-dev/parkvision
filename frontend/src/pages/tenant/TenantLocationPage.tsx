@@ -46,6 +46,7 @@ import { Button, Card, Badge } from '../../components/ui';
 import { EditLocationSheet } from '../../components/tenant/EditLocationSheet';
 import { EditOperatingHoursDialog } from '../../components/tenant/EditOperatingHoursDialog';
 import { DeactivateLocationDialog } from '../../components/tenant/DeactivateLocationDialog';
+import { SiteDetailDrawer } from '../../components/tenant/SiteDetailDrawer';
 import { useTranslation } from 'react-i18next';
 
 export const TenantLocationPage: React.FC = () => {
@@ -57,6 +58,7 @@ export const TenantLocationPage: React.FC = () => {
     accessActivity,
     registeredVehicles,
     tenantAccessRules,
+    tenantSites,
     updateTenantLocation,
     updateLocationOperatingHours,
     toggleLocationStatus,
@@ -72,6 +74,7 @@ export const TenantLocationPage: React.FC = () => {
   const [showInteractiveMap, setShowInteractiveMap] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [timeRangeFilter, setTimeRangeFilter] = useState<'today' | 'yesterday' | '7d' | '30d'>('today');
+  const [isCameraDrawerOpen, setIsCameraDrawerOpen] = useState(false);
 
   const location = tenantLocation;
   const isHealthy = tenantHealth?.overall === 'HEALTHY';
@@ -522,7 +525,7 @@ export const TenantLocationPage: React.FC = () => {
             </div>
 
             <button
-              onClick={() => setTenantNavTab('cameras' as any)}
+              onClick={() => setIsCameraDrawerOpen(true)}
               className="mt-4 pt-3 border-t border-[#21262d] flex items-center justify-between text-xs text-[#58a6ff] hover:text-white font-medium group transition-colors"
             >
               <span>{t('Manage Cameras')}</span>
@@ -1037,6 +1040,14 @@ export const TenantLocationPage: React.FC = () => {
         onClose={() => setIsDeactivateOpen(false)}
         location={location}
         onConfirm={toggleLocationStatus}
+      />
+
+      {/* Cameras live in the site detail drawer — open it on the cameras tab */}
+      <SiteDetailDrawer
+        site={tenantSites[0] ?? null}
+        isOpen={isCameraDrawerOpen}
+        onClose={() => setIsCameraDrawerOpen(false)}
+        initialTab="cameras"
       />
     </div>
   );

@@ -52,6 +52,70 @@ function scatterFor(seed: string): { x: number; y: number } {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Map focus: a single-site (or tightly clustered) tenant has no use for the
+// nationwide canvas — derive the canvas mode from the projected site spread.
+// ---------------------------------------------------------------------------
+export type BarrierMapMode = 'nationwide' | 'local';
+
+/** Sites closer than this straight-line distance collapse into a local map. */
+const LOCAL_CLUSTER_KM = 5;
+
+export interface BarrierMapFocus {
+  mode: BarrierMapMode;
+  /** Nationwide zoom/pan transform target (undefined = default full map). */
+  nationwideBounds?: { x: number; y: number; k: number };
+}
+
+const haversineKm = (a: { lat: number; lng: number }, b: { lat: number; lng: number }): number => {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+};
+
+export function computeMapFocus(sites: TenantSiteBarrierLocation[]): BarrierMapFocus {
+  if (sites.length <= 1) return { mode: 'local' };
+
+  // With real coordinates, cluster by distance; scatter-projected-only sites
+  // have no meaningful geography, so treat any spread as nationwide.
+  // Scatter-projected-only sites carry no meaningful geography, so any
+  // multi-site spread without full GPS coverage stays nationwide.
+  const withGeo = sites.filter((s) => s.coordinates && Number.isFinite(s.coordinates.lat) && Number.isFinite(s.coordinates.lng));
+  if (withGeo.length < sites.length) return { mode: 'nationwide' };
+
+  for (let i = 1; i < withGeo.length; i += 1) {
+    if (haversineKm(withGeo[0].coordinates, withGeo[i].coordinates) > LOCAL_CLUSTER_KM) {
+      return { mode: 'nationwide' };
+    }
+  }
+  return { mode: 'local' };
+}
+
+/**
+ * Local site canvas layout: gates of one site arranged around a facility
+ * footprint — entry gates on the left edge, exits on the right edge, extra
+ * gates stacked by index. Deterministic per gate id.
+ */
+export function buildLocalGateLayout(gates: BarrierGateItem[]): Map<string, { x: number; y: number }> {
+  const layout = new Map<string, { x: number; y: number }>();
+  const entry = gates.filter((g) => g.direction === 'IN');
+  const exit = gates.filter((g) => g.direction !== 'IN');
+  const place = (list: BarrierGateItem[], x: number) => {
+    const n = list.length;
+    list.forEach((g, i) => {
+      const y = n === 1 ? 350 : 180 + (i * 340) / (n - 1);
+      layout.set(g.id, { x, y });
+    });
+  };
+  place(entry, 150);
+  place(exit, 450);
+  return layout;
+}
+
 const NORTH_CITIES = /(hà nội|hanoi|ha noi|hải phòng|hai phong|quảng ninh|quang ninh|bắc ninh|bac ninh|hải dương|nam định|thái nguyên|lào cai|sapa|điện biên)/i;
 const CENTRAL_CITIES = /(đà nẵng|da nang|huế|hue|quảng nam|quang nam|nha trang|khánh hòa|khanh hoa|đà lạt|da lat|lâm đồng|lam dong|quy nhơn|nghệ an|nghe an|hà tĩnh|thanh hóa|thanh hoa|vinh)/i;
 

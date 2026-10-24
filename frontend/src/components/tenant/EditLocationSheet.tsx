@@ -65,14 +65,14 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
     imageUrl: location.publicProfile?.imageUrl ?? '',
     parkingType: location.publicProfile?.parkingType ?? '',
     facilitiesCsv: (location.publicProfile?.facilities ?? []).join(', '),
-    hourlyFrom: location.publicProfile?.pricing.hourlyFrom?.toString() ?? '',
-    dailyFrom: location.publicProfile?.pricing.dailyFrom?.toString() ?? '',
-    overnightFrom: location.publicProfile?.pricing.overnightFrom?.toString() ?? '',
-    monthlyFrom: location.publicProfile?.pricing.monthlyFrom?.toString() ?? '',
-    graceMinutes: (location.publicProfile?.pricing.graceMinutes ?? 0).toString(),
-    blockMinutes: (location.publicProfile?.pricing.blockMinutes ?? 60).toString(),
-    overnightStartHour: (location.publicProfile?.pricing.overnightStartHour ?? 22).toString(),
-    overnightEndHour: (location.publicProfile?.pricing.overnightEndHour ?? 6).toString()
+    hourlyFrom: location.publicProfile?.pricing?.hourlyFrom?.toString() ?? '',
+    dailyFrom: location.publicProfile?.pricing?.dailyFrom?.toString() ?? '',
+    overnightFrom: location.publicProfile?.pricing?.overnightFrom?.toString() ?? '',
+    monthlyFrom: location.publicProfile?.pricing?.monthlyFrom?.toString() ?? '',
+    graceMinutes: (location.publicProfile?.pricing?.graceMinutes ?? 0).toString(),
+    blockMinutes: (location.publicProfile?.pricing?.blockMinutes ?? 60).toString(),
+    overnightStartHour: (location.publicProfile?.pricing?.overnightStartHour ?? 22).toString(),
+    overnightEndHour: (location.publicProfile?.pricing?.overnightEndHour ?? 6).toString()
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -105,14 +105,14 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
         imageUrl: location.publicProfile?.imageUrl ?? '',
         parkingType: location.publicProfile?.parkingType ?? '',
         facilitiesCsv: (location.publicProfile?.facilities ?? []).join(', '),
-        hourlyFrom: location.publicProfile?.pricing.hourlyFrom?.toString() ?? '',
-        dailyFrom: location.publicProfile?.pricing.dailyFrom?.toString() ?? '',
-        overnightFrom: location.publicProfile?.pricing.overnightFrom?.toString() ?? '',
-        monthlyFrom: location.publicProfile?.pricing.monthlyFrom?.toString() ?? '',
-        graceMinutes: (location.publicProfile?.pricing.graceMinutes ?? 0).toString(),
-        blockMinutes: (location.publicProfile?.pricing.blockMinutes ?? 60).toString(),
-        overnightStartHour: (location.publicProfile?.pricing.overnightStartHour ?? 22).toString(),
-        overnightEndHour: (location.publicProfile?.pricing.overnightEndHour ?? 6).toString()
+        hourlyFrom: location.publicProfile?.pricing?.hourlyFrom?.toString() ?? '',
+        dailyFrom: location.publicProfile?.pricing?.dailyFrom?.toString() ?? '',
+        overnightFrom: location.publicProfile?.pricing?.overnightFrom?.toString() ?? '',
+        monthlyFrom: location.publicProfile?.pricing?.monthlyFrom?.toString() ?? '',
+        graceMinutes: (location.publicProfile?.pricing?.graceMinutes ?? 0).toString(),
+        blockMinutes: (location.publicProfile?.pricing?.blockMinutes ?? 60).toString(),
+        overnightStartHour: (location.publicProfile?.pricing?.overnightStartHour ?? 22).toString(),
+        overnightEndHour: (location.publicProfile?.pricing?.overnightEndHour ?? 6).toString()
       });
       setErrors({});
       setIsDirty(false);

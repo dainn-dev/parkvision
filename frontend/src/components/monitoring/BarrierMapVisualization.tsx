@@ -10,6 +10,8 @@ import {
 import { VIETNAM_MAP_GEO_OUTLINE } from '../../data/barrierMockData';
 import {
   buildBarrierLocations,
+  buildLocalGateLayout,
+  computeMapFocus,
   incidentToBarrierAlert,
   observedReqPerMin,
   relTime,
@@ -329,6 +331,18 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     });
   }, [sites, tenantFilter, regionFilter, searchQuery, statusFilter]);
 
+  // Single-site (or tightly clustered) tenants get a facility-level canvas
+  // instead of the nationwide tactical map; the toggle lets them peek at the
+  // national view anyway.
+  const focus = useMemo(() => computeMapFocus(filteredSites), [filteredSites]);
+  const [nationalOverride, setNationalOverride] = useState(false);
+  const mapMode: 'nationwide' | 'local' = nationalOverride ? 'nationwide' : focus.mode;
+  const localSite = mapMode === 'local' ? filteredSites[0] ?? null : null;
+  const localGateLayout = useMemo(
+    () => (localSite ? buildLocalGateLayout(localSite.gates) : new Map()),
+    [localSite]
+  );
+
   // Overall KPI statistics
   const metrics = useMemo(() => {
     let totalGates = 0;
@@ -396,6 +410,96 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
 
     // Create container group for zoom and pan
     const container = svg.append('g').attr('class', 'map-viewport-container');
+
+    // -----------------------------------------------------------------------
+    // LOCAL MODE: single-site facility canvas — gates around a building
+    // footprint instead of the nationwide map.
+    // -----------------------------------------------------------------------
+    if (mapMode === 'local' && localSite) {
+      const defs = svg.append('defs');
+      const glowFilter = defs.append('filter')
+        .attr('id', 'pulse-glow')
+        .attr('x', '-50%').attr('y', '-50%').attr('width', '200%').attr('height', '200%');
+      glowFilter.append('feGaussianBlur').attr('stdDeviation', '4').attr('result', 'coloredBlur');
+      const feMerge = glowFilter.append('feMerge');
+      feMerge.append('feMergeNode').attr('in', 'coloredBlur');
+      feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+      // Facility footprint: stylised building block in the canvas centre.
+      const footprint = container.append('g').attr('class', 'facility-footprint');
+      footprint.append('rect')
+        .attr('x', 240).attr('y', 260).attr('width', 120).attr('height', 180)
+        .attr('rx', 10)
+        .attr('fill', '#161b22').attr('stroke', '#30363d').attr('stroke-width', 2);
+      footprint.append('text')
+        .attr('x', 300).attr('y', 350)
+        .text(localSite.name.length > 18 ? `${localSite.name.slice(0, 17)}…` : localSite.name)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#8b949e').attr('font-size', '11px').attr('font-weight', 'bold');
+      footprint.append('text')
+        .attr('x', 300).attr('y', 368)
+        .text(`${localSite.currentOccupancy}/${localSite.capacity} ${t('spots')}`)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#8b949e').attr('font-size', '9px');
+
+      // Parking/traffic area grid between the entry and exit columns.
+      const area = container.append('g').attr('class', 'local-grid').attr('opacity', 0.25);
+      for (let gx = 60; gx <= 540; gx += 40) {
+        area.append('line').attr('x1', gx).attr('y1', 120).attr('x2', gx).attr('y2', 580)
+          .attr('stroke', '#30363d').attr('stroke-dasharray', '2,4');
+      }
+      for (let gy = 120; gy <= 580; gy += 40) {
+        area.append('line').attr('x1', 60).attr('y1', gy).attr('x2', 540).attr('y2', gy)
+          .attr('stroke', '#30363d').attr('stroke-dasharray', '2,4');
+      }
+      area.append('text')
+        .attr('x', 300).attr('y', 96)
+        .text(t('Facility Gate Canvas'))
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#58a6ff').attr('font-size', '12px').attr('font-weight', 'bold').attr('letter-spacing', '2px');
+
+      const gateNodes = container.append('g').attr('class', 'site-nodes');
+      localSite.gates.forEach((gate) => {
+        const pos = localGateLayout.get(gate.id) ?? { x: 300, y: 560 };
+        const color = gate.status === 'STUCK' ? '#f85149'
+          : gate.status === 'OPEN' ? '#3fb950'
+          : gate.health === 'OFFLINE' ? '#e3b341'
+          : gate.health === 'CRITICAL' ? '#f85149'
+          : '#58a6ff';
+        const directionLabel = gate.direction === 'IN' ? t('INBOUND') : t('OUTBOUND');
+
+        const g = gateNodes.append('g')
+          .attr('class', `site-node gate-${gate.id}`)
+          .attr('transform', `translate(${pos.x}, ${pos.y})`)
+          .attr('cursor', 'pointer')
+          .on('click', () => setSelectedGateId(gate.id));
+
+        g.append('circle').attr('r', 16)
+          .attr('fill', '#0d1117').attr('stroke', color).attr('stroke-width', 2.5);
+        g.append('circle').attr('r', 5).attr('fill', color);
+        if (gate.status === 'OPEN' || gate.status === 'STUCK') {
+          g.append('circle').attr('r', 22).attr('fill', 'none')
+            .attr('stroke', color).attr('stroke-width', 2)
+            .attr('opacity', 0.7).attr('class', 'animate-ping origin-center');
+        }
+        g.append('text').attr('x', 0).attr('y', -26)
+          .text(gate.name)
+          .attr('text-anchor', 'middle')
+          .attr('fill', '#c9d1d9').attr('font-size', '11px').attr('font-weight', 'bold');
+        g.append('text').attr('x', 0).attr('y', 34)
+          .text(`${directionLabel} · ${gate.status} · ${t('cycles today')}: ${gate.dailyCycles}`)
+          .attr('text-anchor', 'middle')
+          .attr('fill', '#8b949e').attr('font-size', '9px').attr('font-family', 'ui-monospace, monospace');
+      });
+      if (localSite.gates.length === 0) {
+        gateNodes.append('text')
+          .attr('x', 300).attr('y', 480)
+          .text(t('No barrier gates bound to this site yet.'))
+          .attr('text-anchor', 'middle')
+          .attr('fill', '#8b949e').attr('font-size', '11px');
+      }
+      return;
+    }
 
     // Define defs (gradients, filters, glow effects)
     const defs = svg.append('defs');
@@ -751,7 +855,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     } else if (!selectedSiteId) {
       lastAutoPannedSiteRef.current = null;
     }
-  }, [viewMode, filteredSites, selectedSiteId, anomalies, isMlAnomalyOverlayEnabled]);
+  }, [viewMode, filteredSites, selectedSiteId, anomalies, isMlAnomalyOverlayEnabled, mapMode, localSite, localGateLayout]);
 
   // Zoom preset handlers
   const handleZoomIn = () => {
@@ -1668,6 +1772,14 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
               <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse" />
               <span className="font-semibold text-white">{t('Tactical Telemetry Map')}</span>
               <span className="text-[#8b949e]">· D3 Vector Engine</span>
+              {focus.mode === 'local' && (
+                <button
+                  onClick={() => setNationalOverride((v) => !v)}
+                  className="ml-2 px-2 py-0.5 rounded-lg border border-[#58a6ff]/40 text-[#58a6ff] hover:bg-[#58a6ff]/10 transition-colors cursor-pointer text-[11px] font-semibold"
+                >
+                  {nationalOverride ? t('Facility view') : t('View nationwide map')}
+                </button>
+              )}
             </div>
 
             {/* Zoom Controls */}

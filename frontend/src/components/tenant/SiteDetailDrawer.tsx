@@ -36,16 +36,18 @@ interface SiteDetailDrawerProps {
   site: TenantSite | null;
   isOpen: boolean;
   onClose: () => void;
+  /** Tab selected when the drawer opens (e.g. 'cameras' from the Location page). */
+  initialTab?: 'overview' | 'lanes_gates' | 'cameras' | 'edge_nodes';
 }
 
 /** Strip embedded userinfo (rtsp://user:pass@host) before display. */
 const maskStreamUrl = (u?: string): string =>
   (u ?? '').replace(/^(\w+:\/\/)[^@/]*@/, '$1•••@');
 
-export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen, onClose }) => {
-  const { triggerGateCommand, addToast, cameras, tenantLanes, deleteTenantCamera } = usePlatform();
+export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen, onClose, initialTab = 'overview' }) => {
+  const { triggerGateCommand, addToast, cameras, gates, tenantLanes, deleteTenantCamera } = usePlatform();
   const { t } = useTranslation('tenant');
-  const [activeTab, setActiveTab] = useState<'overview' | 'lanes_gates' | 'cameras' | 'edge_nodes'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'lanes_gates' | 'cameras' | 'edge_nodes'>(initialTab);
   const [gateActionStatus, setGateActionStatus] = useState<{ [key: string]: boolean }>({});
   const [cameraModal, setCameraModal] = useState<{ open: boolean; camera: CameraHealth | null }>({
     open: false,
@@ -277,14 +279,14 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                 <span className="text-[11px] text-[#8b949e]">{t('Protocol: MQTT / Modbus TCP')}</span>
               </div>
 
-              {Array.from({ length: site.gateCount }).map((_, idx) => {
-                const isOutGate = idx % 2 === 1;
-                const gateId = `${site.code}-GATE-${isOutGate ? 'OUT' : 'IN'}-0${Math.floor(idx / 2) + 1}`;
-                const isOffline = site.name.includes('Warehouse') && gateId.includes('OUT-02');
-                const isOperating = gateActionStatus[gateId];
+              {gates.filter((g) => g.siteId === site.id).map((gate) => {
+                const isOffline = gate.status !== 'ONLINE';
+                const isOperating = gateActionStatus[gate.id];
+                const lane = tenantLanes.find((l) => l.id === gate.laneId);
+                const stateLabel = gate.rawStatus ? gate.rawStatus.toUpperCase() : '—';
 
                 return (
-                  <div key={idx} className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
+                  <div key={gate.id} className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
@@ -293,9 +295,9 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                           <DoorOpen className="w-4 h-4" />
                         </div>
                         <div>
-                          <span className="text-white font-bold font-mono text-xs">{gateId}</span>
+                          <span className="text-white font-bold font-mono text-xs">{gate.gateName}</span>
                           <span className="text-[11px] text-[#8b949e] block">
-                            {isOutGate ? t('Outbound Exit Lane') : t('Inbound Entry Lane')} · {t('Automatic Barrier')}
+                            {lane ? `${lane.direction === 'exit' ? t('Outbound Exit Lane') : t('Inbound Entry Lane')} · ` : ''}{t('Automatic Barrier')}
                           </span>
                         </div>
                       </div>
@@ -305,20 +307,20 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                           isOffline ? 'bg-[#da3633]/20 text-[#f85149]' : 'bg-[#238636]/20 text-[#3fb950]'
                         }`}>
                           <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                          {isOffline ? t('OFFLINE') : t('ONLINE / ARMED')}
+                          {isOffline ? gate.status : t('ONLINE / ARMED')}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between pt-2 border-t border-[#30363d]/60 text-[11px]">
-                      <span className="text-[#8b949e]">{t('Relay Latency:')} {isOffline ? '--' : '18ms'} · {t('State:')} {t('CLOSED')}</span>
-                      
+                      <span className="text-[#8b949e]">{t('Relay Latency:')} {isOffline ? '--' : `${Math.round(gate.averageLatencyMs)}ms`} · {t('State:')} {stateLabel}</span>
+
                       <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           isLoading={isOperating}
-                          onClick={() => handleGateOverride(gateId, 'OPEN')}
+                          onClick={() => handleGateOverride(gate.id, 'OPEN')}
                           className="text-xs bg-[#238636]/10 text-[#3fb950] hover:bg-[#238636]/20 border-[#238636]/30 gap-1"
                         >
                           <Unlock className="w-3 h-3" />
@@ -329,7 +331,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                           variant="outline"
                           size="sm"
                           isLoading={isOperating}
-                          onClick={() => handleGateOverride(gateId, 'LOCK')}
+                          onClick={() => handleGateOverride(gate.id, 'LOCK')}
                           className="text-xs text-[#f85149] hover:bg-[#da3633]/20 border-[#da3633]/30 gap-1"
                         >
                           <Lock className="w-3 h-3" />
@@ -340,6 +342,11 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                   </div>
                 );
               })}
+              {gates.filter((g) => g.siteId === site.id).length === 0 && (
+                <p className="text-xs text-[#8b949e] py-4 text-center">
+                  {t('No barrier gates bound to this site yet.')}
+                </p>
+              )}
             </div>
           )}
 

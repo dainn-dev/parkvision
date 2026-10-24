@@ -377,7 +377,10 @@ export const mapVehicle = (v: VehicleOut, tenantId: string): TenantVehicle => ({
         status: 'ACTIVE' as const,
       }
     : null,
-  accessStatus: v.status === 'active' ? 'ALLOWED' : 'SUSPENDED',
+  // A blacklisted plate is hard-locked at the barrier even while its row
+  // status stays active — surface that reality instead of "Gate Allowed".
+  accessStatus: v.tag === 'blacklist' ? 'DENIED' : v.status === 'active' ? 'ALLOWED' : 'SUSPENDED',
+  accessStatusReason: v.tag === 'blacklist' ? 'Blacklisted plate — barrier hard-locked' : undefined,
   description: (v as any).notes ?? undefined,
   createdAt: v.createdAt,
   updatedAt: v.createdAt,
@@ -489,6 +492,16 @@ export const mapInvitation = (u: UserOut): TenantInvitation => ({
   expiresAt: '',
 });
 
+// Backend stores direction as entry/exit and decision as allow/deny; the UI
+// types use IN/OUT and ALLOWED/DENIED/BLOCKED/UNKNOWN.
+const EVENT_DIRECTION_MAP: Record<string, 'IN' | 'OUT'> = {
+  ENTRY: 'IN', IN: 'IN', EXIT: 'OUT', OUT: 'OUT',
+};
+const EVENT_DECISION_MAP: Record<string, 'ALLOWED' | 'DENIED' | 'BLOCKED' | 'UNKNOWN'> = {
+  ALLOW: 'ALLOWED', ALLOWED: 'ALLOWED', DENY: 'DENIED', DENIED: 'DENIED',
+  BLOCK: 'BLOCKED', BLOCKED: 'BLOCKED',
+};
+
 export const mapAccessEvent = (
   e: AccessEventOut,
   lookup?: { siteName?: string; gateName?: string; laneName?: string },
@@ -506,8 +519,8 @@ export const mapAccessEvent = (
   gateId: e.gateId ?? '',
   gateName: lookup?.gateName ?? '',
   laneName: lookup?.laneName ?? '',
-  direction: upper(e.direction, 'IN') as AccessEvent['direction'],
-  decision: upper(e.decision, 'UNKNOWN') as AccessEvent['decision'],
+  direction: EVENT_DIRECTION_MAP[upper(e.direction, 'IN')] ?? 'IN',
+  decision: EVENT_DECISION_MAP[upper(e.decision, 'UNKNOWN')] ?? 'UNKNOWN',
   reason: e.reason ?? undefined,
   verifiedBy: e.verifiedBy ?? e.source,
   correctedPlate: e.correctedPlate ?? undefined,
