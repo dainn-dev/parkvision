@@ -107,6 +107,7 @@ mod tests {
             motor_temp_c: 55.0,
             ups_battery_pct: 98,
             link_ok: true,
+            relay_latch_fault: false,
         }
     }
 

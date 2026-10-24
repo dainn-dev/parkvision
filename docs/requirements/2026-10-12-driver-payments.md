@@ -48,7 +48,7 @@ MomoGateway: HMAC-SHA256 signatures; sandbox default endpoint test-payment.momo.
 | `GET /driver/payments` | driver | history w/ lazy expiry sweep |
 | `GET /driver/payments/{id}` | driver | status; `created` → gateway `query` pull-refresh (makes sandbox usable without public IPN) |
 | `POST /driver/payments/{id}/cancel` | driver | `created` → `cancelled` |
-| `POST /public/payments/momo/ipn` | none | signature-verify → `paid` → side effect (activate membership / arm paid exit) |
+| `POST /public/payments/momo/ipn` | none | signature-verify → idempotent: if payment already terminal (`paid`/`failed`/`cancelled`/`expired`/`refunded`), ack with `resultCode: 0` without re-executing side effects. Otherwise `paid` → side effect (activate membership / arm paid exit). Row is locked (`SELECT … FOR UPDATE`) to serialize concurrent/replayed provider callbacks. Side effects are guarded by their own preconditions (membership activates only from `pending`; exit grants only when `exit_granted_at IS NULL` under row lock). |
 
 ## `decide_access` change (`event_service.py`)
 

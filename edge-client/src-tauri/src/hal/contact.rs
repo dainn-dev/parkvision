@@ -44,6 +44,7 @@ struct ContactState {
     inputs: Option<Vec<bool>>,
     link_ok: bool,
     link_err: Option<String>,
+    relay_latch_fault: bool,
     last_fail_at: Option<Instant>,
 }
 
@@ -197,11 +198,12 @@ impl BarrierHal for ContactBarrierHal {
             motor_temp_c: 0.0,
             ups_battery_pct: 100,
             link_ok: st.link_ok,
+            relay_latch_fault: st.relay_latch_fault,
         }
     }
 }
 
-fn record(state: &Mutex<ContactState>, result: &Result<()>) {
+fn record(state: &Mutex<ContactState>, result: &Result<()>, outcome: PulseOutcome) {
     let mut st = state.lock().unwrap();
     match result {
         Ok(()) => {
@@ -210,6 +212,11 @@ fn record(state: &Mutex<ContactState>, result: &Result<()>) {
             }
             st.link_ok = true;
             st.link_err = None;
+            // Only a successful complete pulse proves the relay accepted an
+            // OFF command. A successful input poll must not clear this fault.
+            if outcome == PulseOutcome::PulseComplete {
+                st.relay_latch_fault = false;
+            }
         }
         Err(e) => {
             if st.link_ok {
@@ -218,12 +225,29 @@ fn record(state: &Mutex<ContactState>, result: &Result<()>) {
             st.link_ok = false;
             st.link_err = Some(format!("{e:#}"));
             st.last_fail_at = Some(Instant::now());
+            if outcome == PulseOutcome::LatchFault {
+                st.relay_latch_fault = true;
+            }
         }
     }
 }
 
-async fn run_pulse(backend: &dyn RelayBackend, idx: u8, ms: u64) -> Result<()> {
-    backend.set_output(idx, true).await?;
+/// Distinguishes a normal backend error from a relay-latch hazard:
+/// ON succeeded but all OFF retries failed — the contact may be stuck ON.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PulseOutcome {
+    /// A complete pulse succeeded, including the OFF command.
+    PulseComplete,
+    /// A non-pulse operation or input poll completed/failed.
+    Other,
+    /// ON succeeded, all OFF retries exhausted — relay may be latched.
+    LatchFault,
+}
+
+async fn run_pulse(backend: &dyn RelayBackend, idx: u8, ms: u64) -> (Result<()>, PulseOutcome) {
+    if let Err(e) = backend.set_output(idx, true).await {
+        return (Err(e), PulseOutcome::Other);
+    }
     tokio::time::sleep(Duration::from_millis(ms)).await;
     let mut last = Ok(());
     for _ in 0..OFF_RETRIES {
@@ -232,7 +256,18 @@ async fn run_pulse(backend: &dyn RelayBackend, idx: u8, ms: u64) -> Result<()> {
             break;
         }
     }
-    last
+    match &last {
+        Ok(()) => (last, PulseOutcome::PulseComplete),
+        Err(_) => {
+            // ON succeeded but all OFF attempts failed — the contact may
+            // be physically latched in the energised (OPEN) position.
+            tracing::error!(
+                "CRITICAL: relay output {idx} may be latched ON after \
+                 {OFF_RETRIES} failed OFF attempts — operator action required"
+            );
+            (last, PulseOutcome::LatchFault)
+        }
+    }
 }
 
 async fn actor(
@@ -248,15 +283,18 @@ async fn actor(
         tokio::select! {
             cmd = cmd_rx.recv() => {
                 let Some(cmd) = cmd else { break };
-                let res = match cmd {
+                let (res, outcome) = match cmd {
                     HalCmd::Pulse(idx, ms) => run_pulse(backend.as_ref(), idx, ms).await,
-                    HalCmd::PowerCycle(idx) => async {
-                        backend.set_output(idx, false).await?;
-                        tokio::time::sleep(POWER_CYCLE_OFF).await;
-                        backend.set_output(idx, true).await
-                    }.await,
+                    HalCmd::PowerCycle(idx) => {
+                        let res = async {
+                            backend.set_output(idx, false).await?;
+                            tokio::time::sleep(POWER_CYCLE_OFF).await;
+                            backend.set_output(idx, true).await
+                        }.await;
+                        (res, PulseOutcome::Other)
+                    },
                 };
-                record(&state, &res);
+                record(&state, &res, outcome);
             }
             _ = poll.tick(), if inputs.is_some() => {
                 let in_backoff = state
@@ -274,9 +312,9 @@ async fn actor(
                         if !snapshot.as_ref().is_some_and(Vec::is_empty) {
                             state.lock().unwrap().inputs = snapshot;
                         }
-                        record(&state, &Ok(()));
+                        record(&state, &Ok(()), PulseOutcome::Other);
                     }
-                    Err(e) => record(&state, &Err(e)),
+                    Err(e) => record(&state, &Err(e), PulseOutcome::Other),
                 }
             }
         }
@@ -536,7 +574,7 @@ mod tests {
     }
 
     #[tokio::test(start_paused = true)]
-    async fn failed_off_is_retried_three_times() {
+    async fn failed_off_is_retried_three_times_and_sets_latch_fault() {
         let (mock, hal) = rig(cfg(None, Default::default()));
         mock.fail_off.store(true, std::sync::atomic::Ordering::SeqCst);
         hal.energize_open().unwrap();
@@ -545,6 +583,27 @@ mod tests {
         assert_eq!(attempts.iter().filter(|(_, on)| *on).count(), 1);
         assert_eq!(attempts.iter().filter(|(_, on)| !*on).count(), 3);
         assert!(!hal.sensors().link_ok);
+        assert!(
+            hal.sensors().relay_latch_fault,
+            "relay_latch_fault must be set when ON succeeded but all OFF retries failed"
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn successful_pulse_clears_latch_fault() {
+        let (mock, hal) = rig(cfg(None, Default::default()));
+        // First pulse: force latch fault
+        mock.fail_off.store(true, std::sync::atomic::Ordering::SeqCst);
+        hal.energize_open().unwrap();
+        run_for(Duration::from_secs(5)).await;
+        assert!(hal.sensors().relay_latch_fault);
+        // Second pulse: succeeds fully, clears latch fault
+        mock.fail_off.store(false, std::sync::atomic::Ordering::SeqCst);
+        run_for(RETRY_BACKOFF).await;
+        hal.energize_open().unwrap();
+        run_for(Duration::from_secs(2)).await;
+        assert!(!hal.sensors().relay_latch_fault);
+        assert!(hal.sensors().link_ok);
     }
 
     #[tokio::test(start_paused = true)]

@@ -96,6 +96,7 @@ pub struct GateFsm {
     loop_clear_since: Option<Instant>,
     fault_reported: bool,
     link_was_ok: bool,
+    latch_was_faulted: bool,
     open_too_long_warned: bool,
 }
 
@@ -114,6 +115,7 @@ impl GateFsm {
             loop_clear_since: None,
             fault_reported: false,
             link_was_ok: true,
+            latch_was_faulted: false,
             open_too_long_warned: false,
         }
     }
@@ -207,6 +209,10 @@ impl GateFsm {
         self.state = GateState::Closed;
         self.entered_at = Instant::now();
         self.fault_reported = false;
+        // Reset latch edge-detection so a persistent HAL latch fault
+        // re-enters Fault on the next tick (the operator must physically
+        // remediate the relay before the reboot can succeed).
+        self.latch_was_faulted = false;
         Ok(())
     }
 
@@ -234,6 +240,24 @@ impl GateFsm {
                     message: "Barrier relay link lost — commands are being retried".to_string(),
                 }
             });
+        }
+
+        // A failed relay OFF after a successful ON may leave the contact
+        // physically latched. This is not a recoverable link warning: inhibit
+        // gate commands in Fault until an operator performs remediation.
+        if sensors.relay_latch_fault && !self.latch_was_faulted {
+            self.latch_was_faulted = true;
+            let _ = self.hal.cut_motor();
+            self.transition(GateState::Fault, &mut events, now);
+            if !self.fault_reported {
+                self.fault_reported = true;
+                events.push(FsmEvent::Incident {
+                    kind: "barrier_relay_latch_fault",
+                    severity: "critical",
+                    message: "Relay may remain energised after all OFF retries failed; gate commands inhibited — inspect and remediate hardware before reboot".to_string(),
+                });
+            }
+            return events;
         }
 
         // Overcurrent or stuck while energized -> cut motor, fault, report.
@@ -499,6 +523,7 @@ mod tests {
         current_milli: std::sync::atomic::AtomicU32,
         loop_active: std::sync::atomic::AtomicBool,
         link_ok: std::sync::atomic::AtomicBool,
+        relay_latch_fault: std::sync::atomic::AtomicBool,
         calls: std::sync::Mutex<Vec<&'static str>>,
     }
 
@@ -517,6 +542,9 @@ mod tests {
         }
         fn set_link(&self, ok: bool) {
             self.link_ok.store(ok, Ordering::SeqCst);
+        }
+        fn set_relay_latch_fault(&self, fault: bool) {
+            self.relay_latch_fault.store(fault, Ordering::SeqCst);
         }
         fn calls(&self) -> Vec<&'static str> {
             self.calls.lock().unwrap().clone()
@@ -552,6 +580,7 @@ mod tests {
                 motor_temp_c: 0.0,
                 ups_battery_pct: 100,
                 link_ok: self.link_ok.load(Ordering::SeqCst),
+                relay_latch_fault: self.relay_latch_fault.load(Ordering::SeqCst),
             }
         }
     }
@@ -650,6 +679,36 @@ mod tests {
             .collect();
         assert_eq!(ups.len(), 1, "{ev:?}");
         assert_eq!(fsm.state(), GateState::Closed);
+    }
+
+    #[test]
+    fn relay_latch_fault_inhibits_gate_commands() {
+        let hal = Scripted::new();
+        let mut fsm = GateFsm::with_tuning(hal.clone(), contact_tuning());
+        let now = Instant::now();
+
+        hal.set_relay_latch_fault(true);
+        let events = fsm.tick(now, Duration::from_millis(50));
+
+        assert_eq!(fsm.state(), GateState::Fault);
+        assert!(events.iter().any(|event| matches!(
+            event,
+            FsmEvent::Incident {
+                kind: "barrier_relay_latch_fault",
+                severity: "critical",
+                ..
+            }
+        )));
+        assert_eq!(fsm.request_open(), Err(FsmReject::Fault));
+        assert_eq!(fsm.request_close(), Err(FsmReject::Fault));
+
+        // The fault is edge-triggered and not silently cleared by later ticks.
+        let later = fsm.tick(now + Duration::from_millis(50), Duration::from_millis(50));
+        assert!(!later.iter().any(|event| matches!(
+            event,
+            FsmEvent::Incident { kind: "barrier_relay_latch_fault", .. }
+        )));
+        assert_eq!(fsm.state(), GateState::Fault);
     }
 
     #[test]

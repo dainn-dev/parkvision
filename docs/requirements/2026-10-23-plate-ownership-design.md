@@ -77,19 +77,25 @@ that date.
 `_plates()` in `api/v1/driver/sessions.py` currently returns only
 owned plates. Change to union of:
 1. Owned plates (from `driver_vehicles WHERE driver_id = ?`)
-2. Shared plates for today (from `driver_vehicle_shares WHERE
-   shared_with_id = ? AND share_date = date.today()`)
+2. For every returned session, shared-plate access is allowed only when a
+   share exists for that plate and the session entry's local calendar date
+   in that site's timezone equals `share_date`. A global “today” plate set
+   may be used only as a candidate filter, never as the authorization check.
 
 ### Payment
 
 `_resolve_session` in `payment_service.py` checks
 `DriverVehicle.driver_id == driver_id`. Extend to also accept if a
-share row exists for that plate on the session's entry date.
+share row exists for that plate on the session's entry date in the site's
+timezone. If a site timezone value is missing or invalid, use UTC (matching
+pricing's fallback) and add a warning/telemetry event; do not fail open.
 
 ### WebSocket
 
-`/ws/driver/sessions` subscribes to channels for owned plates. Add
-channels for today's shared plates as well.
+`/ws/driver/sessions` subscribes to channels for owned plates. Shared-plate
+channels may be used only as non-authoritative hints; every REST refetch
+must apply per-session authorization using that event's site-local entry
+date. Do not include session details in socket payloads.
 
 ## Migration data cleanup
 

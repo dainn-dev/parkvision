@@ -76,6 +76,9 @@ pub struct HalSensors {
     pub ups_battery_pct: u8,
     /// `false` when the barrier driver lost contact with its relay hardware.
     pub link_ok: bool,
+    /// `true` when a relay ON succeeded but all OFF retries failed — the
+    /// contact may be physically latched in the energised position.
+    pub relay_latch_fault: bool,
 }
 
 pub trait BarrierHal: Send + Sync {
@@ -237,6 +240,7 @@ impl BarrierHal for SimulatedHal {
             motor_temp_c: i.motor_temp_c,
             ups_battery_pct: i.ups_battery_pct,
             link_ok: true,
+            relay_latch_fault: false,
         }
     }
 }

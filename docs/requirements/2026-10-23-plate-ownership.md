@@ -338,7 +338,7 @@ After `delete_vehicle`:
 - `list_shares(driver_id, vehicle_id) -> list[DriverVehicleShare]` — verify ownership (else `not_found`), return shares ordered by `share_date`.
 - `delete_share(driver_id, vehicle_id, share_id) -> None` — verify ownership of vehicle (else `not_found("vehicle", vehicle_id)`), delete share row (else `not_found("share", share_id)` if the share doesn't belong to that vehicle).
 - `list_shared_with_me(driver_id) -> list[dict]` — join `DriverVehicleShare` + `DriverVehicle` + `DriverUser` (owner) where `shared_with_id == driver_id` and `share_date >= date.today()`, return rows with `vehicle_id`, `plate_number`, `share_date`, owner's `full_name` (as `shared_with_name` is recipient's name shown to the owner; for this endpoint add an analogous field `owner_name` — adjust `VehicleShareOut` usage: this endpoint returns a distinct lightweight shape, so define `SharedVehicleOut(vehicle_id, plate_number, owner_name, share_date)` in `schemas/driver.py` instead of reusing `VehicleShareOut`).
-- `plates_for_driver(driver_id) -> set[str]` — union of owned `plate_normalized` values and shared plates where `share_date == date.today()`.
+- `plates_for_driver(driver_id, *, for_date=None) -> set[str]` — union of owned `plate_normalized` values and shared plates where `share_date` matches `for_date` (defaults to today and yesterday for overnight session visibility).
 
 - [ ] **Step 5: Create `api/v1/driver/shares.py`**
 
@@ -456,8 +456,12 @@ After the existing `DriverVehicle` ownership check fails (`owned is None`), add 
 
 ```python
 if owned is None:
+    from zoneinfo import ZoneInfo
     from app.models import DriverVehicleShare
-    from datetime import date
+    site_timezone = await db.scalar(
+        select(TenantSite.timezone).where(TenantSite.id == entry.site_id)
+    )
+    event_date = entry.occurred_at.astimezone(ZoneInfo(site_timezone or "UTC")).date()
     share = (
         await db.execute(
             select(DriverVehicleShare.id)
@@ -465,7 +469,7 @@ if owned is None:
             .where(
                 DriverVehicleShare.shared_with_id == driver_id,
                 DriverVehicle.plate_normalized == plate_norm,
-                DriverVehicleShare.share_date == date.today(),
+                DriverVehicleShare.share_date == event_date,
             )
         )
     ).scalar_one_or_none()

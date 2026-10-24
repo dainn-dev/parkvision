@@ -141,7 +141,13 @@ async def _resolve_session(
         raise not_found("session", session_ref) from None
 
     entry = (
-        await db.execute(select(AccessEvent).where(AccessEvent.id == event_id))
+        await db.execute(
+            select(AccessEvent)
+            .where(AccessEvent.id == event_id)
+            # Share the same lock as payment creation so simultaneous
+            # wallet/gateway requests for this session cannot race.
+            .with_for_update()
+        )
     ).scalar_one_or_none()
     if (
         entry is None
@@ -162,10 +168,14 @@ async def _resolve_session(
         )
     ).scalar_one_or_none()
     if owned is None:
-        from datetime import date
+        from zoneinfo import ZoneInfo
 
         from app.models import DriverVehicleShare
 
+        site_timezone = await db.scalar(
+            select(TenantSite.timezone).where(TenantSite.id == entry.site_id)
+        )
+        event_date = entry.occurred_at.astimezone(ZoneInfo(site_timezone or "UTC")).date()
         share = (
             await db.execute(
                 select(DriverVehicleShare.id)
@@ -173,7 +183,7 @@ async def _resolve_session(
                 .where(
                     DriverVehicleShare.shared_with_id == driver_id,
                     DriverVehicle.plate_normalized == plate_norm,
-                    DriverVehicleShare.share_date == date.today(),
+                    DriverVehicleShare.share_date == event_date,
                 )
             )
         ).scalar_one_or_none()
@@ -254,10 +264,15 @@ async def create_payment(
                 raise bad_request("membershipId is required")
             membership = (
                 await db.execute(
-                    select(DriverMembership).where(
+                    select(DriverMembership)
+                    .where(
                         DriverMembership.id == membership_id,
                         DriverMembership.driver_id == driver_id,
                     )
+                    # Lock the membership row so concurrent wallet+gateway
+                    # requests serialize here — the loser re-reads the
+                    # paid/in-flight state and returns the existing payment.
+                    .with_for_update()
                 )
             ).scalar_one_or_none()
             if membership is None:
@@ -551,10 +566,14 @@ async def handle_momo_ipn(payload: dict) -> dict:
     async with platform_session() as db:
         p = (
             await db.execute(
-                select(DriverPayment).where(
+                select(DriverPayment)
+                .where(
                     DriverPayment.provider == "momo",
                     DriverPayment.provider_order_id == str(payload.get("orderId", "")),
                 )
+                # Serialize duplicate/concurrent provider callbacks so only
+                # one transaction can apply payment side effects.
+                .with_for_update()
             )
         ).scalar_one_or_none()
         if p is None:
@@ -730,6 +749,75 @@ async def refund_payment(db, tenant_id: uuid.UUID, payment_id: uuid.UUID) -> dic
         )
         .one()
     )
+    p2, d, s = row
+    return {
+        **_payment_out(p2, s.name if s else None),
+        "driver_id": d.id,
+        "driver_name": d.full_name,
+        "driver_email": d.email,
+    }
+
+
+async def platform_refund_topup(db, payment_id: uuid.UUID) -> dict:
+    """Platform-admin all-or-nothing refund of a paid MoMo top-up.
+
+    Locks the payment row and wallet to prevent double-refund and ensure
+    balance covers the full clawback. Returns 409 when any credit has been
+    spent below the top-up amount.
+    """
+    p = (
+        await db.execute(
+            select(DriverPayment)
+            .where(DriverPayment.id == payment_id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if p is None:
+        raise not_found("payment", payment_id) from None
+    if p.kind != "topup":
+        raise conflict("Only top-up payments can be refunded by this operation") from None
+    if p.status != "paid":
+        raise conflict(f"Payment is {p.status}, not paid") from None
+    if p.method != "momo":
+        raise conflict("Only gateway-funded top-ups can be refunded") from None
+    if not p.provider_trans_id:
+        raise conflict(
+            "Provider transaction id is unknown — refund via the MoMo console"
+        ) from None
+
+    # Lock wallet and verify full balance remains before touching the gateway.
+    wallet = await wallet_service.get_or_create_wallet(db, p.driver_id)
+    if wallet.balance_vnd < p.amount_vnd:
+        raise conflict("Top-up credit has been spent; full refund is unavailable") from None
+
+    gw = _gateway_or_503()
+    try:
+        await gw.refund(
+            order_id=p.provider_order_id,
+            request_id=f"pv-rf-{uuid.uuid4().hex[:14]}",
+            trans_id=p.provider_trans_id,
+            amount_vnd=p.amount_vnd,
+            description=f"Refund top-up {p.id}",
+        )
+    except MomoRejected as exc:
+        raise conflict(f"Refund rejected by provider: {exc}") from None
+
+    await wallet_service.debit(
+        db, p.driver_id, p.amount_vnd, "refund_debit", p.id,
+        "Top-up refund by platform admin",
+    )
+    p.status = "refunded"
+    p.refunded_at = datetime.now(timezone.utc)
+    await db.flush()
+
+    row = (
+        await db.execute(
+            select(DriverPayment, DriverUser, TenantSite)
+            .join(DriverUser, DriverUser.id == DriverPayment.driver_id)
+            .outerjoin(TenantSite, TenantSite.id == DriverPayment.site_id)
+            .where(DriverPayment.id == p.id)
+        )
+    ).one()
     p2, d, s = row
     return {
         **_payment_out(p2, s.name if s else None),

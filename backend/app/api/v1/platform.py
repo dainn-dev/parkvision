@@ -70,6 +70,7 @@ from app.security import (
     hash_refresh_token,
     new_csrf_token,
 )
+from app.services import payment_service
 from app.services.audit_service import write_audit
 from app.services.command_service import issue_command
 from app.services.credential_service import new_api_key as _new_api_key
@@ -82,6 +83,36 @@ router = APIRouter(
     tags=["platform"],
     dependencies=[Depends(require_platform_admin())],
 )
+
+
+# ---------- payment operations ----------
+
+
+@router.post("/payments/{payment_id}/refund-topup")
+async def refund_topup(
+    payment_id: uuid.UUID,
+    request: Request,
+    auth: AuthContext = Depends(
+        require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))
+    ),
+):
+    """Refund a paid wallet top-up when the full credited amount remains."""
+    async with platform_session() as db:
+        payment = await payment_service.platform_refund_topup(db, payment_id)
+        await write_audit(
+            db,
+            tenant_id=None,
+            actor_type=auth.user_type,
+            actor_id=auth.user_id,
+            actor_email=None,
+            action="payment.topup_refunded",
+            resource_type="driver_payment",
+            resource_id=str(payment_id),
+            details={"driverId": str(payment["driver_id"]), "amountVnd": payment["amount_vnd"]},
+            ip=request.client.host if request.client else None,
+        )
+        await db.commit()
+    return payment
 
 
 # ---------- tenants ----------
