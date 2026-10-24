@@ -297,7 +297,7 @@ async def momo_ipn(payload: dict) -> dict:
 @router.get(
     "/public/tenants/{slug}/parking/locate",
     response_model=PublicLocateOut,
-    dependencies=[Depends(rate_limited("public-parking-locate", 30, 60))],
+    dependencies=[Depends(rate_limited("public_locate", 10, 60))],
 )
 async def public_parking_locate(
     slug: str, plate: str = Query(min_length=1, max_length=20)

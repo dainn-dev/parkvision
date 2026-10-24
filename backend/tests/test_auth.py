@@ -318,3 +318,48 @@ async def test_driver_account_locks_after_repeated_failures(client: AsyncClient)
         "/api/v1/driver/auth/login", json={"email": d["email"], "password": "Password!123"}
     )
     assert locked.status_code == 423
+
+
+@pytest.mark.asyncio
+async def test_mfa_backup_code_is_single_use(client: AsyncClient, admin_engine, tenant):
+    """SCENARIO-AUTH-001: a recovery/backup code completes MFA once, then is
+    consumed — a replay of the same code must be rejected, while the other
+    still-unused codes keep working."""
+    from app.models import TenantUser
+    from app.security import generate_backup_codes, hash_backup_code
+
+    await _enable_mfa(admin_engine, tenant["email"])
+    codes = generate_backup_codes(count=3)
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        user = (await db.execute(select(TenantUser).where(TenantUser.email == tenant["email"]))).scalar_one()
+        user.mfa_backup_hashes = [hash_backup_code(c) for c in codes]
+        await db.commit()
+
+    # Login → staged session requiring MFA; the recovery_code method is advertised.
+    res = await client.post(
+        "/api/v1/auth/login", json={"email": tenant["email"], "password": tenant["password"]}
+    )
+    assert res.json()["data"]["mfaRequired"] is True
+    session = await client.get("/api/v1/auth/mfa/session")
+    assert "recovery_code" in session.json()["data"]["methods"]
+
+    # First use of a backup code completes MFA.
+    res = await client.post("/api/v1/auth/mfa/verify", json={"code": codes[0]})
+    assert res.status_code == 200, res.text
+    me = await client.get("/api/v1/auth/me")
+    assert me.status_code == 200
+
+    # New login session — replaying the consumed code must fail.
+    client.cookies.clear()
+    res = await client.post(
+        "/api/v1/auth/login", json={"email": tenant["email"], "password": tenant["password"]}
+    )
+    assert res.json()["data"]["mfaRequired"] is True
+    res = await client.post("/api/v1/auth/mfa/verify", json={"code": codes[0]})
+    assert res.status_code == 401, "a consumed backup code must not be reusable"
+    assert res.json()["error"]["code"] == "invalid_mfa_code"
+
+    # A different, still-unused backup code still works.
+    res = await client.post("/api/v1/auth/mfa/verify", json={"code": codes[1]})
+    assert res.status_code == 200, res.text

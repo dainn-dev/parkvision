@@ -23,6 +23,10 @@ pub struct AccessOutcome {
     pub reason: String,
 }
 
+// EDGE-RULE-001: keep schedule evaluation in UTC to mirror backend semantics.
+// Tenant admins must account for the site's UTC offset when configuring
+// `daysOfWeek`/`startTime`/`endTime`; site-local conversion needs a product
+// decision and synchronized timezone data on edge clients.
 fn schedule_open(schedule: &serde_json::Value, now: &DateTime<Utc>) -> bool {
     let obj = match schedule.as_object() {
         Some(o) if !o.is_empty() => o,
@@ -238,9 +242,26 @@ mod tests {
     }
 
     #[test]
-    fn normalize_strips_non_alnum_and_uppercases() {
-        assert_eq!(normalize_plate("30E-892.41"), "30E89241");
-        assert_eq!(normalize_plate(" 59a-123.45 "), "59A12345");
+    fn normalize_matches_shared_golden_cases() {
+        #[derive(serde::Deserialize)]
+        struct Case {
+            input: String,
+            expected: String,
+        }
+
+        let cases: Vec<Case> = serde_json::from_str(include_str!(
+            "../../../tests/fixtures/normalize_plate_cases.json"
+        ))
+        .expect("shared plate normalization fixture is valid JSON");
+
+        for case in cases {
+            assert_eq!(
+                normalize_plate(&case.input),
+                case.expected,
+                "normalization mismatch for input {:?}",
+                case.input
+            );
+        }
     }
 
     #[test]

@@ -80,7 +80,7 @@ async def level_zone(tenant, admin_engine):
     return ids
 
 
-async def _detect(db, ids, zone, plate="51F-123.45", camera_id=None, confidence=0.9):
+async def _detect(db, ids, zone, plate="51F-123.45", camera_id=None, confidence=0.9, occurred_at=None):
     from app.services.parking_service import record_detection
 
     return await record_detection(
@@ -91,7 +91,7 @@ async def _detect(db, ids, zone, plate="51F-123.45", camera_id=None, confidence=
         zone=zone,
         plate_number=plate,
         confidence=confidence,
-        occurred_at=datetime.now(timezone.utc),
+        occurred_at=occurred_at or datetime.now(timezone.utc),
         payload={},
     )
 
@@ -137,9 +137,12 @@ async def test_record_detection_relocates_on_zone_change(tenant, level_zone, adm
 
     Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
     async with Session() as db:
-        p1, _ = await _detect(db, level_zone, level_zone["zone_a"])
+        first_at = datetime.now(timezone.utc)
+        p1, _ = await _detect(db, level_zone, level_zone["zone_a"], occurred_at=first_at)
         await db.commit()
-        p2, et = await _detect(db, level_zone, level_zone["zone_b"])
+        p2, et = await _detect(
+            db, level_zone, level_zone["zone_b"], occurred_at=first_at + timedelta(seconds=31)
+        )
         await db.commit()
 
         assert et == "relocated"
@@ -186,6 +189,9 @@ async def test_record_detection_same_zone_only_refreshes(tenant, level_zone, adm
 
 @pytest.mark.asyncio
 async def test_detection_after_exit_creates_new_presence(tenant, level_zone, admin_engine):
+    """Re-detection after exit creates a new presence — but only once the
+    60s stale-detection cooldown (EDGE-DETECT-001) has elapsed."""
+    from app.models import VehiclePresence
     from app.services.parking_service import mark_presence_exit
 
     Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
@@ -195,6 +201,15 @@ async def test_detection_after_exit_creates_new_presence(tenant, level_zone, adm
         exited = await mark_presence_exit(db, tenant_id=level_zone["tenant_id"], plate_number="51F-123.45")
         await db.commit()
         assert exited is not None and exited.status == "exited"
+
+        # Backdate exit past the 60s suppression window so the next
+        # detection is treated as a genuine re-entry, not a stale message.
+        await db.execute(
+            update(VehiclePresence)
+            .where(VehiclePresence.id == p1.id)
+            .values(exited_at=datetime.now(timezone.utc) - timedelta(seconds=90))
+        )
+        await db.commit()
 
         p2, et = await _detect(db, level_zone, level_zone["zone_a"])
         await db.commit()
@@ -340,6 +355,57 @@ async def test_sweep_marks_stale_then_expired(tenant, level_zone, admin_engine):
         assert (s1, s2, s3) == ("stale", "exited", "parked")
 
 
+# ---------- PARK-TC-004: concurrent detection race ----------
+
+
+@pytest.mark.asyncio
+async def test_concurrent_detection_same_plate_two_zones(tenant, level_zone, admin_engine):
+    """Two concurrent detections of the same plate in different zones must
+    not crash; exactly one active presence row results."""
+    import asyncio
+
+    from app.models import VehiclePresence
+    from app.services.parking_service import record_detection
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+
+    async def detect_in(zone):
+        async with Session() as db:
+            presence, _event_type = await record_detection(
+                db,
+                tenant_id=level_zone["tenant_id"],
+                site_id=level_zone["site_id"],
+                camera_id=None,
+                zone=zone,
+                plate_number="30A-444.44",
+                confidence=0.9,
+                occurred_at=datetime.now(timezone.utc),
+                payload={},
+            )
+            await db.commit()
+            return presence.zone_id
+
+    zones = await asyncio.gather(
+        detect_in(level_zone["zone_a"]),
+        detect_in(level_zone["zone_b"]),
+    )
+    assert all(z in (level_zone["zone_a"].id, level_zone["zone_b"].id) for z in zones)
+
+    async with Session() as db:
+        count = (
+            await db.execute(
+                select(func.count())
+                .select_from(VehiclePresence)
+                .where(
+                    VehiclePresence.tenant_id == level_zone["tenant_id"],
+                    VehiclePresence.plate_normalized == "30A44444",
+                    VehiclePresence.status.in_(("parked", "stale")),
+                )
+            )
+        ).scalar_one()
+        assert count == 1
+
+
 # ---------- mqtt bridge detection ----------
 
 
@@ -394,8 +460,15 @@ async def test_handle_detection_parks_and_publishes(tenant, level_zone, monitor_
 
 
 @pytest.mark.asyncio
-async def test_handle_detection_relocate_and_left(tenant, level_zone, monitor_cam, monkeypatch):
+async def test_handle_detection_relocate_and_left(tenant, level_zone, monitor_cam, monkeypatch, admin_engine):
+    from app.models import VehiclePresence
     from app.realtime import mqtt_bridge
+    from sqlalchemy import update as sa_update
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+    from datetime import datetime, timedelta, timezone
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    plate = "30A-777.77"
 
     published = []
 
@@ -410,12 +483,25 @@ async def test_handle_detection_relocate_and_left(tenant, level_zone, monitor_ca
     )
 
     await mqtt_bridge.handle_detection(
-        tid, sid, cid, {"type": "vehicle_parked", "plateNumber": "30A-777.77", "zoneCode": "S03"}
+        tid, sid, cid, {"type": "vehicle_parked", "plateNumber": plate, "zoneCode": "S03"}
     )
+    # Backdate last_seen_at so the zone change isn't suppressed by the
+    # 30s relocation debounce (LOGIC-PARK-002).
+    async with Session() as db:
+        await db.execute(
+            sa_update(VehiclePresence)
+            .where(
+                VehiclePresence.tenant_id == level_zone["tenant_id"],
+                VehiclePresence.plate_normalized == "30A77777",
+                VehiclePresence.status.in_(("parked", "stale")),
+            )
+            .values(last_seen_at=datetime.now(timezone.utc) - timedelta(seconds=31))
+        )
+        await db.commit()
     await mqtt_bridge.handle_detection(
-        tid, sid, cid, {"type": "vehicle_parked", "plateNumber": "30A-777.77", "zoneCode": "S04"}
+        tid, sid, cid, {"type": "vehicle_parked", "plateNumber": plate, "zoneCode": "S04"}
     )
-    await mqtt_bridge.handle_detection(tid, sid, cid, {"type": "vehicle_left", "plateNumber": "30A-777.77"})
+    await mqtt_bridge.handle_detection(tid, sid, cid, {"type": "vehicle_left", "plateNumber": plate})
 
     types = [m["eventType"] for m in published]
     assert types == ["parked", "relocated", "exited"]
@@ -658,13 +744,29 @@ async def test_manual_checkout_clears_presence(client, tenant, api_site):
 
 
 @pytest.mark.asyncio
-async def test_checkin_same_plate_other_zone_relocates(client, tenant, api_site):
+async def test_checkin_same_plate_other_zone_relocates(client, tenant, api_site, admin_engine):
+    from app.models import VehiclePresence
+
     tid = tenant["tenant_id"]
     level_id = await _mk_level(client, tid, api_site)
     za = await _mk_zone(client, tid, level_id, name="A", code="A")
     zb = await _mk_zone(client, tid, level_id, name="B", code="B")
 
     await _checkin(client, tid, za, "51F-777.77")
+    # Backdate last_seen_at past the 30s relocation debounce window so
+    # the zone change is treated as a genuine relocation.
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        await db.execute(
+            update(VehiclePresence)
+            .where(
+                VehiclePresence.tenant_id == tid,
+                VehiclePresence.plate_normalized == "51F77777",
+                VehiclePresence.status.in_(("parked", "stale")),
+            )
+            .values(last_seen_at=datetime.now(timezone.utc) - timedelta(seconds=31))
+        )
+        await db.commit()
     p2 = await _checkin(client, tid, zb, "51F-777.77")
     assert p2["zoneId"] == zb
 
@@ -732,6 +834,25 @@ async def test_coverage_put_replaces_and_validates_site(client, tenant, api_site
         headers=csrf(client),
     )
     assert res.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_public_locate_rate_limit(client, tenant):
+    from app.config import settings
+    from app.redis_client import get_redis
+
+    original = settings.rate_limit_enabled
+    key = "rl:public_locate:127.0.0.1"
+    await get_redis().delete(key)
+    settings.rate_limit_enabled = True
+    try:
+        url = f"/api/v1/public/tenants/{tenant['slug']}/parking/locate?plate=51F12345"
+        responses = [await client.get(url) for _ in range(11)]
+        assert all(response.status_code == 200 for response in responses[:10])
+        assert responses[10].status_code == 429
+    finally:
+        settings.rate_limit_enabled = original
+        await get_redis().delete(key)
 
 
 @pytest.mark.asyncio

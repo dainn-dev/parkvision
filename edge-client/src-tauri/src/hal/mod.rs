@@ -38,6 +38,7 @@ pub fn tuning_for(binding: &GateBinding) -> FsmTuning {
             }
         },
         overcurrent_a: f32::INFINITY,
+        max_open_warn_secs: Duration::from_secs(300),
     }
 }
 

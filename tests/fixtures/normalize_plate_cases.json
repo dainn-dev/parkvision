@@ -1,0 +1,16 @@
+[
+  {"input": "30A-000.01", "expected": "30A00001"},
+  {"input": "51F-882.11", "expected": "51F88211"},
+  {"input": "30E-892.41", "expected": "30E89241"},
+  {"input": "51a12345", "expected": "51A12345"},
+  {"input": "abc-def", "expected": "ABCDEF"},
+  {"input": "  30A 123 45  ", "expected": "30A12345"},
+  {"input": "30A.123-45", "expected": "30A12345"},
+  {"input": "HÀ NỘI 30A12345", "expected": "HNI30A12345"},
+  {"input": "", "expected": ""},
+  {"input": "---...   ", "expected": ""},
+  {"input": "ABC123", "expected": "ABC123"},
+  {"input": "abc123", "expected": "ABC123"},
+  {"input": "12-AB-34", "expected": "12AB34"},
+  {"input": "Đà Nẵng 43A-111.22", "expected": "NNG43A11122"}
+]

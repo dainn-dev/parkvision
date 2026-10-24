@@ -17,6 +17,8 @@ class WorkerSettings:
         cron(jobs.expire_stale_commands, minute=set(range(60)), second=10),
         # Runs every ~15s so a stale edge device is flagged within ~20-35s.
         cron(jobs.mark_offline_devices, second={0, 15, 30, 45}),
+        cron(jobs.reconcile_pending_payments, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
+        cron(jobs.flag_stale_device_tokens, hour=4, minute=0),
         cron(jobs.cleanup_expired_sessions, hour=3, minute=15),
         cron(jobs.expire_stale_presence, minute={5, 20, 35, 50}),
         cron(jobs.enforce_retention, hour=2, minute=0),

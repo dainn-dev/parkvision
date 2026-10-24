@@ -69,7 +69,18 @@ def estimate_fee(
     has no hourly rate configured."""
     if pricing is None:
         return None
-    rules = pricing if isinstance(pricing, SitePricing) else SitePricing.model_validate(pricing)
+    if isinstance(pricing, SitePricing):
+        rules = pricing
+    else:
+        # SitePricing rejects invalid block sizes at API boundaries. Older or
+        # out-of-band JSON profiles can still contain them, so normalize those
+        # values before validation to keep fee estimation safe.
+        profile = dict(pricing)
+        block_key = "blockMinutes" if "blockMinutes" in profile else "block_minutes"
+        block_minutes = profile.get(block_key)
+        if isinstance(block_minutes, (int, float)) and block_minutes <= 0:
+            profile[block_key] = 60
+        rules = SitePricing.model_validate(profile)
     if rules.hourly_from is None:
         return None
     if exited_at <= entered_at:
@@ -79,8 +90,14 @@ def estimate_fee(
     if minutes <= rules.grace_minutes:
         return 0
 
-    blocks = math.ceil(minutes / rules.block_minutes)
-    fee = math.ceil(blocks * rules.hourly_from * (rules.block_minutes / 60))
+    # Defensive: the schema enforces block_minutes >= 5, but stored
+    # profiles written before that constraint (or edited out-of-band)
+    # could still carry 0/negative — fall back to the 60-minute default
+    # rather than dividing by zero.
+    block_minutes = rules.block_minutes if rules.block_minutes and rules.block_minutes > 0 else 60
+
+    blocks = math.ceil(minutes / block_minutes)
+    fee = math.ceil(blocks * rules.hourly_from * (block_minutes / 60))
 
     if rules.daily_from is not None:
         windows = math.ceil(minutes / 1440)

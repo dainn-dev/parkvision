@@ -6,6 +6,32 @@ use anyhow::{bail, Context, Result};
 use digest_auth::{AuthContext, HttpMethod, WwwAuthenticateHeader};
 use reqwest::{Client, Method, Response, StatusCode};
 
+/// Minimal base64 encoder for Basic auth — avoids pulling in an extra crate.
+fn base64_encode(input: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity((input.len() + 2) / 3 * 4);
+    for chunk in input.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = chunk.get(1).copied().unwrap_or(0) as u32;
+        let b2 = chunk.get(2).copied().unwrap_or(0) as u32;
+        let triple = (b0 << 16) | (b1 << 8) | b2;
+        out.push(ALPHABET[((triple >> 18) & 0x3F) as usize] as char);
+        out.push(ALPHABET[((triple >> 12) & 0x3F) as usize] as char);
+        if chunk.len() > 1 {
+            out.push(ALPHABET[((triple >> 6) & 0x3F) as usize] as char);
+        } else {
+            out.push('=');
+        }
+        if chunk.len() > 2 {
+            out.push(ALPHABET[(triple & 0x3F) as usize] as char);
+        } else {
+            out.push('=');
+        }
+    }
+    out
+}
+
 pub struct DigestClient {
     client: Client,
     user: String,
@@ -39,29 +65,40 @@ impl DigestClient {
                 .headers()
                 .get(reqwest::header::WWW_AUTHENTICATE)
                 .and_then(|v| v.to_str().ok())
-                .map(str::to_string)
-                .filter(|v| v.to_ascii_lowercase().starts_with("digest"));
+                .map(str::to_string);
             let Some(challenge) = challenge else {
-                bail!("http 401 without digest challenge");
+                bail!("http 401 without WWW-Authenticate challenge");
             };
-            let uri = reqwest::Url::parse(url).context("url")?;
-            let path_q = match uri.query() {
-                Some(q) => format!("{}?{}", uri.path(), q),
-                None => uri.path().to_string(),
-            };
-            let ctx = AuthContext::new_with_method(
-                self.user.as_str(),
-                self.pass.as_str(),
-                path_q.as_str(),
-                body.as_deref().map(str::as_bytes),
-                HttpMethod::from(method.as_str()),
-            );
-            let mut prompt = WwwAuthenticateHeader::parse(&challenge).context("digest challenge")?;
-            let header = prompt.respond(&ctx).context("digest response")?;
-            self.request(method, url, body, Some(header.to_header_string()))
-                .send()
-                .await
-                .context("http send (digest)")?
+            let scheme = challenge.split_whitespace().next().unwrap_or_default();
+            if scheme.eq_ignore_ascii_case("basic") {
+                let credentials = format!("{}:{}", self.user, self.pass);
+                let header = format!("Basic {}", base64_encode(credentials.as_bytes()));
+                self.request(method, url, body, Some(header))
+                    .send()
+                    .await
+                    .context("http send (basic)")?
+            } else if scheme.eq_ignore_ascii_case("digest") {
+                let uri = reqwest::Url::parse(url).context("url")?;
+                let path_q = match uri.query() {
+                    Some(q) => format!("{}?{}", uri.path(), q),
+                    None => uri.path().to_string(),
+                };
+                let ctx = AuthContext::new_with_method(
+                    self.user.as_str(),
+                    self.pass.as_str(),
+                    path_q.as_str(),
+                    body.as_deref().map(str::as_bytes),
+                    HttpMethod::from(method.as_str()),
+                );
+                let mut prompt = WwwAuthenticateHeader::parse(&challenge).context("digest challenge")?;
+                let header = prompt.respond(&ctx).context("digest response")?;
+                self.request(method, url, body, Some(header.to_header_string()))
+                    .send()
+                    .await
+                    .context("http send (digest)")?
+            } else {
+                bail!("http 401 with unsupported WWW-Authenticate scheme '{scheme}'");
+            }
         } else {
             first
         };
@@ -128,6 +165,56 @@ mod tests {
         assert_eq!(resp.status(), 200);
         challenge.assert_hits(1);
         ok.assert_hits(1);
+    }
+
+    #[test]
+    fn base64_encodes_basic_auth_credentials() {
+        assert_eq!(base64_encode(b"admin:pw"), "YWRtaW46cHc=");
+        assert_eq!(base64_encode(b""), "");
+        assert_eq!(base64_encode(b"f"), "Zg==");
+        assert_eq!(base64_encode(b"fo"), "Zm8=");
+    }
+
+    #[tokio::test]
+    async fn retries_with_basic_after_401() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/probe").matches(|req| {
+                !req.headers
+                    .as_ref()
+                    .is_some_and(|h| h.iter().any(|(k, _)| k.eq_ignore_ascii_case("authorization")))
+            });
+            then.status(401)
+                .header("WWW-Authenticate", r#"Basic realm="x""#);
+        });
+        let ok = server.mock(|when, then| {
+            when.method(GET).path("/probe").header("authorization", "Basic YWRtaW46cHc=");
+            then.status(200).body("ok");
+        });
+
+        let client = DigestClient::new("admin", "pw").unwrap();
+        let response = client
+            .send(Method::GET, &server.url("/probe"), None)
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        ok.assert_hits(1);
+    }
+
+    #[tokio::test]
+    async fn unsupported_auth_challenge_names_scheme() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.path("/probe");
+            then.status(401)
+                .header("WWW-Authenticate", r#"Bearer realm="x""#);
+        });
+        let client = DigestClient::new("admin", "pw").unwrap();
+        let err = client
+            .send(Method::GET, &server.url("/probe"), None)
+            .await
+            .unwrap_err();
+        assert!(format!("{err:#}").contains("unsupported WWW-Authenticate scheme 'Bearer'"));
     }
 
     #[tokio::test]

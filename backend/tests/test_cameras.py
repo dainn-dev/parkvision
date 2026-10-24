@@ -62,7 +62,8 @@ async def test_camera_crud_flow(client: AsyncClient, tenant, site_lane):
     cam = res.json()
     assert cam["siteId"] == site_id
     assert cam["laneId"] == lane_id
-    assert cam["streamUrl"] == "rtsp://admin:secret@192.168.1.10/stream1"
+    assert "secret" not in cam["streamUrl"]
+    assert cam["streamUrl"] == "rtsp://***@192.168.1.10/stream1"
     assert cam["status"] == "provisioning"
 
     lst = await client.get(f"/api/v1/tenants/{tid}/cameras?siteId={site_id}")
@@ -202,6 +203,65 @@ async def test_camera_lane_delete_sets_null(client: AsyncClient, tenant, site_la
     got = await client.get(f"/api/v1/tenants/{tid}/cameras/{cam_id}")
     assert got.status_code == 200
     assert got.json()["laneId"] is None
+
+
+@pytest.mark.asyncio
+async def test_camera_viewer_sees_masked_credentials(client: AsyncClient, tenant, site_lane, admin_engine):
+    """UAT-CAM-001 step 3: viewer role lists cameras and credentials are masked."""
+    site_id, lane_id = site_lane
+    tid = tenant["tenant_id"]
+
+    # Create a camera as admin (already logged in from site_lane fixture)
+    res = await client.post(
+        f"/api/v1/tenants/{tid}/cameras",
+        json={
+            "name": "Viewer Mask Cam",
+            "siteId": site_id,
+            "laneId": lane_id,
+            "streamUrl": "rtsp://admin:s3cret@192.168.1.50/stream1",
+        },
+        headers=csrf(client),
+    )
+    assert res.status_code == 201, res.text
+    cam_id = res.json()["id"]
+
+    # Create viewer user
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    from app.models import TenantUser
+    from app.security import hash_password
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    viewer_email = f"viewer-mask-{uuid.uuid4().hex[:6]}@example.com"
+    async with Session() as db:
+        db.add(
+            TenantUser(
+                tenant_id=tid,
+                email=viewer_email,
+                password_hash=hash_password("Password!123"),
+                full_name="Viewer Mask",
+                role="viewer",
+                status="active",
+            )
+        )
+        await db.commit()
+
+    await login(client, viewer_email, "Password!123")
+
+    # Viewer can list cameras — credentials masked
+    lst = await client.get(f"/api/v1/tenants/{tid}/cameras")
+    assert lst.status_code == 200
+    cameras = lst.json()["data"]
+    target = [c for c in cameras if c["id"] == cam_id]
+    assert len(target) == 1
+    assert "s3cret" not in target[0]["streamUrl"]
+    assert target[0]["streamUrl"] == "rtsp://***@192.168.1.50/stream1"
+
+    # Viewer can get single camera — credentials masked
+    got = await client.get(f"/api/v1/tenants/{tid}/cameras/{cam_id}")
+    assert got.status_code == 200
+    assert "s3cret" not in got.json()["streamUrl"]
+    assert got.json()["streamUrl"] == "rtsp://***@192.168.1.50/stream1"
 
 
 @pytest.mark.asyncio

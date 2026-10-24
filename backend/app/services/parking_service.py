@@ -12,7 +12,7 @@ inserts run in a savepoint and fall back to updating the winner's row.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -151,6 +151,27 @@ async def record_detection(
 
     presence = await _select_active_presence(db, tenant_id, normalized)
     if presence is None:
+        # EDGE-DETECT-001: suppress ghost presences from stale camera
+        # detections arriving shortly after a vehicle has already exited.
+        # If the plate was exited within the last 60 seconds, skip creating
+        # a new presence — the detection is a delayed message, not a re-entry.
+        recent_exit = (
+            await db.execute(
+                select(VehiclePresence)
+                .where(
+                    VehiclePresence.tenant_id == tenant_id,
+                    VehiclePresence.site_id == site_id,
+                    VehiclePresence.plate_normalized == normalized,
+                    VehiclePresence.status == "exited",
+                    VehiclePresence.exited_at >= now - timedelta(seconds=60),
+                )
+                .order_by(VehiclePresence.exited_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if recent_exit is not None:
+            return recent_exit, "seen"
+
         vehicle_id = (
             await db.execute(
                 select(RegisteredVehicle.id).where(
@@ -205,6 +226,11 @@ async def record_detection(
         if presence.level_id is None:
             presence.level_id = new_level_id
         await db.flush()
+        return presence, "seen"
+
+    # Border-camera detections can alternate zones within seconds. Keep the
+    # current location during that debounce window to avoid noisy history.
+    if now - presence.last_seen_at < timedelta(seconds=30):
         return presence, "seen"
 
     from_zone_id = presence.zone_id
@@ -288,10 +314,38 @@ async def sweep_stale_presences(db: AsyncSession, *, stale_before: datetime, exp
         .scalars()
         .all()
     )
+
+    # Pre-fetch (tenant_id, plate_normalized) pairs that have an active
+    # membership so we can skip them during the hard-expire phase. Long-term
+    # members (e.g. monthly parkers) may legitimately stay beyond the TTL×4
+    # window when a monitor camera is offline or missing — hard-expiring
+    # them would be a false exit. Scoped by tenant so a different tenant's
+    # member with the same plate can't protect this tenant's presence.
+    expire_candidates = [p for p in rows if p.last_seen_at < expire_before]
+    member_keys: set[tuple[uuid.UUID, str]] = set()
+    if expire_candidates:
+        expire_tenant_ids = {p.tenant_id for p in expire_candidates}
+        expire_plates = {p.plate_normalized for p in expire_candidates}
+        member_rows = (
+            await db.execute(
+                select(RegisteredVehicle.tenant_id, RegisteredVehicle.plate_normalized).where(
+                    RegisteredVehicle.tenant_id.in_(expire_tenant_ids),
+                    RegisteredVehicle.plate_normalized.in_(expire_plates),
+                    RegisteredVehicle.tag == "member",
+                    RegisteredVehicle.status == "active",
+                )
+            )
+        ).all()
+        member_keys = {(row.tenant_id, row.plate_normalized) for row in member_rows}
+
     now = datetime.now(timezone.utc)
     touched = 0
     for p in rows:
         if p.last_seen_at < expire_before:
+            # Skip hard-expire for vehicles with an active membership — their
+            # long stay is legitimate and should not be auto-exited.
+            if (p.tenant_id, p.plate_normalized) in member_keys:
+                continue
             p.status = "exited"
             p.exited_at = now
             event_type = "exited"

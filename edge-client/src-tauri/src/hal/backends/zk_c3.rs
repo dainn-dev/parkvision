@@ -222,8 +222,13 @@ impl RelayBackend for ZkC3 {
 
     async fn pulse(&self, idx: u8, ms: u64) -> Result<()> {
         let secs = ms.div_ceil(1000).clamp(1, 254) as u8;
-        if ms < 1000 {
-            tracing::info!("zk c3: pulse {ms} ms rounded up to 1 s (panel granularity)");
+        if ms % 1000 != 0 {
+            let rounded_ms = secs as u64 * 1000;
+            tracing::warn!(
+                "ZKTeco C3 pulse_ms={ms} rounds up to {rounded_ms}ms \
+                 (second-granularity hardware) — board may interpret \
+                 pulses >1000 ms as hold-open"
+            );
         }
         self.control(idx, secs).await
     }
@@ -355,6 +360,45 @@ mod tests {
         assert_eq!(cmds[0].0, CMD_CONNECT);
         assert_eq!(cmds[1], (CMD_CONTROL, vec![1, 1, 2, 1, 0]));
         assert_eq!(cmds[2], (CMD_CONTROL, vec![1, 1, 2, 3, 0]));
+    }
+
+    /// Regression for EDGE-ZK-001: the default brand preset's `pulse_ms =
+    /// 500` is below one second, so it must round UP (not down/truncate) to
+    /// 1 s — a silent truncation would instead *drop* the pulse entirely on
+    /// some command encodings.
+    #[tokio::test]
+    async fn pulse_default_preset_rounds_up_not_down() {
+        let (addr, fake) = fake_panel(vec![], None).await;
+        let c = client(addr, vec![]);
+        c.pulse(1, 500).await.unwrap(); // default BarrierProfile::pulse_ms
+        let cmds = fake.cmds.lock().unwrap().clone();
+        assert_eq!(cmds[1], (CMD_CONTROL, vec![1, 1, 2, 1, 0]), "500ms must round up to 1s, not 0s");
+    }
+
+    /// A pulse that already lands on a whole second must not be rounded —
+    /// this exercises the warning condition's boundary (`ms % 1000 == 0`
+    /// must stay quiet, anything else must warn).
+    #[tokio::test]
+    async fn pulse_whole_second_values_are_not_rounded() {
+        let (addr, fake) = fake_panel(vec![], None).await;
+        let c = client(addr, vec![]);
+        c.pulse(1, 1000).await.unwrap();
+        c.pulse(1, 2000).await.unwrap();
+        let cmds = fake.cmds.lock().unwrap().clone();
+        assert_eq!(cmds[1], (CMD_CONTROL, vec![1, 1, 2, 1, 0]));
+        assert_eq!(cmds[2], (CMD_CONTROL, vec![1, 1, 2, 2, 0]));
+    }
+
+    /// Values above 1 s that still aren't a whole-second multiple (e.g. a
+    /// technician-entered 1500 ms override) must also trigger the
+    /// rounds-up-and-warns path, not just sub-1000ms values.
+    #[tokio::test]
+    async fn pulse_above_one_second_non_multiple_still_rounds_up() {
+        let (addr, fake) = fake_panel(vec![], None).await;
+        let c = client(addr, vec![]);
+        c.pulse(1, 1500).await.unwrap();
+        let cmds = fake.cmds.lock().unwrap().clone();
+        assert_eq!(cmds[1], (CMD_CONTROL, vec![1, 1, 2, 2, 0]), "1500ms must round up to 2s");
     }
 
     #[tokio::test]

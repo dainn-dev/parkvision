@@ -293,6 +293,16 @@ impl BarrierConfig {
     /// `OpenCloseStop`.
     pub fn validate(&self, mode: ContactMode) -> Result<()> {
         self.backend.validate()?;
+        if self.brand == BarrierBrand::Zkteco {
+            let pulse_ms = self.overrides.pulse_ms.unwrap_or(500);
+            if pulse_ms % 1000 != 0 {
+                tracing::warn!(
+                    "ZKTeco C3 pulse_ms={pulse_ms} is not a whole-second duration; \
+                     the panel rounds it up to {}ms (second-granularity hardware)",
+                    pulse_ms.div_ceil(1000) * 1000
+                );
+            }
+        }
         if self.outputs.open == 0 {
             bail!("barrier outputs.open must be >= 1");
         }
@@ -414,6 +424,29 @@ mod tests {
             unit_id: 1,
         };
         assert!(c.validate(ContactMode::OpenCloseStop).is_err());
+    }
+
+    #[test]
+    fn zkteco_non_second_pulse_warns_but_still_validates_ok() {
+        // EDGE-ZK-001: the mismatch is a warning, not a hard validation
+        // error — a technician's non-second pulse override must still save.
+        let mut c = cfg(Some(2));
+        c.brand = BarrierBrand::Zkteco;
+        c.overrides.pulse_ms = Some(500);
+        assert!(c.validate(ContactMode::OpenCloseStop).is_ok());
+
+        c.overrides.pulse_ms = Some(1000);
+        assert!(c.validate(ContactMode::OpenCloseStop).is_ok());
+    }
+
+    #[test]
+    fn non_zkteco_brand_with_sub_second_pulse_is_unaffected() {
+        // the warning is specific to ZKTeco's second-granularity hardware;
+        // other brands are unaffected by non-second pulse widths.
+        let mut c = cfg(Some(2));
+        c.brand = BarrierBrand::Faac;
+        c.overrides.pulse_ms = Some(500);
+        assert!(c.validate(ContactMode::OpenCloseStop).is_ok());
     }
 
     #[test]

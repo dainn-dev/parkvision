@@ -31,7 +31,7 @@
 ## Review Focus
 
 1. **Refresh-token reuse by a driver** — `refresh_session()` currently loads only `TenantUser`/`PlatformAdmin`; a driver session must refresh correctly and reuse-detection must still revoke the family. Test in Task 3.
-2. **Driver registering a plate already registered by another driver** — plates are not globally unique (two drivers may share a car); uniqueness is per driver only. Test in Task 4.
+2. **Driver registering a plate already registered by another driver** — plates are not globally unique (two drivers may share a car); uniqueness is per driver only. Test in Task 4. **Superseded by GAP-BE-002 (2026-10-23, `docs/superpowers/specs/2026-10-23-plate-ownership-design.md`): plates are now globally unique across all drivers** (`UniqueConstraint("plate_normalized")`, migration `0019_plate_ownership`); a second driver registering an already-claimed plate gets 409, not 201. See the updated test below.
 3. **Active-session derivation when the latest event is an `exit`** — must return `null`, not the stale entry; also a `deny` decision must never start a session. Test in Task 6.
 4. **Public site list with a site lacking lat/lng** — site is still returned when no `lat/lng` query is given, and excluded (not crashing) when radius filtering is requested. Test in Task 5.
 5. **Mobile 401 during token refresh race** — two concurrent 401s must trigger exactly one refresh call and both requests retry with the new token. Test in Task 8.
@@ -258,10 +258,14 @@ async def test_vehicle_crud_and_primary(client):
     assert (await client.delete(f"/api/v1/driver/vehicles/{v2['id']}", headers=d["headers"])).status_code == 200
     assert (await client.get("/api/v1/driver/vehicles", headers=d["headers"])).json()[0]["isPrimary"] is True
 
-async def test_two_drivers_may_share_a_plate(client):
+async def test_second_driver_cannot_register_same_plate(client):
+    # Superseded by GAP-BE-002 (2026-10-23): plates are globally unique, not
+    # per-driver. This replaces the old test_two_drivers_may_share_a_plate,
+    # which asserted 201/201 under the pre-2026-10-23 per-driver uniqueness
+    # model and would fail against the current global constraint.
     a, b = await driver(client), await driver(client)
-    for d in (a, b):
-        assert (await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": "30A-000.01"})).status_code == 201
+    assert (await client.post("/api/v1/driver/vehicles", headers=a["headers"], json={"plateNumber": "30A-000.01"})).status_code == 201
+    assert (await client.post("/api/v1/driver/vehicles", headers=b["headers"], json={"plateNumber": "30A-000.01"})).status_code == 409
 
 async def test_vehicle_not_owned_404(client):
     a, b = await driver(client), await driver(client)

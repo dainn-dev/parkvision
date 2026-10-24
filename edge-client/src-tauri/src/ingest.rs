@@ -122,17 +122,23 @@ fn authed(inner: &Inner, headers: &HeaderMap) -> Result<(), StatusCode> {
         .get("x-camera-key")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
-    // constant-time-ish compare — a loopback token, not a public credential,
-    // but cheap insurance costs nothing
-    let equal = key.len() == inner.key.len()
-        && key
-            .bytes()
-            .zip(inner.key.bytes())
-            .fold(true, |acc, (a, b)| acc & (a == b));
-    if !equal {
+    // Threat model: this is a loopback-only token shared with our own
+    // spawned worker children, not a public credential — but the compare
+    // is kept constant-time regardless, since it costs nothing here.
+    if !constant_time_eq(key.as_bytes(), inner.key.as_bytes()) {
         return Err(StatusCode::UNAUTHORIZED);
     }
     Ok(())
+}
+
+/// For equal-length inputs, XOR-accumulate all bytes rather than returning
+/// on the first mismatch. Different lengths are rejected immediately; the
+/// generated camera key has a fixed length, and the endpoint is loopback-only.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter().zip(b.iter()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
 fn camera_id_of(headers: &HeaderMap) -> Result<Uuid, StatusCode> {
@@ -593,5 +599,53 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(res.status(), 401);
+    }
+
+    #[test]
+    fn constant_time_eq_matches_and_rejects() {
+        assert!(constant_time_eq(b"same-key", b"same-key"));
+        assert!(!constant_time_eq(b"same-key", b"other-ky"));
+        assert!(!constant_time_eq(b"short", b"much-longer-key"));
+        assert!(constant_time_eq(b"", b""));
+    }
+
+    /// `start()` logs the bound port on startup — confirm that message never
+    /// embeds the camera_key, which is the only place server startup logs
+    /// anything about the ingest endpoint.
+    #[tokio::test]
+    async fn startup_does_not_log_the_camera_key() {
+        use tracing_subscriber::layer::SubscriberExt;
+
+        let (camera_id, route, _rx) = route(4);
+        let (store, _dir) = test_store();
+
+        let buf = Arc::new(Mutex::new(Vec::<u8>::new()));
+        struct Writer(Arc<Mutex<Vec<u8>>>);
+        impl std::io::Write for Writer {
+            fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
+                self.0.lock().unwrap().extend_from_slice(data);
+                Ok(data.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let buf_for_layer = buf.clone();
+        let layer = tracing_subscriber::fmt::layer()
+            .with_writer(move || Writer(buf_for_layer.clone()))
+            .without_time();
+        let subscriber = tracing_subscriber::registry().with(layer);
+
+        let _guard = tracing::subscriber::set_default(subscriber);
+        let server = IngestServer::start(vec![(camera_id, route)], store)
+            .await
+            .unwrap();
+
+        let logged = String::from_utf8(buf.lock().unwrap().clone()).unwrap();
+        assert!(
+            !logged.contains(&server.camera_key),
+            "camera_key leaked into tracing output: {logged}"
+        );
+        drop(server); // shut down the listener before the test ends.
     }
 }

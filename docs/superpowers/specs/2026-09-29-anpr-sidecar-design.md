@@ -20,6 +20,16 @@ The Python package is **vendored** into this repo at `anpr-worker/` (the
 upstream repo is a different product's monorepo; vendoring keeps the edge
 client self-contained). The vendored copy is ours to extend — additive only.
 
+> **Supersedes Task 13 ("ANPR pipeline") of
+> `docs/superpowers/plans/2026-09-28-edge-client-tauri.md`** for the
+> camera-sourced plate path (2026-10-24, GAP-ANPR-001): this Python sidecar,
+> not the in-process `RtspOnnxSource`/`ort` ONNX pipeline, is how camera
+> readings reach the gate. The ONNX path stays in the tree behind the opt-in
+> `onnx` Cargo feature (off by default) but is not wired into any camera
+> binding. `PlateSource`/`ManualPlateSource`/`decide_access`/`run_pipeline`
+> from Task 13 are unaffected — the sidecar feeds the same `plate_tx` channel
+> `ManualPlateSource` uses.
+
 ## Architecture
 
 ```

@@ -209,6 +209,7 @@ Kiểm tra `/ws` upgrade/proxy, đúng tenant/actor, token URL theo client và R
 - Nghiệm thu relay, sensor, emergency procedure và mất mạng; phần mềm FSM không thay thế safety interlock vật lý.
 - Xác minh model, tài nguyên CPU/GPU, disk quota/queue/captures và điều kiện chiếu sáng/camera thật.
 - Kiểm tra payment sandbox/callback/paid-exit/refund trước tiền thật; ghi nhận giới hạn offline.
+- Khi edge mất mạng và khách đã `paid_exit`, dùng lệnh mở cổng thủ công (`manual_open`) — đây là lối thoát duy nhất vì `decide_access` offline không biết về payment (GAP-PAY-002); cần đào tạo nhân viên vận hành quy trình này.
 - Bổ sung giám sát theo body readiness, bridge/worker/edge heartbeat, outbox/queue, disk, lỗi ảnh và command timeout.
 
 Tài liệu không khẳng định hệ thống đã production-ready hoặc đã được security audit. Các giới hạn cụ thể được ghi tại từng tài liệu thành phần.

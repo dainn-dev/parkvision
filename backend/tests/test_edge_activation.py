@@ -304,6 +304,41 @@ async def test_activate_consumed_code_rejected(client: AsyncClient, tenant, acti
 
 
 @pytest.mark.asyncio
+async def test_activate_concurrent_race_one_wins(client: AsyncClient, tenant, activation_setup, admin_engine):
+    """ACT-TC-002: two concurrent POST /edge/activate with the same code —
+    exactly one receives 200 with a minted token, the other receives 409."""
+    import asyncio
+
+    s = activation_setup
+    results = await asyncio.gather(
+        client.post(
+            "/api/v1/edge/activate",
+            json={"code": s["code"], "deviceInfo": {"hostname": "k1"}},
+        ),
+        client.post(
+            "/api/v1/edge/activate",
+            json={"code": s["code"], "deviceInfo": {"hostname": "k2"}},
+        ),
+    )
+    codes = sorted(r.status_code for r in results)
+    assert codes == [200, 409], f"expected [200, 409], got {codes}: {[r.text for r in results]}"
+
+    winner = next(r for r in results if r.status_code == 200)
+    assert winner.json()["api"]["token"].startswith("pk_")
+
+    # DB: exactly one credential minted for this device
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        count = (
+            await db.execute(
+                text("SELECT COUNT(*) FROM api_credentials WHERE edge_device_id = :did"),
+                {"did": s["device_id"]},
+            )
+        ).scalar()
+    assert count == 1, f"expected exactly 1 credential, got {count}"
+
+
+@pytest.mark.asyncio
 async def test_activate_device_without_gates_rejected_before_consume(
     client: AsyncClient, tenant, site_and_device, admin_engine
 ):

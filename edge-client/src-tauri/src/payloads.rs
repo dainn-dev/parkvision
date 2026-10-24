@@ -59,6 +59,9 @@ pub struct TelemetryFrame {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AnprFields {
+    /// Stable per-event UUID the backend uses to deduplicate QoS-1 retries
+    /// and outbox replays (idempotency key).
+    pub event_id: Uuid,
     pub plate_number: String,
     pub direction: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -281,10 +284,12 @@ mod tests {
     #[test]
     fn anpr_fields_flatten_onto_telemetry() {
         let (_, _, g) = ids();
+        let eid = Uuid::parse_str("66666666-6666-6666-6666-666666666666").unwrap();
         let frame = TelemetryFrame {
             gate_id: g,
             state: Some(crate::fsm::GateState::Open),
             anpr: Some(AnprFields {
+                event_id: eid,
                 plate_number: "30E-892.41".to_string(),
                 direction: "entry".to_string(),
                 confidence: Some(0.985),
@@ -300,6 +305,7 @@ mod tests {
         assert_eq!(v["direction"], "entry");
         assert!((v["confidence"].as_f64().unwrap() - 0.985).abs() < 0.001);
         assert_eq!(v["laneId"], "55555555-5555-5555-5555-555555555555");
+        assert_eq!(v["eventId"], "66666666-6666-6666-6666-666666666666");
         assert!(
             v.get("anpr").is_none(),
             "anpr must be flattened, not nested"

@@ -378,4 +378,46 @@ mod tests {
         assert!(d.admit("AAA111", t0));
         assert!(d.admit("BBB222", t0 + Duration::from_secs(1)));
     }
+
+    /// SCENARIO-ANPR-002: the Rust-ONNX pipeline must never silently become
+    /// authoritative in a build that lacks the `onnx` feature — spawning the
+    /// source must fail loudly, naming the missing feature, rather than
+    /// falling back to some partial/implicit behavior. Default builds (and
+    /// the Linux test image) compile without `onnx`, so this guard is
+    /// exercised on every CI run.
+    #[cfg(not(feature = "onnx"))]
+    #[test]
+    fn rtsp_onnx_source_spawn_fails_clearly_without_onnx_feature() {
+        let dir = tempfile::tempdir().unwrap();
+        // Model files present — isolates the assertion to the feature guard,
+        // not the earlier "model file missing" check.
+        std::fs::write(dir.path().join("detector.onnx"), b"fake").unwrap();
+        std::fs::write(dir.path().join("recognizer.onnx"), b"fake").unwrap();
+
+        // Avoid `.unwrap_err()`/`.expect_err()`: `RtspOnnxSource` isn't
+        // `Debug`, which both require on the `Ok` side.
+        let err = match RtspOnnxSource::spawn("rtsp://cam.local/live", dir.path(), "entry") {
+            Ok(_) => panic!("spawn must fail when built without the onnx feature"),
+            Err(e) => e,
+        };
+        let msg = format!("{err:#}");
+        assert!(
+            msg.contains("onnx"),
+            "error must name the missing `onnx` build feature: {msg}"
+        );
+    }
+
+    /// Companion guard: missing model artifacts must fail before the feature
+    /// check even runs, with a message that names the missing file (never a
+    /// silent pass-through to manual mode without an operator-visible cause).
+    #[test]
+    fn rtsp_onnx_source_spawn_fails_on_missing_model_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let err = match RtspOnnxSource::spawn("rtsp://cam.local/live", dir.path(), "entry") {
+            Ok(_) => panic!("spawn must fail when model files are absent"),
+            Err(e) => e,
+        };
+        let msg = format!("{err:#}");
+        assert!(msg.contains("detector.onnx"), "error must name the missing file: {msg}");
+    }
 }

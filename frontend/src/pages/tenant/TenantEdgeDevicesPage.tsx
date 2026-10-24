@@ -68,7 +68,7 @@ const UsageBar: React.FC<{ label: string; value: number }> = ({ label, value }) 
 
 export const TenantEdgeDevicesPage: React.FC = () => {
   const { t } = useTranslation('tenant');
-  const { tenantDevices, tenantSites } = usePlatform();
+  const { tenantDevices, tenantDevicesTotal, tenantSites } = usePlatform();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -137,6 +137,15 @@ export const TenantEdgeDevicesPage: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {tenantDevicesTotal > tenantDevices.length && (
+        <div className="p-3 rounded-xl bg-[#d29922]/10 border border-[#d29922]/30 text-[#e3b341] text-xs" role="alert">
+          {t('Showing {{count}} of {{total}} devices. Contact your platform administrator if you need to view more.', {
+            count: tenantDevices.length,
+            total: tenantDevicesTotal
+          })}
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

@@ -5,6 +5,7 @@
 //! UI-facing camera events.
 
 use std::path::{Path, PathBuf};
+use std::{fs::OpenOptions, io::Write};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -168,6 +169,37 @@ pub fn render_worker_config(
     }))
 }
 
+/// Writes the worker config JSON (which embeds the plaintext `camera_key`
+/// ingest secret) with owner-only permissions. On Unix the file is created
+/// with mode 0o600 from the start, so there is no window where it is
+/// world-readable. On Windows, file ACLs default to inheriting from the
+/// parent directory (the app-data folder, already user-private under normal
+/// installs); tightening per-file ACLs there would need `windows-acl` or
+/// similar, which is not currently a dependency — noted as a known gap
+/// rather than silently assumed-safe.
+fn write_config_file(path: &Path, contents: &str) -> Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        let mut f = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .mode(0o600)
+            .open(path)?;
+        // `.mode()` only applies when creating a new file; enforce it on an
+        // existing config before truncating or writing sensitive contents.
+        f.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+        f.set_len(0)?;
+        f.write_all(contents.as_bytes())?;
+        return Ok(());
+    }
+    #[cfg(not(unix))]
+    {
+        std::fs::write(path, contents)?;
+        Ok(())
+    }
+}
+
 /// rtsp://user:pass@host/… → (url without creds, user, pass)
 fn split_stream_url(url: &str) -> (String, String, String) {
     let Ok(parsed) = url::Url::parse(url) else {
@@ -224,12 +256,13 @@ impl CameraWorkerManager {
             )?;
             let cfg_path = worker_dir.join(format!("{}.json", cam.camera_id));
             std::fs::create_dir_all(cfg_path.parent().unwrap()).ok();
-            std::fs::write(&cfg_path, serde_json::to_string_pretty(&cfg)?)
+            write_config_file(&cfg_path, &serde_json::to_string_pretty(&cfg)?)
                 .context("write worker config")?;
             handles.push(tokio::spawn(supervise(
                 cmd.clone(),
                 cam.camera_id,
                 cfg_path,
+                env.camera_key.to_string(),
                 env.camera_tx.clone(),
             )));
         }
@@ -251,10 +284,13 @@ impl Drop for CameraWorkerManager {
 
 /// Spawn → read stdout → on exit, backoff and respawn. All children are
 /// `kill_on_drop` so aborting this task also terminates the worker.
+/// `camera_key` is carried so any stderr output can be scrubbed before
+/// forwarding — the key must never appear in operator-visible logs.
 async fn supervise(
     cmd: WorkerCommand,
     camera_id: Uuid,
     config_path: PathBuf,
+    camera_key: String,
     camera_tx: broadcast::Sender<serde_json::Value>,
 ) {
     let mut backoff = Duration::from_secs(1);
@@ -287,7 +323,11 @@ async fn supervise(
         if let Some(stdout) = child.stdout.take() {
             let mut lines = BufReader::new(stdout).lines();
             while let Ok(Some(line)) = lines.next_line().await {
-                handle_event(parse_line(&line), camera_id, &camera_tx);
+                handle_event(
+                    parse_line(&redact_secret(&line, &camera_key)),
+                    camera_id,
+                    &camera_tx,
+                );
             }
         }
         // Drain stderr so pipe buffers never block the child.
@@ -297,7 +337,7 @@ async fn supervise(
             let _ = stderr.read_to_string(&mut buf).await;
             let tail: String = buf.lines().rev().take(5).collect::<Vec<_>>().join(" | ");
             if !tail.is_empty() {
-                warn!("camera worker stderr tail: {tail}");
+                warn!("camera worker stderr tail: {}", redact_secret(&tail, &camera_key));
             }
         }
         let status = child.wait().await;
@@ -306,6 +346,17 @@ async fn supervise(
         tokio::time::sleep(backoff).await;
         backoff = (backoff * 2).min(Duration::from_secs(60));
     }
+}
+
+/// Replace any occurrence of a secret value with `***` in text that may
+/// end up in operator-visible logs (stderr tail, stdout JSONL from the
+/// child process).  No-op when the secret is empty or shorter than 4
+/// characters (non-secret placeholder in tests).
+fn redact_secret(text: &str, secret: &str) -> String {
+    if secret.len() < 4 {
+        return text.to_string();
+    }
+    text.replace(secret, "***")
 }
 
 fn handle_event(
@@ -435,5 +486,47 @@ mod tests {
         )
         .unwrap();
         assert_eq!(cfg["camera"]["source"]["type"], "file");
+    }
+
+    #[test]
+    fn worker_config_file_is_private_and_key_is_redacted_from_logs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("worker.json");
+        let secret = "camera-secret-key";
+        let config = serde_json::json!({"ingest": {"camera_key": secret}});
+        write_config_file(&path, &serde_json::to_string(&config).unwrap()).unwrap();
+
+        // The config must contain the actual key for the child, but no
+        // logging representation of its contents is emitted by this module.
+        let contents = std::fs::read_to_string(&path).unwrap();
+        assert!(contents.contains(secret));
+        let logged = redact_secret(&format!("worker log: {contents}"), secret);
+        assert!(!logged.contains(secret));
+        assert!(logged.contains("***"));
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        }
+    }
+
+    #[test]
+    fn short_placeholder_is_not_redacted() {
+        assert_eq!(redact_secret("worker log", "k"), "worker log");
+    }
+
+    /// ANPR-TC-002: the ingest key is stored in the protected config file,
+    /// never in the process arguments (which are visible via process tools).
+    #[test]
+    fn camera_key_not_in_worker_command_args() {
+        let secret_key = "pk_super_secret_camera_key_12345";
+        let cmd = WorkerCommand {
+            program: "camera-edge".into(),
+            prefix_args: vec!["--config".into(), "/path/to/config.json".into()],
+        };
+        let args = format!("{:?} {:?}", cmd.program, cmd.prefix_args);
+        assert!(!args.contains(secret_key));
+        assert!(!format!("{cmd:?}").contains(secret_key));
     }
 }

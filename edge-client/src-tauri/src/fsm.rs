@@ -27,6 +27,9 @@ pub struct FsmTuning {
     /// `None`: the board closes on its own; Open → Closed when angle hits 0.
     pub auto_close: Option<Duration>,
     pub overcurrent_a: f32,
+    /// How long the gate can stay continuously open (board-owns-close)
+    /// before emitting a `gate_open_too_long` warning incident.
+    pub max_open_warn_secs: Duration,
 }
 
 impl Default for FsmTuning {
@@ -35,6 +38,7 @@ impl Default for FsmTuning {
             stuck_timeout: Duration::from_millis(1500),
             auto_close: Some(Duration::from_millis(2500)),
             overcurrent_a: 8.5,
+            max_open_warn_secs: Duration::from_secs(300),
         }
     }
 }
@@ -92,6 +96,7 @@ pub struct GateFsm {
     loop_clear_since: Option<Instant>,
     fault_reported: bool,
     link_was_ok: bool,
+    open_too_long_warned: bool,
 }
 
 impl GateFsm {
@@ -109,6 +114,7 @@ impl GateFsm {
             loop_clear_since: None,
             fault_reported: false,
             link_was_ok: true,
+            open_too_long_warned: false,
         }
     }
 
@@ -120,6 +126,7 @@ impl GateFsm {
         if self.state != next {
             self.state = next;
             self.entered_at = now;
+            self.open_too_long_warned = false;
             events.push(FsmEvent::StateChanged(next));
         }
     }
@@ -139,6 +146,7 @@ impl GateFsm {
             let _ = self.hal.energize_open();
             self.state = GateState::Opening;
             self.entered_at = Instant::now();
+            self.open_too_long_warned = false;
             self.fault_reported = false;
         }
         Ok(())
@@ -183,6 +191,7 @@ impl GateFsm {
             }
         };
         self.entered_at = Instant::now();
+        self.open_too_long_warned = false;
         Ok(())
     }
 
@@ -281,6 +290,18 @@ impl GateFsm {
                 None => {
                     if sensors.arm_angle_deg == 0 {
                         self.transition(GateState::Closed, &mut events, now);
+                    } else if !self.open_too_long_warned
+                        && now.duration_since(self.entered_at) > self.tuning.max_open_warn_secs
+                    {
+                        self.open_too_long_warned = true;
+                        events.push(FsmEvent::Incident {
+                            kind: "gate_open_too_long",
+                            severity: "warning",
+                            message: format!(
+                                "Gate open for >{:?} with board-owned close — verify barrier motor",
+                                self.tuning.max_open_warn_secs
+                            ),
+                        });
                     }
                 }
             },
@@ -550,6 +571,7 @@ mod tests {
             stuck_timeout: Duration::from_millis(5500),
             auto_close: None,
             overcurrent_a: f32::INFINITY,
+            max_open_warn_secs: Duration::from_secs(300),
         }
     }
 
@@ -559,6 +581,7 @@ mod tests {
         assert_eq!(t.stuck_timeout, Duration::from_millis(1500));
         assert_eq!(t.auto_close, Some(Duration::from_millis(2500)));
         assert_eq!(t.overcurrent_a, 8.5);
+        assert_eq!(t.max_open_warn_secs, Duration::from_secs(300));
     }
 
     #[test]
@@ -687,5 +710,51 @@ mod tests {
         let mut fsm = GateFsm::new(hal.clone());
         assert!(matches!(fsm.state(), GateState::Closed));
         assert!(fsm.reboot().is_err());
+    }
+
+    #[test]
+    fn board_close_watchdog_emits_gate_open_too_long_once() {
+        let hal = Scripted::new();
+        let threshold = Duration::from_secs(10);
+        let mut fsm = GateFsm::with_tuning(
+            hal.clone(),
+            FsmTuning {
+                max_open_warn_secs: threshold,
+                ..contact_tuning()
+            },
+        );
+        let t0 = Instant::now();
+        fsm.request_open().unwrap();
+        hal.set_angle(90);
+        tick_n(&mut fsm, t0, 0, 100);
+        assert_eq!(fsm.state(), GateState::Open);
+
+        // Well before threshold — no incident.
+        let ev = tick_n(&mut fsm, t0, 100, 5_000);
+        let warnings: Vec<_> = ev
+            .iter()
+            .filter(|e| matches!(e, FsmEvent::Incident { kind: "gate_open_too_long", .. }))
+            .collect();
+        assert_eq!(warnings.len(), 0, "no warning before threshold");
+
+        // Cross the threshold — exactly one incident.
+        let ev = tick_n(&mut fsm, t0, 5_000, 11_000);
+        let warnings: Vec<_> = ev
+            .iter()
+            .filter(|e| matches!(e, FsmEvent::Incident { kind: "gate_open_too_long", .. }))
+            .collect();
+        assert_eq!(warnings.len(), 1, "one warning on crossing threshold");
+
+        // Keep ticking — no more incidents (flag prevents spam).
+        let ev = tick_n(&mut fsm, t0, 11_000, 25_000);
+        let warnings: Vec<_> = ev
+            .iter()
+            .filter(|e| matches!(e, FsmEvent::Incident { kind: "gate_open_too_long", .. }))
+            .collect();
+        assert_eq!(warnings.len(), 0, "no repeated warnings after first");
+
+        // The gate was never force-closed.
+        assert_eq!(fsm.state(), GateState::Open);
+        assert!(!hal.calls().contains(&"energize_close"));
     }
 }

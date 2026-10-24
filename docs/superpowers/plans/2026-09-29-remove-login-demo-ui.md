@@ -142,6 +142,7 @@
   - Repeat login → "Dùng mã khôi phục" → enter one saved backup code → dashboard loads; a SECOND login attempt reusing the same code shows "Mã khôi phục không hợp lệ." (single-use).
   - Wrong TOTP → inline error "Mã TOTP không chính xác hoặc đã hết hạn."; fields stay on OTP step.
   - Footer reads `TOTP 2FA Enabled`.
+  - Navigate Back from the OTP step to credentials, then re-enter the OTP step; previously entered `otpDigits` persist. This is **by design**, not a defect (GAP-UI-001). 
   - (Optional, slow) Pending-token expiry: leave the OTP step idle >10 min, then submit — UI must show the backend error (e.g. "Invalid token") rather than hang; pressing Back to credentials and re-submitting the password recovers.
 
 - [ ] **Step 4: Report**

@@ -402,6 +402,8 @@ Payment session paid cho phép nhánh access engine tìm một grant theo plate/
 
 **Giới hạn:** kiểm tra trả tiền chỉ là đường fallback cho exit vốn deny. Xe whitelist hợp lệ vẫn allow mà không bắt buộc phải có payment, không phải cơ chế mọi xe đều “phải trả tiền mới ra”. Sau khi trả tiền, bộ nhớ offline edge không tự có một payment grant chỉ vì endpoint whitelist/rules tồn tại; không coi flow online này là bằng chứng paid-exit offline đã đồng bộ end-to-end.
 
+**Vận hành khi edge mất mạng (GAP-PAY-002, 2026-10-24):** `decide_access` offline trên edge không biết về payment. Nếu khách đã `paid_exit` đúng lúc cổng mất mạng, lối thoát duy nhất là nhân viên vận hành dùng lệnh mở cổng thủ công (`manual_open`, `edge-client/src-tauri/src/lib.rs`) — không có đồng bộ tự động payment grant vào SQLite cục bộ. Quy trình này cần được truyền thông tới trạm vận hành.
+
 ### 10.4 Ví
 
 Topup paid ghi `driver_wallets.balance_vnd` và ledger `topup_credit`. Thanh toán bằng ví ghi `spend_debit`; refund ghi `refund_credit`. Service khóa wallet có sẵn bằng `SELECT FOR UPDATE`, từ chối số dư âm bằng 409. Ledger chứa amount tuyệt đối và `balance_after_vnd`, hướng tiền phân biệt bằng kind.
@@ -462,7 +464,7 @@ API tạo `gate_commands`, LPUSH `{topic,payload}` vào Redis key **`mqtt:outbox
 2. Tạo activation code một lần qua `/devices/{device_id}/activation-codes`; có expiry và optional `allowedIp` dạng IP/CIDR.
 3. Edge gọi `/edge/activate`. Sai IP hoặc device chưa có gate được từ chối trước consume; consume bằng atomic update. Thành công trả bundle IDs, gate direction/camera stream, API token và MQTT credential.
 4. `/edge/config` refresh không phát lại token/password. Relay barrier là cấu hình cục bộ edge; backend bundle không chứa relay HAL config. Khi backend refresh config, edge phải giữ cấu hình barrier local; xem [relay setup](barrier-relay-setup.md).
-5. Whitelist sync trả `items`, `syncedAt`, `truncated`; `updatedSince` dùng `>=`, nên edge phải upsert và chịu được record lặp. Đây không phải change log có tombstone cho mọi delete: API xóa vật lý registered vehicle, không tự phát record xóa qua endpoint incremental.
+5. Whitelist sync trả `items`, `syncedAt`, `truncated`; `updatedSince` dùng `>=`, nên edge phải upsert và chịu được record lặp. Đây không phải change log có tombstone cho mọi delete: API xóa vật lý registered vehicle, không tự phát record xóa qua endpoint incremental. **Reconciliation (2026-10-24):** edge chạy full-snapshot reconciliation (`reconcile_whitelist` — fetch toàn bộ không cursor + purge local rows vắng mặt) khi kết nối lại lần đầu; các lần sync sau vẫn dùng incremental `updatedSince`. Cơ chế này xử lý hard-delete và trạng thái sai lệch do offline kéo dài.
 6. `/edge/.../rules` trả snapshot rule active. Không suy diễn snapshot đã hỗ trợ toàn bộ rule semantics mà backend chưa thực thi.
 
 Bundle MQTT dùng `MQTT_HOST` cấu hình server; nếu giá trị là hostname nội bộ Docker `emqx`, máy edge ngoài Docker sẽ không resolve được. Phải thiết kế địa chỉ broker truy cập được từ thiết bị, không chỉ kiểm tra bridge trong container kết nối được.

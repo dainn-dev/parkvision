@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePlatform } from '../../context/PlatformContext';
 import { tenantApi } from '../../services/api';
 import { AccessEvent } from '../../types/tenant';
@@ -20,7 +20,8 @@ import {
   Radio,
   FileText,
   Activity,
-  Maximize2
+  Maximize2,
+  ImageOff
 } from 'lucide-react';
 import { Button, Badge } from '../ui';
 import { useTranslation } from 'react-i18next';
@@ -44,6 +45,14 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
   const { t } = useTranslation('tenant');
   const [correctionInput, setCorrectionInput] = useState('');
   const [isCorrecting, setIsCorrecting] = useState(false);
+  const [plateImageFailed, setPlateImageFailed] = useState(false);
+  const [overviewImageFailed, setOverviewImageFailed] = useState(false);
+
+  // Reset image error state when viewing a different event.
+  useEffect(() => {
+    setPlateImageFailed(false);
+    setOverviewImageFailed(false);
+  }, [event?.id]);
 
   if (!isOpen || !event) return null;
 
@@ -211,19 +220,51 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
               </span>
             </div>
 
-            {/* Simulated Plate Crop Viewport */}
-            <div className="relative rounded-lg bg-[#0d0e12] border border-[#30363d] h-32 flex flex-col items-center justify-center p-4 overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
-              
-              {/* Plate frame representation */}
-              <div className="z-10 bg-amber-100 text-slate-900 border-2 border-slate-900 rounded-md px-6 py-2 shadow-lg font-mono text-2xl font-black tracking-widest text-center">
+            {/* Plate close-up & overview images */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="relative rounded-lg bg-[#0d0e12] border border-[#30363d] h-32 flex flex-col items-center justify-center overflow-hidden">
+                <span className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider absolute top-2 left-2 z-10">{t('Plate close-up (ANPR)')}</span>
+                {event.plateImageCrop && !plateImageFailed ? (
+                  <img
+                    src={event.plateImageCrop}
+                    alt={event.plate}
+                    className="w-full h-full object-cover"
+                    onError={() => setPlateImageFailed(true)}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-1.5 text-[#484f58]">
+                    <ImageOff className="w-6 h-6" />
+                    <span className="text-[10px] font-mono">{t('Image not available')}</span>
+                  </div>
+                )}
+              </div>
+              <div className="relative rounded-lg bg-[#0d0e12] border border-[#30363d] h-32 flex flex-col items-center justify-center overflow-hidden">
+                <span className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider absolute top-2 left-2 z-10">{t('Overview / context')}</span>
+                {event.overviewImage && !overviewImageFailed ? (
+                  <img
+                    src={event.overviewImage}
+                    alt={t('Overview / context')}
+                    className="w-full h-full object-cover"
+                    onError={() => setOverviewImageFailed(true)}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-1.5 text-[#484f58]">
+                    <ImageOff className="w-6 h-6" />
+                    <span className="text-[10px] font-mono">{t('Image not available')}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Plate badge */}
+            <div className="relative rounded-lg bg-[#0d0e12] border border-[#30363d] h-16 flex items-center justify-center overflow-hidden">
+              <div className="bg-amber-100 text-slate-900 border-2 border-slate-900 rounded-md px-6 py-1.5 shadow-lg font-mono text-xl font-black tracking-widest text-center">
                 {event.plate}
-                <div className="text-[9px] font-sans font-bold text-slate-600 tracking-normal uppercase border-t border-slate-400 mt-0.5 pt-0.5">
+                <div className="text-[8px] font-sans font-bold text-slate-600 tracking-normal uppercase border-t border-slate-400 mt-0.5 pt-0.5">
                   VIETNAM · AUTOMATED ANPR
                 </div>
               </div>
-
-              <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between text-[10px] text-[#8b949e] z-10 font-mono">
+              <div className="absolute bottom-1.5 left-3 right-3 flex items-center justify-between text-[10px] text-[#8b949e] font-mono">
                 <span>Cam: {event.siteName.split(' ')[0]}-ANPR-01</span>
                 <span>FPS: 30 · Res: 4K UHD</span>
               </div>

@@ -292,6 +292,29 @@ async def gate_telemetry(
 
 
 # ---------- edge devices ----------
+
+
+async def _stale_token_device_ids(db: AsyncSession, tenant_id: uuid.UUID) -> set[uuid.UUID]:
+    """Device IDs offline >30 days with active (unrevoked) API credentials."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    rows = (
+        await db.execute(
+            select(EdgeDevice.id)
+            .join(
+                ApiCredential,
+                (ApiCredential.edge_device_id == EdgeDevice.id)
+                & (ApiCredential.revoked_at.is_(None)),
+            )
+            .where(
+                EdgeDevice.tenant_id == tenant_id,
+                EdgeDevice.status == "offline",
+                EdgeDevice.last_heartbeat_at < cutoff,
+            )
+        )
+    ).scalars().all()
+    return set(rows)
+
+
 @router.get("/devices", response_model=Page[DeviceOut])
 async def list_devices(
     page: int = Query(1, ge=1),
@@ -311,7 +334,13 @@ async def list_devices(
         .scalars()
         .all()
     )
-    return paginate([DeviceOut.model_validate(r) for r in rows], total, page, limit)
+    stale_ids = await _stale_token_device_ids(db, ctx.tenant_id)
+    devices = []
+    for r in rows:
+        d = DeviceOut.model_validate(r)
+        d.token_stale_warning = r.id in stale_ids
+        devices.append(d)
+    return paginate(devices, total, page, limit)
 
 
 @router.post("/devices", response_model=DeviceOut, status_code=201)
@@ -465,7 +494,11 @@ async def get_device(
     ctx: TenantCtx = Depends(tenant_ctx),
     db: AsyncSession = Depends(get_tenant_db),
 ) -> DeviceOut:
-    return DeviceOut.model_validate(await _get_device_or_404(db, ctx.tenant_id, device_id))
+    row = await _get_device_or_404(db, ctx.tenant_id, device_id)
+    stale_ids = await _stale_token_device_ids(db, ctx.tenant_id)
+    d = DeviceOut.model_validate(row)
+    d.token_stale_warning = row.id in stale_ids
+    return d
 
 
 @router.patch("/devices/{device_id}", response_model=DeviceOut)

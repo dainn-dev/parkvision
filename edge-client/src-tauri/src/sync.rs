@@ -48,6 +48,15 @@ pub struct SyncReport {
     pub pages: u32,
 }
 
+#[derive(Debug)]
+pub struct ReconcileReport {
+    pub upserted: u32,
+    /// Local rows removed because the backend's full snapshot no longer
+    /// contains them (hard-deleted since the last reconciliation).
+    pub purged: u64,
+    pub pages: u32,
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct EdgeVehicleEntry {
@@ -157,6 +166,66 @@ impl SyncClient {
         Ok(SyncReport {
             upserted,
             synced_at: last_synced,
+            pages,
+        })
+    }
+
+    /// Full-snapshot reconciliation: fetch the **entire** whitelist (no
+    /// `updatedSince` cursor) and purge local rows the backend no longer
+    /// returns. This catches hard-deletes that incremental sync cannot see
+    /// (a deleted `RegisteredVehicle` leaves no `updated_at` trail).
+    ///
+    /// Called on first sync after connectivity is restored, so the edge
+    /// doesn't operate on stale cached vehicles indefinitely.
+    pub async fn reconcile_whitelist(&self) -> Result<ReconcileReport> {
+        let mut upserted = 0u32;
+        let mut pages = 0u32;
+        let mut all_plates = std::collections::HashSet::new();
+
+        // Fetch all pages without a cursor to get the complete snapshot.
+        let mut cursor: Option<String> = None;
+        loop {
+            let mut req = self
+                .http
+                .get(self.whitelist_url())
+                .header("X-Api-Key", &self.cfg.api_key)
+                .query(&[("limit", PAGE_LIMIT.to_string())]);
+            if let Some(c) = &cursor {
+                req = req.query(&[("updatedSince", c.clone())]);
+            }
+            let resp = req.send().await.context("reconcile whitelist request")?;
+            check_status(&resp, "reconcile whitelist")?;
+            let page: EdgeWhitelistOut = resp.json().await.context("reconcile whitelist decode")?;
+
+            for item in &page.items {
+                self.store.upsert_vehicle(&VehicleRow {
+                    plate_normalized: item.plate_normalized.clone(),
+                    tag: item.tag.clone(),
+                    valid_from: item.valid_from,
+                    valid_to: item.valid_to,
+                    status: item.status.clone(),
+                    updated_at: item.updated_at,
+                })?;
+                all_plates.insert(item.plate_normalized.clone());
+            }
+            upserted += page.items.len() as u32;
+            pages += 1;
+
+            if page.truncated {
+                cursor = Some(page.synced_at.to_rfc3339());
+            } else {
+                // Update the incremental cursor so future `sync_whitelist`
+                // calls resume from this point.
+                self.store
+                    .kv_set("whitelist_synced_at", &page.synced_at.to_rfc3339())?;
+                break;
+            }
+        }
+
+        let purged = self.store.delete_vehicles_not_in(&all_plates)?;
+        Ok(ReconcileReport {
+            upserted,
+            purged,
             pages,
         })
     }
@@ -343,6 +412,59 @@ mod tests {
             store.kv_get("whitelist_synced_at").unwrap().unwrap(),
             "2026-09-01T00:00:00+00:00"
         );
+    }
+
+    #[tokio::test]
+    async fn reconcile_purges_deleted_vehicles() {
+        let server = MockServer::start_async().await;
+        let path = format!("/edge/tenants/{TENANT}/whitelist");
+        // Backend returns only "KEPT111" — "STALE222" was hard-deleted.
+        server
+            .mock_async(|when, then| {
+                when.method(GET).path(&path);
+                then.status(200).json_body(json!({
+                    "items": [vehicle_json("KEPT111")],
+                    "syncedAt": "2026-10-01T00:00:00Z",
+                    "truncated": false
+                }));
+            })
+            .await;
+
+        let (store, _d) = temp_store();
+        // Pre-populate local store with two vehicles: one that's still on
+        // the backend ("KEPT111") and one that was hard-deleted ("STALE222").
+        store
+            .upsert_vehicle(&VehicleRow {
+                plate_normalized: "KEPT111".into(),
+                tag: "resident".into(),
+                valid_from: None,
+                valid_to: None,
+                status: "active".into(),
+                updated_at: chrono::Utc::now(),
+            })
+            .unwrap();
+        store
+            .upsert_vehicle(&VehicleRow {
+                plate_normalized: "STALE222".into(),
+                tag: "resident".into(),
+                valid_from: None,
+                valid_to: None,
+                status: "active".into(),
+                updated_at: chrono::Utc::now(),
+            })
+            .unwrap();
+        assert_eq!(store.whitelist_count().unwrap(), 2);
+
+        let client = SyncClient::new(cfg(&server.base_url()), store.clone());
+        let report = client.reconcile_whitelist().await.unwrap();
+
+        assert_eq!(report.upserted, 1);
+        assert_eq!(report.purged, 1);
+        assert!(store.vehicle("KEPT111").unwrap().is_some());
+        assert!(store.vehicle("STALE222").unwrap().is_none());
+        assert_eq!(store.whitelist_count().unwrap(), 1);
+        // Cursor is updated so next incremental sync resumes from here.
+        assert!(store.kv_get("whitelist_synced_at").unwrap().is_some());
     }
 
     #[tokio::test]

@@ -47,6 +47,17 @@ def test_smaller_block_rounding():
     assert estimate_fee(p, T(), T(0, 25)) == 6000
 
 
+def test_zero_block_minutes_falls_back_to_hourly_default():
+    # Legacy/out-of-band profile data can bypass SitePricing validation.
+    p = {"hourlyFrom": 12000, "blockMinutes": 0}
+    assert estimate_fee(p, T(), T(1, 1)) == 24000
+
+
+def test_negative_block_minutes_falls_back_to_hourly_default():
+    p = {"hourlyFrom": 12000, "blockMinutes": -30}
+    assert estimate_fee(p, T(), T(1, 1)) == 24000
+
+
 def test_daily_cap_per_24h_window():
     p = {"hourlyFrom": 20000, "dailyFrom": 100000}
     # 25h → 25 blocks = 500k raw, capped to 2 windows × 100k

@@ -113,6 +113,23 @@
 
 - [ ] **Step 5:** Commit `feat(backend): edge device activation + config bundle endpoints`
 
+> **Operational runbook (EDGE-ACT-002) — wrong device won the race.** The
+> atomic consume (Step 3 above) guarantees only one device redeems a given
+> code, but it can't tell which device *should* have won — if a tech typos
+> the same code into two kiosks almost simultaneously, the loser gets 409
+> and the winner may be the wrong physical device. Recovery is manual, no
+> extra code needed:
+> 1. Tenant admin opens the device row for the device that *wrongly* won
+>    and clicks "Thu hồi token" (revoke-token, Task 4) — this immediately
+>    401s that device on its next REST/MQTT call, and `refresh_config`
+>    (Task 9) deprovisions it back to the activation screen.
+> 2. Admin generates a fresh activation code (Task 2, "Tạo mã kích hoạt")
+>    for the *correct* device.
+> 3. Operator activates the correct device with the new code.
+> The revoked device simply re-activates with its own new code the same
+> way — no DB cleanup required, since revoke only flips the `ApiCredential`
+> status and activation codes are already single-use/short-TTL.
+
 ### Task 4: Tenant revoke-token endpoint
 
 **Files:**

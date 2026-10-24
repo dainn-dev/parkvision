@@ -442,11 +442,23 @@ Tests on `Store::open(tempfile)`: (a) upsert + read-back vehicle incl. nullable 
 pub struct SyncClient { http: reqwest::Client, cfg: Arc<EdgeConfig>, store: Arc<Store> }
 impl SyncClient {
     pub async fn sync_whitelist(&self) -> Result<SyncReport>;  // pages until !truncated
+    pub async fn reconcile_whitelist(&self) -> Result<ReconcileReport>; // full snapshot + purge
     pub async fn sync_rules(&self) -> Result<u32>;
 }
 pub struct SyncReport { pub upserted: u32, pub synced_at: DateTime<Utc>, pub pages: u32 }
+pub struct ReconcileReport { pub upserted: u32, pub purged: u64, pub pages: u32 }
 ```
 Request: `GET {api_base_url}/edge/tenants/{tenant_id}/whitelist?updatedSince=<cursor>&limit=500` with header `X-Api-Key: {api_key}`; cursor = `kv["whitelist_synced_at"]`, absent → full sync. Persist new cursor from response `syncedAt` **only after** all upserts commit. Rules: `GET .../edge/tenants/{tenant_id}/rules` → `replace_rules`.
+
+> **Reconciliation on reconnect (2026-10-24):** the runtime sync loop tracks
+> connectivity transitions. On the first sync tick after (re)connecting,
+> `reconcile_whitelist` runs instead of `sync_whitelist`: it fetches the
+> **entire** whitelist (no `updatedSince` cursor), upserts all returned
+> rows, and purges local rows absent from the full snapshot via
+> `Store::delete_vehicles_not_in`. This handles hard-deletes (`DELETE
+> /vehicles/{id}`) that incremental sync cannot detect, as well as
+> memberships revoked or payments refunded while the edge was offline.
+> Subsequent ticks use incremental `sync_whitelist` as before.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -494,6 +506,16 @@ Seed `Store` directly. Tests: (a) unregistered plate → `deny/plate_not_registe
 ---
 
 ### Task 13: ANPR pipeline (PlateSource trait → decision → gate → event)
+
+> **Superseded by `docs/superpowers/specs/2026-09-29-anpr-sidecar-design.md` (2026-10-24, GAP-ANPR-001).**
+> Camera-sourced plate recognition ships as a vendored Python sidecar
+> (`anpr-worker/`) supervised by `CameraWorkerManager`, feeding readings into
+> the gate's `plate_tx` channel — not the `RtspOnnxSource`/`ort` in-process
+> ONNX pipeline described below. The in-process ONNX path remains available
+> behind the opt-in `onnx` Cargo feature (off by default) for future use but
+> is not the camera integration path; `ManualPlateSource` and the
+> `decide_access` → gate → event wiring below are still current and consumed
+> by the sidecar path identically.
 
 **Files:**
 - Create: `edge-client/src-tauri/src/anpr.rs`, `edge-client/src-tauri/src/pipeline.rs`

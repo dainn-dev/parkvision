@@ -272,16 +272,37 @@ async def create_payment(
             amount = plan.price_vnd if plan else 0
             if amount <= 0:
                 raise bad_request("This membership plan is free — nothing to pay") from None
-            in_flight = (
+            paid = (
                 await db.execute(
-                    select(DriverPayment.id).where(
+                    select(DriverPayment)
+                    .where(
                         DriverPayment.membership_id == membership.id,
-                        DriverPayment.status.in_(_IN_FLIGHT + ("paid",)),
+                        DriverPayment.status == "paid",
                     )
+                    .order_by(DriverPayment.created_at.desc())
+                    .limit(1)
                 )
             ).scalar_one_or_none()
-            if in_flight is not None:
-                raise conflict("A payment for this membership is already in flight or paid") from None
+            if paid is not None:
+                raise conflict("A payment for this membership is already paid") from None
+            existing = (
+                await db.execute(
+                    select(DriverPayment)
+                    .where(
+                        DriverPayment.membership_id == membership.id,
+                        DriverPayment.status.in_(_IN_FLIGHT),
+                    )
+                    .order_by(DriverPayment.created_at.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                site_name = (
+                    await db.scalar(select(TenantSite.name).where(TenantSite.id == existing.site_id))
+                    if existing.site_id
+                    else None
+                )
+                return _payment_out(existing, site_name)
             tenant_id, site_id = membership.tenant_id, membership.site_id
             plate_number, plate_norm = membership.plate_number, membership.plate_normalized
             ref, info = None, f"Membership {plan.name if plan else ''} @ site"
@@ -304,16 +325,36 @@ async def create_payment(
                 raise unprocessable("This site has no pricing rules — fee is not estimable") from None
             if amount <= 0:
                 raise bad_request("This session is free — nothing to pay") from None
-            in_flight = (
+            paid = (
                 await db.execute(
-                    select(DriverPayment.id).where(
+                    select(DriverPayment)
+                    .where(
                         DriverPayment.session_ref == session_ref,
-                        DriverPayment.status.in_(_IN_FLIGHT + ("paid",)),
+                        DriverPayment.status == "paid",
                     )
+                    .order_by(DriverPayment.created_at.desc())
+                    .limit(1)
                 )
             ).scalar_one_or_none()
-            if in_flight is not None:
-                raise conflict("A payment for this session is already in flight or paid") from None
+            if paid is not None:
+                raise conflict("A payment for this session is already paid") from None
+            existing = (
+                await db.execute(
+                    select(DriverPayment)
+                    .where(
+                        DriverPayment.session_ref == session_ref,
+                        DriverPayment.status.in_(_IN_FLIGHT),
+                    )
+                    .order_by(DriverPayment.created_at.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                # Idempotent: a 'created' payment for this session is still
+                # payable — hand back the same row instead of minting a
+                # second one (LOGIC-PAY-002: avoids a double-pay if both
+                # later settle via IPN).
+                return _payment_out(existing, site.name if site else None)
             tenant_id, site_id = entry.tenant_id, entry.site_id
             plate_number, plate_norm = entry.plate_number, normalize_plate(entry.plate_number)
             ref, info = session_ref, f"Parking fee @ {site.name if site else 'site'}"

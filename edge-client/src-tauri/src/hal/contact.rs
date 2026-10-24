@@ -513,6 +513,28 @@ mod tests {
         assert!(hal.sensors().link_ok);
     }
 
+    /// SCENARIO-HAL-001: a backend failure must surface a useful link error
+    /// without blocking the HAL command path; a successful retry clears it.
+    #[tokio::test(start_paused = true)]
+    async fn link_error_tracks_failure_and_clears_after_recovery() {
+        let (mock, hal) = rig(cfg(None, Default::default()));
+        assert!(hal.link_error().is_none());
+
+        mock.fail_next.store(1, std::sync::atomic::Ordering::SeqCst);
+        hal.energize_open().unwrap();
+        run_for(Duration::from_millis(600)).await;
+        assert!(!hal.sensors().link_ok);
+        assert_eq!(hal.link_error().as_deref(), Some("mock failure"));
+
+        // BarrierHal calls only enqueue work; the mock backend failure is
+        // processed asynchronously by the actor.
+        run_for(RETRY_BACKOFF).await;
+        hal.energize_open().unwrap();
+        run_for(Duration::from_millis(600)).await;
+        assert!(hal.sensors().link_ok);
+        assert!(hal.link_error().is_none());
+    }
+
     #[tokio::test(start_paused = true)]
     async fn failed_off_is_retried_three_times() {
         let (mock, hal) = rig(cfg(None, Default::default()));

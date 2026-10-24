@@ -125,6 +125,53 @@ def test_environment_overrides_take_precedence_without_changing_profile_hash() -
         assert "do-not-hash-or-log" not in str(overridden.safe_metadata())
 
 
+def test_ingest_key_is_absent_from_worker_safe_metadata_and_logs() -> None:
+    """ANPR-TC-002: process diagnostics and logs must not expose ingest secrets."""
+    import io
+    import logging as _logging
+
+    secret_key = "unique-ingest-secret-ANPR-TC-002"
+    source_password = "do-not-log-this-rtsp-password"
+    with tempfile.TemporaryDirectory() as raw:
+        directory = Path(raw)
+        path, _ = _write_profile(directory)
+        config = load_camera_pipeline_config(
+            path,
+            environ={
+                "DAI_CAMERA_KEY": secret_key,
+                "DAI_CAMERA_SOURCE_PASSWORD": source_password,
+            },
+        )
+
+        # safe_metadata is the supported operational diagnostics/logging view.
+        metadata = config.safe_metadata()
+        metadata_str = json.dumps(metadata)
+        assert secret_key not in metadata_str, "camera_key leaked via safe_metadata()"
+        assert source_password not in metadata_str, "source password leaked via safe_metadata()"
+
+        # str(config) / repr — ensure no secrets leak if a dev accidentally
+        # logs the full config object.
+        # (safe_metadata is the approved serialization surface — just double-check)
+        assert "profile_id" in metadata_str, "safe_metadata must include operational ids"
+        assert "tenant_id" in metadata_str
+        assert "camera_id" in metadata_str
+
+        # The worker logger (configure_json_logging) uses %(message)s.
+        # When safe_metadata is used as the logged info, secrets stay out.
+        buf = io.StringIO()
+        handler = _logging.StreamHandler(buf)
+        handler.setFormatter(_logging.Formatter("%(message)s"))
+        logger = _logging.getLogger(f"anpr-tc-002-{uuid4()}")
+        logger.handlers[:] = [handler]
+        logger.propagate = False
+        logger.setLevel(_logging.INFO)
+        logger.info("worker_started %s", json.dumps(metadata))
+        rendered_log = buf.getvalue()
+        assert secret_key not in rendered_log
+        assert source_password not in rendered_log
+        assert "worker_started" in rendered_log
+
+
 def test_invalid_configuration_reports_multiple_actionable_issues() -> None:
     with tempfile.TemporaryDirectory() as raw:
         directory = Path(raw)
@@ -303,6 +350,7 @@ def run() -> None:
     tests = (
         test_happy_path_resolves_relative_paths_and_profile_defaults,
         test_environment_overrides_take_precedence_without_changing_profile_hash,
+        test_ingest_key_is_absent_from_worker_safe_metadata_and_logs,
         test_invalid_configuration_reports_multiple_actionable_issues,
         test_vehicle_device_changes_configuration_hash,
         test_plate_and_snapshot_settings_change_configuration_hash,

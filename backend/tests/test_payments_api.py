@@ -126,23 +126,30 @@ async def test_create_membership_payment(client, tenant, listed_site, gateway):
 
 
 @pytest.mark.asyncio
-async def test_duplicate_in_flight_conflict(client, tenant, listed_site, gateway):
+async def test_duplicate_in_flight_returns_existing(client, tenant, listed_site, gateway):
+    """PAY-TC-012 (membership path): a second create for the same pending
+    membership while the first is still in-flight returns the existing
+    payment idempotently (not a 409 error)."""
     p = await make_plan(client, tenant, listed_site["id"])
     client.cookies.clear()
     d = await driver(client)
     v = await add_vehicle(client, d, "51P-100.02")
     m = await request_membership(client, d, p["id"], v["id"])
-    await client.post(
+    r1 = await client.post(
         "/api/v1/driver/payments",
         headers=d["headers"],
         json={"kind": "membership", "membershipId": m["id"]},
     )
-    r = await client.post(
+    assert r1.status_code == 201
+    pay1 = r1.json()
+    r2 = await client.post(
         "/api/v1/driver/payments",
         headers=d["headers"],
         json={"kind": "membership", "membershipId": m["id"]},
     )
-    assert r.status_code == 409
+    # Idempotent: returns the same payment, not a conflict
+    assert r2.status_code == 201
+    assert r2.json()["id"] == pay1["id"]
 
 
 @pytest.mark.asyncio
@@ -253,9 +260,29 @@ async def test_ipn_paid_activates_membership(
     decision, reason, _ = await decide(client, admin_engine, tenant["tenant_id"], "51P-200.01")
     assert (decision, reason) == ("allow", "vehicle_registered")
 
-    # idempotent replay
+    # idempotent replay — same IPN must not rerun activation or replace paidAt
+    first_paid_at = got["paidAt"]
     r = await client.post("/api/v1/public/payments/momo/ipn", json=ipn)
     assert r.status_code == 200
+    got_after_replay = (
+        await client.get(f"/api/v1/driver/payments/{pay['id']}", headers=d["headers"])
+    ).json()
+    assert got_after_replay["status"] == "paid"
+    assert got_after_replay["paidAt"] == first_paid_at
+    from sqlalchemy import func, select
+    from app.models import RegisteredVehicle
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession)
+    async with Session() as db:
+        whitelist_count = (
+            await db.execute(
+                select(func.count()).where(
+                    RegisteredVehicle.tenant_id == tenant["tenant_id"],
+                    RegisteredVehicle.plate_normalized == "51P20001",
+                    RegisteredVehicle.tag == "member",
+                )
+            )
+        ).scalar_one()
+    assert whitelist_count == 1, "duplicate IPN must not create another whitelist row"
 
 
 @pytest.mark.asyncio
@@ -428,23 +455,43 @@ async def test_paid_exit_grants_single_exit(
     ipn = ipn_for(pay, order_id=await _order_id(admin_engine, pay["id"]))
     await client.post("/api/v1/public/payments/momo/ipn", json=ipn)
 
-    # decide_access on exit → paid_exit allow, stamped
+    # Decision checks (e.g. checking one gate then choosing another) must not
+    # consume the grant until an actual exit event is persisted (EDGE-PAID-001).
     Session = async_sessionmaker(admin_engine, class_=AsyncSession)
-    from app.services.event_service import decide_access
+    from app.services.event_service import decide_access, record_access_event
 
     async with Session() as db:
         dec, reason, _ = await decide_access(
             db, tenant["tenant_id"], plate, direction="exit", site_id=listed_site["id"]
         )
         assert (dec, reason) == ("allow", "paid_exit")
-        await db.commit()
 
-    # second exit — payment consumed → deny again
     async with Session() as db:
         dec, reason, _ = await decide_access(
             db, tenant["tenant_id"], plate, direction="exit", site_id=listed_site["id"]
         )
-        assert dec == "deny", (dec, reason)
+        assert (dec, reason) == ("allow", "paid_exit"), "dry-run decision must not consume the pass"
+
+    # Persisting the actual successful exit consumes the grant.
+    async with Session() as db:
+        event = await record_access_event(
+            db,
+            tenant_id=tenant["tenant_id"],
+            site_id=listed_site["id"],
+            gate_id=None,
+            lane_id=None,
+            plate_number=plate,
+            direction="exit",
+            source="test",
+        )
+        assert event.decision == "allow" and event.reason == "paid_exit"
+        await db.commit()
+
+    async with Session() as db:
+        dec, reason, _ = await decide_access(
+            db, tenant["tenant_id"], plate, direction="exit", site_id=listed_site["id"]
+        )
+        assert dec == "deny", (dec, reason)  # actual exit consumed the pass.
 
 
 @pytest.mark.asyncio
@@ -494,3 +541,161 @@ async def test_blacklisted_plate_paid_exit_still_denied(
             db, tenant["tenant_id"], plate, direction="exit", site_id=listed_site["id"]
         )
         assert (dec, reason) == ("deny", "vehicle_blacklisted")
+
+
+# ---------- shared plate payments (SCENARIO-PLT-001/003) ----------
+
+
+@pytest.mark.asyncio
+async def test_shared_driver_can_pay_session(
+    client, tenant, listed_site, gateway, admin_engine
+):
+    """SCENARIO-PLT-001: a driver with a date-share for today can create
+    a session payment for a plate they do not own."""
+    from datetime import date
+
+    await _set_pricing(admin_engine, listed_site["id"], {"hourlyFrom": 10000})
+
+    owner = await driver(client)
+    plate = "51P-600.01"
+    v = (
+        await client.post(
+            "/api/v1/driver/vehicles",
+            headers=owner["headers"],
+            json={"plateNumber": plate},
+        )
+    ).json()
+
+    recipient = await driver(client)
+    today = date.today().isoformat()
+    r = await client.post(
+        f"/api/v1/driver/vehicles/{v['id']}/shares",
+        headers=owner["headers"],
+        json={"sharedWithEmail": recipient["email"], "shareDate": today},
+    )
+    assert r.status_code == 201
+
+    t0 = datetime.now(timezone.utc) - timedelta(hours=3)
+    entry = await access_event(
+        admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry", at=t0
+    )
+    await access_event(
+        admin_engine,
+        tenant["tenant_id"],
+        listed_site["id"],
+        plate,
+        "exit",
+        at=t0 + timedelta(hours=2),
+    )
+
+    r = await client.post(
+        "/api/v1/driver/payments",
+        headers=recipient["headers"],
+        json={"kind": "session", "sessionId": str(entry.id)},
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["amountVnd"] >= 10000
+
+
+@pytest.mark.asyncio
+async def test_share_wrong_date_blocks_session_payment(
+    client, tenant, listed_site, gateway, admin_engine
+):
+    """SCENARIO-PLT-003: a share for tomorrow does not grant payment
+    access to today's sessions — date boundary enforced."""
+    from datetime import date
+    from datetime import timedelta as td
+
+    await _set_pricing(admin_engine, listed_site["id"], {"hourlyFrom": 10000})
+
+    owner = await driver(client)
+    plate = "51P-600.02"
+    v = (
+        await client.post(
+            "/api/v1/driver/vehicles",
+            headers=owner["headers"],
+            json={"plateNumber": plate},
+        )
+    ).json()
+
+    recipient = await driver(client)
+    tomorrow = (date.today() + td(days=1)).isoformat()
+    r = await client.post(
+        f"/api/v1/driver/vehicles/{v['id']}/shares",
+        headers=owner["headers"],
+        json={"sharedWithEmail": recipient["email"], "shareDate": tomorrow},
+    )
+    assert r.status_code == 201
+
+    t0 = datetime.now(timezone.utc) - timedelta(hours=2)
+    entry = await access_event(
+        admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry", at=t0
+    )
+    await access_event(
+        admin_engine,
+        tenant["tenant_id"],
+        listed_site["id"],
+        plate,
+        "exit",
+        at=t0 + timedelta(hours=1),
+    )
+
+    r = await client.post(
+        "/api/v1/driver/payments",
+        headers=recipient["headers"],
+        json={"kind": "session", "sessionId": str(entry.id)},
+    )
+    assert r.status_code == 404
+
+
+# ---------- PAY-TC-009: payment expiry ----------
+
+
+@pytest.mark.asyncio
+async def test_payment_expires_after_ttl(
+    client, tenant, listed_site, gateway, admin_engine
+):
+    """PAY-TC-009: Payment expires_at reached without being paid — status
+    transitions to 'expired' on the next read (lazy sweep)."""
+    p = await make_plan(client, tenant, listed_site["id"])
+    client.cookies.clear()
+    d = await driver(client)
+    v = await add_vehicle(client, d, "51P-909.01")
+    m = await request_membership(client, d, p["id"], v["id"])
+
+    pay = (
+        await client.post(
+            "/api/v1/driver/payments",
+            headers=d["headers"],
+            json={"kind": "membership", "membershipId": m["id"]},
+        )
+    ).json()
+    assert pay["status"] == "created"
+
+    # Backdate expires_at into the past
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession)
+    async with Session() as db:
+        from sqlalchemy import update
+
+        from app.models import DriverPayment
+
+        await db.execute(
+            update(DriverPayment)
+            .where(DriverPayment.id == uuid.UUID(pay["id"]))
+            .values(expires_at=datetime.now(timezone.utc) - timedelta(minutes=1))
+        )
+        await db.commit()
+
+    # Next read triggers _expire_stale → status='expired'
+    got = (
+        await client.get(f"/api/v1/driver/payments/{pay['id']}", headers=d["headers"])
+    ).json()
+    assert got["status"] == "expired"
+
+    # A new payment can now be created for the same membership (terminal state)
+    r2 = await client.post(
+        "/api/v1/driver/payments",
+        headers=d["headers"],
+        json={"kind": "membership", "membershipId": m["id"]},
+    )
+    assert r2.status_code == 201, r2.text

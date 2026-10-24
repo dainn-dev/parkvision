@@ -106,6 +106,7 @@ pub async fn run_pipeline(
             state: Some(fsm.lock().unwrap().state()),
             timestamp: Some(chrono::Utc::now()),
             anpr: Some(AnprFields {
+                event_id: uuid::Uuid::new_v4(),
                 plate_number: reading.plate.clone(),
                 direction: cfg.lane_direction.clone(),
                 confidence: Some(reading.confidence),
@@ -260,6 +261,14 @@ mod tests {
         assert_eq!(frame.1["plateNumber"], "30E-892.41");
         assert_eq!(frame.1["direction"], "entry");
         assert!((frame.1["confidence"].as_f64().unwrap() - 0.93).abs() < 0.01);
+        // ANPR telemetry must use QoS 1 (at-least-once) — EDGE-MQTT-001.
+        assert_eq!(frame.2, 1, "ANPR telemetry must publish at QoS 1");
+        // Each ANPR event carries a stable idempotency key (eventId) so the
+        // backend can deduplicate QoS-1 retries.
+        assert!(
+            frame.1.get("eventId").is_some(),
+            "ANPR frame must contain an eventId for dedup"
+        );
         let last = store
             .last_local_event("30E89241", "entry")
             .unwrap()
@@ -304,5 +313,8 @@ mod tests {
         assert_eq!(queued.len(), 1);
         assert_eq!(queued[0].1, "anpr");
         assert_eq!(queued[0].2["plateNumber"], "30E89241");
+        // the idempotency key is baked into the queued body — a later
+        // outbox republish resends the same eventId, not a fresh one.
+        assert!(queued[0].2.get("eventId").is_some());
     }
 }

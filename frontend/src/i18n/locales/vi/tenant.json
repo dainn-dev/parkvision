@@ -304,6 +304,7 @@
   "Register Device": "Đăng ký thiết bị",
   "Register a device or reset your filters": "Đăng ký thiết bị hoặc đặt lại bộ lọc",
   "Register, monitor, reboot, and decommission edge gateways powering your barrier gates": "Đăng ký, giám sát, khởi động lại và ngừng sử dụng gateway edge cho cổng barrier",
+  "Showing {{count}} of {{total}} devices. Contact your platform administrator if you need to view more.": "Hiển thị {{count}}/{{total}} thiết bị. Liên hệ quản trị viên nền tảng nếu cần xem thêm.",
   "Registered Driver": "Tài xế đã đăng ký",
   "Registered Fleet": "Đội xe đã đăng ký",
   "Registered Vehicle Plates": "Biển số đã đăng ký",

@@ -32,6 +32,68 @@ async def device(client: AsyncClient, tenant, site):
 
 
 @pytest.mark.asyncio
+async def test_scenario_dev_001_device_list_paginates_with_total_metadata(
+    client: AsyncClient, tenant, site, device
+):
+    """Each devices page respects its limit and metadata reports the full total."""
+    tid = tenant["tenant_id"]
+    expected_ids = {device["id"]}
+    for name in ("Edge GW-02", "Edge GW-03"):
+        res = await client.post(
+            f"/api/v1/tenants/{tid}/devices",
+            json={"siteId": site, "name": name},
+            headers=csrf(client),
+        )
+        assert res.status_code == 201, res.text
+        expected_ids.add(res.json()["id"])
+
+    first = await client.get(f"/api/v1/tenants/{tid}/devices?page=1&limit=2")
+    second = await client.get(f"/api/v1/tenants/{tid}/devices?page=2&limit=2")
+    assert first.status_code == second.status_code == 200
+    first_body, second_body = first.json(), second.json()
+    first_ids = {item["id"] for item in first_body["data"]}
+    second_ids = {item["id"] for item in second_body["data"]}
+
+    assert len(first_ids) == 2
+    assert len(second_ids) == 1
+    assert first_ids.isdisjoint(second_ids)
+    assert first_ids | second_ids == expected_ids
+    for body, page in ((first_body, 1), (second_body, 2)):
+        assert body["meta"] == {"page": page, "limit": 2, "total": 3}
+
+
+@pytest.mark.asyncio
+async def test_scenario_dev_002_device_list_filters_site_and_rejects_invalid_pagination(
+    client: AsyncClient, tenant, site, device
+):
+    """Site filtering is reflected in page totals; invalid page/limit values fail."""
+    tid = tenant["tenant_id"]
+    another_site = await client.post(
+        f"/api/v1/tenants/{tid}/sites",
+        json={"name": "Lot B"},
+        headers=csrf(client),
+    )
+    assert another_site.status_code == 201, another_site.text
+    other_device = await client.post(
+        f"/api/v1/tenants/{tid}/devices",
+        json={"siteId": another_site.json()["id"], "name": "Edge GW-B"},
+        headers=csrf(client),
+    )
+    assert other_device.status_code == 201, other_device.text
+
+    filtered = await client.get(f"/api/v1/tenants/{tid}/devices?site_id={site}&limit=1")
+    assert filtered.status_code == 200, filtered.text
+    body = filtered.json()
+    assert [item["id"] for item in body["data"]] == [device["id"]]
+    assert body["meta"] == {"page": 1, "limit": 1, "total": 1}
+
+    zero_page = await client.get(f"/api/v1/tenants/{tid}/devices?page=0")
+    excessive_limit = await client.get(f"/api/v1/tenants/{tid}/devices?limit=201")
+    assert zero_page.status_code == 422
+    assert excessive_limit.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_register_persists_all_fields(client: AsyncClient, tenant, site):
     tid = tenant["tenant_id"]
     body = {

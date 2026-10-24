@@ -79,10 +79,16 @@ async def _paid_exit(
     tenant_id: uuid.UUID,
     plate_normalized: str,
     site_id: uuid.UUID | None,
+    *,
+    for_update: bool = False,
 ) -> DriverPayment | None:
     """A paid 'session' payment for this plate+site within the grace window
     that hasn't already granted an exit. Tenant setting
-    `paid_exit_grace_minutes` overrides the app-level default (15)."""
+    `paid_exit_grace_minutes` overrides the app-level default (15).
+
+    Pass ``for_update=True`` when the caller intends to stamp
+    ``exit_granted_at`` — this acquires a row lock so concurrent exit
+    attempts at different gates serialise correctly (EDGE-PAID-001)."""
     settings_row = (
         await db.execute(select(Tenant.settings).where(Tenant.id == tenant_id))
     ).scalar_one_or_none() or {}
@@ -102,11 +108,10 @@ async def _paid_exit(
     ]
     if site_id is not None:
         cond.append(DriverPayment.site_id == site_id)
-    return (
-        await db.execute(
-            select(DriverPayment).where(*cond).order_by(DriverPayment.paid_at.desc()).limit(1)
-        )
-    ).scalar_one_or_none()
+    q = select(DriverPayment).where(*cond).order_by(DriverPayment.paid_at.desc()).limit(1)
+    if for_update:
+        q = q.with_for_update()
+    return (await db.execute(q)).scalar_one_or_none()
 
 
 async def decide_access(
@@ -144,6 +149,10 @@ async def decide_access(
         .all()
     )
 
+    # EDGE-RULE-001: schedule `daysOfWeek`/`startTime`/`endTime` are compared
+    # in UTC, not site-local time. Tenant admins must configure the UTC offset
+    # themselves; changing this to site-local semantics requires a product
+    # decision and corresponding edge-client sync contract update.
     now = datetime.now(timezone.utc)
 
     def schedule_open(schedule: dict) -> bool:
@@ -188,13 +197,6 @@ async def decide_access(
         if paid_payment is not None:
             base_decision, reason = AccessDecision.ALLOW, "paid_exit"
 
-    async def _stamp_final(result: tuple[str, str, uuid.UUID | None]):
-        """Consume the paid exit only when the final outcome is allow."""
-        if paid_payment is not None and result[0] == AccessDecision.ALLOW:
-            paid_payment.exit_granted_at = datetime.now(timezone.utc)
-            await db.flush()
-        return result
-
     for rule in sorted(rules, key=lambda r: r.priority):
         applies = rule.conditions.get("tags") or rule.conditions.get("plates") or []
         if applies:
@@ -207,30 +209,26 @@ async def decide_access(
         if rule.rule_type == "deny_list":
             return AccessDecision.DENY, f"rule:{rule.name}", vehicle.id if vehicle else None
         if rule.rule_type == "allow_list":
-            return await _stamp_final(
-                await _final(
-                    db,
-                    tenant_id,
-                    plate_number,
-                    normalized,
-                    direction,
-                    AccessDecision.ALLOW,
-                    f"rule:{rule.name}",
-                    vehicle.id if vehicle else None,
-                )
+            return await _final(
+                db,
+                tenant_id,
+                plate_number,
+                normalized,
+                direction,
+                AccessDecision.ALLOW,
+                f"rule:{rule.name}",
+                vehicle.id if vehicle else None,
             )
 
-    return await _stamp_final(
-        await _final(
-            db,
-            tenant_id,
-            plate_number,
-            normalized,
-            direction,
-            base_decision,
-            reason,
-            vehicle.id if vehicle else None,
-        )
+    return await _final(
+        db,
+        tenant_id,
+        plate_number,
+        normalized,
+        direction,
+        base_decision,
+        reason,
+        vehicle.id if vehicle else None,
     )
 
 
@@ -293,6 +291,21 @@ async def record_access_event(
                     )
                 )
             )
+    # Stamp paid-exit grant only when an actual exit event is persisted with
+    # an allow decision (EDGE-PAID-001: moved from decide_access so dry-run
+    # evaluations and multi-gate attempts don't consume the single-use grant).
+    if (
+        reason == "paid_exit"
+        and str(decision) == AccessDecision.ALLOW
+        and direction == EventDirection.EXIT
+        and plate_number
+        and site_id is not None
+    ):
+        normalized = normalize_plate(plate_number)
+        paid_payment = await _paid_exit(db, tenant_id, normalized, site_id, for_update=True)
+        if paid_payment is not None:
+            paid_payment.exit_granted_at = datetime.now(timezone.utc)
+
     if direction == EventDirection.EXIT and plate_number:
         # Lazy import: parking_service already imports normalize_plate from
         # this module at top level — a top-level import here would cycle.

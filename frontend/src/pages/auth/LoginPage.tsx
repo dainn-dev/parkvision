@@ -33,8 +33,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   const { t } = useTranslation('auth');
 
   // Login Form state
-  const [email, setEmail] = useState('anh.nh@kyanon.digital');
-  const [password, setPassword] = useState('••••••••••••');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   // Flow Step: 'credentials' | 'mfa_challenge' | 'backup_code' | 'forgot_password'
   const [step, setStep] = useState<'credentials' | 'mfa_challenge' | 'backup_code' | 'forgot_password'>('credentials');
@@ -48,6 +48,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number>(30);
+  const [mfaSessionTimeLeft, setMfaSessionTimeLeft] = useState<number>(600);
   const [forgotSent, setForgotSent] = useState(false);
 
   // Resume a pending MFA transaction after a browser refresh (spec §27).
@@ -68,6 +69,27 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     }, 1000);
     return () => clearInterval(interval);
   }, [step]);
+
+  // 600s MFA session expiry countdown — starts when entering the MFA step;
+  // switching between OTP and backup_code does not reset it.
+  const mfaActive = step === 'mfa_challenge' || step === 'backup_code';
+  useEffect(() => {
+    if (!mfaActive) return;
+    setMfaSessionTimeLeft(600);
+    const interval = setInterval(() => {
+      setMfaSessionTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setStep('credentials');
+          setOtpDigits(['', '', '', '', '', '']);
+          setErrorMessage(t('Your MFA session has expired. Please sign in again.'));
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [mfaActive, t]);
 
   // Focus first OTP input when stepping into MFA challenge
   useEffect(() => {
@@ -470,6 +492,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                   </div>
                 </div>
 
+                {/* MFA session expiry warning — appears under 60s remaining */}
+                {mfaSessionTimeLeft > 0 && mfaSessionTimeLeft < 60 && (
+                  <div className="p-2.5 bg-[#d29922]/15 border border-[#d29922]/40 rounded-xl text-[#e3b341] text-[11px] flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
+                    <span>{t('MFA session expires in {{seconds}}s', { seconds: mfaSessionTimeLeft })}</span>
+                  </div>
+                )}
+
                 {errorMessage && (
                   <div className="p-3 bg-[#da3633]/20 border border-[#f85149]/40 rounded-xl text-[#f85149] text-xs flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0" />
@@ -541,6 +571,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                   className="w-full px-3 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-sm font-mono font-bold text-center text-[#58a6ff] tracking-widest placeholder-[#8b949e] focus:outline-none focus:border-[#58a6ff] focus:ring-2 focus:ring-[#58a6ff]/20 uppercase"
                 />
               </div>
+
+              {/* MFA session expiry warning — appears under 60s remaining */}
+              {mfaSessionTimeLeft > 0 && mfaSessionTimeLeft < 60 && (
+                <div className="p-2.5 bg-[#d29922]/15 border border-[#d29922]/40 rounded-xl text-[#e3b341] text-[11px] flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  <span>{t('MFA session expires in {{seconds}}s', { seconds: mfaSessionTimeLeft })}</span>
+                </div>
+              )}
 
               {errorMessage && (
                 <div className="p-3 bg-[#da3633]/20 border border-[#f85149]/40 rounded-xl text-[#f85149] text-xs flex items-center gap-2">

@@ -10,6 +10,8 @@ Jobs run in the `worker` container (`arq app.workers.jobs.WorkerSettings`):
 - mark_offline_devices    : heartbeat staleness sweep
 - cleanup_expired_sessions: hard-delete sessions expired > 30 days
 - incident_notify         : CRITICAL incidents -> tenant webhook + Telegram
+- reconcile_pending_payments: pull-refresh MoMo payments stuck in
+  'created' (lost IPN) via the gateway query endpoint
 """
 
 import asyncio
@@ -343,6 +345,46 @@ async def expire_stale_commands(ctx) -> int:
         return await _expire(db)
 
 
+async def reconcile_pending_payments(ctx) -> int:
+    """Pull-refresh stale MoMo payments to recover lost IPN callbacks.
+
+    Payments are left 'created' for at least ten minutes before querying,
+    allowing the normal IPN delivery/retry path time to run first. Failed or
+    unknown query results leave the payment unchanged for a later sweep.
+    """
+    from sqlalchemy import select
+
+    from app.database import platform_session
+    from app.models import DriverPayment
+    from app.services.payment_service import _refresh_from_gateway
+
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
+    async with platform_session() as db:
+        payments = (
+            await db.execute(
+                select(DriverPayment)
+                .where(
+                    DriverPayment.status == "created",
+                    DriverPayment.method == "momo",
+                    DriverPayment.created_at < cutoff,
+                )
+                .order_by(DriverPayment.created_at.asc())
+                .limit(100)
+            )
+        ).scalars().all()
+
+        refreshed = 0
+        for payment in payments:
+            try:
+                await _refresh_from_gateway(db, payment)
+                refreshed += 1
+            except Exception:
+                # One provider/network failure must not prevent reconciliation
+                # of other payments; this record will be retried next sweep.
+                continue
+        return refreshed
+
+
 async def mark_offline_devices(ctx, stale_seconds: int = 20) -> int:
     from sqlalchemy import update
 
@@ -360,6 +402,46 @@ async def mark_offline_devices(ctx, stale_seconds: int = 20) -> int:
             .values(status="offline")
         )
         return res.rowcount
+
+
+async def flag_stale_device_tokens(ctx) -> int:
+    """LOGIC-ACT-001: device tokens (`ApiCredential.expires_at = NULL`) live
+    forever by design. Compensating control: log a warning once a day for
+    every device that's been `offline` for >30 days while its credential is
+    still unrevoked — gives tenant admins a signal to proactively revoke
+    tokens for devices that are likely stolen/decommissioned without anyone
+    remembering to do so. Does not revoke anything automatically."""
+    import logging
+
+    from sqlalchemy import select
+
+    from app.database import platform_session
+    from app.models import ApiCredential, EdgeDevice
+
+    logger = logging.getLogger("app.workers.stale_tokens")
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    async with platform_session() as db:
+        rows = (
+            await db.execute(
+                select(EdgeDevice.id, EdgeDevice.tenant_id, EdgeDevice.last_heartbeat_at)
+                .join(ApiCredential, ApiCredential.edge_device_id == EdgeDevice.id)
+                .where(
+                    EdgeDevice.status == "offline",
+                    ApiCredential.revoked_at.is_(None),
+                    (EdgeDevice.last_heartbeat_at.is_(None))
+                    | (EdgeDevice.last_heartbeat_at < cutoff),
+                )
+            )
+        ).all()
+    for device_id, tenant_id, last_heartbeat_at in rows:
+        logger.warning(
+            "edge device %s (tenant %s) offline since %s with an active, unrevoked token "
+            "— consider revoking if the device is lost/decommissioned",
+            device_id,
+            tenant_id,
+            last_heartbeat_at,
+        )
+    return len(rows)
 
 
 async def expire_stale_presence(ctx) -> int:

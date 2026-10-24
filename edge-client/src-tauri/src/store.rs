@@ -7,12 +7,17 @@ use std::sync::Mutex;
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
+use tracing::warn;
 use uuid::Uuid;
 
 use crate::commands::CommandLog;
 
 const MAX_OUTBOX: u64 = 10_000;
+
+/// `kv` key backing the cumulative outbox-eviction counter — survives
+/// restarts so operators can see loss even after the app cycles.
+const OUTBOX_DROPPED_KEY: &str = "outbox_dropped_count";
 
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS whitelist (
@@ -219,6 +224,24 @@ impl Store {
         )
     }
 
+    /// Current outbox depth and cumulative count of events evicted at capacity.
+    pub fn outbox_stats(&self) -> Result<(u64, u64)> {
+        let conn = self.conn.lock().unwrap();
+        let queue_depth = conn.query_row("SELECT COUNT(*) FROM pending_events", [], |r| {
+            r.get::<_, i64>(0)
+        })? as u64;
+        let dropped_count = conn
+            .query_row(
+                "SELECT value FROM kv WHERE key = ?1",
+                params![OUTBOX_DROPPED_KEY],
+                |r| r.get::<_, String>(0),
+            )
+            .optional()?
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(0);
+        Ok((queue_depth, dropped_count))
+    }
+
     pub fn kv_set(&self, key: &str, value: &str) -> Result<()> {
         self.conn.lock().unwrap().execute(
             "INSERT INTO kv (key, value) VALUES (?1, ?2)
@@ -229,6 +252,9 @@ impl Store {
     }
 
     /// Durable outbox enqueue — capped at MAX_OUTBOX, oldest evicted first.
+    /// When the cap triggers eviction the cumulative `dropped_events` counter
+    /// is incremented and a `tracing::warn!` fires so operators can detect
+    /// event loss during extended offline periods.
     pub fn enqueue_event(&self, kind: &str, body: serde_json::Value) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -237,6 +263,7 @@ impl Store {
         )?;
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM pending_events", [], |r| r.get(0))?;
         if count > MAX_OUTBOX as i64 {
+            let overflow = (count - MAX_OUTBOX as i64) as u64;
             // drop everything older than the newest MAX_OUTBOX rows
             conn.execute(
                 "DELETE FROM pending_events WHERE id <=
@@ -244,6 +271,28 @@ impl Store {
                     LIMIT 1 OFFSET ?1)",
                 params![MAX_OUTBOX as i64],
             )?;
+            // Increment the cumulative dropped-events counter.
+            let prev: u64 = conn
+                .query_row(
+                    "SELECT value FROM kv WHERE key = ?1",
+                    params![OUTBOX_DROPPED_KEY],
+                    |r| r.get::<_, String>(0),
+                )
+                .optional()?
+                .and_then(|v| v.parse::<u64>().ok())
+                .unwrap_or(0);
+            let total = prev + overflow;
+            conn.execute(
+                "INSERT INTO kv (key, value) VALUES (?1, ?2)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![OUTBOX_DROPPED_KEY, total.to_string()],
+            )?;
+            warn!(
+                queue_depth = MAX_OUTBOX,
+                evicted = overflow,
+                total_dropped = total,
+                "outbox cap reached — oldest events evicted"
+            );
         }
         Ok(())
     }
@@ -446,6 +495,38 @@ mod tests {
             .min()
             .unwrap();
         assert_eq!(min, 5);
+    }
+
+    #[test]
+    fn outbox_eviction_increments_dropped_counter() {
+        let (store, _d) = temp_store();
+        // Fill to cap, no drops yet.
+        for i in 0..MAX_OUTBOX {
+            store.enqueue_event("access", json!({"i": i})).unwrap();
+        }
+        let (depth, dropped) = store.outbox_stats().unwrap();
+        assert_eq!(depth, MAX_OUTBOX);
+        assert_eq!(dropped, 0);
+
+        // One more triggers eviction — exactly 1 event dropped.
+        store
+            .enqueue_event("access", json!({"i": MAX_OUTBOX}))
+            .unwrap();
+        let (depth, dropped) = store.outbox_stats().unwrap();
+        assert_eq!(depth, MAX_OUTBOX);
+        assert_eq!(dropped, 1);
+
+        // Another overflow — counter is cumulative.
+        store
+            .enqueue_event("access", json!({"i": MAX_OUTBOX + 1}))
+            .unwrap();
+        let (depth, dropped) = store.outbox_stats().unwrap();
+        assert_eq!(depth, MAX_OUTBOX);
+        assert_eq!(dropped, 2);
+
+        // Verify the oldest surviving event is i=2 (first two were evicted).
+        let rows = store.drain_events(1).unwrap();
+        assert_eq!(rows[0].2["i"].as_u64().unwrap(), 2);
     }
 
     #[test]

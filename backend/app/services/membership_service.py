@@ -40,7 +40,10 @@ TERMINAL_STATUSES = ("rejected", "cancelled", "expired", "revoked")
 async def _expire_stale(db) -> None:
     """Lazy expiry sweep: active memberships past ends_at → expired +
     suspend their whitelist vehicles. Gate access is also denied by
-    valid_to, so this only fixes display/admin state."""
+    valid_to, so this only fixes display/admin state.
+
+    Also auto-cancels `pending` membership requests older than 7 days, so a
+    forgotten tenant-admin decision doesn't leave a request open forever."""
     now = datetime.now(timezone.utc)
     stale = (
         (
@@ -63,7 +66,24 @@ async def _expire_stale(db) -> None:
                 .where(RegisteredVehicle.id == m.registered_vehicle_id)
                 .values(status=str(VehicleStatus.SUSPENDED))
             )
-    if stale:
+
+    stale_pending = (
+        (
+            await db.execute(
+                select(DriverMembership).where(
+                    DriverMembership.status == "pending",
+                    DriverMembership.created_at < now - timedelta(days=7),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for m in stale_pending:
+        m.status = "cancelled"
+        m.admin_note = "auto-cancelled: pending > 7 days"
+
+    if stale or stale_pending:
         await db.flush()
 
 
@@ -251,6 +271,29 @@ async def _activate_membership_row(
     ).scalar_one_or_none()
     if rv is not None and rv.tag == "blacklist":
         raise conflict("Plate is blacklisted in this tenant") from None
+
+    # --- LOGIC-MEM-001: revoke any *other* active membership on this RV ---
+    if rv is not None:
+        prior_active = (
+            (
+                await db.execute(
+                    select(DriverMembership).where(
+                        DriverMembership.registered_vehicle_id == rv.id,
+                        DriverMembership.status == "active",
+                        DriverMembership.id != m.id,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for old_m in prior_active:
+            old_m.status = "revoked"
+            old_m.admin_note = f"superseded by membership {m.id}"
+            await _suspend_whitelist(db, old_m)
+        if prior_active:
+            await db.flush()
+
     if rv is None:
         rv = RegisteredVehicle(
             tenant_id=m.tenant_id,

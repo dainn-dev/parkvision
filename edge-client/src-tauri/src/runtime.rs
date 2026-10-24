@@ -323,6 +323,9 @@ impl EdgeRuntime {
                                     if s != GateState::Fault {
                                         incidents.clear("fault").await;
                                     }
+                                    if s != GateState::Open {
+                                        incidents.clear("gate_open_too_long").await;
+                                    }
                                 }
                             }
                         }
@@ -388,26 +391,60 @@ impl EdgeRuntime {
 
         // whitelist + rules sync (tenant-scoped — runs once for all gates).
         // 401/403 = revoked credential → signal deprovision and stop syncing.
+        //
+        // The first sync after (re)connecting runs a full-snapshot
+        // `reconcile_whitelist` instead of incremental `sync_whitelist`:
+        // hard-deletes on the backend (`DELETE /vehicles/{id}`) never
+        // advance `updated_at`, so an edge that was offline while a vehicle
+        // was deleted would otherwise keep honoring the stale local row
+        // forever. Reconciliation purges whitelist rows the backend's full
+        // snapshot no longer returns.
         {
             let client = SyncClient::new(cfg.clone(), store.clone());
             let every = knots.sync_every;
             let publisher = publisher.clone();
             spawn(Box::pin(async move {
                 let mut interval = tokio::time::interval(every);
+                let mut needs_reconciliation = true;
                 loop {
                     interval.tick().await;
                     if !publisher.is_connected() {
+                        needs_reconciliation = true;
                         continue;
                     }
-                    match client.sync_whitelist().await {
-                        Ok(r) => info!("whitelist sync: {} rows / {} pages", r.upserted, r.pages),
-                        Err(e) => {
-                            if e.downcast_ref::<AuthError>().is_some() {
-                                warn!("credential revoked — signaling deprovision");
-                                let _ = revoked_tx.send(true);
-                                return;
+
+                    if needs_reconciliation {
+                        match client.reconcile_whitelist().await {
+                            Ok(r) => {
+                                info!(
+                                    "whitelist reconciliation: {} rows / {} purged / {} pages",
+                                    r.upserted, r.purged, r.pages
+                                );
+                                needs_reconciliation = false;
                             }
-                            warn!("whitelist sync failed: {e:#}");
+                            Err(e) => {
+                                if e.downcast_ref::<AuthError>().is_some() {
+                                    warn!("credential revoked — signaling deprovision");
+                                    let _ = revoked_tx.send(true);
+                                    return;
+                                }
+                                warn!("whitelist reconciliation failed: {e:#} — will retry");
+                                continue;
+                            }
+                        }
+                    } else {
+                        match client.sync_whitelist().await {
+                            Ok(r) => {
+                                info!("whitelist sync: {} rows / {} pages", r.upserted, r.pages)
+                            }
+                            Err(e) => {
+                                if e.downcast_ref::<AuthError>().is_some() {
+                                    warn!("credential revoked — signaling deprovision");
+                                    let _ = revoked_tx.send(true);
+                                    return;
+                                }
+                                warn!("whitelist sync failed: {e:#}");
+                            }
                         }
                     }
                     match client.sync_rules().await {
@@ -508,14 +545,32 @@ impl EdgeRuntime {
     }
 }
 
-/// Build the live plate source for one gate. RTSP+ONNX when a plate camera
-/// URL is configured and the `onnx` feature is compiled in; otherwise (or
-/// on spawn failure) the manual channel fed by `plate_tx` — operator UI /
-/// tests.
+/// Decide whether the sidecar owns camera recognition for this gate. Kept
+/// pure so source-selection precedence is covered without process-env races.
+fn sidecar_owns_camera(cameras_configured: bool, worker_available: bool) -> bool {
+    cameras_configured && worker_available
+}
+
+/// Build the live plate source for one gate.
+///
+/// **Precedence** (GAP-ANPR-001): when the gate has cameras configured for
+/// the Python sidecar *and* a worker command is resolvable, always return
+/// `ManualPlateSource` — the sidecar will feed plates via `plate_tx`.
+/// In-process ONNX (`onnx` feature) is a fallback for deployments without
+/// the sidecar binary, not a parallel path. This prevents both the sidecar
+/// and the ONNX source from processing the same RTSP stream.
 fn build_plate_source(
     ctx: &GateCtx,
     manual_rx: mpsc::Receiver<PlateReading>,
 ) -> Box<dyn PlateSource> {
+    if sidecar_owns_camera(!ctx.cameras.is_empty(), WorkerCommand::resolve().is_some()) {
+        info!(
+            gate = %ctx.gate_id,
+            "sidecar worker available — plate source is ManualPlateSource (fed by camera workers)"
+        );
+        return Box::new(ManualPlateSource::new(manual_rx));
+    }
+
     if let Some(url) = &ctx.camera_rtsp_url {
         #[cfg(feature = "onnx")]
         {
@@ -554,6 +609,29 @@ mod tests {
     const TENANT: &str = "11111111-1111-1111-1111-111111111111";
     const SITE: &str = "22222222-2222-2222-2222-222222222222";
     const GATE_A: &str = "33333333-3333-3333-3333-333333333333";
+
+    // GAP-ANPR-001: sidecar and in-process ONNX must never both claim the
+    // same gate's camera. `sidecar_owns_camera` is the pure precedence rule
+    // `build_plate_source` defers to.
+    #[test]
+    fn sidecar_owns_camera_when_cameras_bound_and_worker_available() {
+        assert!(sidecar_owns_camera(true, true));
+    }
+
+    #[test]
+    fn sidecar_does_not_own_camera_without_worker_binary() {
+        assert!(!sidecar_owns_camera(true, false));
+    }
+
+    #[test]
+    fn sidecar_does_not_own_camera_without_bound_cameras() {
+        assert!(!sidecar_owns_camera(false, true));
+    }
+
+    #[test]
+    fn sidecar_does_not_own_camera_when_neither_present() {
+        assert!(!sidecar_owns_camera(false, false));
+    }
     const GATE_B: &str = "66666666-6666-6666-6666-666666666666";
 
     fn cfg() -> EdgeConfig {

@@ -6,7 +6,7 @@ all queries run under platform_session — driver tables are platform-scoped
 """
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
@@ -374,20 +374,33 @@ async def list_shared_with_me(driver_id: uuid.UUID) -> list[dict]:
         ]
 
 
-async def plates_for_driver(driver_id: uuid.UUID) -> set[str]:
+async def plates_for_driver(
+    driver_id: uuid.UUID, *, for_date: date | None = None
+) -> set[str]:
+    """Return normalized plates the driver owns plus those shared for *for_date*.
+
+    When *for_date* is ``None`` (the default), today is used **and** the day
+    before — so that overnight sessions whose entry fell on D-1 are still
+    visible even when the wall-clock date has rolled to D.
+    """
     async with platform_session() as db:
         owned = (
             await db.execute(
                 select(DriverVehicle.plate_normalized).where(DriverVehicle.driver_id == driver_id)
             )
         ).scalars().all()
+        if for_date is not None:
+            share_dates = [for_date]
+        else:
+            today = date.today()
+            share_dates = [today, today - timedelta(days=1)]
         shared = (
             await db.execute(
                 select(DriverVehicle.plate_normalized)
                 .join(DriverVehicleShare, DriverVehicleShare.vehicle_id == DriverVehicle.id)
                 .where(
                     DriverVehicleShare.shared_with_id == driver_id,
-                    DriverVehicleShare.share_date == date.today(),
+                    DriverVehicleShare.share_date.in_(share_dates),
                 )
             )
         ).scalars().all()

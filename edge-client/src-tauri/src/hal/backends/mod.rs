@@ -14,6 +14,31 @@ use anyhow::Result;
 use super::config::{BarrierConfig, RelayBackendConfig, SerialProtocol, ZkOutput};
 use super::relay::RelayBackend;
 
+/// Add an operator-facing hint when a serial port cannot be opened because
+/// another process or the OS has denied access to it.
+fn serial_open_error(port: &str, error: impl std::fmt::Display) -> anyhow::Error {
+    let detail = error.to_string();
+    let lower = detail.to_ascii_lowercase();
+    // Match on the error text rather than a concrete error type: the exact
+    // type returned by `tokio_serial`/`serialport` varies by platform and
+    // crate version, but the OS-level message for "another process has
+    // this port open" is consistent across Windows/Linux/macOS.
+    let busy = lower.contains("permission denied")
+        || lower.contains("access is denied")
+        || lower.contains("device or resource busy")
+        || lower.contains("resource busy")
+        || lower.contains("already in use")
+        || lower.contains("used by another process");
+
+    if busy {
+        anyhow::anyhow!(
+            "serial port {port} is busy or access is denied — another application may be using it (close RealTerm/PuTTY/other serial tools and retry): {detail}"
+        )
+    } else {
+        anyhow::anyhow!("open serial port {port}: {detail}")
+    }
+}
+
 /// 1-based input indices the site wired up (empty when feedback is off).
 fn configured_inputs(cfg: &BarrierConfig) -> Vec<u8> {
     cfg.inputs
@@ -104,4 +129,42 @@ pub fn build(cfg: &BarrierConfig) -> Result<Arc<dyn RelayBackend>> {
             Arc::new(zk_c3::ZkC3::new(host, *port, password.clone(), kind, doors))
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serial_open_error_flags_busy_port_windows() {
+        let err = serial_open_error("COM5", "Access is denied. (os error 5)");
+        let msg = format!("{err}");
+        assert!(msg.contains("COM5"), "{msg}");
+        assert!(msg.contains("busy"), "{msg}");
+        assert!(msg.contains("RealTerm"), "{msg}");
+    }
+
+    #[test]
+    fn serial_open_error_flags_busy_port_unix() {
+        let err = serial_open_error("/dev/ttyUSB0", "Device or resource busy (os error 16)");
+        let msg = format!("{err}");
+        assert!(msg.contains("/dev/ttyUSB0"), "{msg}");
+        assert!(msg.contains("busy"), "{msg}");
+    }
+
+    #[test]
+    fn serial_open_error_flags_permission_denied() {
+        let err = serial_open_error("/dev/ttyS0", "Permission denied (os error 13)");
+        let msg = format!("{err}");
+        assert!(msg.contains("busy"), "{msg}");
+    }
+
+    #[test]
+    fn serial_open_error_passes_through_other_failures() {
+        let err = serial_open_error("COM9", "No such file or directory (os error 2)");
+        let msg = format!("{err}");
+        assert!(msg.contains("COM9"), "{msg}");
+        assert!(!msg.contains("busy"), "{msg}");
+        assert!(msg.contains("No such file or directory"), "{msg}");
+    }
 }

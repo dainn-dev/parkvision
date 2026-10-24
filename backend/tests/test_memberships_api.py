@@ -263,6 +263,15 @@ async def test_activate_creates_whitelist_vehicle(client, tenant, listed_site, a
     decision, reason, _vid = await decide(client, admin_engine, tenant["tenant_id"], v["plateNumber"])
     assert decision == "allow" and reason == "vehicle_registered", (decision, reason)
 
+    # SCENARIO-MEM-002: activating the same membership a second time must
+    # conflict rather than re-provisioning the whitelist row.
+    repeated = await client.post(
+        f"/api/v1/tenants/{tenant['tenant_id']}/memberships/{m['id']}/activate",
+        json={},
+        headers=csrf(client),
+    )
+    assert repeated.status_code == 409
+
 
 @pytest.mark.asyncio
 async def test_revoke_suspends_gate_access(client, tenant, listed_site, admin_engine):
@@ -407,3 +416,48 @@ async def test_tenant_membership_list_filters(client, tenant, listed_site):
         headers=csrf(client),
     )
     assert m["id"] not in [x["id"] for x in r2.json()["data"]]
+
+
+# ---------- SCENARIO-MEM-002: activate conflicting (blacklisted) plate ----------
+
+
+@pytest.mark.asyncio
+async def test_activate_blacklisted_plate_conflict(client, tenant, listed_site, admin_engine):
+    """A membership whose plate was blacklisted at the tenant (e.g. between
+    request and admin review) cannot be activated — the blacklist tag takes
+    precedence and activation raises a conflict instead of silently
+    whitelisting a banned plate."""
+    from app.models import RegisteredVehicle
+
+    p = await make_plan(client, tenant, listed_site["id"])
+    client.cookies.clear()
+    d = await driver(client)
+    plate = "51M-666.77"
+    v = await add_vehicle(client, d, plate)
+    m = await request_membership(client, d, p["id"], v["id"])
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        db.add(
+            RegisteredVehicle(
+                tenant_id=tenant["tenant_id"],
+                plate_number=plate,
+                plate_normalized=plate.replace("-", "").replace(".", ""),
+                tag="blacklist",
+                status="active",
+            )
+        )
+        await db.commit()
+
+    await login(client, tenant["email"], tenant["password"])
+    r = await client.post(
+        f"/api/v1/tenants/{tenant['tenant_id']}/memberships/{m['id']}/activate",
+        json={},
+        headers=csrf(client),
+    )
+    assert r.status_code == 409
+
+    # The membership stays pending — not silently activated
+    client.cookies.clear()
+    mine = (await client.get("/api/v1/driver/memberships", headers=d["headers"])).json()
+    assert next(x for x in mine if x["id"] == m["id"])["status"] == "pending"

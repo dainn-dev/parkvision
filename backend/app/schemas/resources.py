@@ -227,6 +227,8 @@ class DeviceIn(CamelModel):
 
 
 class DeviceOut(CamelModel):
+    model_config = ConfigDict(frozen=False)
+
     id: uuid.UUID
     site_id: uuid.UUID
     name: str
@@ -244,6 +246,7 @@ class DeviceOut(CamelModel):
     status: str
     last_heartbeat_at: datetime | None
     created_at: datetime
+    token_stale_warning: bool = False
 
     @field_validator("ip_address", mode="before")
     @classmethod
@@ -422,6 +425,22 @@ def _valid_stream_url(v: str | None) -> str | None:
     return v
 
 
+def mask_stream_url_credentials(value: str) -> str:
+    """Hide URL userinfo while preserving the stream endpoint."""
+    from urllib.parse import urlparse, urlunparse
+
+    parsed = urlparse(value)
+    if parsed.username is None and parsed.password is None:
+        return value
+    # Preserve IPv6 brackets and the host/port while removing credentials.
+    host = parsed.hostname or ""
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    if parsed.port is not None:
+        host = f"{host}:{parsed.port}"
+    return urlunparse(parsed._replace(netloc=f"***@{host}"))
+
+
 def _valid_camera_purpose(v: str | None) -> str | None:
     if v is not None and v not in _CAMERA_PURPOSES:
         raise ValueError(f"purpose must be one of {sorted(_CAMERA_PURPOSES)}")
@@ -480,6 +499,15 @@ class CameraOut(CamelModel):
     last_snapshot_url: str | None = None
     snapshot_captured_at: datetime | None = None
     created_at: datetime
+
+    @field_validator("stream_url", mode="before")
+    @classmethod
+    def _mask_stream_url_credentials(cls, value: object) -> object:
+        """Strip embedded `user:pass@` credentials before this ever reaches
+        an API response, log line, or DB export via this schema."""
+        if not isinstance(value, str):
+            return value
+        return mask_stream_url_credentials(value)
 
 
 # ---------- parking map (levels → zones; monitor-camera presence) ----------

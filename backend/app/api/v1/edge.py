@@ -21,10 +21,12 @@ from app.database import platform_session
 from app.models import (
     ApiCredential,
     BarrierGate,
+    Camera,
     EdgeDevice,
     RegisteredVehicle,
     TenantAccessRule,
 )
+from app.schemas.common import MessageOut
 from app.schemas.resources import (
     ActivateIn,
     ActivationBundleOut,
@@ -47,6 +49,7 @@ from app.services.credential_service import authenticate_api_key
 from app.services.storage import presign_upload
 
 router = APIRouter(prefix="/edge", tags=["edge"])
+camera_router = APIRouter(tags=["cameras"])
 
 
 EDGE_SYNC_SCOPE = "edge:ingest"
@@ -269,6 +272,32 @@ async def edge_rules(tenant_id: uuid.UUID, cred: ApiCredential = Depends(edge_ct
             .all()
         )
     return [EdgeRuleEntry.model_validate(r) for r in rows]
+
+
+@camera_router.post("/cameras/{camera_id}/heartbeat", response_model=MessageOut)
+async def camera_heartbeat(
+    camera_id: uuid.UUID,
+    x_api_key: str = Header(default=""),
+) -> MessageOut:
+    """Edge camera heartbeat — proves the camera is reachable.
+
+    If the camera's status is still ``provisioning`` this automatically
+    transitions it to ``active``, providing a zero-touch onboarding path.
+    Already-active cameras are left unchanged.
+    """
+    cred = await _resolve_api_key(x_api_key)
+    if EDGE_SYNC_SCOPE not in (cred.scopes or []):
+        raise forbidden(f"API key missing '{EDGE_SYNC_SCOPE}' scope")
+    cond = [Camera.id == camera_id]
+    if cred.tenant_id is not None:
+        cond.append(Camera.tenant_id == cred.tenant_id)
+    async with platform_session() as db:
+        camera = (await db.execute(select(Camera).where(*cond))).scalar_one_or_none()
+        if camera is None:
+            raise ApiError(status.HTTP_404_NOT_FOUND, "not_found", "camera not found")
+        if camera.status == "provisioning":
+            camera.status = "active"
+    return MessageOut(message="ok")
 
 
 _EDGE_UPLOAD_KINDS = {"zone-snapshot", "parking-map", "plate", "overview"}

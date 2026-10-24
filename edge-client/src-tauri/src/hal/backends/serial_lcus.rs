@@ -28,7 +28,7 @@ impl LcusRelay {
         use tokio_serial::SerialPortBuilderExt;
         let stream = tokio_serial::new(port, baud)
             .open_native_async()
-            .with_context(|| format!("open serial port {port}"))?;
+            .map_err(|e| super::serial_open_error(port, e))?;
         Ok(Self::from_stream(stream))
     }
 

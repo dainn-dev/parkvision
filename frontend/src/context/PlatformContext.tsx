@@ -184,6 +184,7 @@ interface PlatformContextType {
   services: ServiceHealthItem[];
   edgeDevices: EdgeDeviceHealth[];
   tenantDevices: TenantEdgeDevice[];
+  tenantDevicesTotal: number;
   cameras: CameraHealth[];
   gates: GateHealth[];
   incidents: OperationalIncident[];
@@ -537,6 +538,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [services, setServices] = useState<ServiceHealthItem[]>([]);
   const [edgeDevices, setEdgeDevices] = useState<EdgeDeviceHealth[]>([]);
   const [tenantDevices, setTenantDevices] = useState<TenantEdgeDevice[]>([]);
+  const [tenantDevicesTotal, setTenantDevicesTotal] = useState<number>(0);
   // No camera/security-activity/credential APIs exist yet — start honest-empty instead of mock.
   const [cameras, setCameras] = useState<CameraHealth[]>([]);
   const [gates, setGates] = useState<GateHealth[]>([]);
@@ -688,6 +690,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       setGates(gatesMapped);
       setEdgeDevices(devicesPage.data.map((d) => mapDevice(d, tId, tName)));
       setTenantDevices(devicesPage.data.map((d) => mapTenantDevice(d, siteNames.get(d.siteId) ?? '')));
+      setTenantDevicesTotal(devicesPage.meta.total);
       setCameras(camerasPage.data.map((c) => mapCamera(c, tId, tName)));
 
       const primarySite = sitesPage.data[0];
@@ -2188,6 +2191,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         services,
         edgeDevices,
         tenantDevices,
+        tenantDevicesTotal,
         cameras,
         gates,
         incidents,
