@@ -253,8 +253,11 @@ export const MonitoringPage: React.FC = () => {
                         {tenantSites.find((s) => s.id === c.siteId)?.name ?? '—'}
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <Badge variant={c.purpose === 'overview' ? 'slate' : 'blue'} size="sm">
-                          {c.purpose === 'overview' ? 'OVERVIEW' : 'PLATE'}
+                        <Badge
+                          variant={c.purpose === 'overview' ? 'slate' : c.purpose === 'monitor' ? 'blue' : 'blue'}
+                          size="sm"
+                        >
+                          {c.purpose === 'overview' ? 'OVERVIEW' : c.purpose === 'monitor' ? 'MONITOR' : 'PLATE'}
                         </Badge>
                       </td>
                       <td className="py-3.5 px-4 font-mono text-slate-400 max-w-[220px] truncate">

@@ -221,7 +221,6 @@ export const TenantEdgeDevicesPage: React.FC = () => {
             <option value="ALL">{t('Status: All')}</option>
             <option value="ONLINE">{t('Online')}</option>
             <option value="OFFLINE">{t('Offline')}</option>
-            <option value="DEGRADED">{t('Degraded')}</option>
             <option value="PROVISIONING">{t('Provisioning')}</option>
             <option value="DECOMMISSIONED">{t('Decommissioned')}</option>
           </select>

@@ -110,7 +110,7 @@ export const translations = {
     followLights: "Follow blue overhead guidance lights",
     arrivePillar: "Arrive at Pillar B-27",
     carParkedSlot: "Your car is parked in slot B-27",
-    totalFee: "Total Fee",
+    totalFee: "Estimated Fee",
     payExitFeeEarly: "Pay Exit Fee Early",
 
     // Memberships
@@ -168,7 +168,7 @@ export const translations = {
     notificationSettings: "Notification Settings",
     notificationSub: "Capacity alerts & entrance logs",
     paymentEwallets: "Payment & E-Wallets",
-    paymentSub: "MoMo, ZaloPay & Credit Cards",
+    paymentSub: "MoMo & wallet balance",
     securityPrivacy: "Security & Privacy",
     securitySub: "License Plate Privacy Shield",
     logout: "Log Out",
@@ -438,7 +438,7 @@ export const translations = {
     notificationSettings: "Cài đặt thông báo",
     notificationSub: "Cảnh báo hết chỗ & nhật ký ra vào",
     paymentEwallets: "Thanh toán & Ví điện tử",
-    paymentSub: "MoMo, ZaloPay & Thẻ quốc tế",
+    paymentSub: "MoMo & số dư ví",
     securityPrivacy: "Bảo mật & Quyền riêng tư",
     securitySub: "Bảo mật biển số xe cá nhân",
     logout: "Đăng xuất",

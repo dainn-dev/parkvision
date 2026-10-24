@@ -400,7 +400,11 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                             {cam.code ?? cam.cameraName}
                           </div>
                           <div className="absolute top-1.5 right-2 text-[9px] font-mono text-[#8b949e] bg-black/60 px-1.5 py-0.5 rounded">
-                            {cam.purpose === 'overview' ? t('OVERVIEW') : t('PLATE')}
+                            {cam.purpose === 'overview'
+                              ? t('OVERVIEW')
+                              : cam.purpose === 'monitor'
+                                ? t('MONITOR')
+                                : t('PLATE')}
                           </div>
                         </div>
 

@@ -68,7 +68,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) 
     setVehicleBusy(true);
     setVehicleError('');
     try {
-      await update(vehicle.id, { isPrimary: true });
+      await update(vehicle.id, {
+        plateNumber: vehicle.plateNumber,
+        label: vehicle.label,
+        vehicleType: vehicle.vehicleType,
+        isPrimary: true
+      });
     } catch (e) {
       setVehicleError(e instanceof ApiError ? e.message : t('networkError'));
     } finally {
@@ -249,7 +254,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) 
         </h3>
         {[
           { id: 'notif', label: t('notificationSettings'), sub: t('notificationSub'), icon: Bell },
-          { id: 'payment', label: t('paymentEwallets'), sub: t('comingSoon'), icon: CreditCard },
+          { id: 'payment', label: t('paymentEwallets'), sub: t('paymentSub'), icon: CreditCard },
           { id: 'security', label: t('securityPrivacy'), sub: t('securitySub'), icon: Shield }
         ].map((item, idx) => {
           const Icon = item.icon;
@@ -270,11 +275,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) 
                 <div>
                   <div className="text-xs font-semibold text-white flex items-center gap-2">
                     <span>{item.label}</span>
-                    {item.id === 'payment' && (
-                      <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
-                        {t('comingSoon')}
-                      </span>
-                    )}
                   </div>
                   <div className="text-[10px] text-slate-400">{item.sub}</div>
                 </div>

@@ -29,6 +29,10 @@ const STATUS_STYLE: Record<string, string> = {
   expired: 'bg-slate-500/15 text-slate-400 border-slate-500/30',
 };
 
+// Matches backend TOPUP_MIN_VND / TOPUP_MAX_VND in payment_service.py.
+const TOPUP_MIN_VND = 10_000;
+const TOPUP_MAX_VND = 50_000_000;
+
 const KIND_KEY = { membership: 'membershipPayment', session: 'parkingFeePayment', topup: 'topUpPayment' } as const;
 const TXN_KIND_KEY = {
   topup_credit: 'txnTopup',
@@ -156,14 +160,19 @@ export const PaymentEWalletModal: React.FC<PaymentEWalletModalProps> = ({
               <div className="flex gap-2">
                 <input
                   type="number"
-                  min={10000}
+                  min={TOPUP_MIN_VND}
+                  max={TOPUP_MAX_VND}
                   step={10000}
                   value={topupAmount}
                   onChange={(e) => setTopupAmount(e.target.value)}
                   className="flex-1 min-w-0 bg-slate-950/60 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-hidden focus:border-emerald-500/60"
                 />
                 <button
-                  disabled={busyId !== null}
+                  disabled={
+                    busyId !== null ||
+                    Number(topupAmount) < TOPUP_MIN_VND ||
+                    Number(topupAmount) > TOPUP_MAX_VND
+                  }
                   onClick={() => void pay({ kind: 'topup', amountVnd: Math.max(0, Math.floor(Number(topupAmount) || 0)) })}
                   className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[11px] font-bold rounded-lg transition-colors"
                 >

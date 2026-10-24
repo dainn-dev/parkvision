@@ -152,6 +152,32 @@ impl Store {
         }
     }
 
+    /// Full-sync reconciliation — drop whitelist rows whose plate is not in
+    /// `keep`, so vehicles removed backend-side stop opening the gate.
+    /// Returns the number of rows deleted. Temp table sidesteps the SQLite
+    /// bound-parameter limit for large whitelists.
+    pub fn delete_vehicles_not_in(&self, keep: &std::collections::HashSet<String>) -> Result<u64> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        tx.execute_batch(
+            "CREATE TEMP TABLE IF NOT EXISTS keep_plate (plate TEXT PRIMARY KEY);
+             DELETE FROM keep_plate;",
+        )?;
+        {
+            let mut stmt = tx.prepare("INSERT OR IGNORE INTO keep_plate (plate) VALUES (?1)")?;
+            for plate in keep {
+                stmt.execute(params![plate])?;
+            }
+        }
+        let purged = tx.execute(
+            "DELETE FROM whitelist WHERE plate_normalized NOT IN (SELECT plate FROM keep_plate)",
+            [],
+        )? as u64;
+        tx.execute("DROP TABLE keep_plate", [])?;
+        tx.commit()?;
+        Ok(purged)
+    }
+
     /// Full refresh — the sync endpoint is authoritative, so replace all.
     pub fn replace_rules(&self, rules: &[RuleRow]) -> Result<()> {
         let mut conn = self.conn.lock().unwrap();

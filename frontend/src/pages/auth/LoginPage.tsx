@@ -618,7 +618,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
         <div className="p-4 bg-[#0d0e12] border-t border-[#30363d] text-center text-[11px] text-[#8b949e] font-mono flex items-center justify-between">
           <span>VehiclePlatform v4.8.2-prod</span>
           <span className="flex items-center gap-1 text-[#3fb950]">
-            <Check className="w-3 h-3" /> FIDO2 / TOTP Enabled
+            <Check className="w-3 h-3" /> TOTP 2FA Enabled
           </span>
         </div>
       </motion.div>
