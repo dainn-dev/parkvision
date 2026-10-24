@@ -295,6 +295,8 @@ interface PlatformContextType {
   createTenantCamera: (siteId: string, data: Omit<CameraIn, 'siteId'>) => void;
   updateTenantCamera: (id: string, data: Partial<Omit<CameraIn, 'siteId'>>) => void;
   deleteTenantCamera: (id: string) => void;
+  createTenantGate: (siteId: string, data: { name: string; code?: string | null; gateType?: string; modelType?: string | null; laneId?: string | null; edgeDeviceId?: string | null }) => void;
+  updateTenantGate: (id: string, data: { name?: string; gateType?: string; laneId?: string | null; edgeDeviceId?: string | null; siteId?: string }) => void;
   resolveTenantAlert: (alertId: string) => void;
   triggerGateCommand: (gateId: string, command: 'OPEN' | 'CLOSE' | 'LOCK' | 'UNLOCK' | 'RESET' | 'REBOOT' | 'RELINK' | 'open' | 'close' | 'lock' | 'unlock' | 'reboot' | 'relink') => void;
   simulateNewAccessEvent: (customEvent?: Partial<AccessEvent>) => void;
@@ -1494,6 +1496,25 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       .catch(toastErr('Failed to delete camera'));
   };
 
+  // ---------- Barrier gates ----------
+  const createTenantGate = (siteId: string, data: { name: string; code?: string | null; gateType?: string; modelType?: string | null; laneId?: string | null; edgeDeviceId?: string | null }) => {
+    if (!activeTenantId) return;
+    tenantApi
+      .createGate(activeTenantId, { siteId, name: data.name, code: data.code ?? undefined, gateType: data.gateType, modelType: data.modelType ?? undefined, laneId: data.laneId ?? undefined, edgeDeviceId: data.edgeDeviceId ?? undefined })
+      .then(() => loadTenantData(activeTenantId))
+      .then(() => addToast({ type: 'success', title: 'Gate created', description: data.name }))
+      .catch(toastErr('Failed to create gate'));
+  };
+
+  const updateTenantGate = (id: string, data: { name?: string; gateType?: string; laneId?: string | null; edgeDeviceId?: string | null; siteId?: string }) => {
+    if (!activeTenantId) return;
+    tenantApi
+      .updateGate(activeTenantId, id, { name: data.name, gateType: data.gateType, laneId: data.laneId ?? undefined, edgeDeviceId: data.edgeDeviceId ?? undefined, siteId: data.siteId ?? undefined })
+      .then(() => loadTenantData(activeTenantId))
+      .then(() => addToast({ type: 'success', title: 'Gate updated' }))
+      .catch(toastErr('Failed to update gate'));
+  };
+
   // ---------- Parking map ----------
   const refreshParkingMap = () => {
     if (!activeTenantId) return;
@@ -2277,6 +2298,8 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         createTenantCamera,
         updateTenantCamera,
         deleteTenantCamera,
+        createTenantGate,
+        updateTenantGate,
         resolveTenantAlert,
         triggerGateCommand,
         simulateNewAccessEvent,

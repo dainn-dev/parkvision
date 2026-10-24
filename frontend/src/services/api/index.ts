@@ -411,8 +411,8 @@ export const tenantApi = {
 
   gates: (t: string, p: { page?: number; limit?: number; siteId?: string } = {}) => api.get<Page<GateOut>>(T(t, `/gates${qs(p)}`)),
   gate: (t: string, id: string) => api.get<GateOut>(T(t, `/gates/${id}`)),
-  createGate: (t: string, body: { siteId: string; laneId?: string; edgeDeviceId?: string; name: string; gateType?: string }) => api.post<GateOut>(T(t, '/gates'), body),
-  updateGate: (t: string, id: string, body: Partial<{ name: string; gateType: string; laneId: string; edgeDeviceId: string; status: string }>) => api.patch<GateOut>(T(t, `/gates/${id}`), body),
+  createGate: (t: string, body: { siteId: string; laneId?: string; edgeDeviceId?: string; name: string; code?: string; gateType?: string; modelType?: string }) => api.post<GateOut>(T(t, '/gates'), body),
+  updateGate: (t: string, id: string, body: Partial<{ siteId: string; name: string; code: string; gateType: string; modelType: string; laneId: string; edgeDeviceId: string; status: string }>) => api.patch<GateOut>(T(t, `/gates/${id}`), body),
   sendCommand: (t: string, gateId: string, command: string, idempotencyKey: string, payload?: object) =>
     api.post<CommandOut>(T(t, `/gates/${gateId}/commands`), { command, idempotencyKey, payload }),
   commands: (t: string, gateId: string) => api.get<Page<CommandOut>>(T(t, `/gates/${gateId}/commands`)),

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { TenantSite } from '../../types/tenant';
-import { CameraHealth } from '../../types/platform';
+import { CameraHealth, GateHealth } from '../../types/platform';
 import { usePlatform } from '../../context/PlatformContext';
 import { CameraFormModal } from './CameraFormModal';
+import { GateFormModal } from './GateFormModal';
 import {
   X,
   Building2,
@@ -53,10 +54,15 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
     open: false,
     camera: null,
   });
+  const [gateModal, setGateModal] = useState<{ open: boolean; gate: GateHealth | null }>({
+    open: false,
+    gate: null,
+  });
 
   if (!isOpen || !site) return null;
 
   const siteCams = cameras.filter((c) => c.siteId === site.id);
+  const siteGates = gates.filter((g) => g.siteId === site.id);
 
   const handleGateOverride = (gateName: string, action: 'OPEN' | 'CLOSE' | 'LOCK') => {
     setGateActionStatus((prev) => ({ ...prev, [gateName]: true }));
@@ -276,10 +282,18 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-white font-semibold text-xs">{t('Barrier Gates & Relay Telemetry')}</h4>
-                <span className="text-[11px] text-[#8b949e]">{t('Protocol: MQTT / Modbus TCP')}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-[#8b949e]">{t('Protocol: MQTT / Modbus TCP')}</span>
+                  <button
+                    onClick={() => setGateModal({ open: true, gate: null })}
+                    className="px-2.5 py-1 rounded-lg bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] hover:bg-[#58a6ff]/20 transition-colors cursor-pointer text-[10px] font-semibold"
+                  >
+                    + {t('Add Gate')}
+                  </button>
+                </div>
               </div>
 
-              {gates.filter((g) => g.siteId === site.id).map((gate) => {
+              {siteGates.map((gate) => {
                 const isOffline = gate.status !== 'ONLINE';
                 const isOperating = gateActionStatus[gate.id];
                 const lane = tenantLanes.find((l) => l.id === gate.laneId);
@@ -337,12 +351,20 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                           <Lock className="w-3 h-3" />
                           {t('Lock')}
                         </Button>
+
+                        <button
+                          onClick={() => setGateModal({ open: true, gate })}
+                          title={t('Edit gate')}
+                          className="w-7 h-7 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white hover:bg-[#30363d] flex items-center justify-center transition-colors cursor-pointer"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   </div>
                 );
               })}
-              {gates.filter((g) => g.siteId === site.id).length === 0 && (
+              {siteGates.length === 0 && (
                 <p className="text-xs text-[#8b949e] py-4 text-center">
                   {t('No barrier gates bound to this site yet.')}
                 </p>
@@ -533,6 +555,14 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
         camera={cameraModal.camera}
         isOpen={cameraModal.open}
         onClose={() => setCameraModal({ open: false, camera: null })}
+      />
+
+      {/* Gate create/edit modal */}
+      <GateFormModal
+        site={site}
+        gate={gateModal.gate}
+        isOpen={gateModal.open}
+        onClose={() => setGateModal({ open: false, gate: null })}
       />
     </div>
   );

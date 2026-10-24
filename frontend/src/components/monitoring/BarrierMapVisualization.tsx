@@ -415,7 +415,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     // LOCAL MODE: single-site facility canvas — gates around a building
     // footprint instead of the nationwide map.
     // -----------------------------------------------------------------------
-    if (mapMode === 'local' && localSite) {
+    if (mapMode === 'local') {
       const defs = svg.append('defs');
       const glowFilter = defs.append('filter')
         .attr('id', 'pulse-glow')
@@ -424,6 +424,38 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
       const feMerge = glowFilter.append('feMerge');
       feMerge.append('feMergeNode').attr('in', 'coloredBlur');
       feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+      // Parking/traffic area grid between the entry and exit columns.
+      const area = container.append('g').attr('class', 'local-grid').attr('opacity', 0.25);
+      for (let gx = 60; gx <= 540; gx += 40) {
+        area.append('line').attr('x1', gx).attr('y1', 120).attr('x2', gx).attr('y2', 580)
+          .attr('stroke', '#30363d').attr('stroke-dasharray', '2,4');
+      }
+      for (let gy = 120; gy <= 580; gy += 40) {
+        area.append('line').attr('x1', 60).attr('y1', gy).attr('x2', 540).attr('y2', gy)
+          .attr('stroke', '#30363d').attr('stroke-dasharray', '2,4');
+      }
+      area.append('text')
+        .attr('x', 300).attr('y', 96)
+        .text(t('Facility Gate Canvas'))
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#58a6ff').attr('font-size', '12px').attr('font-weight', 'bold').attr('letter-spacing', '2px');
+
+      // Filters can empty the site list — keep the facility frame and say so
+      // honestly instead of falling back to the nationwide canvas.
+      if (!localSite) {
+        container.append('text')
+          .attr('x', 300).attr('y', 340)
+          .text(t('No sites match the current filters.'))
+          .attr('text-anchor', 'middle')
+          .attr('fill', '#8b949e').attr('font-size', '12px');
+        container.append('text')
+          .attr('x', 300).attr('y', 360)
+          .text(t('Adjust or clear the filters to see your facility gates.'))
+          .attr('text-anchor', 'middle')
+          .attr('fill', '#8b949e').attr('font-size', '10px');
+        return;
+      }
 
       // Facility footprint: stylised building block in the canvas centre.
       const footprint = container.append('g').attr('class', 'facility-footprint');
@@ -441,22 +473,6 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
         .text(`${localSite.currentOccupancy}/${localSite.capacity} ${t('spots')}`)
         .attr('text-anchor', 'middle')
         .attr('fill', '#8b949e').attr('font-size', '9px');
-
-      // Parking/traffic area grid between the entry and exit columns.
-      const area = container.append('g').attr('class', 'local-grid').attr('opacity', 0.25);
-      for (let gx = 60; gx <= 540; gx += 40) {
-        area.append('line').attr('x1', gx).attr('y1', 120).attr('x2', gx).attr('y2', 580)
-          .attr('stroke', '#30363d').attr('stroke-dasharray', '2,4');
-      }
-      for (let gy = 120; gy <= 580; gy += 40) {
-        area.append('line').attr('x1', 60).attr('y1', gy).attr('x2', 540).attr('y2', gy)
-          .attr('stroke', '#30363d').attr('stroke-dasharray', '2,4');
-      }
-      area.append('text')
-        .attr('x', 300).attr('y', 96)
-        .text(t('Facility Gate Canvas'))
-        .attr('text-anchor', 'middle')
-        .attr('fill', '#58a6ff').attr('font-size', '12px').attr('font-weight', 'bold').attr('letter-spacing', '2px');
 
       const gateNodes = container.append('g').attr('class', 'site-nodes');
       localSite.gates.forEach((gate) => {
@@ -1722,7 +1738,9 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             <option value="LOCKED">{t('Force locked')}</option>
           </select>
 
-          {/* Region Quick Jump */}
+          {/* Region Quick Jump — nationwide scope only; a single-facility
+              tenant has no regions to jump between. */}
+          {mapMode === 'nationwide' && (
           <div className="flex items-center gap-1">
             <button
               onClick={() => handleRegionJump('ALL')}
@@ -1757,6 +1775,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
               {t('South')}
             </button>
           </div>
+          )}
         </div>
       </div>
 
