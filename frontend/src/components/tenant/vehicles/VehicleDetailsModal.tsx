@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { tenantApi } from '../../../services/api';
 import {
   TenantVehicle,
   VehicleLicensePlate,
@@ -56,11 +57,31 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
   const {
     activateTenantVehicle,
     deactivateTenantVehicle,
-    archiveTenantVehicle
+    archiveTenantVehicle,
+    activeTenantId
   } = usePlatform();
   const { t } = useTranslation('tenant');
 
   const [activeTab, setActiveTab] = useState<'overview' | 'plates' | 'assignments' | 'audit'>('overview');
+  // Archived plates live server-side (vehicle_plate_history) — fetched when
+  // the plates tab is opened, not carried on the vehicle object.
+  const [plateHistory, setPlateHistory] = useState<Array<{ plateNumber: string; replacedAt: string }>>([]);
+
+  React.useEffect(() => {
+    if (!isOpen || activeTab !== 'plates' || !activeTenantId || !vehicle) return;
+    let cancelled = false;
+    tenantApi
+      .plateHistory(activeTenantId, vehicle.id)
+      .then((rows: Array<{ plateNumber: string; replacedAt: string }>) => {
+        if (!cancelled) setPlateHistory(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setPlateHistory([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, activeTab, activeTenantId, vehicle]);
 
   if (!isOpen || !vehicle) return null;
 
@@ -137,7 +158,7 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
             }`}
           >
             <Tag className="w-3.5 h-3.5" />
-            {t('Plate History')} ({1 + (vehicle.previousPlates?.length || 0)})
+            {t('Plate History')} ({1 + plateHistory.length})
           </button>
           <button
             onClick={() => setActiveTab('assignments')}
@@ -324,29 +345,26 @@ export const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({
                 </div>
               </div>
 
-              {/* Previous Plates */}
-              {vehicle.previousPlates && vehicle.previousPlates.length > 0 && (
+              {/* Previous Plates — archived server-side on every replacement */}
+              {plateHistory.length > 0 && (
                 <div className="space-y-2">
                   <h4 className="text-xs font-bold text-[#8b949e] uppercase tracking-wider">{t('Previous Historical Plates')}</h4>
                   <div className="space-y-2">
-                    {vehicle.previousPlates.map((prevPlate) => (
+                    {plateHistory.map((prevPlate) => (
                       <div
-                        key={prevPlate.id}
+                        key={prevPlate.plateNumber + prevPlate.replacedAt}
                         className="p-3 rounded-lg bg-[#161b22] border border-[#30363d] flex items-center justify-between text-xs"
                       >
                         <div className="flex items-center gap-2.5">
                           <span className="font-mono font-bold text-[#c9d1d9] px-2 py-0.5 rounded bg-[#0d0e12] border border-[#30363d]">
-                            {prevPlate.number}
+                            {prevPlate.plateNumber}
                           </span>
                           <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#21262d] text-[#8b949e]">
-                            {prevPlate.status}
+                            {t('ARCHIVED')}
                           </span>
-                          {prevPlate.notes && (
-                            <span className="text-[11px] text-[#8b949e]">· {prevPlate.notes}</span>
-                          )}
                         </div>
                         <span className="text-[11px] text-[#8b949e]">
-                          {prevPlate.validFrom} → {prevPlate.validTo || t('Replaced')}
+                          {t('Replaced:')} {new Date(prevPlate.replacedAt).toLocaleString()}
                         </span>
                       </div>
                     ))}

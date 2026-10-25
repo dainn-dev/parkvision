@@ -351,6 +351,7 @@ export const PlatformHeader: React.FC<{
                 <span>{t('Platform Settings')}</span>
               </button>
 
+              {appWorkspace === 'platform' && (
               <button
                 onClick={() => {
                   navigateTo('security', 'sessions');
@@ -361,6 +362,7 @@ export const PlatformHeader: React.FC<{
                 <Zap className="w-4 h-4 text-[#d29922]" />
                 <span>{t('My Active Sessions')}</span>
               </button>
+              )}
 
               <div className="border-t border-[#30363d] my-1" />
 

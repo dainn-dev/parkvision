@@ -20,6 +20,15 @@ export type GateOut = S['GateOut'];
 export type DeviceOut = S['DeviceOut'];
 export type CommandOut = S['CommandOut'];
 export type VehicleOut = S['VehicleOut'];
+// Plate history: hand-written (schema.d.ts has no regen script) — matches backend PlateHistoryOut.
+export interface PlateHistoryOut {
+  id: string;
+  vehicleId: string;
+  plateNumber: string;
+  plateNormalized: string;
+  replacedAt: string;
+  createdAt: string;
+}
 export type RuleOut = S['RuleOut'];
 export type AccessEventOut = S['AccessEventOut'];
 export type IncidentOut = S['IncidentOut'];
@@ -474,7 +483,8 @@ export const tenantApi = {
   vehicle: (t: string, id: string) => api.get<VehicleOut>(T(t, `/vehicles/${id}`)),
   createVehicle: (t: string, body: { plateNumber: string; ownerName?: string; ownerContact?: string; vehicleType?: string; brand?: string; model?: string; color?: string; tag?: string; validFrom?: string; validTo?: string; notes?: string }) =>
     api.post<VehicleOut>(T(t, '/vehicles'), body),
-  updateVehicle: (t: string, id: string, body: Partial<{ plateNumber: string; ownerName: string; ownerContact: string; vehicleType: string; tag: string; validFrom: string; validTo: string; notes: string; status: string; memberUserId: string | null }>) =>
+  plateHistory: (t: string, id: string) => api.get<PlateHistoryOut[]>(T(t, `/vehicles/${id}/plate-history`)),
+  updateVehicle: (t: string, id: string, body: Partial<{ plateNumber: string; ownerName: string; ownerContact: string; vehicleType: string; brand: string; model: string; color: string; tag: string; validFrom: string; validTo: string; notes: string; status: string; memberUserId: string | null }>) =>
     api.patch<VehicleOut>(T(t, `/vehicles/${id}`), body),
   deleteVehicle: (t: string, id: string) => api.del(T(t, `/vehicles/${id}`)),
   importVehicles: (t: string, csv: Blob) => {

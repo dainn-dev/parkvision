@@ -12,11 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import WRITE_ROLES, csrf_protect, require_roles
 from app.api.v1.tenant import TenantCtx, get_tenant_db, tenant_ctx
 from app.core.errors import bad_request, conflict, not_found
-from app.models import BackgroundJob, RegisteredVehicle, TenantUser
+from app.models import BackgroundJob, RegisteredVehicle, TenantUser, VehiclePlateHistory
 from app.schemas.common import MessageOut, Page, paginate
 from app.schemas.resources import (
     ImportResultOut,
     JobOut,
+    PlateHistoryOut,
     VehicleIn,
     VehicleOut,
     VehicleUpdateIn,
@@ -169,8 +170,20 @@ async def update_vehicle(
         if member is None:
             raise bad_request("member_user_id does not reference a user of this tenant") from None
     if "plate_number" in changes and changes["plate_number"]:
-        row.plate_number = changes.pop("plate_number").upper()
-        row.plate_normalized = normalize_plate(row.plate_number)
+        new_plate = changes.pop("plate_number").upper()
+        if new_plate != row.plate_number:
+            # Archive the replaced plate so the drawer's Plate History tab can
+            # show it (DEFECT-12: the history promise was previously unimplemented).
+            db.add(
+                VehiclePlateHistory(
+                    tenant_id=ctx.tenant_id,
+                    vehicle_id=row.id,
+                    plate_number=row.plate_number,
+                    plate_normalized=row.plate_normalized,
+                )
+            )
+            row.plate_number = new_plate
+            row.plate_normalized = normalize_plate(new_plate)
     for k, v in changes.items():
         setattr(row, k, v)
     try:
@@ -189,6 +202,25 @@ async def update_vehicle(
         ip=request.client.host if request.client else None,
     )
     return VehicleOut.model_validate(row)
+
+
+@router.get("/vehicles/{vehicle_id}/plate-history", response_model=list[PlateHistoryOut])
+async def list_plate_history(
+    vehicle_id: uuid.UUID,
+    ctx: TenantCtx = Depends(tenant_ctx),
+    db: AsyncSession = Depends(get_tenant_db),
+) -> list[PlateHistoryOut]:
+    rows = (
+        await db.execute(
+            select(VehiclePlateHistory)
+            .where(
+                VehiclePlateHistory.vehicle_id == vehicle_id,
+                VehiclePlateHistory.tenant_id == ctx.tenant_id,
+            )
+            .order_by(VehiclePlateHistory.replaced_at.desc())
+        )
+    ).scalars().all()
+    return [PlateHistoryOut.model_validate(r) for r in rows]
 
 
 @router.delete("/vehicles/{vehicle_id}", response_model=MessageOut)

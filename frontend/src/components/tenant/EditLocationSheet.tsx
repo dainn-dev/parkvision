@@ -60,7 +60,9 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
     capacity: (location.capacity || 0).toString(),
     description: location.description === 'Create a site to activate this location.' ? '' : location.description || '',
     // --- public listing & pricing (tenant_sites.public_profile) ---
-    listed: location.publicProfile?.listed ?? false,
+    // Sites with no configured profile are listed by default — defaulting to
+    // false would silently hide an operating site from the driver app on save.
+    listed: location.publicProfile?.listed ?? true,
     publicDescription: location.publicProfile?.description ?? '',
     imageUrl: location.publicProfile?.imageUrl ?? '',
     parkingType: location.publicProfile?.parkingType ?? '',
@@ -100,7 +102,9 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
         contactPerson: clean(location.contactPerson),
         capacity: (location.capacity || 0).toString(),
         description: location.description === 'Create a site to activate this location.' ? '' : location.description || '',
-        listed: location.publicProfile?.listed ?? false,
+        // Sites with no configured profile are listed by default — defaulting to
+    // false would silently hide an operating site from the driver app on save.
+    listed: location.publicProfile?.listed ?? true,
         publicDescription: location.publicProfile?.description ?? '',
         imageUrl: location.publicProfile?.imageUrl ?? '',
         parkingType: location.publicProfile?.parkingType ?? '',

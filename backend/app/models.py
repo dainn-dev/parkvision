@@ -547,6 +547,29 @@ class RegisteredVehicle(TimestampMixin, Base):
     __table_args__ = (UniqueConstraint("tenant_id", "plate_normalized", name="uq_vehicle_plate"),)
 
 
+class VehiclePlateHistory(TimestampMixin, Base):
+    """Archived plates replaced via the whitelist UI (DEFECT-12). The active
+    plate lives on `registered_vehicles`; one history row is written per
+    plate replacement so the drawer's Plate History tab can show it."""
+
+    __tablename__ = "vehicle_plate_history"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    vehicle_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("registered_vehicles.id", ondelete="CASCADE"), nullable=False
+    )
+    plate_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    plate_normalized: Mapped[str] = mapped_column(String(20), nullable=False)
+    replaced_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (Index("ix_vehicle_plate_history_vehicle", "vehicle_id", "replaced_at"),)
+
+
 class DriverUser(TimestampMixin, Base):
     """Mobile-app end user. Platform-scoped (no tenant_id, no RLS);
     sessions ride on `user_sessions` with user_type='driver'."""

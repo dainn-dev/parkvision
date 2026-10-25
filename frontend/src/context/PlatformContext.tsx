@@ -1753,9 +1753,16 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const updateTenantVehicle = (vehicleId: string, data: Partial<TenantVehicle>) => {
     if (!activeTenantId) return;
+    // plateNumber must NEVER fall back to the display name — TenantVehicle.name
+    // is "Make Model", and sending it silently corrupted the whitelist plate
+    // on every specs edit. Plate changes only happen via the explicit
+    // currentPlate field (Replace License Plate flow).
     tenantApi
       .updateVehicle(activeTenantId, vehicleId, {
-        plateNumber: data.currentPlate?.number ?? data.name,
+        ...(data.currentPlate?.number ? { plateNumber: data.currentPlate.number } : {}),
+        brand: data.make || undefined,
+        model: data.model || undefined,
+        color: data.color || undefined,
         vehicleType: data.type?.toLowerCase(),
         status: data.status?.toLowerCase(),
         notes: data.description,

@@ -771,6 +771,15 @@ class VehicleOut(CamelModel):
     created_at: datetime
 
 
+class PlateHistoryOut(CamelModel):
+    id: uuid.UUID
+    vehicle_id: uuid.UUID
+    plate_number: str
+    plate_normalized: str
+    replaced_at: datetime
+    created_at: datetime
+
+
 class ImportResultOut(CamelModel):
     job_id: uuid.UUID
 
