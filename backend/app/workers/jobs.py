@@ -221,76 +221,87 @@ async def audit_export(
     from app.services.storage import presign_download, s3_client
 
     tid = uuid.UUID(tenant_id) if tenant_id else None
-    async with platform_session() as db:
-        job = (
-            await db.execute(select(BackgroundJob).where(BackgroundJob.id == uuid.UUID(job_id)))
-        ).scalar_one_or_none()
-        if job is None:
-            return
-        job.status = "running"
-        await db.flush()
+    try:
+        async with platform_session() as db:
+            job = (
+                await db.execute(select(BackgroundJob).where(BackgroundJob.id == uuid.UUID(job_id)))
+            ).scalar_one_or_none()
+            if job is None:
+                return
+            job.status = "running"
+            await db.flush()
 
-        # tenant_id=None means platform scope: same filter the platform audit
-        # list uses — platform-admin activity across all tenants.
-        cond = [AuditLog.tenant_id == tid] if tid else [AuditLog.actor_type == ActorType.PLATFORM_ADMIN]
-        if from_ts:
-            cond.append(AuditLog.created_at >= datetime.fromisoformat(from_ts))
-        if to_ts:
-            cond.append(AuditLog.created_at <= datetime.fromisoformat(to_ts))
-        if action:
-            cond.append(AuditLog.action.ilike(f"{action}%"))
+            # tenant_id=None means platform scope: same filter the platform audit
+            # list uses — platform-admin activity across all tenants.
+            cond = [AuditLog.tenant_id == tid] if tid else [AuditLog.actor_type == ActorType.PLATFORM_ADMIN]
+            if from_ts:
+                cond.append(AuditLog.created_at >= datetime.fromisoformat(from_ts))
+            if to_ts:
+                cond.append(AuditLog.created_at <= datetime.fromisoformat(to_ts))
+            if action:
+                cond.append(AuditLog.action.ilike(f"{action}%"))
 
-        rows = (
-            (await db.execute(select(AuditLog).where(*cond).order_by(AuditLog.created_at).limit(200_000)))
-            .scalars()
-            .all()
-        )
+            rows = (
+                (await db.execute(select(AuditLog).where(*cond).order_by(AuditLog.created_at).limit(200_000)))
+                .scalars()
+                .all()
+            )
 
-        buf = io.StringIO()
-        writer = csv.writer(buf)
-        writer.writerow(
-            [
-                "id",
-                "created_at",
-                "actor_type",
-                "actor_id",
-                "actor_email",
-                "action",
-                "resource_type",
-                "resource_id",
-                "ip",
-                "details",
-            ]
-        )
-        for r in rows:
+            buf = io.StringIO()
+            writer = csv.writer(buf)
             writer.writerow(
                 [
-                    r.id,
-                    r.created_at.isoformat(),
-                    r.actor_type,
-                    r.actor_id,
-                    r.actor_email,
-                    r.action,
-                    r.resource_type,
-                    r.resource_id,
-                    r.ip,
-                    __import__("json").dumps(r.details),
+                    "id",
+                    "created_at",
+                    "actor_type",
+                    "actor_id",
+                    "actor_email",
+                    "action",
+                    "resource_type",
+                    "resource_id",
+                    "ip",
+                    "details",
                 ]
             )
-        key = f"{tid or 'platform'}/exports/audit-{job_id}.csv"
-        s3_client().put_object(
-            Bucket=settings.s3_bucket,
-            Key=key,
-            Body=buf.getvalue().encode(),
-            ContentType="text/csv",
-        )
-        await _finish_job(
-            db,
-            job,
-            "done",
-            {"objectKey": key, "downloadUrl": presign_download(key)},
-            row_count=len(rows),
-        )
+            for r in rows:
+                writer.writerow(
+                    [
+                        r.id,
+                        r.created_at.isoformat(),
+                        r.actor_type,
+                        r.actor_id,
+                        r.actor_email,
+                        r.action,
+                        r.resource_type,
+                        r.resource_id,
+                        r.ip,
+                        __import__("json").dumps(r.details),
+                    ]
+                )
+            key = f"{tid or 'platform'}/exports/audit-{job_id}.csv"
+            s3_client().put_object(
+                Bucket=settings.s3_bucket,
+                Key=key,
+                Body=buf.getvalue().encode(),
+                ContentType="text/csv",
+            )
+            await _finish_job(
+                db,
+                job,
+                "done",
+                {"objectKey": key, "downloadUrl": presign_download(key)},
+                row_count=len(rows),
+            )
+    except Exception as exc:
+        # Without this the job row stays 'queued'/'running' forever and the UI
+        # polls a dead export until it times out.
+        async with platform_session() as db:
+            job = (
+                await db.execute(select(BackgroundJob).where(BackgroundJob.id == uuid.UUID(job_id)))
+            ).scalar_one_or_none()
+            if job is not None:
+                await _finish_job(db, job, "failed", error=f"{type(exc).__name__}: {exc}"[:2000])
+        raise
 
 
 # ---------- scheduled maintenance jobs ----------

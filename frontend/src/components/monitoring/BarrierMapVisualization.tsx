@@ -1482,36 +1482,44 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
         </div>
 
         {/* Incident Alert Metric Card - Interactive Click to open drawer */}
-        <div
-          onClick={() => setIsIncidentsDrawerOpen(true)}
-          className={`rounded-xl p-3 border cursor-pointer transition-all ${
-            metrics.stuckGates > 0 || metrics.offlineGates > 0
-              ? 'bg-[#f85149]/10 border-[#f85149]/40 hover:bg-[#f85149]/15'
-              : metrics.warningGates > 0 || metrics.lockedGates > 0
-              ? 'bg-[#161b22] border-[#30363d] hover:border-[#d29922]/50'
-              : 'bg-[#161b22] border-[#30363d]'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-[#8b949e]">{t('Incidents & Alerts')}</div>
-            {(metrics.stuckGates > 0 || metrics.offlineGates > 0) && (
-              <span className="w-2 h-2 rounded-full bg-[#f85149] animate-ping" />
-            )}
-          </div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className={`text-xl font-bold font-mono tabular-nums ${
-              metrics.stuckGates > 0 ? 'text-[#f85149]' : metrics.offlineGates > 0 ? 'text-[#e3b341]' : 'text-white'
-            }`}>
-              {metrics.stuckGates + metrics.offlineGates + metrics.warningGates}
-            </span>
-            <span className="text-[10px] font-mono text-[#f85149]">
-              {metrics.stuckGates > 0 ? `${metrics.stuckGates} ${t('stuck')}` : ''}
-              {metrics.stuckGates > 0 && metrics.offlineGates > 0 ? ' · ' : ''}
-              {metrics.offlineGates > 0 ? `${metrics.offlineGates} ${t('off')}` : ''}
-              {metrics.stuckGates === 0 && metrics.offlineGates === 0 ? t('Stable') : ''}
-            </span>
-          </div>
-        </div>
+        {(() => {
+          const criticalAlerts = alerts.filter((a) => a.severity === 'CRITICAL').length;
+          const warningAlerts = alerts.filter((a) => a.severity === 'WARNING').length;
+          return (
+            <div
+              onClick={() => setIsIncidentsDrawerOpen(true)}
+              className={`rounded-xl p-3 border cursor-pointer transition-all ${
+                criticalAlerts > 0
+                  ? 'bg-[#f85149]/10 border-[#f85149]/40 hover:bg-[#f85149]/15'
+                  : warningAlerts > 0
+                  ? 'bg-[#161b22] border-[#30363d] hover:border-[#d29922]/50'
+                  : 'bg-[#161b22] border-[#30363d]'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-[#8b949e]">{t('Incidents & Alerts')}</div>
+                {criticalAlerts > 0 && <span className="w-2 h-2 rounded-full bg-[#f85149] animate-ping" />}
+              </div>
+              <div className="mt-1 flex items-baseline justify-between">
+                <span
+                  className={`text-xl font-bold font-mono tabular-nums ${
+                    criticalAlerts > 0 ? 'text-[#f85149]' : warningAlerts > 0 ? 'text-[#e3b341]' : 'text-white'
+                  }`}
+                >
+                  {alerts.length}
+                </span>
+                <span
+                  className={`text-[10px] font-mono ${criticalAlerts > 0 ? 'text-[#f85149]' : warningAlerts > 0 ? 'text-[#e3b341]' : 'text-[#3fb950]'}`}
+                >
+                  {criticalAlerts > 0 ? `${criticalAlerts} ${t('critical')}` : ''}
+                  {criticalAlerts > 0 && warningAlerts > 0 ? ' · ' : ''}
+                  {criticalAlerts === 0 && warningAlerts > 0 ? `${warningAlerts} ${t('warning')}` : ''}
+                  {alerts.length === 0 ? t('Stable') : ''}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ML Heuristic Anomaly Stat Card */}
         <div

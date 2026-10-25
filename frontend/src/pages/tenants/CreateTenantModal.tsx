@@ -66,8 +66,14 @@ export const CreateTenantModal: React.FC<{
     }
   };
 
-  const handleSubmit = () => {
-    createTenant(
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setSubmitError('');
+    const result = await createTenant(
       {
         name: orgName,
         code: orgCode,
@@ -81,6 +87,13 @@ export const CreateTenantModal: React.FC<{
         password: adminPassword
       }
     );
+    setSubmitting(false);
+    if (!result.ok) {
+      setErrors({ orgCode: result.error ?? t('Provisioning failed') });
+      setSubmitError(result.error ?? t('Provisioning failed'));
+      setStep(1);
+      return;
+    }
 
     // Reset & Close
     setStep(1);
@@ -91,6 +104,7 @@ export const CreateTenantModal: React.FC<{
     setAdminName('');
     setAdminEmail('');
     setAdminPassword('');
+    setErrors({});
     onClose();
   };
 
@@ -211,7 +225,7 @@ export const CreateTenantModal: React.FC<{
             value={adminPassword}
             onChange={(e) => setAdminPassword(e.target.value)}
             error={errors.adminPassword}
-            helperText={t('Minimum 8 characters with numbers & symbols')}
+            helperText={t('Minimum 10 characters with numbers & symbols')}
           />
 
           <Switch
@@ -252,6 +266,12 @@ export const CreateTenantModal: React.FC<{
         </div>
       )}
 
+      {submitError && step === 1 && (
+        <div className="mt-4 p-3 rounded-xl bg-red-950/40 border border-red-800/60 text-xs text-red-300">
+          {submitError}
+        </div>
+      )}
+
       {/* Modal Actions */}
       <div className="flex items-center justify-between pt-4 border-t border-slate-800">
         {step > 1 ? (
@@ -269,8 +289,8 @@ export const CreateTenantModal: React.FC<{
             {t('Continue')} →
           </Button>
         ) : (
-          <Button variant="success" size="sm" icon={Check} onClick={handleSubmit}>
-            {t('Confirm & Provision')}
+          <Button variant="success" size="sm" icon={Check} onClick={handleSubmit} disabled={submitting}>
+            {submitting ? t('Provisioning…') : t('Confirm & Provision')}
           </Button>
         )}
       </div>

@@ -64,18 +64,31 @@ async def login(email: str, password: str, ip: str | None, user_agent: str | Non
                 email=email,
                 ip=ip,
                 details={"reason": "account_locked"},
+                user_agent=user_agent,
             )
             await db.commit()
             raise account_locked() from None
 
         if user is None or not verify_password(password, user.password_hash):
             await auth_service._fail_login(
-                db, user=user, user_type=str(ActorType.DRIVER), tenant_id=None, email=email, ip=ip
+                db,
+                user=user,
+                user_type=str(ActorType.DRIVER),
+                tenant_id=None,
+                email=email,
+                ip=ip,
+                user_agent=user_agent,
             )
             raise invalid_credentials() from None
         if user.status != AccountStatus.ACTIVE:
             await auth_service._fail_login(
-                db, user=user, user_type=str(ActorType.DRIVER), tenant_id=None, email=email, ip=ip
+                db,
+                user=user,
+                user_type=str(ActorType.DRIVER),
+                tenant_id=None,
+                email=email,
+                ip=ip,
+                user_agent=user_agent,
             )
             raise invalid_credentials() from None
 
@@ -99,6 +112,7 @@ async def login(email: str, password: str, ip: str | None, user_agent: str | Non
             tenant_id=None,
             email=email,
             ip=ip,
+            user_agent=user_agent,
         )
         return auth_service._bundle(
             sess, user.id, str(ActorType.DRIVER), None, None, False

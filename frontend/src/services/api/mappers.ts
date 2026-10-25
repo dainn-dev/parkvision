@@ -102,26 +102,62 @@ export const mapPlatformAdmin = (a: PlatformAdminOut): PlatformAdmin => ({
   failedLoginAttempts: 0,
 });
 
+const parseUserAgent = (ua: string | null | undefined): { browser: string; os: string; device: string } => {
+  if (!ua) return { browser: 'Unknown', os: 'Unknown', device: 'Unknown' };
+  return {
+    browser: /Edg\//.test(ua)
+      ? 'Edge'
+      : /OPR\//.test(ua)
+        ? 'Opera'
+        : /Chrome\//.test(ua)
+          ? 'Chrome'
+          : /Firefox\//.test(ua)
+            ? 'Firefox'
+            : /Safari\//.test(ua)
+              ? 'Safari'
+              : 'Unknown',
+    os: /Windows NT/.test(ua)
+      ? 'Windows'
+      : /Android/.test(ua)
+        ? 'Android'
+        : /iPhone|iPad|iPod/.test(ua)
+          ? 'iOS'
+          : /Mac OS X/.test(ua)
+            ? 'macOS'
+            : /Linux/.test(ua)
+              ? 'Linux'
+              : 'Unknown',
+    device: /iPad|Tablet/.test(ua) ? 'Tablet' : /Mobile|Android|iPhone/.test(ua) ? 'Mobile' : 'Desktop',
+  };
+};
+
 export const mapSession = (
   s: SessionOut,
   userLookup?: (userId: string) => { name?: string; email?: string } | undefined,
 ): ActiveSession => {
   const u = userLookup?.(s.userId);
+  const ua = parseUserAgent(s.userAgent);
   return {
     id: s.id,
     userId: s.userId,
-    userName: u?.name ?? s.userId.slice(0, 8),
-    userEmail: u?.email ?? '',
-    userType: s.userType === 'platform_admin' ? 'PLATFORM_ADMIN' : 'TENANT_ADMIN',
+    userName: s.userName || u?.name || s.userEmail || u?.email || 'Unknown user',
+    userEmail: s.userEmail ?? u?.email ?? '',
+    userType:
+      s.userType === 'platform_admin'
+        ? 'PLATFORM_ADMIN'
+        : s.userType === 'driver'
+          ? 'DRIVER'
+          : 'TENANT_ADMIN',
     tenantId: s.tenantId ?? undefined,
-    tenantName: undefined,
-    device: s.userAgent ?? '',
-    browser: s.userAgent ?? '',
-    os: '',
+    tenantName: s.tenantName ?? undefined,
+    device: ua.device,
+    browser: ua.browser,
+    os: ua.os,
     ipAddress: s.ip ?? '',
     riskLevel: (s.riskLevel ?? 'normal').toUpperCase() === 'SUSPICIOUS' ? 'SUSPICIOUS' : (s.riskLevel ?? 'normal').toUpperCase() === 'IMPERSONATED' ? 'HIGH_RISK' : 'NORMAL',
     createdTime: s.createdAt,
     lastActive: s.lastSeenAt ?? s.createdAt,
+    mfaVerified: s.mfaVerified,
   };
 };
 
@@ -172,11 +208,46 @@ export const mapInfraHealth = (h: InfraHealth): ServiceHealthItem[] =>
     lastChecked: new Date().toISOString(),
   }));
 
+const AUDIT_CATEGORIES: AuditLogItem['category'][] = [
+  'AUTHENTICATION',
+  'TENANT_MANAGEMENT',
+  'PLATFORM_ADMIN',
+  'SECURITY',
+  'CONFIGURATION',
+  'MONITORING',
+  'CREDENTIAL',
+  'SYSTEM',
+];
+
+/** Rows written before the category column existed are classified by action. */
+const auditCategory = (a: AuditLogOut): AuditLogItem['category'] => {
+  const stored = (a.category ?? '').toUpperCase() as AuditLogItem['category'];
+  if (AUDIT_CATEGORIES.includes(stored)) return stored;
+  const action = a.action ?? '';
+  if (action.startsWith('auth.')) return 'AUTHENTICATION';
+  if (action.startsWith('platform.tenant')) return 'TENANT_MANAGEMENT';
+  if (action.startsWith('platform.admin')) return 'PLATFORM_ADMIN';
+  if (action.startsWith('platform.setting') || action.startsWith('platform.flag') || action.startsWith('tenant.settings'))
+    return 'CONFIGURATION';
+  if (action.startsWith('incident.') || action.startsWith('device.') || action.startsWith('edge_device.'))
+    return 'MONITORING';
+  if (action.startsWith('camera.') || action.startsWith('gate.')) return 'MONITORING';
+  if (action.startsWith('api_credential.')) return 'CREDENTIAL';
+  if (action.startsWith('session.')) return 'SECURITY';
+  if (action.startsWith('audit.')) return 'SYSTEM';
+  return a.actorType === 'platform_admin' ? 'PLATFORM_ADMIN' : 'TENANT_MANAGEMENT';
+};
+
+const auditResult = (action: string): AuditLogItem['result'] => {
+  if (/failed|locked/.test(action)) return 'FAILED';
+  if (/denied|forbidden/.test(action)) return 'DENIED';
+  return 'SUCCESS';
+};
+
 export const mapAuditLog = (a: AuditLogOut): AuditLogItem => ({
   id: a.id,
   timestamp: a.createdAt,
-  category:
-    a.actorType === 'platform_admin' ? 'PLATFORM_ADMIN' : a.actorType === 'system' ? 'SYSTEM' : 'TENANT_MANAGEMENT',
+  category: auditCategory(a),
   action: a.action,
   actorName: a.actorEmail ?? a.actorId ?? 'system',
   actorEmail: a.actorEmail ?? '',
@@ -184,7 +255,7 @@ export const mapAuditLog = (a: AuditLogOut): AuditLogItem => ({
   tenantName: undefined,
   resourceType: a.resourceType ?? '',
   resourceId: a.resourceId ?? '',
-  result: 'SUCCESS',
+  result: auditResult(a.action ?? ''),
   source: 'WEB',
   ipAddress: a.ip ?? '',
   requestId: '',
@@ -222,7 +293,9 @@ export const mapLoginEvent = (e: LoginEventOut, tenantName?: string): LoginActiv
       ? 'PLATFORM_ADMIN'
       : e.userType === 'TENANT_USER'
         ? 'MEMBER'
-        : 'SYSTEM',
+        : e.userType === 'DRIVER'
+          ? 'DRIVER'
+          : 'SYSTEM',
   tenantName,
   result: upper(e.result, 'FAILED') as LoginActivityEvent['result'],
   sourceIp: e.sourceIp ?? '',

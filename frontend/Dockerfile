@@ -15,6 +15,8 @@ FROM nginx:1.27-alpine
 
 # Upstream consumed by the entrypoint envsubst on templates/default.conf.template.
 ENV API_UPSTREAM=http://api:8000
+# Origin browsers use to reach presigned S3 URLs; must be in the CSP.
+ENV S3_PUBLIC_ORIGIN=http://localhost:9000
 
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html

@@ -55,6 +55,20 @@ const refreshOnce = async (): Promise<boolean> => {
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+// Endpoints where a 401 is a real answer (bad credentials, expired MFA staging,
+// missing reset token) rather than an expired access token.
+const NO_REFRESH_PATHS = [
+  '/auth/login',
+  '/auth/refresh',
+  '/auth/logout',
+  '/auth/activate',
+  '/auth/password/',
+  '/auth/mfa/verify',
+  '/auth/mfa/session',
+  '/auth/mfa/resend',
+];
+const canRefresh = (path: string) => !NO_REFRESH_PATHS.some((p) => path.startsWith(p));
+
 async function request<T>(method: string, path: string, body?: unknown, opts?: { isForm?: boolean; retry?: boolean }): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined && !opts?.isForm) headers['Content-Type'] = 'application/json';
@@ -70,7 +84,7 @@ async function request<T>(method: string, path: string, body?: unknown, opts?: {
     body: body === undefined ? undefined : opts?.isForm ? (body as FormData) : JSON.stringify(body),
   });
 
-  if (res.status === 401 && (opts?.retry ?? true) && !path.startsWith('/auth/')) {
+  if (res.status === 401 && (opts?.retry ?? true) && canRefresh(path)) {
     if (await refreshOnce()) return request<T>(method, path, body, { ...opts, retry: false });
   }
 

@@ -335,6 +335,11 @@ export const platformApi = {
   }) => api.post<TenantOut>('/platform/tenants', body),
   updateTenant: (id: string, body: { name?: string; status?: string; planCode?: string; contactEmail?: string; settings?: object }) =>
     api.patch<TenantOut>(`/platform/tenants/${id}`, body),
+  updateTenantStatus: (id: string, body: { status: string; reason?: string }) =>
+    api.patch<{ success: boolean; tenantId: string; newStatus: string; revokedSessionsCount: number }>(
+      `/platform/tenants/${id}/status`,
+      body
+    ),
   listTenantUsers: (id: string) => api.get<UserOut[]>(`/platform/tenants/${id}/users`),
   listAdmins: () => api.get<PlatformAdminOut[]>('/platform/admins'),
   createAdmin: (body: { email: string; password: string; fullName: string; role?: string }) =>

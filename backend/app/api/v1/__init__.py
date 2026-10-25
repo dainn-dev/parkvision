@@ -15,7 +15,10 @@ from app.api.v1.tenant import audit, cameras, events, gates, memberships, parkin
 
 api_v1 = APIRouter()
 api_v1.include_router(public.router)
-api_v1.include_router(auth.router)
+# Auth mutations (logout, MFA management, password change) authenticate via
+# cookies too, so they need the same double-submit check as the rest of the
+# console. Login/refresh/pending-MFA paths are exempt inside csrf_protect.
+api_v1.include_router(auth.router, dependencies=[Depends(csrf_protect)])
 # Driver routes accept bearer tokens *or* HttpOnly cookies; csrf_protect is a
 # no-op for bearer clients and enforces double-submit for cookie clients.
 _driver_csrf = [Depends(csrf_protect)]

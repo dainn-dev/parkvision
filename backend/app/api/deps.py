@@ -18,7 +18,12 @@ impersonator_ctx: ContextVar[uuid.UUID | None] = ContextVar("impersonator_id", d
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
 CSRF_EXEMPT_PATH_PREFIXES = (
     "/api/v1/auth/login",
-    "/api/v1/auth/mfa",
+    # Pending-MFA transaction endpoints run before a CSRF cookie exists: login
+    # only stages the short-lived mfa_pending cookie. The authenticated MFA
+    # management endpoints below are NOT exempt and require the double-submit token.
+    "/api/v1/auth/mfa/verify",
+    "/api/v1/auth/mfa/session",
+    "/api/v1/auth/mfa/resend",
     "/api/v1/auth/refresh",
     "/api/v1/register",
     "/api/v1/driver/auth/login",

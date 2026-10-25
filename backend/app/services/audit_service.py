@@ -7,6 +7,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import AuditLog
 
+# Action prefix -> category. The UI filters on this; rows written before the
+# column existed are classified client-side from the action name instead.
+_CATEGORY_PREFIXES: tuple[tuple[str, str], ...] = (
+    ("auth.", "AUTHENTICATION"),
+    ("platform.tenant", "TENANT_MANAGEMENT"),
+    ("platform.admin", "PLATFORM_ADMIN"),
+    ("platform.setting", "CONFIGURATION"),
+    ("platform.flag", "CONFIGURATION"),
+    ("tenant.settings", "CONFIGURATION"),
+    ("incident.", "MONITORING"),
+    ("device.", "MONITORING"),
+    ("edge_device.", "MONITORING"),
+    ("camera.", "MONITORING"),
+    ("gate.", "MONITORING"),
+    ("api_credential.", "CREDENTIAL"),
+    ("session.", "SECURITY"),
+    ("audit.", "SYSTEM"),
+)
+
+
+def audit_category(action: str) -> str:
+    for prefix, category in _CATEGORY_PREFIXES:
+        if action.startswith(prefix):
+            return category
+    return "TENANT_MANAGEMENT"
+
 
 async def write_audit(
     db: AsyncSession,
@@ -20,6 +46,8 @@ async def write_audit(
     resource_id: str | None = None,
     details: dict[str, Any] | None = None,
     ip: str | None = None,
+    category: str | None = None,
+    user_agent: str | None = None,
 ) -> None:
     from app.api.deps import impersonator_ctx
 
@@ -37,5 +65,7 @@ async def write_audit(
             resource_id=resource_id,
             details=details or {},
             ip=ip,
+            category=category or audit_category(action),
+            user_agent=user_agent,
         )
     )

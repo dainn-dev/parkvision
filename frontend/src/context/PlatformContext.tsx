@@ -201,11 +201,11 @@ interface PlatformContextType {
   addToast: (toast: Omit<ToastMessage, 'id'>) => void;
   removeToast: (id: string) => void;
 
-  createTenant: (tenantData: Partial<Tenant>, adminData: any) => Promise<void>;
+  createTenant: (tenantData: Partial<Tenant>, adminData: any) => Promise<{ ok: boolean; error?: string }>;
   updateTenant: (id: string, updateData: Partial<Tenant>) => Promise<void>;
   setTenantStatus: (id: string, status: TenantStatus, reason?: string) => Promise<void>;
 
-  createAdmin: (adminData: Partial<PlatformAdmin> & { password?: string }) => Promise<void>;
+  createAdmin: (adminData: Partial<PlatformAdmin> & { password?: string }) => Promise<{ ok: boolean; error?: string }>;
   updateAdmin: (id: string, updateData: Partial<PlatformAdmin>) => void;
   disableAdmin: (id: string, reason?: string) => void;
   resetAdminMfa: (id: string) => void;
@@ -253,6 +253,7 @@ interface PlatformContextType {
   setTenantDateFilter: (filter: string) => void;
   isTenantRefreshing: boolean;
   refreshTenantDashboard: () => void;
+  refreshPlatformData: () => Promise<void>;
 
   tenantLocation: TenantLocation;
   tenantSites: TenantSite[];
@@ -1219,11 +1220,21 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   // ---------- Platform handlers ----------
-  const createTenant = async (tenantData: Partial<Tenant>, adminData: any) => {
+  const createTenant = async (tenantData: Partial<Tenant>, adminData: any): Promise<{ ok: boolean; error?: string }> => {
+    const slug =
+      (tenantData.code ?? tenantData.name ?? '')
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, '-')
+        .replace(/^-+|-+$/g, '') || `tenant-${Date.now()}`;
+    if (tenants.some((t) => t.code.toLowerCase() === slug)) {
+      const message = `Tenant code "${slug}" is already in use.`;
+      addToast({ type: 'error', title: 'Duplicate tenant code', description: message });
+      return { ok: false, error: message };
+    }
     try {
       await platformApi.createTenant({
         name: tenantData.name ?? '',
-        slug: (tenantData.code ?? tenantData.name ?? '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || `tenant-${Date.now()}`,
+        slug,
         planCode: 'starter',
         contactEmail: tenantData.email ?? adminData?.email ?? '',
         ownerEmail: adminData?.email ?? '',
@@ -1232,8 +1243,10 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       });
       await loadPlatformData();
       addToast({ type: 'success', title: 'Tenant Created', description: `${tenantData.name} has been registered.` });
+      return { ok: true };
     } catch (e) {
       toastErr('Failed to create tenant')(e);
+      return { ok: false, error: errText(e) };
     }
   };
 
@@ -1251,17 +1264,29 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
-  const setTenantStatus = async (id: string, status: TenantStatus, _reason?: string) => {
+  const setTenantStatus = async (id: string, status: TenantStatus, reason?: string) => {
     try {
-      await platformApi.updateTenant(id, { status: status.toLowerCase() });
+      const result = await platformApi.updateTenantStatus(id, {
+        status: status.toLowerCase(),
+        reason: reason?.trim() || undefined,
+      });
       await loadPlatformData();
-      addToast({ type: 'success', title: 'Status Updated', description: `Tenant status set to ${status}.` });
+      addToast({
+        type: 'success',
+        title: 'Status Updated',
+        description:
+          status === 'SUSPENDED' && result.revokedSessionsCount > 0
+            ? `Tenant suspended — ${result.revokedSessionsCount} session(s) revoked.`
+            : `Tenant status set to ${status}.`,
+      });
     } catch (e) {
       toastErr('Failed to update tenant status')(e);
     }
   };
 
-  const createAdmin = async (adminData: Partial<PlatformAdmin> & { password?: string }) => {
+  const createAdmin = async (
+    adminData: Partial<PlatformAdmin> & { password?: string }
+  ): Promise<{ ok: boolean; error?: string }> => {
     try {
       const rawRole = (adminData.role ?? '').toLowerCase();
       const uiRole = (adminData.role ?? '').toUpperCase();
@@ -1278,8 +1303,10 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       });
       await loadPlatformData();
       addToast({ type: 'success', title: 'Admin Created', description: `${adminData.name} added.` });
+      return { ok: true };
     } catch (e) {
       toastErr('Failed to create admin')(e);
+      return { ok: false, error: errText(e) };
     }
   };
 
@@ -2371,6 +2398,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         setTenantDateFilter,
         isTenantRefreshing,
         refreshTenantDashboard,
+        refreshPlatformData: loadPlatformData,
         tenantLocation,
         tenantSites,
         tenantSummary,

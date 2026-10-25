@@ -96,6 +96,9 @@ class SessionOut(CamelModel):
     user_id: uuid.UUID
     user_type: str
     tenant_id: uuid.UUID | None
+    user_email: str | None = None
+    user_name: str | None = None
+    tenant_name: str | None = None
     ip: str | None
     user_agent: str | None
     mfa_verified: bool

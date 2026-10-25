@@ -74,7 +74,7 @@ export interface ActiveSession {
   userId: string;
   userName: string;
   userEmail: string;
-  userType: 'PLATFORM_ADMIN' | 'TENANT_ADMIN' | 'MEMBER' | 'SYSTEM';
+  userType: 'PLATFORM_ADMIN' | 'TENANT_ADMIN' | 'MEMBER' | 'DRIVER' | 'SYSTEM';
   tenantId?: string;
   tenantName?: string;
   device: string;
@@ -85,6 +85,7 @@ export interface ActiveSession {
   riskLevel: 'NORMAL' | 'SUSPICIOUS' | 'HIGH_RISK';
   createdTime: string;
   lastActive: string;
+  mfaVerified: boolean;
 }
 
 // Feature Flag Types
@@ -321,7 +322,7 @@ export interface LoginActivityEvent {
   id: string;
   timestamp: string;
   userEmail: string;
-  userType: 'PLATFORM_ADMIN' | 'TENANT_ADMIN' | 'MEMBER' | 'SYSTEM';
+  userType: 'PLATFORM_ADMIN' | 'TENANT_ADMIN' | 'MEMBER' | 'DRIVER' | 'SYSTEM';
   tenantName?: string;
   result: 'SUCCESS' | 'FAILED' | 'BLOCKED' | 'CHALLENGED';
   sourceIp: string;

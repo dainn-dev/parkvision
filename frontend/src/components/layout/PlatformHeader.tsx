@@ -39,6 +39,10 @@ export const PlatformHeader: React.FC<{
     lastUpdatedTime,
     incidents,
     securityAlerts,
+    tenants,
+    admins,
+    auditLogs,
+    refreshPlatformData,
     navigateTo,
     addToast
   } = usePlatform();
@@ -52,34 +56,84 @@ export const PlatformHeader: React.FC<{
   const activeIncidents = incidents.filter((i) => i.status !== 'RESOLVED');
   const totalNotifications = activeAlerts.length + activeIncidents.length;
 
-  const handleManualRefresh = () => {
-    addToast({
-      type: 'info',
-      title: t('Manual Refresh Triggered'),
-      description: t('Platform metrics & operational telemetry re-synchronized.')
-    });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleManualRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await refreshPlatformData();
+      addToast({
+        type: 'success',
+        title: t('Refreshed'),
+        description: t('Platform data re-synchronized from the API.')
+      });
+    } catch {
+      addToast({ type: 'error', title: t('Refresh failed'), description: t('Could not reload platform data.') });
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleGlobalSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchQuery.trim()) return;
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return;
+
+    const tenant = tenants.find(
+      (x) =>
+        x.name.toLowerCase().includes(query) ||
+        x.code.toLowerCase().includes(query) ||
+        x.email.toLowerCase().includes(query)
+    );
+    if (tenant) {
+      navigateTo('tenants', undefined, tenant.id);
+      addToast({ type: 'info', title: t('Tenant found'), description: tenant.name });
+      setSearchQuery('');
+      return;
+    }
+
+    const admin = admins.find(
+      (a) => a.name.toLowerCase().includes(query) || a.email.toLowerCase().includes(query)
+    );
+    if (admin) {
+      navigateTo('platform');
+      addToast({ type: 'info', title: t('Administrator found'), description: `${admin.name} (${admin.email})` });
+      setSearchQuery('');
+      return;
+    }
+
+    const alert = securityAlerts.find(
+      (a) =>
+        a.type.toLowerCase().includes(query) ||
+        a.subjectEmail.toLowerCase().includes(query) ||
+        (a.evidence.details ?? '').toLowerCase().includes(query)
+    );
+    if (alert) {
+      navigateTo('security', 'alerts');
+      addToast({ type: 'info', title: t('Security alert found'), description: alert.type });
+      setSearchQuery('');
+      return;
+    }
+
+    const log = auditLogs.find(
+      (l) =>
+        l.action.toLowerCase().includes(query) ||
+        (l.actorEmail ?? '').toLowerCase().includes(query) ||
+        (l.resourceType ?? '').toLowerCase().includes(query)
+    );
+    if (log) {
+      navigateTo('audit');
+      addToast({ type: 'info', title: t('Audit event found'), description: log.action });
+      setSearchQuery('');
+      return;
+    }
 
     addToast({
-      type: 'info',
-      title: t('Platform Query Result'),
-      description: t('Searched for "{{query}}". Navigated to matching Governance records.', { query: searchQuery })
+      type: 'warning',
+      title: t('No matching records'),
+      description: t('Nothing matched "{{query}}".', { query: searchQuery.trim() })
     });
-
-    if (searchQuery.toLowerCase().includes('tenant') || searchQuery.toLowerCase().includes('abc')) {
-      navigateTo('tenants');
-    } else if (searchQuery.toLowerCase().includes('security') || searchQuery.toLowerCase().includes('alert')) {
-      navigateTo('security');
-    } else if (searchQuery.toLowerCase().includes('audit') || searchQuery.toLowerCase().includes('log')) {
-      navigateTo('audit');
-    } else {
-      navigateTo('dashboard');
-    }
-    setSearchQuery('');
   };
 
   return (
@@ -116,10 +170,11 @@ export const PlatformHeader: React.FC<{
         {/* Manual Refresh Button */}
         <button
           onClick={handleManualRefresh}
-          className="p-2 text-[#8b949e] hover:text-white bg-[#161b22] hover:bg-[#21262d] rounded-lg border border-[#30363d] transition-colors cursor-pointer"
+          disabled={isRefreshing}
+          className="p-2 text-[#8b949e] hover:text-white bg-[#161b22] hover:bg-[#21262d] rounded-lg border border-[#30363d] transition-colors cursor-pointer disabled:opacity-60"
           title={t('Force refresh platform metrics')}
         >
-          <RefreshCw className="w-4 h-4" />
+          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
         </button>
 
         {/* Language Switcher */}

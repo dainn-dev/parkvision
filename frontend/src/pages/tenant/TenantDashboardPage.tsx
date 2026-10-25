@@ -309,7 +309,14 @@ export const TenantDashboardPage: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-[#8b949e] pt-2 border-t border-[#30363d]/60">
-            <span className="text-[#3fb950] font-medium">{t('{{live}}/{{total}} Lanes Live', { live: lanes.length, total: tenantLanes.length })}</span>
+            <span className="text-[#3fb950] font-medium">
+              {tenantLanes.length > 0
+                ? t('{{live}}/{{total}} Lanes Live', {
+                    live: tenantLanes.filter((l) => (l.status ?? '').toLowerCase() === 'active').length,
+                    total: tenantLanes.length,
+                  })
+                : t('Lanes not configured')}
+            </span>
             <span className="text-[#58a6ff]">{t('{{count}} Site(s)', { count: tenantSites.length })}</span>
           </div>
         </div>

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import func, or_, select, update
 
-from app.api.deps import AuthContext, require_platform_admin
+from app.api.deps import AuthContext, csrf_protect, require_platform_admin
 from app.api.v1.auth import _cookie_kwargs
 from app.config import settings
 from app.core.enums import ActorType, PlatformAdminRole, TenantStatus
@@ -86,7 +86,7 @@ from app.workers.jobs import enqueue_audit_export
 router = APIRouter(
     prefix="/platform",
     tags=["platform"],
-    dependencies=[Depends(require_platform_admin())],
+    dependencies=[Depends(csrf_protect), Depends(require_platform_admin())],
 )
 
 
@@ -681,7 +681,42 @@ async def list_all_sessions(
         if active_only:
             q = q.where(UserSession.revoked_at.is_(None), UserSession.expires_at > datetime.now(timezone.utc))
         rows = (await db.execute(q)).scalars().all()
-    return [SessionOut.model_validate(r) for r in rows]
+
+        user_ids = {r.user_id for r in rows}
+        tenant_ids = {r.tenant_id for r in rows if r.tenant_id}
+        identities: dict[uuid.UUID, tuple[str | None, str | None]] = {}
+        if user_ids:
+            for uid, email, full_name in (
+                await db.execute(
+                    select(TenantUser.id, TenantUser.email, TenantUser.full_name).where(TenantUser.id.in_(user_ids))
+                )
+            ).all():
+                identities[uid] = (email, full_name)
+            for uid, email, full_name in (
+                await db.execute(
+                    select(PlatformAdmin.id, PlatformAdmin.email, PlatformAdmin.full_name).where(
+                        PlatformAdmin.id.in_(user_ids)
+                    )
+                )
+            ).all():
+                identities.setdefault(uid, (email, full_name))
+        tenant_names: dict[uuid.UUID, str] = {}
+        if tenant_ids:
+            for tid, name in (
+                await db.execute(select(Tenant.id, Tenant.name).where(Tenant.id.in_(tenant_ids)))
+            ).all():
+                tenant_names[tid] = name
+
+    return [
+        SessionOut.model_validate(r).model_copy(
+            update={
+                "user_email": identities.get(r.user_id, (None, None))[0],
+                "user_name": identities.get(r.user_id, (None, None))[1],
+                "tenant_name": tenant_names.get(r.tenant_id) if r.tenant_id else None,
+            }
+        )
+        for r in rows
+    ]
 
 
 @router.post("/sessions/{session_id}/revoke", response_model=MessageOut)

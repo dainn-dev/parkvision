@@ -52,6 +52,7 @@ export const TenantDetailPage: React.FC<{
   const ownerUser = tenantUsers.find((u) => u.role === 'owner' || u.role === 'admin');
 
   const [statusReason, setStatusReason] = useState('');
+  const [statusReasonError, setStatusReasonError] = useState('');
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [targetStatus, setTargetStatus] = useState<'ACTIVE' | 'SUSPENDED' | 'DISABLED'>('SUSPENDED');
 
@@ -74,9 +75,14 @@ export const TenantDetailPage: React.FC<{
   };
 
   const handleApplyStatusChange = () => {
-    setTenantStatus(tenant.id, targetStatus, statusReason);
+    if (targetStatus !== 'ACTIVE' && !statusReason.trim()) {
+      setStatusReasonError(t('A reason is required for this lifecycle action.'));
+      return;
+    }
+    setTenantStatus(tenant.id, targetStatus, statusReason.trim() || undefined);
     setIsStatusModalOpen(false);
     setStatusReason('');
+    setStatusReasonError('');
   };
 
   return (
@@ -157,6 +163,8 @@ export const TenantDetailPage: React.FC<{
                 icon={Ban}
                 onClick={() => {
                   setTargetStatus('SUSPENDED');
+                  setStatusReason('');
+                  setStatusReasonError('');
                   setIsStatusModalOpen(true);
                 }}
               >
@@ -169,6 +177,8 @@ export const TenantDetailPage: React.FC<{
                 icon={CheckCircle}
                 onClick={() => {
                   setTargetStatus('ACTIVE');
+                  setStatusReason('');
+                  setStatusReasonError('');
                   setIsStatusModalOpen(true);
                 }}
               >
@@ -377,7 +387,11 @@ export const TenantDetailPage: React.FC<{
             label={t('Reason for Lifecycle Override (Audited) *')}
             placeholder={t('e.g. Administrative request, security investigation...')}
             value={statusReason}
-            onChange={(e) => setStatusReason(e.target.value)}
+            onChange={(e) => {
+              setStatusReason(e.target.value);
+              if (statusReasonError) setStatusReasonError('');
+            }}
+            error={statusReasonError}
           />
 
           <div className="flex justify-end gap-3 pt-2">

@@ -31,6 +31,11 @@ import {
 } from '../../components/ui';
 import { useTranslation } from 'react-i18next';
 
+// The API stores timestamps in UTC; render them as UTC so the column label is
+// truthful regardless of the viewer's local timezone.
+const formatUtc = (iso: string): string =>
+  `${new Date(iso).toLocaleString('en-GB', { timeZone: 'UTC', hour12: false })} UTC`;
+
 export const AuditLogsPage: React.FC = () => {
   const { t } = useTranslation('audit');
   const { auditLogs, addToast } = usePlatform();
@@ -169,7 +174,9 @@ export const AuditLogsPage: React.FC = () => {
               { value: 'PLATFORM_ADMIN', label: t('Platform Admins') },
               { value: 'SECURITY', label: t('Security & Threats') },
               { value: 'CONFIGURATION', label: t('Configuration') },
-              { value: 'MONITORING', label: t('Monitoring Incidents') }
+              { value: 'MONITORING', label: t('Monitoring Incidents') },
+              { value: 'CREDENTIAL', label: t('API Credentials') },
+              { value: 'SYSTEM', label: t('System') }
             ]}
           />
 
@@ -216,12 +223,14 @@ export const AuditLogsPage: React.FC = () => {
                     onClick={() => setSelectedAuditModal(log)}
                   >
                     <td className="py-3.5 px-4 font-mono text-slate-400 whitespace-nowrap">
-                      {new Date(log.timestamp).toLocaleString()}
+                      {formatUtc(log.timestamp)}
                     </td>
 
                     <td className="py-3.5 px-4">
                       <span className="font-bold text-white block">{log.actorName}</span>
-                      <span className="text-[11px] text-slate-400">{log.actorEmail}</span>
+                      {log.actorEmail && log.actorEmail !== log.actorName && (
+                        <span className="text-[11px] text-slate-400">{log.actorEmail}</span>
+                      )}
                     </td>
 
                     <td className="py-3.5 px-4 font-mono font-bold text-indigo-300">

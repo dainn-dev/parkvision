@@ -40,8 +40,7 @@ export const PlatformAdminsPage: React.FC = () => {
     sessions,
     revokeSession,
     revokeAllUserSessions,
-    auditLogs,
-    addToast
+    auditLogs
   } = usePlatform();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,6 +53,8 @@ export const PlatformAdminsPage: React.FC = () => {
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState<AdminRole>('PLATFORM_ADMIN');
   const [newPassword, setNewPassword] = useState('');
+  const [formErrors, setFormErrors] = useState<{ name?: string; email?: string; password?: string }>({});
+  const [creating, setCreating] = useState(false);
 
   const filteredAdmins = admins.filter(
     (a) =>
@@ -61,22 +62,35 @@ export const PlatformAdminsPage: React.FC = () => {
       a.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleCreateAdmin = () => {
-    if (!newPassword || newPassword.length < 10) {
-      addToast({ type: 'error', title: t('Validation Error'), description: t('Initial password must be at least 10 characters.') });
-      return;
-    }
-    createAdmin({
+  const handleCreateAdmin = async () => {
+    const next: typeof formErrors = {};
+    if (!newName.trim()) next.name = t('Full name is required');
+    if (!newEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail))
+      next.email = t('Valid email address is required');
+    if (!newPassword || newPassword.length < 10)
+      next.password = t('Initial password must be at least 10 characters.');
+    setFormErrors(next);
+    if (Object.keys(next).length > 0) return;
+    if (creating) return;
+
+    setCreating(true);
+    const result = await createAdmin({
       name: newName,
       email: newEmail,
       role: newRole,
       password: newPassword
     });
+    setCreating(false);
+    if (!result.ok) {
+      setFormErrors({ email: result.error ?? t('Failed to create administrator') });
+      return;
+    }
 
     setIsAddModalOpen(false);
     setNewName('');
     setNewEmail('');
     setNewPassword('');
+    setFormErrors({});
   };
 
   const adminSessions = selectedAdmin ? sessions.filter((s) => s.userId === selectedAdmin.id) : [];
@@ -130,6 +144,13 @@ export const PlatformAdminsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/80 text-slate-200">
+              {filteredAdmins.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-slate-500">
+                    {searchQuery ? t('No administrators match this search.') : t('No platform administrators found.')}
+                  </td>
+                </tr>
+              )}
               {filteredAdmins.map((admin) => (
                 <tr
                   key={admin.id}
@@ -228,7 +249,12 @@ export const PlatformAdminsPage: React.FC = () => {
                 <div><span className="text-slate-500">{t('Status:')}</span> {selectedAdmin.status}</div>
                 <div><span className="text-slate-500">{t('Created:')}</span> {new Date(selectedAdmin.createdAt).toLocaleDateString()}</div>
                 <div><span className="text-slate-500">{t('Failed Logins:')}</span> {selectedAdmin.failedLoginAttempts}</div>
-                <div><span className="text-slate-500">{t('Last Active:')}</span> {selectedAdmin.lastLoginAt}</div>
+                <div>
+                  <span className="text-slate-500">{t('Last Active:')}</span>{' '}
+                  {selectedAdmin.lastLoginAt && selectedAdmin.lastLoginAt !== 'Never'
+                    ? new Date(selectedAdmin.lastLoginAt).toLocaleString()
+                    : t('Never')}
+                </div>
               </div>
             </div>
           )}
@@ -274,7 +300,10 @@ export const PlatformAdminsPage: React.FC = () => {
                   <div key={sess.id} className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
                     <div>
                       <span className="font-bold text-white block">{sess.device} • {sess.browser}</span>
-                      <span className="text-slate-400 font-mono">IP: {sess.ipAddress} ({sess.location})</span>
+                      <span className="text-slate-400 font-mono">
+                        IP: {sess.ipAddress || '—'}
+                        {sess.location ? ` (${sess.location})` : ''}
+                      </span>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => revokeSession(sess.id)}>
                       {t('Revoke')}
@@ -318,6 +347,7 @@ export const PlatformAdminsPage: React.FC = () => {
             placeholder={t('e.g. Johnathan Vance')}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
+            error={formErrors.name}
           />
 
           <Input
@@ -326,6 +356,7 @@ export const PlatformAdminsPage: React.FC = () => {
             placeholder="admin@platform.internal"
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
+            error={formErrors.email}
           />
 
           <Select
@@ -345,14 +376,15 @@ export const PlatformAdminsPage: React.FC = () => {
             placeholder="••••••••••••"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
+            error={formErrors.password}
           />
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
             <Button variant="ghost" size="sm" onClick={() => setIsAddModalOpen(false)}>
               {t('Cancel')}
             </Button>
-            <Button variant="primary" size="sm" onClick={handleCreateAdmin}>
-              {t('Create Administrator')}
+            <Button variant="primary" size="sm" onClick={handleCreateAdmin} disabled={creating}>
+              {creating ? t('Creating…') : t('Create Administrator')}
             </Button>
           </div>
         </div>

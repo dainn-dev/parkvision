@@ -10,7 +10,7 @@ server {
     # Security headers. CSP allows same-origin and the API/WS upstream,
     # but no inline scripts — tightening XSS so localStorage tokens (if any
     # legacy client still uses them) are harder to exfiltrate.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://images.unsplash.com ${S3_PUBLIC_ORIGIN}; connect-src 'self' ws: wss: ${S3_PUBLIC_ORIGIN}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options DENY always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;

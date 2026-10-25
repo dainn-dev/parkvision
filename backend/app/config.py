@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     mqtt_command_timeout_seconds: int = 15
 
     s3_endpoint_url: str = "http://localhost:9000"
+    # Presigned URLs are opened by browsers, which cannot resolve the Docker
+    # service name. Sign with this endpoint when it differs from the internal one.
+    s3_public_endpoint_url: str = ""
     s3_region: str = "us-east-1"
     s3_access_key: str = "test"
     s3_secret_key: str = "test"
@@ -92,13 +95,17 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
+    # Origins allowed to PUT/GET via presigned URLs from the browser. The
+    # signature itself is the capability, so "*" does not widen access.
+    s3_cors_origins: list[str] = ["*"]
+
     # When set, /metrics requires `Authorization: Bearer <token>`.
     metrics_token: str | None = None
 
     seed_platform_admin_email: str = "admin@example.com"
     seed_platform_admin_password: str = "ChangeMe!123"
 
-    @field_validator("jwt_previous_secrets", "cors_origins", mode="before")
+    @field_validator("jwt_previous_secrets", "cors_origins", "s3_cors_origins", mode="before")
     @classmethod
     def split_csv(cls, v: object) -> object:
         if isinstance(v, str):

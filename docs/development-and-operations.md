@@ -48,10 +48,10 @@ Camera RTSP phải truy cập từ máy chạy ANPR. Không mở HTTP ingest loo
 
 ### S3 và presigned URL
 
-`S3_ENDPOINT_URL` hiện được dùng để tạo client S3 và URL ký sẵn; không có biến public endpoint riêng trong `Settings`. Do đó cùng hostname/port cần khả dụng từ backend tạo request và browser/edge tải hoặc upload ảnh.
+`S3_ENDPOINT_URL` tạo client cho thao tác server; `S3_PUBLIC_ENDPOINT_URL` dùng để ký URL presign mà browser mở (nếu trống thì dùng chung endpoint nội bộ). `ensure_bucket()` đặt bucket CORS theo `S3_CORS_ORIGINS` (default `["*"]`) lúc API khởi động, và frontend nginx phải khai báo origin presign qua `S3_PUBLIC_ORIGIN` (default `http://localhost:9000`) trong CSP `img-src`/`connect-src`.
 
-- `http://s3:4566` hợp lệ giữa container nhưng browser host thường không resolve `s3`.
-- `http://localhost:9000` hợp lệ trên host nhưng `localhost` trong API container không phải LocalStack.
+- `http://s3:4566` hợp lệ giữa container nhưng browser host thường không resolve `s3` — chỉ dùng cho `S3_ENDPOINT_URL`.
+- `http://localhost:9000` hợp lệ trên host nhưng `localhost` trong API container không phải LocalStack — dùng cho `S3_PUBLIC_ENDPOINT_URL`.
 - Không thay hostname trong URL đã ký ở phía client: chữ ký phụ thuộc request được ký.
 - Chọn hostname/reverse proxy hoặc DNS/mạng phù hợp với mọi bên; xác minh PUT và GET thực tế từ cả browser lẫn backend. `host.docker.internal` là cơ chế Docker Desktop, không phải hostname được bảo đảm ở mọi host/thiết bị.
 
@@ -67,7 +67,7 @@ Trước khi chạy, rà soát các nhóm:
 
 - `DATABASE_URL`, `MIGRATION_DATABASE_URL`, `APP_DB_PASSWORD`: phân biệt runtime và migration, thống nhất DB/mật khẩu.
 - `REDIS_URL`, `MQTT_HOST`, `MQTT_PORT`, `MQTT_USERNAME`, `MQTT_PASSWORD`, `MQTT_TLS`.
-- `S3_ENDPOINT_URL`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`.
+- `S3_ENDPOINT_URL`, `S3_PUBLIC_ENDPOINT_URL`, `S3_CORS_ORIGINS`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`; frontend `S3_PUBLIC_ORIGIN` cho CSP.
 - `JWT_SECRET`, `JWT_PREVIOUS_SECRETS`, `FIELD_ENCRYPTION_KEY`: khóa ký và khóa Fernet thật; không dùng chuỗi `change-me`.
 - `COOKIE_SECURE`, `COOKIE_SAMESITE`, `COOKIE_DOMAIN`, `CORS_ORIGINS`, `APP_BASE_URL`.
 - `SMTP_HOST`, `SMTP_PORT`, SMTP credentials/TLS; Mailpit chỉ để dev.

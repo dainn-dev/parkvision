@@ -280,18 +280,25 @@ async def logout(request: Request, response: Response) -> MessageOut:
     if token:
         try:
             claims = decode_access_token(token)
+            actor_id = uuid.UUID(claims["sub"])
+            actor_type = claims.get("typ", "unknown")
             await auth_service.logout(uuid.UUID(claims["sid"]))
             async with platform_session() as db:
+                identity = PlatformAdmin if actor_type == ActorType.PLATFORM_ADMIN else TenantUser
+                actor_email = (
+                    await db.execute(select(identity.email).where(identity.id == actor_id))
+                ).scalar_one_or_none()
                 await write_audit(
                     db,
                     tenant_id=uuid.UUID(claims["tid"]) if claims.get("tid") else None,
-                    actor_type=claims.get("typ", "unknown"),
-                    actor_id=uuid.UUID(claims["sub"]),
-                    actor_email=None,
+                    actor_type=actor_type,
+                    actor_id=actor_id,
+                    actor_email=actor_email,
                     action="auth.logout",
                     resource_type="user_session",
                     resource_id=str(claims["sid"]),
                     ip=request.client.host if request.client else None,
+                    user_agent=request.headers.get("user-agent"),
                 )
         except pyjwt.PyJWTError:
             pass

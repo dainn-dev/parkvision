@@ -2015,6 +2015,12 @@ export interface components {
             userType: string;
             /** Tenantid */
             tenantId: string | null;
+            /** Useremail */
+            userEmail?: string | null;
+            /** Username */
+            userName?: string | null;
+            /** Tenantname */
+            tenantName?: string | null;
             /** Ip */
             ip: string | null;
             /** Useragent */

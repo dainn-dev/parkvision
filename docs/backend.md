@@ -509,9 +509,9 @@ Job lấy incident severity `critical`, chưa resolved/chưa notified, tối đa
 
 ### S3 và địa chỉ truy cập
 
-`backend/app/services/storage.py` dùng boto3 signature v4 và **một** `S3_ENDPOINT_URL` cho cả thao tác server lẫn URL presign. PUT trả `uploadUrl`, `objectKey`, `expiresIn`; default TTL 900 giây, key dạng `{tenant_id}/{kind}/{uuid}`. Các field có hậu tố `_url` trong DB có thể đang giữ object key, không phải URL public vĩnh viễn.
+`backend/app/services/storage.py` dùng boto3 signature v4 với hai client: `S3_ENDPOINT_URL` cho thao tác server (bucket, CORS, ghi CSV export) và `S3_PUBLIC_ENDPOINT_URL` cho URL presign mà browser mở; nếu biến public để trống thì dùng chung endpoint nội bộ. PUT trả `uploadUrl`, `objectKey`, `expiresIn`; default TTL 900 giây, key dạng `{tenant_id}/{kind}/{uuid}`. Các field có hậu tố `_url` trong DB có thể đang giữ object key, không phải URL public vĩnh viễn.
 
-Trong Compose, `s3:4566` truy cập được từ container nhưng thường không từ trình duyệt/edge host; `localhost:9000` truy cập được từ host nhưng chỉ chính container khi nằm trong URL server-side. Cần hostname/reverse proxy S3 cùng truy cập được từ các bên hoặc cách triển khai mạng thích hợp. Không tự sửa hostname sau khi ký vì có thể làm sai chữ ký. Cấu hình CORS bucket nếu browser PUT trực tiếp; mã hiện không tự cấu hình đầy đủ bucket CORS cho production. Không cần ảnh đi qua API bằng multipart chỉ vì API cấp URL upload.
+Trong Compose, `s3:4566` truy cập được từ container nhưng thường không từ trình duyệt/edge host; `localhost:9000` truy cập được từ host nhưng không phải LocalStack khi nhìn từ container. Vì vậy URL presign được ký theo `S3_PUBLIC_ENDPOINT_URL`, còn thao tác server đi qua `S3_ENDPOINT_URL`. Không tự sửa hostname sau khi ký vì có thể làm sai chữ ký. Khi khởi động, `ensure_bucket()` đặt bucket CORS từ `S3_CORS_ORIGINS` (default `["*"]`) để browser PUT/GET presign trực tiếp; frontend nginx cũng phải khai báo origin đó trong CSP (`S3_PUBLIC_ORIGIN`, default `http://localhost:9000`) cho `img-src` và `connect-src`, nếu không trình duyệt sẽ chặn URL presign dù chữ ký hợp lệ. Không cần ảnh đi qua API bằng multipart chỉ vì API cấp URL upload.
 
 **Nguồn:** `backend/app/workers/jobs.py`, `backend/app/workers/worker.py`, `backend/app/api/v1/tenant/vehicles.py`, `backend/app/api/v1/tenant/audit.py`, `backend/app/services/storage.py`.
 
@@ -528,7 +528,7 @@ Trong Compose, `s3:4566` truy cập được từ container nhưng thường kh�
 - **MFA/lockout:** `FIELD_ENCRYPTION_KEY`, `MFA_PENDING_TTL_SECONDS=300`, `MFA_MAX_ATTEMPTS=5`, `LOGIN_MAX_ATTEMPTS=5`, `LOGIN_LOCKOUT_SECONDS=900`.
 - **Cookie/CORS:** `COOKIE_DOMAIN`, `COOKIE_SECURE=false` khi dev, `COOKIE_SAMESITE=lax`, `CSRF_COOKIE_NAME=vm_csrf`, `ACCESS_COOKIE_NAME=vm_access`, `REFRESH_COOKIE_NAME=vm_refresh`, `CORS_ORIGINS` default `["http://localhost:3000"]`. Dùng JSON array cho biến danh sách để tránh khác biệt parsing môi trường.
 - **MQTT:** `MQTT_HOST=localhost`, `MQTT_PORT=1883`, `MQTT_USERNAME`, `MQTT_PASSWORD`, `MQTT_TLS=false`, `MQTT_COMMAND_TIMEOUT_SECONDS=15`. Thay credential dev và hostname theo vị trí chạy.
-- **S3:** `S3_ENDPOINT_URL=http://localhost:9000`, `S3_REGION=us-east-1`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET=vehicle-events`, `S3_PRESIGN_TTL_SECONDS=900`.
+- **S3:** `S3_ENDPOINT_URL=http://s3:4566` (server), `S3_PUBLIC_ENDPOINT_URL=http://localhost:9000` (ký URL presign cho browser), `S3_CORS_ORIGINS=["*"]`, `S3_REGION=us-east-1`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET=vehicle-events`, `S3_PRESIGN_TTL_SECONDS=900`.
 - **Email:** `SMTP_HOST`, `SMTP_PORT=1025`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TLS=false`, `APP_BASE_URL=http://localhost:3000`. Link email cần URL frontend thực, không chỉ URL API.
 - **Payment:** `PAYMENT_PROVIDER=none`; `MOMO_PARTNER_CODE`, `MOMO_ACCESS_KEY`, `MOMO_SECRET_KEY`, `MOMO_ENDPOINT`; `PAYMENT_REDIRECT_URL=parkvision://payments/return`, `PAYMENT_IPN_BASE_URL`, `PAYMENT_TTL_MINUTES=30`, `PAID_EXIT_GRACE_MINUTES=15`.
 - **Quan sát/seed:** `METRICS_TOKEN`, `SEED_PLATFORM_ADMIN_EMAIL`, `SEED_PLATFORM_ADMIN_PASSWORD`.

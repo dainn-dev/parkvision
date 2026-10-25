@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, update
 
 from app.config import settings
-from app.core.enums import AccountStatus, ActorType
+from app.core.enums import AccountStatus, ActorType, TenantStatus
 from app.core.errors import (
     account_disabled,
     account_locked,
@@ -170,6 +170,7 @@ async def _audit_login(
     email: str,
     ip: str | None,
     details: dict | None = None,
+    user_agent: str | None = None,
 ) -> None:
     await write_audit(
         db,
@@ -181,6 +182,7 @@ async def _audit_login(
         resource_type="auth",
         ip=ip,
         details=details or {},
+        user_agent=user_agent,
     )
 
 
@@ -192,6 +194,7 @@ async def _fail_login(
     tenant_id: uuid.UUID | None,
     email: str,
     ip: str | None,
+    user_agent: str | None = None,
 ) -> None:
     """Record a failed credential check; locks the account at the threshold.
 
@@ -239,6 +242,7 @@ async def _fail_login(
                 tenant_id=tenant_id,
                 email=email,
                 ip=ip,
+                user_agent=user_agent,
             )
     await _audit_login(
         db,
@@ -248,6 +252,11 @@ async def _fail_login(
         tenant_id=tenant_id,
         email=email,
         ip=ip,
+        details={
+            "reason": "invalid_credentials",
+            "failedAttempts": user.failed_login_attempts if user is not None else None,
+        },
+        user_agent=user_agent,
     )
     await db.commit()
 
@@ -288,6 +297,7 @@ async def login(email: str, password: str, ip: str | None, user_agent: str | Non
                     email=email,
                     ip=ip,
                     details={"reason": "account_locked"},
+                    user_agent=user_agent,
                 )
                 await db.commit()
                 raise account_locked() from None
@@ -301,19 +311,43 @@ async def login(email: str, password: str, ip: str | None, user_agent: str | Non
                     email=email,
                     ip=ip,
                     details={"reason": "account_disabled"},
+                    user_agent=user_agent,
                 )
                 await db.commit()
                 raise account_disabled() from None
 
         if user is None or not verify_password(password, user.password_hash):
-            await _fail_login(db, user=user, user_type=user_type, tenant_id=tenant_id, email=email, ip=ip)
+            await _fail_login(
+                db, user=user, user_type=user_type, tenant_id=tenant_id, email=email, ip=ip, user_agent=user_agent
+            )
             raise invalid_credentials() from None
 
         if user.status != AccountStatus.ACTIVE:
             # e.g. invited-but-not-activated — same error as a bad password so
             # the response never reveals account state.
-            await _fail_login(db, user=user, user_type=user_type, tenant_id=tenant_id, email=email, ip=ip)
+            await _fail_login(
+                db, user=user, user_type=user_type, tenant_id=tenant_id, email=email, ip=ip, user_agent=user_agent
+            )
             raise invalid_credentials() from None
+
+        if user_type == ActorType.TENANT_USER and tenant_id is not None:
+            tenant_status = (
+                await db.execute(select(Tenant.status).where(Tenant.id == tenant_id))
+            ).scalar_one_or_none()
+            if tenant_status not in (TenantStatus.ACTIVE, TenantStatus.TRIAL):
+                await _audit_login(
+                    db,
+                    action="auth.login_failed",
+                    user=user,
+                    user_type=user_type,
+                    tenant_id=tenant_id,
+                    email=email,
+                    ip=ip,
+                    details={"reason": "tenant_suspended"},
+                    user_agent=user_agent,
+                )
+                await db.commit()
+                raise account_disabled() from None
 
         user.failed_login_attempts = 0
         user.locked_until = None
@@ -348,6 +382,7 @@ async def login(email: str, password: str, ip: str | None, user_agent: str | Non
                 tenant_id=tenant_id,
                 email=email,
                 ip=ip,
+                user_agent=user_agent,
             )
             return LoginResult(
                 bundle=None,
@@ -377,6 +412,7 @@ async def login(email: str, password: str, ip: str | None, user_agent: str | Non
             tenant_id=tenant_id,
             email=email,
             ip=ip,
+            user_agent=user_agent,
         )
         return LoginResult(
             bundle=_bundle(sess, user.id, str(user_type), tenant_id, user.role, False),
@@ -406,6 +442,7 @@ async def _fail_mfa(db, sess: UserSession, ip: str | None) -> None:
         resource_id=str(sess.id),
         ip=ip,
         details={"attempt": sess.mfa_attempts, "exhausted": exhausted},
+        user_agent=sess.user_agent,
     )
     if exhausted:
         subject = (
@@ -662,13 +699,27 @@ async def validate_session_state(session_id: uuid.UUID) -> bool:
     async with platform_session() as db:
         sess = (
             await db.execute(
-                select(UserSession.revoked_at, UserSession.expires_at).where(UserSession.id == session_id)
+                select(
+                    UserSession.revoked_at,
+                    UserSession.expires_at,
+                    UserSession.user_type,
+                    UserSession.tenant_id,
+                ).where(UserSession.id == session_id)
             )
         ).one_or_none()
         if sess is None:
             return False
-        revoked_at, expires_at = sess
-        return revoked_at is None and expires_at > datetime.now(timezone.utc)
+        revoked_at, expires_at, user_type, tenant_id = sess
+        if revoked_at is not None or expires_at <= datetime.now(timezone.utc):
+            return False
+        # Suspending a tenant must lock out its users even if their sessions
+        # were not explicitly revoked (e.g. status changed by another admin).
+        if user_type == ActorType.TENANT_USER and tenant_id is not None:
+            status = (
+                await db.execute(select(Tenant.status).where(Tenant.id == tenant_id))
+            ).scalar_one_or_none()
+            return status in (TenantStatus.ACTIVE, TenantStatus.TRIAL)
+        return True
 
 
 async def mfa_setup(user: TenantUser | PlatformAdmin) -> tuple[str, str]:

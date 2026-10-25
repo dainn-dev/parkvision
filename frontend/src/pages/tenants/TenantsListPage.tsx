@@ -70,7 +70,16 @@ export const TenantsListPage: React.FC<{
     currentPage * pageSize
   );
 
+  const [reasonError, setReasonError] = useState('');
+
+  const formatCount = (n: number): string => {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+    return String(n);
+  };
+
   const handleOpenAction = (tenant: Tenant, targetStatus: TenantStatus) => {
+    setReasonError('');
     setActionModal({
       isOpen: true,
       tenant,
@@ -80,9 +89,13 @@ export const TenantsListPage: React.FC<{
   };
 
   const handleConfirmAction = () => {
-    if (actionModal.tenant && actionModal.targetStatus) {
-      setTenantStatus(actionModal.tenant.id, actionModal.targetStatus, actionModal.reason);
+    if (!actionModal.tenant || !actionModal.targetStatus) return;
+    if (actionModal.targetStatus === 'SUSPENDED' && !actionModal.reason.trim()) {
+      setReasonError(t('A reason is required to suspend a tenant.'));
+      return;
     }
+    setTenantStatus(actionModal.tenant.id, actionModal.targetStatus, actionModal.reason.trim() || undefined);
+    setReasonError('');
     setActionModal({ isOpen: false, tenant: null, targetStatus: null, reason: '' });
   };
 
@@ -247,7 +260,7 @@ export const TenantsListPage: React.FC<{
 
                     {/* Events */}
                     <td className="py-3.5 px-4 text-center font-mono text-indigo-300 font-semibold">
-                      {(tenant.statistics.eventsCount / 1000).toFixed(0)}k
+                      {formatCount(tenant.statistics.eventsCount)}
                     </td>
 
                     {/* Created */}
@@ -324,7 +337,11 @@ export const TenantsListPage: React.FC<{
             label={t('Reason for Lifecycle Action (Audited) *')}
             placeholder={t('e.g. Administrative request, billing resolution, security check...')}
             value={actionModal.reason}
-            onChange={(e) => setActionModal((prev) => ({ ...prev, reason: e.target.value }))}
+            onChange={(e) => {
+              setActionModal((prev) => ({ ...prev, reason: e.target.value }));
+              if (reasonError) setReasonError('');
+            }}
+            error={reasonError}
           />
 
           <div className="flex justify-end gap-3 pt-3">

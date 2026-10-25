@@ -82,6 +82,11 @@ export const DashboardPage: React.FC<{
   const totalEdge = dashboardEdgeDevices.length;
   const onlineEdge = dashboardEdgeDevices.filter((d) => d.status === 'ONLINE').length;
 
+  const healthyServices = services.filter((s) => s.status === 'HEALTHY').length;
+  const degradedServices = services.length - healthyServices;
+  const allServicesHealthy = services.length > 0 && degradedServices === 0;
+  const hasServiceData = services.length > 0;
+
   const openAlerts = securityAlerts.filter((a) => a.status === 'OPEN');
   const criticalAlertsCount = openAlerts.filter((a) => a.severity === 'CRITICAL').length;
   const highAlertsCount = openAlerts.filter((a) => a.severity === 'HIGH').length;
@@ -162,12 +167,22 @@ export const DashboardPage: React.FC<{
 
         <StatCard
           title={t('Platform Service Health')}
-          value={services.length ? `${services.filter((s) => s.status === 'HEALTHY').length}/${services.length}` : '—'}
+          value={hasServiceData ? `${healthyServices}/${services.length}` : '—'}
           subtitle={t('Core infrastructure services online')}
-          change={t('● Live infra health')}
-          changeType="positive"
+          change={
+            !hasServiceData
+              ? t('Health data unavailable')
+              : allServicesHealthy
+                ? t('● All services healthy')
+                : t('{{count}} service(s) degraded or down', { count: degradedServices })
+          }
+          changeType={!hasServiceData ? 'neutral' : allServicesHealthy ? 'positive' : 'negative'}
           icon={ShieldCheck}
-          badge={<Badge variant="emerald" dot>{t('HEALTHY')}</Badge>}
+          badge={
+            <Badge variant={!hasServiceData ? 'slate' : allServicesHealthy ? 'emerald' : 'red'} dot>
+              {!hasServiceData ? t('UNKNOWN') : allServicesHealthy ? t('HEALTHY') : t('DEGRADED')}
+            </Badge>
+          }
           onClick={() => navigateTo('monitoring')}
         />
       </div>
@@ -197,7 +212,11 @@ export const DashboardPage: React.FC<{
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        srv.status === 'HEALTHY' ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'
+                      }`}
+                    />
                     <span className="text-xs font-bold text-slate-100">{srv.name}</span>
                   </div>
                   <p className="text-[11px] text-slate-400">{srv.details}</p>
@@ -400,7 +419,8 @@ export const DashboardPage: React.FC<{
                   <div>
                     <span className="font-bold text-slate-200 block">{log.action}</span>
                     <span className="text-[11px] text-slate-400">
-                      {t('by')} {log.actorName} ({log.actorEmail})
+                      {t('by')} {log.actorName}
+                      {log.actorEmail && log.actorEmail !== log.actorName ? ` (${log.actorEmail})` : ''}
                     </span>
                   </div>
                 </div>

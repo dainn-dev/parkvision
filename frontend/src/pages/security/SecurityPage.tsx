@@ -26,7 +26,8 @@ import {
   StatCard,
   Modal,
   Input,
-  Select
+  Select,
+  Pagination
 } from '../../components/ui';
 import { useTranslation } from 'react-i18next';
 
@@ -47,12 +48,18 @@ export const SecurityPage: React.FC = () => {
     issuedSecret,
     clearIssuedSecret,
     tenants,
+    admins,
+    resetAdminMfa,
+    openMfaModal,
+    currentUser,
     securitySubTab,
     setSecuritySubTab,
     addToast
   } = usePlatform();
 
   const [selectedAlertModal, setSelectedAlertModal] = useState<any>(null);
+  const [sessionPage, setSessionPage] = useState(1);
+  const sessionPageSize = 10;
   const [isCreateCredOpen, setIsCreateCredOpen] = useState(false);
   const [credName, setCredName] = useState('');
   const [credTenantId, setCredTenantId] = useState('');
@@ -93,6 +100,7 @@ export const SecurityPage: React.FC = () => {
         variant="pills"
         tabs={[
           { id: 'overview', label: t('Security Overview'), icon: ShieldCheck },
+          { id: 'mfa', label: t('MFA Policies'), icon: KeyRound, badge: admins.filter((a) => !a.mfaEnabled).length },
           { id: 'alerts', label: t('Security Alerts'), icon: ShieldAlert, badge: openAlerts.length },
           { id: 'logins', label: t('Login Activity'), icon: Activity, badge: loginEvents.length },
           { id: 'sessions', label: t('Active Sessions'), icon: Key, badge: sessions.length },
@@ -122,7 +130,13 @@ export const SecurityPage: React.FC = () => {
               title={t('Failed Logins (24h)')}
               value={loginEvents.filter((l) => l.result === 'FAILED' || l.result === 'BLOCKED').length}
               subtitle={t('Brute-force attempts rate')}
-              badge={<Badge variant="red">{t('48 Blocked')}</Badge>}
+              badge={
+                <Badge variant="red">
+                  {t('{{count}} Blocked', {
+                    count: loginEvents.filter((l) => l.result === 'BLOCKED').length,
+                  })}
+                </Badge>
+              }
             />
             <StatCard
               title={t('Active Sessions')}
@@ -171,11 +185,138 @@ export const SecurityPage: React.FC = () => {
         </div>
       )}
 
-      {/* 2. SECURITY ALERTS TAB */}
+      {/* 2. MFA POLICIES TAB */}
+      {securitySubTab === 'mfa' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatCard
+              title={t('Enrolled Administrators')}
+              value={`${admins.filter((a) => a.mfaEnabled).length}/${admins.length}`}
+              subtitle={t('Platform admins with TOTP enrolled')}
+              badge={
+                <Badge variant={admins.every((a) => a.mfaEnabled) ? 'emerald' : 'amber'} dot>
+                  {admins.every((a) => a.mfaEnabled) ? t('ENFORCED') : t('PENDING')}
+                </Badge>
+              }
+            />
+            <StatCard
+              title={t('Unenrolled Administrators')}
+              value={admins.filter((a) => !a.mfaEnabled).length}
+              subtitle={t('Accounts still able to sign in with password only')}
+              badge={<Badge variant={admins.some((a) => !a.mfaEnabled) ? 'amber' : 'emerald'}>{t('MFA')}</Badge>}
+            />
+            <StatCard
+              title={t('Your Account MFA')}
+              value={currentUser.mfaEnabled ? t('Enabled') : t('Disabled')}
+              subtitle={currentUser.email || t('Signed-in platform account')}
+              badge={<Badge variant={currentUser.mfaEnabled ? 'emerald' : 'red'} dot>{currentUser.mfaEnabled ? t('SECURE') : t('AT RISK')}</Badge>}
+            />
+          </div>
+
+          <Card className="overflow-hidden">
+            <CardHeader
+              title={t('Multi-Factor Authentication Enrollment')}
+              subtitle={t('TOTP state per platform administrator. Resetting a secret revokes their sessions and forces re-enrollment.')}
+              action={
+                !currentUser.mfaEnabled ? (
+                  <Button variant="primary" size="sm" icon={KeyRound} onClick={() => openMfaModal('enroll')}>
+                    {t('Enroll My Account')}
+                  </Button>
+                ) : undefined
+              }
+            />
+            {admins.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-500">{t('No platform administrators found.')}</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+                    <tr>
+                      <th className="py-3.5 px-4">{t('Administrator')}</th>
+                      <th className="py-3.5 px-4">{t('Role')}</th>
+                      <th className="py-3.5 px-4">{t('MFA State')}</th>
+                      <th className="py-3.5 px-4">{t('Last Login')}</th>
+                      <th className="py-3.5 px-4 text-right">{t('Actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/80 text-slate-200">
+                    {admins.map((admin) => (
+                      <tr key={admin.id} className="hover:bg-slate-800/50 transition-colors">
+                        <td className="py-3.5 px-4">
+                          <span className="font-bold text-slate-100 block">{admin.name}</span>
+                          <span className="text-[11px] text-slate-400">{admin.email}</span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <Badge variant="indigo" size="sm">{admin.role}</Badge>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <Badge variant={admin.mfaEnabled ? 'emerald' : 'amber'} dot>
+                            {admin.mfaEnabled ? t('ENROLLED') : t('NOT ENROLLED')}
+                          </Badge>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-slate-400">
+                          {admin.lastLoginAt && admin.lastLoginAt !== 'Never'
+                            ? new Date(admin.lastLoginAt).toLocaleString()
+                            : t('Never')}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!admin.mfaEnabled}
+                            onClick={() => {
+                              if (window.confirm(t('Reset the MFA secret for {{name}}? All their sessions will be revoked.', { name: admin.name }))) {
+                                resetAdminMfa(admin.id);
+                              }
+                            }}
+                          >
+                            {t('Reset MFA')}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <CardHeader title={t('Enforcement Policy')} subtitle={t('Current platform authentication baseline')} />
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300">
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                <span>{t('TOTP required for platform administrators')}</span>
+                <Badge variant={admins.every((a) => a.mfaEnabled) ? 'emerald' : 'amber'} size="sm">
+                  {admins.every((a) => a.mfaEnabled) ? t('YES') : t('PARTIAL')}
+                </Badge>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                <span>{t('MFA-verified active sessions')}</span>
+                <span className="font-mono font-bold text-emerald-400">
+                  {sessions.filter((s) => s.mfaVerified).length}/{sessions.length}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                <span>{t('Recovery codes issued on enrollment')}</span>
+                <Badge variant="indigo" size="sm">{t('10 CODES')}</Badge>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                <span>{t('Session revocation on MFA reset')}</span>
+                <Badge variant="emerald" size="sm">{t('ENABLED')}</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 3. SECURITY ALERTS TAB */}
       {securitySubTab === 'alerts' && (
         <Card className="p-5 space-y-4">
           <CardHeader title={t('Detected Security Threat Alerts')} subtitle={t('Automated rate limiting and pattern anomaly detections')} />
           <div className="space-y-3">
+            {securityAlerts.length === 0 && (
+              <div className="p-8 text-center text-xs text-slate-500">{t('No security alerts detected.')}</div>
+            )}
             {securityAlerts.map((alert) => (
               <div key={alert.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
@@ -226,6 +367,11 @@ export const SecurityPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80 text-slate-200">
+                {loginEvents.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-slate-500">{t('No login activity recorded.')}</td>
+                  </tr>
+                )}
                 {loginEvents.map((l) => (
                   <tr key={l.id} className="hover:bg-slate-800/50 transition-colors">
                     <td className="py-3.5 px-4 font-mono text-slate-400">{new Date(l.timestamp).toLocaleString()}</td>
@@ -263,7 +409,14 @@ export const SecurityPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80 text-slate-200">
-                {sessions.map((s) => (
+                {sessions.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-slate-500">{t('No active sessions.')}</td>
+                  </tr>
+                )}
+                {sessions
+                  .slice((sessionPage - 1) * sessionPageSize, sessionPage * sessionPageSize)
+                  .map((s) => (
                   <tr key={s.id} className="hover:bg-slate-800/50 transition-colors">
                     <td className="py-3.5 px-4">
                       <span className="font-bold text-white block">{s.userName}</span>
@@ -282,7 +435,11 @@ export const SecurityPage: React.FC = () => {
                         variant="outline"
                         size="sm"
                         className="text-red-400 hover:bg-red-950/50 hover:border-red-800"
-                        onClick={() => revokeSession(s.id)}
+                        onClick={() => {
+                          if (window.confirm(t('Revoke the session for {{user}}? They will be signed out immediately.', { user: s.userEmail || s.userName }))) {
+                            revokeSession(s.id);
+                          }
+                        }}
                       >
                         {t('Revoke')}
                       </Button>
@@ -292,6 +449,13 @@ export const SecurityPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+          <Pagination
+            currentPage={sessionPage}
+            totalPages={Math.max(1, Math.ceil(sessions.length / sessionPageSize))}
+            onPageChange={setSessionPage}
+            totalItems={sessions.length}
+            pageSize={sessionPageSize}
+          />
         </Card>
       )}
 
@@ -317,6 +481,11 @@ export const SecurityPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80 text-slate-200">
+                {credentials.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-slate-500">{t('No API credentials issued.')}</td>
+                  </tr>
+                )}
                 {credentials.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-800/50 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-white">{c.name}</td>
@@ -331,19 +500,35 @@ export const SecurityPage: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4 text-slate-400 font-mono">{c.lastUsedAt}</td>
                     <td className="py-3.5 px-4 text-right">
-                      <div className="inline-flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => rotateCredential(c.id)}>
-                          {t('Rotate Secret')}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-400"
-                          onClick={() => revokeCredential(c.id)}
-                        >
-                          {t('Revoke')}
-                        </Button>
-                      </div>
+                      {c.status === 'REVOKED' ? (
+                        <span className="text-[11px] text-slate-500">{t('No actions — credential revoked')}</span>
+                      ) : (
+                        <div className="inline-flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (window.confirm(t('Rotate the secret for {{name}}? The current key stops working immediately.', { name: c.name }))) {
+                                rotateCredential(c.id);
+                              }
+                            }}
+                          >
+                            {t('Rotate Secret')}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-400"
+                            onClick={() => {
+                              if (window.confirm(t('Revoke {{name}}? Any device using this key will lose access.', { name: c.name }))) {
+                                revokeCredential(c.id);
+                              }
+                            }}
+                          >
+                            {t('Revoke')}
+                          </Button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

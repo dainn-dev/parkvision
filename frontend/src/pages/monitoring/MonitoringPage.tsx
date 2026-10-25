@@ -70,6 +70,9 @@ export const MonitoringPage: React.FC = () => {
     note: ''
   });
 
+  const degradedServices = services.filter((s) => s.status !== 'HEALTHY').length;
+  const allSystemsNormal = services.length > 0 && degradedServices === 0;
+
   const fleetEdgeDevices = userType === 'platform_admin' ? platformFleet.edgeDevices : edgeDevices;
   const fleetCameras = userType === 'platform_admin' ? platformFleet.cameras : cameras;
   const fleetGates = userType === 'platform_admin' ? platformFleet.gates : gates;
@@ -91,8 +94,15 @@ export const MonitoringPage: React.FC = () => {
             <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
               <Activity className="w-5 h-5 text-sky-400" /> {t('Platform Infrastructure Observability')}
             </h2>
-            <Badge variant="emerald" dot>
-              {t('● ALL SYSTEMS NORMAL')}
+            <Badge
+              variant={services.length === 0 ? 'slate' : allSystemsNormal ? 'emerald' : 'red'}
+              dot
+            >
+              {services.length === 0
+                ? t('● HEALTH DATA UNAVAILABLE')
+                : allSystemsNormal
+                  ? t('● ALL SYSTEMS NORMAL')
+                  : t('● {{count}} SERVICE(S) DEGRADED', { count: degradedServices })}
             </Badge>
           </div>
           <p className="text-xs text-slate-400 mt-1">
@@ -123,10 +133,21 @@ export const MonitoringPage: React.FC = () => {
               <Card key={srv.id} className="p-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${
+                        srv.status === 'HEALTHY'
+                          ? 'bg-emerald-400 animate-pulse'
+                          : srv.status === 'DEGRADED'
+                            ? 'bg-amber-400'
+                            : 'bg-red-500'
+                      }`}
+                    />
                     <h3 className="text-sm font-bold text-white">{srv.name}</h3>
                   </div>
-                  <Badge variant="emerald" size="sm">
+                  <Badge
+                    variant={srv.status === 'HEALTHY' ? 'emerald' : srv.status === 'DEGRADED' ? 'amber' : 'red'}
+                    size="sm"
+                  >
                     {srv.status}
                   </Badge>
                 </div>
@@ -138,7 +159,9 @@ export const MonitoringPage: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-slate-500 block">{t('SLA Uptime:')}</span>
-                    <span className="font-mono font-bold text-emerald-400">{srv.uptimePercent}%</span>
+                    <span className="font-mono font-bold text-emerald-400">
+                      {srv.uptimePercent != null ? `${srv.uptimePercent}%` : '—'}
+                    </span>
                   </div>
                 </div>
 
@@ -201,7 +224,9 @@ export const MonitoringPage: React.FC = () => {
                     <td className="py-3.5 px-4 font-mono">{e.memoryPercent}%</td>
                     <td className="py-3.5 px-4 text-center font-mono font-semibold">{e.connectedCameras}</td>
                     <td className="py-3.5 px-4 text-center font-mono text-emerald-400 font-bold">{e.eventsPerMin}</td>
-                    <td className="py-3.5 px-4 text-slate-400 font-mono">{e.lastHeartbeat}</td>
+                    <td className="py-3.5 px-4 text-slate-400 font-mono">
+                      {e.lastHeartbeat ? new Date(e.lastHeartbeat).toLocaleString() : t('Never')}
+                    </td>
                     <td className="py-3.5 px-4 text-right">
                       {userType === 'platform_admin' && (
                         <Button variant="outline" size="sm" onClick={() => rebootEdge(e.id)}>
@@ -310,6 +335,12 @@ export const MonitoringPage: React.FC = () => {
             }
           />
           <div className="space-y-3">
+            {incidents.length === 0 && (
+              <div className="p-8 text-center space-y-2">
+                <CheckCircle2 className="w-6 h-6 mx-auto text-emerald-500" />
+                <p className="text-xs text-slate-500">{t('No operational incidents recorded.')}</p>
+              </div>
+            )}
             {incidents.map((inc) => (
               <div key={inc.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
