@@ -20,12 +20,14 @@ from app.models import (
     BackgroundJob,
     BarrierGate,
     BarrierIncident,
+    Camera,
     EdgeDevice,
     FeatureFlag,
     GateCommand,
     GateTelemetryLog,
     PlatformAdmin,
     PlatformSetting,
+    RegisteredVehicle,
     SecurityAlert,
     Tenant,
     TenantSite,
@@ -50,12 +52,15 @@ from app.schemas.resources import (
     PlatformAdminIn,
     PlatformAdminOut,
     PlatformAdminUpdateIn,
+    PlatformFleetCameraOut,
     PlatformSettingIn,
     PlatformSettingOut,
     SecurityAlertOut,
     SnapshotDevice,
     SnapshotGate,
     TelemetrySnapshotOut,
+    TenantAdministratorOut,
+    TenantStatisticsOut,
     TenantCreateIn,
     TenantOut,
     TenantStatusIn,
@@ -115,6 +120,95 @@ async def refund_topup(
     return payment
 
 
+# ---------- shared platform helpers ----------
+async def _resolve_platform_actor_email(db, actor_id: uuid.UUID) -> str | None:
+    """Resolve the authenticated platform-admin email for durable audit rows.
+
+    Email is intentionally not embedded in access-token claims, so callers
+    resolve it from the platform-admin table within their current transaction.
+    """
+    return (
+        await db.execute(select(PlatformAdmin.email).where(PlatformAdmin.id == actor_id))
+    ).scalar_one_or_none()
+
+
+async def _write_platform_audit(db, **kwargs) -> None:
+    """Write a platform action audit row with a resolved actor email."""
+    actor_id = kwargs.get("actor_id")
+    if kwargs.get("actor_email") is None and actor_id is not None:
+        kwargs["actor_email"] = await _resolve_platform_actor_email(db, actor_id)
+    await write_audit(db, **kwargs)
+
+
+async def _tenant_outs(db, rows: list[Tenant]) -> list[TenantOut]:
+    """Map tenant rows with real platform-wide resource counts in batched queries."""
+    if not rows:
+        return []
+    tenant_ids = [row.id for row in rows]
+
+    async def grouped_counts(model) -> dict[uuid.UUID, int]:
+        tenant_col = model.tenant_id
+        result = await db.execute(
+            select(tenant_col, func.count()).where(tenant_col.in_(tenant_ids)).group_by(tenant_col)
+        )
+        return {tenant_id: int(count) for tenant_id, count in result.all()}
+
+    user_counts = await grouped_counts(TenantUser)
+    vehicle_counts = await grouped_counts(RegisteredVehicle)
+    camera_counts = await grouped_counts(Camera)
+    gate_counts = await grouped_counts(BarrierGate)
+    device_counts = await grouped_counts(EdgeDevice)
+
+    admin_rows = (
+        await db.execute(
+            select(TenantUser).where(
+                TenantUser.tenant_id.in_(tenant_ids),
+                TenantUser.role.in_(("owner", "admin")),
+                TenantUser.status == "active",
+            ).order_by(TenantUser.created_at.asc())
+        )
+    ).scalars().all()
+    admins: dict[uuid.UUID, TenantUser] = {}
+    for user in admin_rows:
+        current = admins.get(user.tenant_id)
+        if current is None or (user.role == "owner" and current.role != "owner"):
+            admins[user.tenant_id] = user
+
+    # The tenant directory labels this column "24h Events"; access_events is
+    # partitioned by occurred_at, so keep the aggregation both bounded and exact.
+    recent_since = datetime.now(timezone.utc) - timedelta(hours=24)
+    event_rows = (
+        await db.execute(
+            select(AccessEvent.tenant_id, func.count())
+            .where(AccessEvent.tenant_id.in_(tenant_ids), AccessEvent.occurred_at >= recent_since)
+            .group_by(AccessEvent.tenant_id)
+        )
+    ).all()
+    event_counts = {tenant_id: int(count) for tenant_id, count in event_rows}
+
+    result: list[TenantOut] = []
+    for row in rows:
+        admin = admins.get(row.id)
+        data = TenantOut.model_validate(row).model_dump()
+        data["administrator"] = TenantAdministratorOut(
+            id=admin.id if admin else None,
+            name=admin.full_name if admin else "",
+            email=admin.email if admin else None,
+            phone=(admin.profile or {}).get("phone") if admin else None,
+        )
+        data["statistics"] = TenantStatisticsOut(
+            users_count=user_counts.get(row.id, 0),
+            vehicles_count=vehicle_counts.get(row.id, 0),
+            cameras_count=camera_counts.get(row.id, 0),
+            gates_count=gate_counts.get(row.id, 0),
+            edge_devices_count=device_counts.get(row.id, 0),
+            events_count=event_counts.get(row.id, 0),
+            storage_used_gb=float(row.storage_used_gb or 0),
+        )
+        result.append(TenantOut.model_validate(data))
+    return result
+
+
 # ---------- tenants ----------
 @router.get("/tenants", response_model=Page[TenantOut])
 async def list_tenants(
@@ -140,7 +234,8 @@ async def list_tenants(
             .scalars()
             .all()
         )
-    return paginate([TenantOut.model_validate(r) for r in rows], total, page, limit)
+        tenant_outs = await _tenant_outs(db, rows)
+    return paginate(tenant_outs, total, page, limit)
 
 
 @router.post("/tenants", response_model=TenantOut, status_code=201)
@@ -178,7 +273,7 @@ async def create_tenant(
                 await db.flush()
             except Exception:
                 raise conflict("A user with the owner email already exists") from None
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=tenant.id,
             actor_type=ActorType.PLATFORM_ADMIN,
@@ -189,16 +284,17 @@ async def create_tenant(
             resource_id=str(tenant.id),
             ip=request.client.host if request.client else None,
         )
-    return TenantOut.model_validate(tenant)
+        created_out = (await _tenant_outs(db, [tenant]))[0]
+    return created_out
 
 
 @router.get("/tenants/{tenant_id}", response_model=TenantOut)
 async def get_tenant(tenant_id: uuid.UUID) -> TenantOut:
     async with platform_session() as db:
         row = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalar_one_or_none()
-    if row is None:
-        raise not_found("tenant", tenant_id) from None
-    return TenantOut.model_validate(row)
+        if row is None:
+            raise not_found("tenant", tenant_id) from None
+        return (await _tenant_outs(db, [row]))[0]
 
 
 @router.patch("/tenants/{tenant_id}", response_model=TenantOut)
@@ -217,7 +313,7 @@ async def update_tenant(
         changes = body.model_dump(exclude_unset=True)
         for k, v in changes.items():
             setattr(row, k, v)
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=tenant_id,
             actor_type=ActorType.PLATFORM_ADMIN,
@@ -231,7 +327,8 @@ async def update_tenant(
         )
         await db.flush()
         await db.refresh(row)
-    return TenantOut.model_validate(row)
+        updated_out = (await _tenant_outs(db, [row]))[0]
+    return updated_out
 
 
 @router.patch("/tenants/{tenant_id}/status", response_model=TenantStatusOut)
@@ -265,7 +362,7 @@ async def update_tenant_status(
                 .values(revoked_at=datetime.now(timezone.utc))
             )
             revoked = res.rowcount or 0
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=tenant_id,
             actor_type=ActorType.PLATFORM_ADMIN,
@@ -333,7 +430,7 @@ async def create_admin(
             await db.flush()
         except Exception:
             raise conflict("An admin with this email already exists") from None
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=None,
             actor_type=ActorType.PLATFORM_ADMIN,
@@ -397,7 +494,7 @@ async def update_admin(
                 .values(revoked_at=datetime.now(timezone.utc))
             )
             action = "platform.admin.disabled"
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=None,
             actor_type=ActorType.PLATFORM_ADMIN,
@@ -449,7 +546,7 @@ async def reset_admin_mfa(
             ip=request.client.host if request.client else None,
             evidence={"details": "MFA secret revoked by platform admin"},
         )
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=None,
             actor_type=ActorType.PLATFORM_ADMIN,
@@ -480,6 +577,7 @@ async def put_setting(
     ),
 ) -> PlatformSettingOut:
     async with platform_session() as db:
+        actor_email = await _resolve_platform_actor_email(db, auth.user_id)
         row = (
             await db.execute(select(PlatformSetting).where(PlatformSetting.key == key))
         ).scalar_one_or_none()
@@ -491,12 +589,12 @@ async def put_setting(
         await db.flush()
         # onupdate expires updated_at post-flush; reload before the session closes.
         await db.refresh(row)
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=None,
             actor_type=ActorType.PLATFORM_ADMIN,
             actor_id=auth.user_id,
-            actor_email=None,
+            actor_email=actor_email,
             action="platform.setting.updated",
             resource_type="platform_setting",
             resource_id=key,
@@ -507,8 +605,17 @@ async def put_setting(
 @router.get("/feature-flags", response_model=list[FeatureFlagOut])
 async def list_flags() -> list[FeatureFlagOut]:
     async with platform_session() as db:
-        rows = (await db.execute(select(FeatureFlag))).scalars().all()
-    return [FeatureFlagOut.model_validate(r) for r in rows]
+        rows = (
+            await db.execute(
+                select(FeatureFlag, PlatformAdmin.email)
+                .outerjoin(PlatformAdmin, PlatformAdmin.id == FeatureFlag.updated_by_id)
+                .order_by(FeatureFlag.key)
+            )
+        ).all()
+    return [
+        FeatureFlagOut.model_validate(row).model_copy(update={"updated_by_email": email})
+        for row, email in rows
+    ]
 
 
 @router.put("/feature-flags/{key}", response_model=FeatureFlagOut)
@@ -520,6 +627,7 @@ async def put_flag(
     ),
 ) -> FeatureFlagOut:
     async with platform_session() as db:
+        actor_email = await _resolve_platform_actor_email(db, auth.user_id)
         row = (await db.execute(select(FeatureFlag).where(FeatureFlag.key == key))).scalar_one_or_none()
         if row is None:
             row = FeatureFlag(
@@ -527,26 +635,29 @@ async def put_flag(
                 description=body.description,
                 enabled=body.enabled,
                 tenant_overrides=body.tenant_overrides,
+                updated_by_id=auth.user_id,
             )
             db.add(row)
         else:
             row.description = body.description
             row.enabled = body.enabled
             row.tenant_overrides = body.tenant_overrides
+            row.updated_by_id = auth.user_id
         await db.flush()
         await db.refresh(row)
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=None,
             actor_type=ActorType.PLATFORM_ADMIN,
             actor_id=auth.user_id,
-            actor_email=None,
+            actor_email=actor_email,
             action="platform.flag.updated",
             resource_type="feature_flag",
             resource_id=key,
             details={"enabled": body.enabled},
         )
-    return FeatureFlagOut.model_validate(row)
+        updated_by_email = actor_email
+    return FeatureFlagOut.model_validate(row).model_copy(update={"updated_by_email": updated_by_email})
 
 
 # ---------- infrastructure & sessions ----------
@@ -586,7 +697,7 @@ async def revoke_any_session(
             .where(UserSession.id == session_id)
             .values(revoked_at=datetime.now(timezone.utc))
         )
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=None,
             actor_type=ActorType.PLATFORM_ADMIN,
@@ -663,7 +774,7 @@ async def export_platform_audit_logs(
             to_ts=body.to_ts.isoformat() if body.to_ts else None,
             action=body.action,
         )
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=None,
             actor_type=ActorType.PLATFORM_ADMIN,
@@ -731,7 +842,7 @@ async def _set_alert_status(
         else:
             alert.resolved_by = auth.user_id
             alert.resolved_at = now
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=None,
             actor_type=ActorType.PLATFORM_ADMIN,
@@ -902,6 +1013,7 @@ async def telemetry_snapshot() -> TelemetrySnapshotOut:
                 select(
                     BarrierGate.id,
                     BarrierGate.tenant_id,
+                    Tenant.name.label("tenant_name"),
                     BarrierGate.site_id,
                     BarrierGate.name,
                     TenantSite.name.label("site_name"),
@@ -911,6 +1023,7 @@ async def telemetry_snapshot() -> TelemetrySnapshotOut:
                     latest.c.recorded_at,
                 )
                 .join(TenantSite, TenantSite.id == BarrierGate.site_id)
+                .join(Tenant, Tenant.id == BarrierGate.tenant_id)
                 .outerjoin(latest, latest.c.gate_id == BarrierGate.id)
                 .order_by(BarrierGate.name)
             )
@@ -920,11 +1033,36 @@ async def telemetry_snapshot() -> TelemetrySnapshotOut:
                 select(
                     EdgeDevice.id,
                     EdgeDevice.tenant_id,
+                    Tenant.name.label("tenant_name"),
                     EdgeDevice.site_id,
+                    TenantSite.name.label("site_name"),
                     EdgeDevice.name,
                     EdgeDevice.status,
                     EdgeDevice.last_heartbeat_at,
-                ).order_by(EdgeDevice.name)
+                )
+                .join(Tenant, Tenant.id == EdgeDevice.tenant_id)
+                .join(TenantSite, TenantSite.id == EdgeDevice.site_id)
+                .order_by(Tenant.name, EdgeDevice.name)
+            )
+        ).all()
+        camera_rows = (
+            await db.execute(
+                select(
+                    Camera.id,
+                    Camera.tenant_id,
+                    Tenant.name.label("tenant_name"),
+                    Camera.site_id,
+                    TenantSite.name.label("site_name"),
+                    Camera.lane_id,
+                    Camera.edge_device_id,
+                    Camera.name,
+                    Camera.code,
+                    Camera.purpose,
+                    Camera.status,
+                )
+                .join(Tenant, Tenant.id == Camera.tenant_id)
+                .join(TenantSite, TenantSite.id == Camera.site_id)
+                .order_by(Tenant.name, Camera.name)
             )
         ).all()
     return TelemetrySnapshotOut(
@@ -933,6 +1071,7 @@ async def telemetry_snapshot() -> TelemetrySnapshotOut:
             SnapshotGate(
                 gate_id=r.id,
                 tenant_id=r.tenant_id,
+                tenant_name=r.tenant_name,
                 site_id=r.site_id,
                 gate_name=r.name,
                 site_name=r.site_name,
@@ -947,12 +1086,30 @@ async def telemetry_snapshot() -> TelemetrySnapshotOut:
             SnapshotDevice(
                 device_id=r.id,
                 tenant_id=r.tenant_id,
+                tenant_name=r.tenant_name,
                 site_id=r.site_id,
+                site_name=r.site_name,
                 name=r.name,
                 status=r.status,
                 last_heartbeat_at=r.last_heartbeat_at,
             )
             for r in device_rows
+        ],
+        cameras=[
+            PlatformFleetCameraOut(
+                camera_id=r.id,
+                tenant_id=r.tenant_id,
+                tenant_name=r.tenant_name,
+                site_id=r.site_id,
+                site_name=r.site_name,
+                lane_id=r.lane_id,
+                edge_device_id=r.edge_device_id,
+                name=r.name,
+                code=r.code,
+                purpose=r.purpose,
+                status=r.status,
+            )
+            for r in camera_rows
         ],
     )
 
@@ -988,7 +1145,7 @@ async def reboot_edge_device(
                 payload={"target": "edge_device", "deviceId": str(device_id)},
             )
             command_ids.append(row.id)
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=device.tenant_id,
             actor_type=auth.user_type,
@@ -1074,7 +1231,7 @@ async def impersonate_tenant(
         kwargs = _cookie_kwargs()
         response.set_cookie(settings.access_cookie_name, token, max_age=ttl, **kwargs)
         response.set_cookie(settings.csrf_cookie_name, csrf, **{**kwargs, "httponly": False})
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=tenant_id,
             actor_type=auth.user_type,
@@ -1163,7 +1320,7 @@ async def create_credential(
         )
         db.add(c)
         await db.flush()
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=body.tenant_id,
             actor_type=auth.user_type,
@@ -1200,7 +1357,7 @@ async def rotate_credential(
         c.key_prefix = prefix
         c.key_hash = hashed
         c.rotated_from = auth.user_id
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=c.tenant_id,
             actor_type=auth.user_type,
@@ -1236,7 +1393,7 @@ async def revoke_credential(
         c.revoked_at = datetime.now(timezone.utc)
         c.previous_key_hash = None
         c.previous_grace_until = None
-        await write_audit(
+        await _write_platform_audit(
             db,
             tenant_id=c.tenant_id,
             actor_type=auth.user_type,

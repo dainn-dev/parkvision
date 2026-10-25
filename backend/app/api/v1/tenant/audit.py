@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import ADMIN_ROLES, csrf_protect, require_roles
+from app.api.deps import ADMIN_ROLES, csrf_protect, require_roles, require_tenant_audit_reader
 from app.api.v1.tenant import TenantCtx, get_tenant_db, tenant_ctx
 from app.models import AuditLog, BackgroundJob
 from app.schemas.common import Page, paginate
@@ -32,7 +32,7 @@ async def list_audit_logs(
     to_ts: datetime | None = None,
     ctx: TenantCtx = Depends(tenant_ctx),
     db: AsyncSession = Depends(get_tenant_db),
-    _: None = Depends(require_roles(*ADMIN_ROLES)),
+    _: None = Depends(require_tenant_audit_reader),
 ) -> Page[AuditLogOut]:
     cond = [AuditLog.tenant_id == ctx.tenant_id]
     if action:

@@ -11,6 +11,7 @@ export type TenantOut = S['TenantOut'];
 export type UserOut = S['UserOut'];
 export type PlatformAdminOut = S['PlatformAdminOut'];
 export type FeatureFlagOut = S['FeatureFlagOut'];
+export type TelemetrySnapshotOut = S['TelemetrySnapshotOut'];
 export type PlatformSettingOut = S['PlatformSettingOut'];
 // SiteOut predates the driver listing profile in the generated schema —
 // intersect the field until the schema is regenerated.

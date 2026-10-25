@@ -39,6 +39,7 @@ export const MonitoringPage: React.FC = () => {
     cameras,
     gates,
     incidents,
+    platformFleet,
     acknowledgeIncident,
     resolveIncident,
     bulkResolveIncidents,
@@ -69,6 +70,9 @@ export const MonitoringPage: React.FC = () => {
     note: ''
   });
 
+  const fleetEdgeDevices = userType === 'platform_admin' ? platformFleet.edgeDevices : edgeDevices;
+  const fleetCameras = userType === 'platform_admin' ? platformFleet.cameras : cameras;
+  const fleetGates = userType === 'platform_admin' ? platformFleet.gates : gates;
   const openIncidents = incidents.filter((i) => i.status !== 'RESOLVED');
 
   const handleConfirmResolve = () => {
@@ -103,8 +107,8 @@ export const MonitoringPage: React.FC = () => {
         tabs={[
           { id: 'gates', label: t('Barrier Map & Station Locations (D3.js)'), icon: DoorOpen, badge: 'Live' },
           { id: 'overview', label: t('System Health Services'), icon: Server },
-          { id: 'edge', label: t('Edge Devices Fleet'), icon: Radio, badge: edgeDevices.length },
-          { id: 'cameras', label: t('Cameras & Streams'), icon: Video, badge: cameras.length },
+          { id: 'edge', label: t('Edge Devices Fleet'), icon: Radio, badge: fleetEdgeDevices.length },
+          { id: 'cameras', label: t('Cameras & Streams'), icon: Video, badge: fleetCameras.length },
           { id: 'incidents', label: t('Operational Incidents'), icon: ShieldAlert, badge: openIncidents.length }
         ]}
         activeTab={monitoringSubTab}
@@ -167,7 +171,9 @@ export const MonitoringPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80 text-slate-200">
-                {edgeDevices.map((e) => (
+                {fleetEdgeDevices.length === 0 ? (
+                  <tr><td colSpan={9} className="py-8 text-center text-slate-500">{t('No edge devices registered.')}</td></tr>
+                ) : fleetEdgeDevices.map((e) => (
                   <tr key={e.id} className="hover:bg-slate-800/50 transition-colors">
                     <td className="py-3.5 px-4 font-mono font-bold text-indigo-300">
                       {e.deviceName}
@@ -219,7 +225,7 @@ export const MonitoringPage: React.FC = () => {
             title={t('Registered ANPR Cameras')}
             subtitle={t('Camera endpoints and lane assignments. Live stream health requires edge telemetry (not yet available).')}
           />
-          {cameras.length === 0 ? (
+          {fleetCameras.length === 0 ? (
             <div className="p-8 text-center space-y-2">
               <Video className="w-6 h-6 mx-auto text-slate-500" />
               <p className="text-xs text-slate-500">
@@ -240,7 +246,7 @@ export const MonitoringPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/80 text-slate-200">
-                  {cameras.map((c) => (
+                  {fleetCameras.map((c) => (
                     <tr key={c.id} className="hover:bg-slate-800/50 transition-colors">
                       <td className="py-3.5 px-4">
                         <span className="font-semibold text-slate-100 block">{c.cameraName}</span>
@@ -250,7 +256,7 @@ export const MonitoringPage: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4">{c.tenantName}</td>
                       <td className="py-3.5 px-4 text-slate-400">
-                        {tenantSites.find((s) => s.id === c.siteId)?.name ?? '—'}
+                        {c.siteName ?? tenantSites.find((s) => s.id === c.siteId)?.name ?? '—'}
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <Badge

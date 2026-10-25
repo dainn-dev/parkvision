@@ -1320,6 +1320,10 @@ export interface components {
             enabled: boolean;
             /** Tenantoverrides */
             tenantOverrides: Record<string, never>;
+            /** Updatedat */
+            updatedAt: string;
+            /** Updatedbyemail */
+            updatedByEmail?: string | null;
         };
         /** GateIn */
         GateIn: {
@@ -2231,6 +2235,17 @@ export interface components {
             /** Payload */
             payload: Record<string, never>;
         };
+        /** TenantAdministratorOut */
+        TenantAdministratorOut: {
+            /** Id */
+            id?: string | null;
+            /** Name */
+            name?: string;
+            /** Email */
+            email?: string | null;
+            /** Phone */
+            phone?: string | null;
+        };
         /** TenantCreateIn */
         TenantCreateIn: {
             /** Name */
@@ -2305,6 +2320,27 @@ export interface components {
              * Format: date-time
              */
             updatedAt: string;
+            administrator?: components["schemas"]["TenantAdministratorOut"];
+            statistics?: components["schemas"]["TenantStatisticsOut"];
+            /** Lastactivityat */
+            lastActivityAt?: string | null;
+        };
+        /** TenantStatisticsOut */
+        TenantStatisticsOut: {
+            /** Userscount */
+            usersCount?: number;
+            /** Vehiclescount */
+            vehiclesCount?: number;
+            /** Camerascount */
+            camerasCount?: number;
+            /** Gatescount */
+            gatesCount?: number;
+            /** Edgedevicescount */
+            edgeDevicesCount?: number;
+            /** Eventscount */
+            eventsCount?: number;
+            /** Storageusedgb */
+            storageUsedGb?: number;
         };
         /** TenantStatusIn */
         TenantStatusIn: {
@@ -2683,6 +2719,8 @@ export interface components {
             gateId: string;
             /** Tenantid */
             tenantId: string;
+            /** Tenantname */
+            tenantName: string;
             /** Siteid */
             siteId: string;
             /** Gatename */
@@ -2704,12 +2742,24 @@ export interface components {
             deviceId: string;
             /** Tenantid */
             tenantId: string;
+            /** Tenantname */
+            tenantName: string;
             /** Siteid */
             siteId: string | null;
+            /** Sitename */
+            siteName: string;
             /** Name */
             name: string;
             /** Status */
             status: string;
+            /** Cpuusagepct */
+            cpuUsagePct?: number;
+            /** Ramusagepct */
+            ramUsagePct?: number;
+            /** Storageusagepct */
+            storageUsagePct?: number;
+            /** Firmwareversion */
+            firmwareVersion?: string | null;
             /** Lastheartbeatat */
             lastHeartbeatAt?: string | null;
         };
@@ -2721,6 +2771,22 @@ export interface components {
             gates: components["schemas"]["SnapshotGate"][];
             /** Devices */
             devices: components["schemas"]["SnapshotDevice"][];
+            /** Cameras */
+            cameras: components["schemas"]["PlatformFleetCameraOut"][];
+        };
+        /** PlatformFleetCameraOut */
+        PlatformFleetCameraOut: {
+            cameraId: string;
+            tenantId: string;
+            tenantName: string;
+            siteId: string;
+            siteName: string;
+            laneId: string | null;
+            edgeDeviceId: string | null;
+            name: string;
+            code: string | null;
+            purpose: string;
+            status: string;
         };
         /** EdgeRebootOut */
         EdgeRebootOut: {

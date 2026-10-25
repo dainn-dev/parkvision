@@ -4,7 +4,7 @@ import uuid
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -171,3 +171,106 @@ async def test_api_credentials_table_and_sla_doc(migrated):
         ).scalar_one_or_none()
         assert sla == "sla"
     await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_platform_tenant_list_and_detail_include_real_stats(client, admin_engine, tenant):
+    """Platform tenant DTOs report actual resource counts and active admin."""
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    from app.models import Camera, EdgeDevice, RegisteredVehicle, Tenant, TenantSite
+
+    tid = tenant["tenant_id"]
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        site = TenantSite(tenant_id=tid, name="Stats Site", code="STATS")
+        db.add(site)
+        await db.flush()
+        device = EdgeDevice(tenant_id=tid, site_id=site.id, name="Stats Edge", device_key=f"edge-{uuid.uuid4().hex}")
+        db.add(device)
+        db.add(Camera(tenant_id=tid, site_id=site.id, name="Stats Camera", stream_url="rtsp://camera.local/live", purpose="plate"))
+        db.add(RegisteredVehicle(tenant_id=tid, plate_number="STATS-001", plate_normalized="STATS001", owner_category="employee"))
+        from app.models import BarrierGate
+        db.add(BarrierGate(tenant_id=tid, site_id=site.id, name="Stats Gate", code="SG1"))
+        await db.commit()
+
+    email, password = await _platform_admin(admin_engine)
+    await login(client, email, password)
+    listing = await client.get("/api/v1/platform/tenants")
+    assert listing.status_code == 200, listing.text
+    item = next(row for row in listing.json()["data"] if row["id"] == str(tid))
+    detail = await client.get(f"/api/v1/platform/tenants/{tid}")
+    assert detail.status_code == 200, detail.text
+    assert item["statistics"]["usersCount"] == 1
+    assert item["statistics"]["vehiclesCount"] == 1
+    assert item["statistics"]["camerasCount"] == 1
+    assert item["statistics"]["gatesCount"] == 1
+    assert item["statistics"]["edgeDevicesCount"] == 1
+    assert item["administrator"]["email"] == tenant["email"]
+    assert item["statistics"]["eventsCount"] >= 0
+    assert detail.json()["statistics"] == item["statistics"]
+
+
+@pytest.mark.asyncio
+async def test_feature_flag_metadata_and_platform_actor_email(client, admin_engine):
+    """Feature flag API exposes real timestamp/updater and audit actor email."""
+    email, password = await _platform_admin(admin_engine)
+    await login(client, email, password)
+    key = f"qa-{uuid.uuid4().hex[:8]}"
+    res = await client.put(
+        f"/api/v1/platform/feature-flags/{key}",
+        json={"description": "QA flag", "enabled": True, "tenantOverrides": {}},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["updatedAt"]
+    assert body["updatedByEmail"] == email
+    logs = await client.get("/api/v1/platform/audit-logs?action=platform.flag.updated")
+    assert logs.status_code == 200, logs.text
+    row = next(r for r in logs.json()["data"] if r["resourceId"] == key)
+    assert row["actorEmail"] == email
+
+
+@pytest.mark.asyncio
+async def test_platform_setting_audit_contains_actor_email(client, admin_engine):
+    email, password = await _platform_admin(admin_engine)
+    await login(client, email, password)
+    key = f"qa-setting-{uuid.uuid4().hex[:8]}"
+    saved = await client.put(f"/api/v1/platform/settings/{key}", json={"value": {"enabled": True}})
+    assert saved.status_code == 200, saved.text
+    logs = await client.get("/api/v1/platform/audit-logs?action=platform.setting.updated")
+    assert logs.status_code == 200, logs.text
+    row = next(r for r in logs.json()["data"] if r["resourceId"] == key)
+    assert row["actorEmail"] == email
+
+
+@pytest.mark.asyncio
+async def test_platform_telemetry_snapshot_includes_cameras_devices_and_gates(
+    client, admin_engine, tenant
+):
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    from app.models import BarrierGate, Camera, EdgeDevice, Tenant, TenantSite
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        site = TenantSite(tenant_id=tenant["tenant_id"], name="Fleet Site", code="FLEET")
+        db.add(site)
+        await db.flush()
+        device = EdgeDevice(tenant_id=tenant["tenant_id"], site_id=site.id, name="Fleet Edge", device_key=f"edge-{uuid.uuid4().hex}")
+        db.add(device)
+        gate = BarrierGate(tenant_id=tenant["tenant_id"], site_id=site.id, edge_device_id=device.id, name="Fleet Gate")
+        camera = Camera(tenant_id=tenant["tenant_id"], site_id=site.id, edge_device_id=device.id, name="Fleet Camera", code="FC1", stream_url="rtsp://camera.local/live", purpose="plate")
+        db.add_all([gate, camera])
+        await db.commit()
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        tenant_name = (await db.execute(select(Tenant.name).where(Tenant.id == tenant["tenant_id"]))).scalar_one()
+    email, password = await _platform_admin(admin_engine)
+    await login(client, email, password)
+    res = await client.get("/api/v1/platform/monitoring/telemetry-snapshot")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert any(d["name"] == "Fleet Edge" and d["tenantName"] == tenant_name and d["siteName"] == "Fleet Site" for d in body["devices"])
+    assert any(g["gateName"] == "Fleet Gate" and g["tenantName"] == tenant_name for g in body["gates"])
+    assert any(c["name"] == "Fleet Camera" and c["tenantName"] == tenant_name and c["siteName"] == "Fleet Site" for c in body["cameras"])

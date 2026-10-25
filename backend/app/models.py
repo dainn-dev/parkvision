@@ -953,6 +953,9 @@ class FeatureFlag(TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     tenant_overrides: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    updated_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platform_admins.id", ondelete="SET NULL")
+    )
 
 
 class PlatformSetting(Base):

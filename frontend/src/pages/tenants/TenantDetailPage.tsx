@@ -38,7 +38,7 @@ export const TenantDetailPage: React.FC<{
   onBack: () => void;
 }> = ({ tenantId, onBack }) => {
   const { t } = useTranslation('platform');
-  const { tenants, setTenantStatus, auditLogs, impersonateTenant } = usePlatform();
+  const { tenants, admins, setTenantStatus, tenantAuditLogs: allTenantAuditLogs, impersonateTenant } = usePlatform();
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'usage' | 'activity'>('overview');
 
@@ -55,9 +55,23 @@ export const TenantDetailPage: React.FC<{
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [targetStatus, setTargetStatus] = useState<'ACTIVE' | 'SUSPENDED' | 'DISABLED'>('SUSPENDED');
 
-  const tenantAuditLogs = auditLogs.filter(
-    (a) => a.tenantName === tenant.name || a.resourceId === tenant.id
-  );
+  // `tenantAuditLogs` is already fetched through the tenant-scoped endpoint;
+  // do not re-filter by resourceId (audit resource ids are usually not tenant ids).
+  const tenantAuditLogs = allTenantAuditLogs;
+
+  const storageUsedGb = tenant.statistics.storageUsedGb;
+  const storageQuotaGb = tenant.storageQuotaGb;
+  const storagePct = storageQuotaGb > 0 ? Math.min(100, (storageUsedGb / storageQuotaGb) * 100) : 0;
+
+  // Older audit rows have no actor email, only an actor UUID; resolve it to a
+  // readable name instead of printing the raw id.
+  const actorLabel = (log: (typeof tenantAuditLogs)[number]) => {
+    if (log.actorEmail) return log.actorEmail;
+    const tenantUser = tenantUsers.find((u) => u.id === log.actorName);
+    if (tenantUser) return tenantUser.fullName || tenantUser.email;
+    const platformAdmin = admins.find((a) => a.id === log.actorName);
+    return platformAdmin?.name || platformAdmin?.email || log.actorName;
+  };
 
   const handleApplyStatusChange = () => {
     setTenantStatus(tenant.id, targetStatus, statusReason);
@@ -170,7 +184,7 @@ export const TenantDetailPage: React.FC<{
         variant="underline"
         tabs={[
           { id: 'overview', label: t('Overview & Resources') },
-          { id: 'users', label: t('Enrolled Users'), badge: tenant.statistics.usersCount },
+          { id: 'users', label: t('Enrolled Users'), badge: tenantUsers.length },
           { id: 'usage', label: t('Usage & Capacity') },
           { id: 'activity', label: t('Audit Activity'), badge: tenantAuditLogs.length }
         ]}
@@ -292,12 +306,12 @@ export const TenantDetailPage: React.FC<{
               <div>
                 <div className="flex justify-between mb-1.5">
                   <span className="text-slate-300 font-semibold">{t('MinIO NVMe OCR Frame Storage')}</span>
-                  <span className="font-mono text-indigo-300 font-bold">{tenant.statistics.storageUsedGb} GB / 500 GB</span>
+                  <span className="font-mono text-indigo-300 font-bold">{storageUsedGb} GB / {storageQuotaGb} GB</span>
                 </div>
                 <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800">
                   <div
                     className="bg-indigo-600 h-full rounded-full transition-all"
-                    style={{ width: `${Math.min(100, (tenant.statistics.storageUsedGb / 500) * 100)}%` }}
+                    style={{ width: `${storagePct}%` }}
                   />
                 </div>
               </div>
@@ -339,7 +353,7 @@ export const TenantDetailPage: React.FC<{
                 <div key={log.id} className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
                   <div>
                     <span className="font-bold text-slate-200 block">{log.action}</span>
-                    <span className="text-slate-400">{t('by')} {log.actorName}</span>
+                    <span className="text-slate-400">{t('by')} {actorLabel(log)}</span>
                   </div>
                   <span className="text-[10px] text-slate-500 font-mono">
                     {new Date(log.timestamp).toLocaleString()}

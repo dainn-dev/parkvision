@@ -43,6 +43,7 @@ export const DashboardPage: React.FC<{
     edgeDevices,
     cameras,
     gates,
+    platformFleet,
     incidents,
     securityAlerts,
     auditLogs,
@@ -68,15 +69,18 @@ export const DashboardPage: React.FC<{
   const totalUsersCount = metrics?.usersTotal ?? tenants.reduce((acc, t) => acc + t.statistics.usersCount, 0);
   const totalEventsCount = metrics?.eventsToday ?? tenants.reduce((acc, t) => acc + t.statistics.eventsCount, 0);
 
-  const totalCameras = cameras.length;
-  const onlineCameras = cameras.filter((c) => c.status === 'ONLINE').length;
+  const dashboardCameras = userType === 'platform_admin' ? platformFleet.cameras : cameras;
+  const dashboardGates = userType === 'platform_admin' ? platformFleet.gates : gates;
+  const dashboardEdgeDevices = userType === 'platform_admin' ? platformFleet.edgeDevices : edgeDevices;
+  const totalCameras = dashboardCameras.length;
+  const onlineCameras = dashboardCameras.filter((c) => c.status === 'ONLINE').length;
   const offlineCameras = totalCameras - onlineCameras;
 
-  const totalGates = gates.length;
-  const onlineGates = gates.filter((g) => g.status === 'ONLINE').length;
+  const totalGates = dashboardGates.length;
+  const onlineGates = dashboardGates.filter((g) => g.status === 'ONLINE').length;
 
-  const totalEdge = edgeDevices.length;
-  const onlineEdge = edgeDevices.filter((d) => d.status === 'ONLINE').length;
+  const totalEdge = dashboardEdgeDevices.length;
+  const onlineEdge = dashboardEdgeDevices.filter((d) => d.status === 'ONLINE').length;
 
   const openAlerts = securityAlerts.filter((a) => a.status === 'OPEN');
   const criticalAlertsCount = openAlerts.filter((a) => a.severity === 'CRITICAL').length;

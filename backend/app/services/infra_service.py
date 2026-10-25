@@ -45,18 +45,21 @@ async def check_mqtt() -> dict[str, Any]:
 
 async def check_s3() -> dict[str, Any]:
     try:
-        ok = s3_health()
+        # boto3 is blocking; a slow/unreachable S3 endpoint would otherwise
+        # freeze the event loop and stall every concurrent request.
+        ok = await asyncio.to_thread(s3_health)
         return {"status": "up" if ok else "down"}
     except Exception as exc:
         return {"status": "down", "error": str(exc)}
 
 
 async def infra_status() -> dict[str, Any]:
-    checks = {
-        "postgres": await check_database(),
-        "redis": await check_redis(),
-        "mqtt": await check_mqtt(),
-        "s3": await check_s3(),
-    }
+    postgres, redis, mqtt, s3 = await asyncio.gather(
+        check_database(),
+        check_redis(),
+        check_mqtt(),
+        check_s3(),
+    )
+    checks = {"postgres": postgres, "redis": redis, "mqtt": mqtt, "s3": s3}
     status = "ok" if all(c.get("status") == "up" for c in checks.values()) else "degraded"
     return {"status": status, "checks": checks}

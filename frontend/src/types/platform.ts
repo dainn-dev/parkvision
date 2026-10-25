@@ -46,6 +46,7 @@ export interface Tenant {
   status: TenantStatus;
   administrator: TenantAdministrator;
   statistics: TenantStatistics;
+  storageQuotaGb: number;
   createdAt: string;
   lastActivityAt: string;
 }
@@ -177,6 +178,12 @@ export interface ServiceHealthItem {
   lastChecked: string;
 }
 
+export interface PlatformFleet {
+  edgeDevices: EdgeDeviceHealth[];
+  cameras: CameraHealth[];
+  gates: GateHealth[];
+}
+
 export interface EdgeDeviceHealth {
   id: string;
   deviceName: string;
@@ -199,6 +206,7 @@ export interface CameraHealth {
   tenantId: string;
   tenantName: string;
   siteId?: string;
+  siteName?: string;
   laneId?: string | null;
   edgeDeviceId: string;
   code?: string | null;

@@ -192,5 +192,24 @@ async def tenant_match(tenant_id: uuid.UUID, auth: AuthContext = Depends(get_aut
     return tenant_id
 
 
+async def require_tenant_audit_reader(
+    tenant_id: uuid.UUID, auth: AuthContext = Depends(get_auth_context)
+) -> AuthContext:
+    """Allow tenant owners/admins and platform admins to read this tenant's audit log.
+
+    This is deliberately separate from `require_roles`: the latter first calls
+    `require_tenant_user` and would reject platform admins before tenant_match's
+    documented platform-admin bypass could apply. No write endpoint uses this
+    dependency.
+    """
+    if auth.is_platform_admin:
+        return auth
+    if auth.user_type != ActorType.TENANT_USER or auth.tenant_id != tenant_id:
+        raise forbidden("Tenant mismatch") from None
+    if auth.role not in [str(role) for role in ADMIN_ROLES]:
+        raise forbidden("Insufficient role") from None
+    return auth
+
+
 WRITE_ROLES = (TenantUserRole.OWNER, TenantUserRole.ADMIN, TenantUserRole.OPERATOR)
 ADMIN_ROLES = (TenantUserRole.OWNER, TenantUserRole.ADMIN)

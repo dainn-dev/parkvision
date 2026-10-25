@@ -103,7 +103,7 @@ export const FeatureFlagsPage: React.FC = () => {
                 <p className="text-xs text-slate-400">{flag.description}</p>
 
                 <div className="text-[11px] text-slate-500 pt-1 font-mono">
-                  {t('Rollout:')}{' '}{flag.rolloutPercentage}% • {t('Updated by')} {flag.updatedBy} {t('at')} {new Date(flag.updatedAt).toLocaleString()}
+                  {t('Rollout:')}{' '}{flag.rolloutPercentage}% • {t('Updated by')} {flag.updatedBy || t('System')} {t('at')} {flag.updatedAt && !Number.isNaN(Date.parse(flag.updatedAt)) ? new Date(flag.updatedAt).toLocaleString() : t('Not recorded')}
                 </div>
               </div>
 

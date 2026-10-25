@@ -411,7 +411,7 @@ export const TenantDashboardPage: React.FC = () => {
               ✓ {tenantSummary.accessToday.total ? ((tenantSummary.accessToday.allowed / tenantSummary.accessToday.total) * 100).toFixed(1) : '0.0'}%
             </span>
             <span className="text-[#f85149] font-bold">
-              ✕ {((tenantSummary.accessToday.denied / tenantSummary.accessToday.total) * 100).toFixed(1)}%
+              ✕ {tenantSummary.accessToday.total ? ((tenantSummary.accessToday.denied / tenantSummary.accessToday.total) * 100).toFixed(1) : '0.0'}%
             </span>
           </div>
         </div>

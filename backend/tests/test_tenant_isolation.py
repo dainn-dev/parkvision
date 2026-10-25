@@ -75,6 +75,15 @@ async def test_platform_admin_scoped_to_target_tenant(client: AsyncClient, admin
         )
         await db.commit()
 
+    # Create a tenant audit row as the owner, then verify the platform admin
+    # can read that tenant's audit feed through the documented bypass.
+    await login(client, tenant["email"], tenant["password"])
+    await _make_site(client, tenant["tenant_id"], "Audited Garage")
+    client.cookies.clear()
+
     await login(client, email, "Admin!12345")
     res = await client.get(f"/api/v1/tenants/{tenant['tenant_id']}/sites")
     assert res.status_code == 200
+    audit = await client.get(f"/api/v1/tenants/{tenant['tenant_id']}/audit-logs")
+    assert audit.status_code == 200, audit.text
+    assert any(row["action"] == "site.created" for row in audit.json()["data"])

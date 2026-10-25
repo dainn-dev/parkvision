@@ -28,6 +28,23 @@ class LegalDocOut(CamelModel):
 
 
 # ---------- tenants ----------
+class TenantAdministratorOut(CamelModel):
+    id: uuid.UUID | None = None
+    name: str = ""
+    email: EmailStr | None = None
+    phone: str | None = None
+
+
+class TenantStatisticsOut(CamelModel):
+    users_count: int = 0
+    vehicles_count: int = 0
+    cameras_count: int = 0
+    gates_count: int = 0
+    edge_devices_count: int = 0
+    events_count: int = 0
+    storage_used_gb: float = 0
+
+
 class TenantOut(CamelModel):
     id: uuid.UUID
     name: str
@@ -45,6 +62,9 @@ class TenantOut(CamelModel):
     storage_used_gb: float
     created_at: datetime
     updated_at: datetime
+    administrator: TenantAdministratorOut = Field(default_factory=TenantAdministratorOut)
+    statistics: TenantStatisticsOut = Field(default_factory=TenantStatisticsOut)
+    last_activity_at: datetime | None = None
 
 
 class TenantUpdateIn(CamelModel):
@@ -113,6 +133,9 @@ class FeatureFlagOut(CamelModel):
     description: str | None
     enabled: bool
     tenant_overrides: dict[str, Any]
+    updated_at: datetime
+    updated_by_email: EmailStr | None = None
+
 
 
 class FeatureFlagIn(CamelModel):
@@ -1038,6 +1061,7 @@ class ThroughputChartOut(CamelModel):
 class SnapshotGate(CamelModel):
     gate_id: uuid.UUID
     tenant_id: uuid.UUID
+    tenant_name: str
     site_id: uuid.UUID
     gate_name: str
     site_name: str
@@ -1050,16 +1074,39 @@ class SnapshotGate(CamelModel):
 class SnapshotDevice(CamelModel):
     device_id: uuid.UUID
     tenant_id: uuid.UUID
+    tenant_name: str
     site_id: uuid.UUID | None
+    site_name: str
     name: str
     status: str
+    cpu_usage_pct: float = 0
+    ram_usage_pct: float = 0
+    storage_usage_pct: float = 0
+    firmware_version: str | None = None
     last_heartbeat_at: datetime | None = None
+
+
+class PlatformFleetCameraOut(CamelModel):
+    camera_id: uuid.UUID
+    tenant_id: uuid.UUID
+    tenant_name: str
+    site_id: uuid.UUID
+    site_name: str
+    lane_id: uuid.UUID | None
+    edge_device_id: uuid.UUID | None
+    name: str
+    code: str | None
+    purpose: str
+    status: str
 
 
 class TelemetrySnapshotOut(CamelModel):
     captured_at: datetime
     gates: list[SnapshotGate]
     devices: list[SnapshotDevice]
+    cameras: list[PlatformFleetCameraOut] = Field(default_factory=list)
+
+
 
 
 class EdgeRebootOut(CamelModel):

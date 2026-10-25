@@ -13,6 +13,7 @@ import {
   ServiceHealthItem,
   EdgeDeviceHealth,
   CameraHealth,
+  PlatformFleet,
   GateHealth,
   OperationalIncident,
   SecurityAlert,
@@ -78,6 +79,7 @@ import {
   mapMember,
   mapSecurityAlert,
   mapPlatformAdmin,
+  mapPlatformFleet,
   mapRegisteredVehicle,
   mapRule,
   mapSession,
@@ -183,6 +185,7 @@ interface PlatformContextType {
   settings: PlatformSettings;
   services: ServiceHealthItem[];
   edgeDevices: EdgeDeviceHealth[];
+  platformFleet: PlatformFleet;
   tenantDevices: TenantEdgeDevice[];
   tenantDevicesTotal: number;
   cameras: CameraHealth[];
@@ -192,6 +195,7 @@ interface PlatformContextType {
   loginEvents: LoginActivityEvent[];
   credentials: ApiCredential[];
   auditLogs: AuditLogItem[];
+  tenantAuditLogs: AuditLogItem[];
 
   toasts: ToastMessage[];
   addToast: (toast: Omit<ToastMessage, 'id'>) => void;
@@ -539,6 +543,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [settings, setSettings] = useState<PlatformSettings>(INITIAL_SETTINGS);
   const [services, setServices] = useState<ServiceHealthItem[]>([]);
   const [edgeDevices, setEdgeDevices] = useState<EdgeDeviceHealth[]>([]);
+  const [platformFleet, setPlatformFleet] = useState<PlatformFleet>({ edgeDevices: [], cameras: [], gates: [] });
   const [tenantDevices, setTenantDevices] = useState<TenantEdgeDevice[]>([]);
   const [tenantDevicesTotal, setTenantDevicesTotal] = useState<number>(0);
   // No camera/security-activity/credential APIs exist yet — start honest-empty instead of mock.
@@ -557,6 +562,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [issuedSecret, setIssuedSecret] = useState<{ name: string; key: string } | null>(null);
   const [impersonation, setImpersonation] = useState<{ tenantId: string; tenantName: string; expiresIn: number } | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
+  const [tenantAuditLogs, setTenantAuditLogs] = useState<AuditLogItem[]>([]);
 
   const [tenantLocation, setTenantLocation] = useState<TenantLocation>(INITIAL_TENANT_LOCATION);
   const [tenantSites, setTenantSites] = useState<TenantSite[]>([]);
@@ -579,50 +585,111 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   // ---------- Loaders ----------
   const loadPlatformData = useCallback(async () => {
-    try {
-      const [tenantsPage, adminsRows, sessionRows, flags, settingsRows, health, credentialRows, alertRows, loginRows] = await Promise.all([
-        platformApi.listTenants({ limit: 200 }),
-        platformApi.listAdmins(),
-        platformApi.listSessions({ activeOnly: true }).catch(() => []),
-        platformApi.listFlags(),
-        platformApi.getSettings().catch(() => []),
-        platformApi.infraHealth().catch(() => null),
-        platformApi.credentials().catch(() => []),
-        platformApi.securityAlerts({ limit: 200 }).catch(() => []),
-        platformApi.loginEvents(200).catch(() => []),
-      ]);
-      platformApi
-        .auditLogs({ limit: 100 })
-        .then((auditPage) => setAuditLogs(auditPage.data.map(mapAuditLog)))
-        .catch(() => setAuditLogs([]));
-      const mappedTenants = tenantsPage.data.map(mapTenant);
-      setTenants(mappedTenants);
-      const adminRows = adminsRows.map(mapPlatformAdmin);
-      setAdmins(adminRows);
+    // Every panel updates as soon as its own request resolves. A single
+    // Promise.all here kept the tenants list empty until the slowest endpoint
+    // (telemetry / sessions) finished, so the dashboard looked unloaded.
+    const tenantsPromise = platformApi
+      .listTenants({ limit: 200 })
+      .then((page) => {
+        const mapped = page.data.map(mapTenant);
+        setTenants(mapped);
+        return mapped;
+      })
+      .catch((e) => {
+        console.error('loadPlatformData: tenants failed', e);
+        toastErr('Failed to load platform data')(e);
+        return [];
+      });
+
+    const adminsPromise = platformApi
+      .listAdmins()
+      .then((rows) => {
+        const mapped = rows.map(mapPlatformAdmin);
+        setAdmins(mapped);
+        return mapped;
+      })
+      .catch((e) => {
+        console.error('loadPlatformData: admins failed', e);
+        return [];
+      });
+
+    const sessionsPromise = Promise.all([
+      adminsPromise,
+      platformApi.listSessions({ activeOnly: true }).catch(() => []),
+    ]).then(([admins, rows]) => {
       const lookup = (uid: string) => {
-        const a = adminRows.find((x) => x.id === uid);
+        const a = admins.find((x) => x.id === uid);
         return a ? { name: a.name, email: a.email } : undefined;
       };
-      setSessions(sessionRows.map((s) => mapSession(s, lookup)));
-      setFeatureFlags(flags.map(mapFeatureFlag));
+      setSessions(rows.map((s) => mapSession(s, lookup)));
+    });
+
+    const flagsPromise = platformApi
+      .listFlags()
+      .then((flags) => setFeatureFlags(flags.map(mapFeatureFlag)))
+      .catch((e) => console.error('loadPlatformData: feature flags failed', e));
+
+    const settingsPromise = platformApi
+      .getSettings()
+      .then((rows) => setSettings((prev) => settingsFromRows(rows, prev)))
+      .catch((e) => console.error('loadPlatformData: settings failed', e));
+
+    const healthPromise = platformApi
+      .infraHealth()
+      .then((health) => {
+        if (health) setServices(mapInfraHealth(health));
+      })
+      .catch((e) => console.error('loadPlatformData: infra health failed', e));
+
+    const credentialsPromise = Promise.all([
+      tenantsPromise,
+      platformApi.credentials().catch(() => []),
+    ]).then(([tenantList, rows]) => {
       setCredentials(
-        credentialRows.map((c) =>
-          mapApiCredential(c, mappedTenants.find((t) => t.id === c.tenantId)?.name)
-        )
+        rows.map((c) => mapApiCredential(c, tenantList.find((t) => t.id === c.tenantId)?.name))
       );
-      setSecurityAlerts(alertRows.map(mapSecurityAlert));
+    });
+
+    const alertsPromise = platformApi
+      .securityAlerts({ limit: 200 })
+      .then((rows) => setSecurityAlerts(rows.map(mapSecurityAlert)))
+      .catch((e) => console.error('loadPlatformData: security alerts failed', e));
+
+    const loginPromise = Promise.all([
+      tenantsPromise,
+      platformApi.loginEvents(200).catch(() => []),
+    ]).then(([tenantList, rows]) => {
       setLoginEvents(
-        loginRows.map((e) =>
-          mapLoginEvent(e, mappedTenants.find((t) => t.id === e.tenantId)?.name)
-        )
+        rows.map((e) => mapLoginEvent(e, tenantList.find((t) => t.id === e.tenantId)?.name))
       );
-      setSettings((prev) => settingsFromRows(settingsRows, prev));
-      if (health) setServices(mapInfraHealth(health));
-      setLastUpdatedTime(new Date().toLocaleTimeString());
-    } catch (e) {
-      console.error('loadPlatformData failed', e);
-      toastErr('Failed to load platform data')(e);
-    }
+    });
+
+    const fleetPromise = platformApi
+      .telemetrySnapshot()
+      .then((snapshot) => {
+        if (snapshot) setPlatformFleet(mapPlatformFleet(snapshot));
+      })
+      .catch((e) => console.error('loadPlatformData: telemetry failed', e));
+
+    const auditPromise = platformApi
+      .auditLogs({ limit: 100 })
+      .then((auditPage) => setAuditLogs(auditPage.data.map(mapAuditLog)))
+      .catch(() => setAuditLogs([]));
+
+    await Promise.allSettled([
+      tenantsPromise,
+      adminsPromise,
+      sessionsPromise,
+      flagsPromise,
+      settingsPromise,
+      healthPromise,
+      credentialsPromise,
+      alertsPromise,
+      loginPromise,
+      fleetPromise,
+      auditPromise,
+    ]);
+    setLastUpdatedTime(new Date().toLocaleTimeString());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -763,7 +830,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
           })
         )
       );
-      setAuditLogs(auditPage.data.map(mapAuditLog));
+      setTenantAuditLogs(auditPage.data.map(mapAuditLog));
       setUserAuditLogs(
         auditPage.data.filter((a) => /user|invite|member/i.test(a.action)).map(mapUserAuditLog)
       );
@@ -2252,6 +2319,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         settings,
         services,
         edgeDevices,
+        platformFleet,
         tenantDevices,
         tenantDevicesTotal,
         cameras,
@@ -2261,6 +2329,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         loginEvents,
         credentials,
         auditLogs,
+        tenantAuditLogs,
         toasts,
         addToast,
         removeToast,
