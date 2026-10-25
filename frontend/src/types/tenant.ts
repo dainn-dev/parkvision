@@ -114,6 +114,8 @@ export interface TenantSite {
   capacity?: number;
   currentOccupancy?: number;
   coordinates?: { lat: number; lng: number };
+  city?: string;
+  publicProfile?: SitePublicProfile;
   createdAt: string;
   description: string;
   managerName?: string;

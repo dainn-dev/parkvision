@@ -472,7 +472,7 @@ export const tenantApi = {
   vehicles: (t: string, p: { page?: number; limit?: number; tag?: string; status?: string; search?: string } = {}) =>
     api.get<Page<VehicleOut>>(T(t, `/vehicles${qs(p)}`)),
   vehicle: (t: string, id: string) => api.get<VehicleOut>(T(t, `/vehicles/${id}`)),
-  createVehicle: (t: string, body: { plateNumber: string; ownerName?: string; ownerContact?: string; vehicleType?: string; tag?: string; validFrom?: string; validTo?: string; notes?: string }) =>
+  createVehicle: (t: string, body: { plateNumber: string; ownerName?: string; ownerContact?: string; vehicleType?: string; brand?: string; model?: string; color?: string; tag?: string; validFrom?: string; validTo?: string; notes?: string }) =>
     api.post<VehicleOut>(T(t, '/vehicles'), body),
   updateVehicle: (t: string, id: string, body: Partial<{ plateNumber: string; ownerName: string; ownerContact: string; vehicleType: string; tag: string; validFrom: string; validTo: string; notes: string; status: string; memberUserId: string | null }>) =>
     api.patch<VehicleOut>(T(t, `/vehicles/${id}`), body),

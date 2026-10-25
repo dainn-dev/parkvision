@@ -702,12 +702,25 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         const oh = primarySite.operatingHours as Partial<OperatingHoursSchedule> | undefined;
         setTenantLocation((prev) => ({
           ...prev,
+          id: primarySite.id,
           name: primarySite.name,
+          code: primarySite.code ?? '',
           status: primarySite.status === 'active' ? 'ACTIVE' : 'INACTIVE',
           timezone: primarySite.timezone || prev.timezone,
+          latitude: primarySite.latitude ?? prev.latitude,
+          longitude: primarySite.longitude ?? prev.longitude,
+          phone: primarySite.contactPhone ?? '',
+          contactPerson: primarySite.managerName ?? '',
+          capacity: primarySite.capacity ?? prev.capacity,
+          currentOccupancy: primarySite.currentOccupancy ?? prev.currentOccupancy,
           address: {
             ...prev.address,
-            line1: primarySite.address ?? prev.address.line1
+            line1: primarySite.address ?? prev.address.line1,
+            city: primarySite.city ?? '',
+            // SiteOut carries no country; default it so the edit sheet's
+            // required-country validation reflects the product's main market
+            // instead of blocking every save on a field the backend lacks.
+            country: prev.address.country === '—' || !prev.address.country ? 'Vietnam' : prev.address.country,
           },
           publicProfile: primarySite.publicProfile ?? prev.publicProfile,
           ...(oh && (Array.isArray(oh.days) || oh.isOpen24_7 != null)
@@ -1380,11 +1393,18 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       tenantApi
         .updateSite(activeTenantId, site.id, {
           name: updatedData.name,
+          // address is line 1 only — city has its own column now
           address: typeof updatedData.address === 'string'
             ? updatedData.address
-            : [updatedData.address?.line1, updatedData.address?.city, updatedData.address?.country]
-                .filter(Boolean)
-                .join(', ') || undefined,
+            : updatedData.address?.line1 || undefined,
+          ...(updatedData.address && typeof updatedData.address !== 'string' && updatedData.address.city !== undefined
+            ? { city: updatedData.address.city }
+            : {}),
+          ...(updatedData.latitude !== undefined ? { latitude: updatedData.latitude } : {}),
+          ...(updatedData.longitude !== undefined ? { longitude: updatedData.longitude } : {}),
+          ...(updatedData.capacity !== undefined ? { capacity: updatedData.capacity } : {}),
+          ...(updatedData.phone !== undefined ? { contactPhone: updatedData.phone } : {}),
+          ...(updatedData.contactPerson !== undefined ? { managerName: updatedData.contactPerson } : {}),
           // public_profile is replaced wholesale on PATCH — send the
           // merged profile so unrelated fields aren't wiped.
           ...(updatedData.publicProfile ? { publicProfile: updatedData.publicProfile } : {}),
@@ -1719,6 +1739,9 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       const v = await tenantApi.createVehicle(activeTenantId, {
         plateNumber: vehicleData.licensePlate.number,
         vehicleType: vehicleData.type?.toLowerCase(),
+        brand: vehicleData.make || undefined,
+        model: vehicleData.model || undefined,
+        color: vehicleData.color || undefined,
         notes: vehicleData.description,
       });
       await loadTenantData(activeTenantId);

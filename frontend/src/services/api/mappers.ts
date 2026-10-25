@@ -263,6 +263,8 @@ export const mapSite = (s: SiteOut, tenantId: string, tenantName = ''): TenantSi
     s.latitude != null && s.longitude != null
       ? { lat: s.latitude, lng: s.longitude }
       : undefined,
+  city: s.city ?? undefined,
+  publicProfile: (s as SiteOut & { publicProfile?: TenantSite['publicProfile'] }).publicProfile ?? undefined,
   createdAt: s.createdAt,
   description: '',
 });
@@ -360,9 +362,10 @@ export const mapVehicle = (v: VehicleOut, tenantId: string): TenantVehicle => ({
   id: v.id,
   tenantId,
   name: v.plateNumber,
-  make: '',
-  model: v.vehicleType ?? '',
+  make: v.brand ?? '',
+  model: v.model ?? v.vehicleType ?? '',
   type: upper(v.vehicleType, 'CAR') as TenantVehicle['type'],
+  color: v.color ?? undefined,
   status: upper(v.status, 'ACTIVE') as TenantVehicle['status'],
   currentPlate: plateOf(v),
   previousPlates: [],
@@ -390,7 +393,7 @@ export const mapRegisteredVehicle = (v: VehicleOut): RegisteredVehicle => ({
   id: v.id,
   plate: v.plateNumber,
   ownerName: v.ownerName ?? '',
-  model: v.vehicleType ?? '',
+  model: v.model ?? v.vehicleType ?? '',
   type: v.vehicleType ?? 'car',
   siteId: undefined,
   status: v.status === 'active' ? 'ACTIVE' : 'BLOCKED',
@@ -410,7 +413,11 @@ export const mapRule = (r: RuleOut, siteName?: string): TenantAccessRule => {
     priority: r.priority,
     status: r.active ? 'ACTIVE' : 'INACTIVE',
     target: {
-      type: 'ALL_VEHICLES',
+      // conditions.targetType is authored by the wizard; fall back to
+      // plate/member-group detection for rows written before it existed.
+      type: (['SPECIFIC_VEHICLE', 'LICENSE_PLATE', 'MEMBER', 'MEMBER_GROUP', 'VEHICLE_GROUP', 'VISITOR', 'ALL_VEHICLES'] as const)
+        .find((t) => t === cond.targetType) ??
+      (cond.plateNumber ? 'LICENSE_PLATE' : cond.memberGroup ? 'MEMBER_GROUP' : 'ALL_VEHICLES'),
       licensePlate: cond.plateNumber as string | undefined,
       memberGroup: cond.memberGroup as string | undefined,
       notes: cond.notes as string | undefined,
