@@ -1937,8 +1937,19 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const setRuleActive = (ruleId: string, active: boolean) => {
     if (!activeTenantId) return;
+    // Backend PATCH revalidates against RuleIn, which requires name and
+    // rule_type — echo the stored rule alongside the toggle.
+    const rule = tenantAccessRules.find((r) => r.id === ruleId);
+    if (!rule) return;
     tenantApi
-      .updateRule(activeTenantId, ruleId, { active })
+      .updateRule(activeTenantId, ruleId, {
+        active,
+        name: rule.name,
+        ruleType: rule.code,
+        priority: rule.priority,
+        conditions: { targetType: rule.target.type, plateNumber: rule.target.licensePlate, memberGroup: rule.target.memberGroup },
+        schedule: { type: rule.schedule.type, timezone: rule.schedule.timezone },
+      })
       .then(() => loadTenantData(activeTenantId))
       .catch(toastErr('Failed to update rule'));
   };

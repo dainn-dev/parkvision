@@ -73,6 +73,24 @@ export const TenantEventsPage: React.FC = () => {
   };
 
   const handleExportCSV = () => {
+    // Real client-side CSV from the filtered set — Excel-friendly BOM + quoting.
+    const header = ['Timestamp', 'Plate', 'Site', 'Gate', 'Lane', 'Direction', 'Decision', 'Reason', 'Confidence', 'Source'];
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = filteredEvents.map((e) =>
+      [e.timestamp, e.plate, e.siteName, e.gateName, e.laneName, e.direction, e.decision, e.reason ?? '', e.plateConfidence ?? 0, e.verifiedBy ?? '']
+        .map(esc)
+        .join(',')
+    );
+    const csv = '\ufeff' + [header.map(esc).join(','), ...rows].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `access-events-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
     addToast({
       type: 'success',
       title: t('Export Generated'),

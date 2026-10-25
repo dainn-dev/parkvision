@@ -215,7 +215,8 @@ export const PlatformSidebar: React.FC = () => {
                   <DoorOpen className={`w-4 h-4 shrink-0 ${tenantNavTab === 'gates' ? 'text-[#3fb950]' : 'text-[#8b949e]'}`} />
                   <span>{t('Barrier Map')}</span>
                 </div>
-                <span className="text-[10px] px-1.5 py-0.2 bg-[#3fb950]/20 text-[#3fb950] rounded-full font-bold">
+                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.2 bg-[#3fb950]/20 text-[#3fb950] rounded-full font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
                   {t('Live')}
                 </span>
               </button>
@@ -233,8 +234,9 @@ export const PlatformSidebar: React.FC = () => {
                   <MapPinned className={`w-4 h-4 shrink-0 ${tenantNavTab === 'parking-map' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
                   <span>{t('Parking Map')}</span>
                 </div>
-                <span className="text-[10px] px-1.5 py-0.2 bg-[#58a6ff]/20 text-[#58a6ff] rounded-full font-bold">
-                  Live
+                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.2 bg-[#3fb950]/20 text-[#3fb950] rounded-full font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
+                  {t('Live')}
                 </span>
               </button>
 
@@ -269,7 +271,10 @@ export const PlatformSidebar: React.FC = () => {
                   <Activity className={`w-4 h-4 shrink-0 ${tenantNavTab === 'access_events' || tenantNavTab === 'access-events' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
                   <span>{t('Access Events')}</span>
                 </div>
-                <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse" />
+                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.2 bg-[#3fb950]/20 text-[#3fb950] rounded-full font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
+                  {t('Live')}
+                </span>
               </button>
             </div>
 
@@ -442,7 +447,8 @@ export const PlatformSidebar: React.FC = () => {
                       <DoorOpen className="w-3.5 h-3.5 text-[#3fb950]" />
                       <span>{t('Barrier Map')}</span>
                     </div>
-                    <span className="text-[9px] px-1.5 py-0.2 bg-[#3fb950]/20 text-[#3fb950] rounded-full font-bold">
+                    <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.2 bg-[#3fb950]/20 text-[#3fb950] rounded-full font-bold">
+                      <span className="w-1 h-1 rounded-full bg-[#3fb950] animate-pulse" />
                       {t('Live')}
                     </span>
                   </button>
