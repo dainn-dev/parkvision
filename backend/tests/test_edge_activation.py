@@ -9,6 +9,7 @@ from httpx import AsyncClient
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.config import settings
 from app.services.credential_service import hash_activation_code
 from tests.conftest import csrf, login
 
@@ -271,6 +272,17 @@ async def test_activate_returns_bundle_and_mints_credential(client: AsyncClient,
     # minted token authenticates existing edge sync endpoints
     wl = await client.get(f"/api/v1/edge/tenants/{s['tenant_id']}/whitelist", headers={"X-Api-Key": token})
     assert wl.status_code == 200, wl.text
+
+
+@pytest.mark.asyncio
+async def test_activate_advertises_public_mqtt_host(
+    client: AsyncClient, tenant, activation_setup, monkeypatch
+):
+    """Devices outside the Compose network need the advertised MQTT address."""
+    monkeypatch.setattr(settings, "mqtt_public_host", "mqtt.edge.example.com")
+    res = await client.post("/api/v1/edge/activate", json={"code": activation_setup["code"]})
+    assert res.status_code == 200, res.text
+    assert res.json()["mqtt"]["host"] == "mqtt.edge.example.com"
 
 
 @pytest.mark.asyncio

@@ -23,6 +23,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onRegister, o
     e.preventDefault();
     if (!email || !password) return;
 
+    if (mode === 'signup' && password.length < 8) {
+      setErrorMsg(t('passwordMinLength'));
+      return;
+    }
+
     setIsLoading(true);
     setErrorMsg('');
     try {
@@ -35,8 +40,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onRegister, o
       if (err instanceof ApiError) {
         if (err.code === 'invalid_credentials' || err.status === 401) {
           setErrorMsg(t('invalidCredentials'));
-        } else if (err.code === 'account_locked') {
-          setErrorMsg(err.message);
+        } else if (err.code === 'conflict' || err.status === 409) {
+          setErrorMsg(t('emailAlreadyRegistered'));
+        } else if (err.code === 'validation_error' || err.status === 422) {
+          const fieldErrors = (err.details as { errors?: Array<{ loc?: unknown[] }> } | undefined)?.errors ?? [];
+          const isPasswordError = fieldErrors.some((e) => Array.isArray(e.loc) && e.loc.includes('password'));
+          setErrorMsg(isPasswordError ? t('passwordMinLength') : err.message);
         } else {
           setErrorMsg(err.message);
         }

@@ -34,6 +34,7 @@ PowerShell có thể dùng `Copy-Item .env.example .env` thay cho `cp`.
 - `DATABASE_URL`: `postgresql+asyncpg://vehicle_app:vehicle_app@postgres:5432/vehicle_mgmt` cho môi trường dev mặc định.
 - `MIGRATION_DATABASE_URL`: `postgresql+asyncpg://postgres:postgres@postgres:5432/vehicle_mgmt` cho migration/seed dev.
 - `REDIS_URL=redis://redis:6379/0`, `MQTT_HOST=emqx`, `SMTP_HOST=mailpit`.
+- `MQTT_PUBLIC_HOST`: địa chỉ MQTT mà thiết bị edge bên ngoài mạng Docker kết nối tới (LAN/public). Để trống sẽ dùng `MQTT_HOST` — chỉ phân giải được trong Compose network, nên cần đặt biến này khi triển khai thiết bị thật.
 - `S3_ENDPOINT_URL`: phải là địa chỉ S3 mà bên sử dụng URL ký sẵn cũng truy cập được; xem phần [S3 và mạng](../docs/backend.md#s3-và-địa-chỉ-truy-cập) trước khi triển khai qua container/trình duyệt.
 
 Compose có các tiến trình `api`, `worker`, `mqtt-bridge`, và `migrate` chạy `alembic upgrade head` rồi thoát. API/worker/bridge chờ migration hoàn tất. Tệp Compose hiện còn có service `omniroute`; đó không phải thành phần bắt buộc của luồng ANPR/thanh toán được mô tả ở đây. Không cần sửa Compose để làm theo tài liệu này.

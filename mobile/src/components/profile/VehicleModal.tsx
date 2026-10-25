@@ -69,7 +69,15 @@ export const VehicleModal: React.FC<VehicleModalProps> = ({
       );
       onClose();
     } catch (err) {
-      setErrorMsg(err instanceof ApiError ? err.message : t('networkError'));
+      if (err instanceof ApiError) {
+        if (err.code === 'conflict' || err.status === 409 || err.message.toLowerCase().includes('plate already registered')) {
+          setErrorMsg(t('plateAlreadyRegistered'));
+        } else {
+          setErrorMsg(err.message);
+        }
+      } else {
+        setErrorMsg(t('networkError'));
+      }
     } finally {
       setSaving(false);
     }

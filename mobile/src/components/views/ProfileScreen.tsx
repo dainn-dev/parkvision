@@ -63,6 +63,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) 
     }
   };
 
+  const describeVehicleError = (e: unknown): string => {
+    if (e instanceof ApiError) {
+      if (e.code === 'conflict' || e.status === 409 || e.message.toLowerCase().includes('plate already registered')) {
+        return t('plateAlreadyRegistered');
+      }
+      return e.message;
+    }
+    return t('networkError');
+  };
+
   const handleSetPrimary = async (vehicle: DriverVehicle) => {
     if (vehicle.isPrimary || vehicleBusy) return;
     setVehicleBusy(true);
@@ -75,7 +85,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) 
         isPrimary: true
       });
     } catch (e) {
-      setVehicleError(e instanceof ApiError ? e.message : t('networkError'));
+      setVehicleError(describeVehicleError(e));
     } finally {
       setVehicleBusy(false);
     }
@@ -87,7 +97,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) 
     try {
       await remove(vehicle.id);
     } catch (e) {
-      setVehicleError(e instanceof ApiError ? e.message : t('networkError'));
+      setVehicleError(describeVehicleError(e));
     } finally {
       setVehicleBusy(false);
     }

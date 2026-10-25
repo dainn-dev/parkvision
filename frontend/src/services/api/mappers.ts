@@ -407,7 +407,14 @@ export const mapPlatformFleet = (snapshot: TelemetrySnapshotOut): PlatformFleet 
     tenantId: d.tenantId,
     tenantName: d.tenantName,
     siteId: d.siteId ?? undefined,
-    status: d.status === 'online' ? 'ONLINE' : d.status === 'degraded' ? 'DEGRADED' : 'OFFLINE',
+    status:
+      d.status === 'online'
+        ? 'ONLINE'
+        : d.status === 'degraded'
+          ? 'DEGRADED'
+          : d.status === 'decommissioned'
+            ? 'DECOMMISSIONED'
+            : 'OFFLINE',
     cpuPercent: d.cpuUsagePct ?? 0,
     memoryPercent: d.ramUsagePct ?? 0,
     diskPercent: d.storageUsagePct ?? 0,

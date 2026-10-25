@@ -191,7 +191,7 @@ export interface EdgeDeviceHealth {
   tenantId: string;
   tenantName: string;
   siteId?: string;
-  status: 'ONLINE' | 'OFFLINE' | 'DEGRADED';
+  status: 'ONLINE' | 'OFFLINE' | 'DEGRADED' | 'DECOMMISSIONED';
   cpuPercent: number;
   memoryPercent: number;
   diskPercent: number;

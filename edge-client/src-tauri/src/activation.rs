@@ -193,6 +193,16 @@ async fn deprovision_inner(app: &AppHandle) -> Result<()> {
         rt.stop().await;
     }
     config_store(app)?.clear()?;
+    // Deprovision is a factory reset: a stale kiosk password would otherwise
+    // lock out the next operator after the device is re-activated.
+    if let Ok(mut guard) = app.state::<crate::lock::SharedLock>().lock() {
+        if let Some(st) = guard.as_mut() {
+            if let Err(e) = st.store.set_password(None) {
+                tracing::warn!("clear kiosk lock failed: {e:#}");
+            }
+            st.locked = false;
+        }
+    }
     let _ = app.emit("edge://deprovisioned", ());
     Ok(())
 }

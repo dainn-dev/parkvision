@@ -88,7 +88,7 @@ async def build_activation_bundle(
         gates=gate_outs,
         api=ActivationApiOut(token=token, token_status="active", base_url=None),
         mqtt=ActivationMqttOut(
-            host=settings.mqtt_host,
+            host=settings.mqtt_public_host or settings.mqtt_host,
             port=settings.mqtt_port,
             tls=settings.mqtt_tls,
             username=device.mqtt_client_id or f"edge-{device.id}",

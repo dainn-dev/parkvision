@@ -81,7 +81,7 @@ export interface TenantSiteBarrierLocation {
   totalGateCount: number;
   openGateCount: number;
   edgeGatewayId: string;
-  edgeGatewayStatus: 'ONLINE' | 'DEGRADED' | 'OFFLINE';
+  edgeGatewayStatus: 'ONLINE' | 'DEGRADED' | 'OFFLINE' | 'DECOMMISSIONED';
   edgeLatencyMs: number;
   gates: BarrierGateItem[];
 }

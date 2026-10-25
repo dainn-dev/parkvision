@@ -99,7 +99,18 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
             {s?.lastSyncAt ? new Date(s.lastSyncAt).toLocaleTimeString("vi-VN") : "—"}
           </span>
           <button
-            onClick={() => act(() => resync().then((m) => notify(m)), "Đồng bộ xong")}
+            onClick={() =>
+              act(
+                () =>
+                  resync().then(async (m) => {
+                    // Re-read config so gate/camera bindings changed on the
+                    // server show up without restarting the kiosk app.
+                    setCfg(await getConfig());
+                    return m;
+                  }),
+                "Đồng bộ xong"
+              )
+            }
             className="rounded-md border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
           >
             Đồng bộ lại

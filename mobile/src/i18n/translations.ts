@@ -212,6 +212,9 @@ export const translations = {
     fullName: "Full Name",
     invalidCredentials: "Incorrect email or password.",
     networkError: "Network error. Please check your connection and try again.",
+    passwordMinLength: "Password must be at least 8 characters long.",
+    emailAlreadyRegistered: "This email address is already registered.",
+    plateAlreadyRegistered: "This license plate is already registered in the system.",
     guestNotice: "Browse parking as a guest. Sign in to save favorites, manage vehicles and see your parking sessions.",
     continueAsGuest: "Continue as Guest",
 
@@ -482,6 +485,9 @@ export const translations = {
     fullName: "Họ và tên",
     invalidCredentials: "Email hoặc mật khẩu không đúng.",
     networkError: "Lỗi kết nối. Vui lòng kiểm tra mạng và thử lại.",
+    passwordMinLength: "Mật khẩu phải có ít nhất 8 ký tự.",
+    emailAlreadyRegistered: "Địa chỉ email này đã được đăng ký.",
+    plateAlreadyRegistered: "Biển số xe đã được đăng ký trên hệ thống.",
     guestNotice: "Bạn đang xem bãi xe ở chế độ khách. Đăng nhập để lưu yêu thích, quản lý xe và xem phiên đỗ xe.",
     continueAsGuest: "Trải nghiệm không cần đăng nhập",
 

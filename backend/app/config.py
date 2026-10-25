@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     field_encryption_key: str = "change-me-fernet-key"
 
     mqtt_host: str = "localhost"
+    # Host advertised to edge devices in the activation bundle. Compose sets
+    # mqtt_host to the internal service name (`emqx`), which devices outside
+    # the Docker network cannot resolve — set this to a LAN/public address.
+    mqtt_public_host: str = ""
     mqtt_port: int = 1883
     mqtt_username: str = "backend"
     mqtt_password: str = "backend-secret"

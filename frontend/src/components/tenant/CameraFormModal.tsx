@@ -61,7 +61,13 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
   if (!isOpen) return null;
 
   const siteLanes = tenantLanes.filter((l) => l.siteId === site.id);
-  const siteDevices = edgeDevices.filter((d) => d.siteId === site.id);
+  const siteDevices = edgeDevices.filter(
+    (d) =>
+      d.siteId === site.id &&
+      // Keep the current binding visible even if that device was retired;
+      // otherwise the select silently falls back to "none" and saving unbinds it.
+      (d.status !== 'DECOMMISSIONED' || d.id === formData.edgeDeviceId)
+  );
   const siteZones = parkingMap.filter((l) => l.siteId === site.id).flatMap((l) =>
     l.zones.map((z) => ({ ...z, levelName: l.name }))
   );

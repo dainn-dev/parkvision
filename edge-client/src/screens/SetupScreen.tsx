@@ -4,13 +4,23 @@ import { activate, detectPublicIp, setLockPassword } from "../lib/tauri";
 const input =
   "w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-emerald-500";
 
+/** Survives deprovision (which wipes the edge config) so re-activation only
+ * needs the code, not the server URL again. */
+const LAST_SERVER_URL_KEY = "pv_edge_last_api_base_url";
+
 /** Normalize typed activation codes: trim, uppercase, allow spaces. */
 function normalizeCode(raw: string): string {
   return raw.trim().toUpperCase().replace(/\s+/g, "");
 }
 
 export default function SetupScreen({ onDone }: { onDone: () => void }) {
-  const [apiBaseUrl, setApiBaseUrl] = useState("");
+  const [apiBaseUrl, setApiBaseUrl] = useState(() => {
+    try {
+      return localStorage.getItem(LAST_SERVER_URL_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -52,13 +62,22 @@ export default function SetupScreen({ onDone }: { onDone: () => void }) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const lockPassword = password.trim();
+    if (lockPassword && lockPassword.length < 4) {
+      setErr("Mật khẩu khoá phải có ít nhất 4 ký tự.");
+      return;
+    }
     setBusy(true);
     setErr(null);
     try {
+      // Apply the lock before activating: a consumed one-time code must not
+      // be wasted because the local lock step failed.
+      await setLockPassword(lockPassword || null);
       await activate(apiBaseUrl.trim(), normalizeCode(code));
-      // Optional kiosk lock — local only, never sent to the server.
-      if (password.trim()) {
-        await setLockPassword(password);
+      try {
+        localStorage.setItem(LAST_SERVER_URL_KEY, apiBaseUrl.trim());
+      } catch {
+        // Storage unavailable — activation still succeeded.
       }
       onDone();
     } catch (ex) {
