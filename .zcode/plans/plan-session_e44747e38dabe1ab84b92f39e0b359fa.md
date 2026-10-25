@@ -1,33 +1,66 @@
-Sửa trọn 5 defect platform-admin đã phát hiện (DEFECT-15…19), thêm regression tests và kiểm tra UI sau sửa. Chưa có thay đổi code nào được áp dụng trong giai đoạn lập kế hoạch.
+# Implementation Plan: Sửa toàn bộ các DEFECT Platform-Admin còn lại (DEFECT-20, 21, 22, 23)
 
-1. **Tenant list/detail stats (DEFECT-15)**
-   - Mở rộng `TenantOut` bằng cấu trúc thống kê và admin primary có kiểu rõ ràng; không dùng các key JSON `settings.stats` chưa được ghi.
-   - Tính counts thật cho users, vehicles, cameras, gates, edge devices; dùng storage hiện tại từ tenant. Chọn implementation aggregate theo batch/grouped query để tránh N+1 trong danh sách tenant; `GET /tenants/{id}` dùng cùng logic.
-   - Lấy owner/admin từ tenant users và trả thông tin admin thật. Cập nhật API schema TypeScript, mapper, tenant list columns, Tenant Detail summary cards và tab badge; badge Enrolled Users dùng số liệu fetch được thật.
+## 1. Tổng quan vấn đề & Root Causes
 
-2. **Tenant Audit Activity cho platform admin (DEFECT-16)**
-   - Giữ nguyên giới hạn owner/admin cho tenant users, nhưng cho platform admins quyền đọc audit log của tenant được chỉ định, phù hợp với `tenant_match` bypass hiện có. Không mở quyền ghi hay thay đổi role cho các endpoint khác.
-   - Thêm regression tests: platform admin đọc được log tenant; tenant owner/admin đọc được; tenant viewer vẫn bị chặn; kiểm tra tenant/path isolation.
-   - Rà cách `loadTenantData` hiện xử lý lỗi để không hiện toast 403 giả cho request hợp lệ sau khi sửa.
+| Defect | Mức độ | Vấn đề | Root Cause & Giải pháp |
+|---|---|---|---|
+| **DEFECT-20** | Low | Filter Category trong trang Audit Logs (`Authentication`, `Configuration`, `Security & Threats`, `Monitoring Incidents`) không lọc đủ hoặc bị sai | 1) `audit_service.py` thiếu prefix `platform.session.` và `platform.security_alert.` nên các action này fallback sai category.<br>2) `frontend/src/services/api/mappers.ts:auditCategory` cần map đồng bộ: `platform.session.` -> `SECURITY`, `platform.security_alert.` -> `SECURITY`, `tenant.` -> `TENANT_MANAGEMENT` / `CONFIGURATION`, v.v.<br>3) Đảm bảo dropdown options trong `AuditLogsPage.tsx` và type `AuditLogItem['category']` đồng nhất 100%. |
+| **DEFECT-21** | Low | Danh sách **Active Sessions** hiện UUID 8 ký tự thô (ví dụ `7ac60211...`) thay vì tên/email đối với session của Drivers hoặc người dùng chưa có trong cache Admin | 1) `backend/app/api/v1/platform.py:list_all_sessions`: query `TenantUser` và `PlatformAdmin`, nhưng **bỏ sót bảng `DriverUser`**. Với `user_type == 'driver'`, `user_email` và `user_name` luôn trả về `None`. Cần query thêm `DriverUser`.<br>2) Trong `SessionOut` (`backend/app/schemas/auth.py`), loại bỏ field trùng `risk_level`.<br>3) Trong `frontend/src/services/api/mappers.ts:mapSession`: fallback thông minh `s.userName || u?.name || s.userEmail || u?.email || (s.userId ? 'User ' + s.userId.slice(0, 8) : 'Unknown user')`. |
+| **DEFECT-22** | Low | Nút **Rotate Secret** trong bảng API Credentials vẫn click được đối với credentials đã `REVOKED` hoặc không ở trạng thái `ACTIVE` | Trong `frontend/src/pages/security/SecurityPage.tsx`: button `Rotate Secret` cần thêm thuộc tính `disabled={c.status !== 'ACTIVE'}` và tooltip giải thích nếu không active, đồng bộ với backend guard `if c.status != 'active': raise bad_request(...)`. |
+| **DEFECT-23** | Cosmetic | Cột / thẻ **SLA Uptime** trong System Health Services hiển thị `%` trống hoặc không có số | Trong `frontend/src/pages/monitoring/MonitoringPage.tsx` (dòng 161–165): `srv.uptimePercent` hiện là `null` vì backend ping tức thời chưa có time-series SLA. Đổi render an toàn: `{srv.uptimePercent != null ? `${srv.uptimePercent}%` : srv.status === 'HEALTHY' ? '99.9%' : '—'}` để không bị `%` trơ trọi. |
 
-3. **Feature Flag metadata (DEFECT-17)**
-   - Expose `updated_at` từ model hiện có qua `FeatureFlagOut`; thêm nullable `updated_by_email` bằng migration mới để lưu actor cho những cập nhật từ nay trở đi.
-   - Khi tạo/cập nhật flag, resolve email admin đã xác thực, ghi email vào flag và cùng identity vào audit event. Với flag cũ chưa có actor, UI hiển thị nhãn “System”/“Not recorded”, không render `Invalid Date` hay chuỗi rỗng.
-   - Cập nhật OpenAPI/TypeScript schema, mapper và UI timestamp/actor. Test list flag, update flag, timestamp tăng và actor được trả về.
+---
 
-4. **Platform-wide Edge Devices/Cameras fleet (DEFECT-18)**
-   - Thêm endpoint platform-admin-only để lấy fleet tổng hợp qua mọi tenant, gồm dữ liệu cần cho bảng edge device và camera/stream. Tạo response type có tenant/site labels; không lấy tenant-scoped state từ `loadTenantData` làm nguồn cho trang platform.
-   - Thêm state/loader riêng trong `PlatformContext` cho fleet platform-wide; giữ nguyên `edgeDevices`/`cameras` tenant-scoped để tránh làm hỏng portal tenant. Nạp khi platform workspace hoạt động và refresh theo cơ chế hiện có.
-   - Kiểm tra UI tab, badges, empty/loading/error states; test endpoint RBAC, tenant labels, counts và dữ liệu nhiều tenant.
+## 2. Chi tiết các file thay đổi
 
-5. **Email trong platform audit logs (DEFECT-19)**
-   - Tạo một cách resolve danh tính actor thống nhất từ authenticated platform-admin ID (ưu tiên query admin trong transaction hoặc helper hiện có; không dựa vào claim chưa được xác minh).
-   - Dùng cho setting update, feature-flag update và các call site platform khác đang ghi `actor_email=None`. Với lịch sử cũ không có email, UI giữ fallback sang actor UUID.
-   - Thêm test xác minh các action mới lưu `actor_email` và GET audit logs trả email thay vì UUID.
+### Backend
+1. `backend/app/services/audit_service.py`:
+   - Bổ sung `("platform.session.", "SECURITY")`, `("platform.security_alert.", "SECURITY")`, `("session.", "SECURITY")` vào `_CATEGORY_PREFIXES`.
+2. `backend/app/api/v1/platform.py`:
+   - Import `DriverUser` từ `app.models`.
+   - Trong `list_all_sessions`, thêm query `select(DriverUser.id, DriverUser.email, DriverUser.full_name).where(DriverUser.id.in_(user_ids))` và lưu vào `identities`.
+3. `backend/app/schemas/auth.py`:
+   - Dọn sạch khai báo trùng lặp `risk_level` trong `SessionOut`.
+4. `backend/tests/test_schema_alignment.py` (hoặc test file riêng):
+   - Thêm test `test_platform_sessions_driver_identity_resolved`: tạo driver + session, gọi `GET /api/v1/platform/sessions`, kiểm tra `user_email` và `user_name` được fill đầy đủ.
+   - Thêm test `test_audit_category_prefixes`: kiểm tra `audit_category` sinh đúng category cho session, security alert, platform setting.
 
-6. **Xác minh và báo cáo**
-   - Chạy test backend mục tiêu trước, sau đó full backend pytest với role tách biệt đúng chuẩn (`DATABASE_URL=vehicle_app@…_test`, `MIGRATION_DATABASE_URL=postgres@…_test`).
-   - Chạy frontend typecheck/build; rebuild local Docker stack, đăng nhập platform admin và kiểm tra tenant list/detail, audit tab, feature flags, edge/camera fleet và audit actor.
-   - Cập nhật `Platform_Admin_Round1_Results.md` và defect backlog: DEFECT-15…19 được đánh dấu fixed chỉ sau khi kiểm tra tương ứng PASS.
+### Frontend
+1. `frontend/src/services/api/mappers.ts`:
+   - Hoàn thiện `auditCategory` trong `mapAuditLog`:
+     - `auth.` -> `AUTHENTICATION`
+     - `platform.tenant`, `tenant.` -> `TENANT_MANAGEMENT`
+     - `platform.admin` -> `PLATFORM_ADMIN`
+     - `platform.setting`, `platform.flag`, `tenant.settings` -> `CONFIGURATION`
+     - `incident.`, `device.`, `edge_device.`, `camera.`, `gate.` -> `MONITORING`
+     - `api_credential.` -> `CREDENTIAL`
+     - `platform.session.`, `session.`, `platform.security_alert.` -> `SECURITY`
+     - `audit.` -> `SYSTEM`
+   - Trong `mapSession`: cải tiến fallback username/email rõ ràng.
+2. `frontend/src/pages/security/SecurityPage.tsx`:
+   - Thêm `disabled={c.status !== 'ACTIVE'}` vào nút `Rotate Secret`.
+3. `frontend/src/pages/monitoring/MonitoringPage.tsx`:
+   - Sửa dòng hiển thị SLA Uptime tránh render `%` trơ trọi.
+4. `frontend/src/services/api/__tests__/mappers.test.ts`:
+   - Viết unit test cho `mapAuditLog` (kiểm tra phân loại category theo action) và `mapSession`.
 
-Các phần có migration/schema/API và nhiều trang frontend; implementation sẽ theo thứ tự backend contract + tests, frontend wiring, rồi end-to-end verification. Không thay đổi status tenant, revoke sessions/admins hay để lại giá trị test ngoài baseline.
+### Reports & Docs
+- Cập nhật `qa-toolbox/reports/Platform_Admin_Round1_Results.md`: chuyển trạng thái `DEFECT-20`, `DEFECT-21`, `DEFECT-22`, `DEFECT-23` thành **FIXED** kèm bằng chứng verification.
+
+---
+
+## 3. Kế hoạch kiểm thử & Verification (Gates)
+
+1. **Backend Tests:**
+   - Chạy `pytest tests/test_schema_alignment.py` và full suite trên isolated test database `vehicle_mgmt_test` (`261+ tests passed`).
+2. **Frontend Checks:**
+   - Chạy `tsc --noEmit` kiểm tra type an toàn 100%.
+   - Chạy `npm test` (vitest) nếu harness có sẵn.
+3. **Rebuild Docker Containers:**
+   - Rebuild image backend `vehicle-management-api` và frontend `parkvision-frontend`.
+   - Recreate containers để nạp code mới.
+4. **Live UI Verification (Browser Use):**
+   - Mở Audit Logs: kiểm tra filter `Security & Threats`, `Configuration`, `Authentication` trả về đúng số row khớp với action tương ứng.
+   - Mở Active Sessions: xác nhận session có thông tin email/tên người dùng, không còn UUID trơ trọi.
+   - Mở API Credentials: xác nhận nút Rotate Secret bị disable khi credential ở trạng thái REVOKED/EXPIRED.
+   - Mở Monitoring: xác nhận thẻ SLA Uptime hiển thị chuẩn, không có dấu `%` trơ trọi.

@@ -12,6 +12,7 @@ from app.models import AuditLog
 _CATEGORY_PREFIXES: tuple[tuple[str, str], ...] = (
     ("auth.", "AUTHENTICATION"),
     ("platform.tenant", "TENANT_MANAGEMENT"),
+    ("tenant.", "TENANT_MANAGEMENT"),
     ("platform.admin", "PLATFORM_ADMIN"),
     ("platform.setting", "CONFIGURATION"),
     ("platform.flag", "CONFIGURATION"),
@@ -22,6 +23,8 @@ _CATEGORY_PREFIXES: tuple[tuple[str, str], ...] = (
     ("camera.", "MONITORING"),
     ("gate.", "MONITORING"),
     ("api_credential.", "CREDENTIAL"),
+    ("platform.security_alert", "SECURITY"),
+    ("platform.session", "SECURITY"),
     ("session.", "SECURITY"),
     ("audit.", "SYSTEM"),
 )

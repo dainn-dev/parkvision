@@ -208,7 +208,7 @@ export const mapInfraHealth = (h: InfraHealth): ServiceHealthItem[] =>
     lastChecked: new Date().toISOString(),
   }));
 
-const AUDIT_CATEGORIES: AuditLogItem['category'][] = [
+export const AUDIT_CATEGORIES: AuditLogItem['category'][] = [
   'AUTHENTICATION',
   'TENANT_MANAGEMENT',
   'PLATFORM_ADMIN',
@@ -220,21 +220,21 @@ const AUDIT_CATEGORIES: AuditLogItem['category'][] = [
 ];
 
 /** Rows written before the category column existed are classified by action. */
-const auditCategory = (a: AuditLogOut): AuditLogItem['category'] => {
-  const stored = (a.category ?? '').toUpperCase() as AuditLogItem['category'];
-  if (AUDIT_CATEGORIES.includes(stored)) return stored;
-  const action = a.action ?? '';
+export const auditCategory = (a: AuditLogOut): AuditLogItem['category'] => {
+  const action = (a.action ?? '').toLowerCase();
   if (action.startsWith('auth.')) return 'AUTHENTICATION';
-  if (action.startsWith('platform.tenant')) return 'TENANT_MANAGEMENT';
-  if (action.startsWith('platform.admin')) return 'PLATFORM_ADMIN';
+  if (action.startsWith('platform.session') || action.startsWith('session.') || action.startsWith('platform.security_alert'))
+    return 'SECURITY';
   if (action.startsWith('platform.setting') || action.startsWith('platform.flag') || action.startsWith('tenant.settings'))
     return 'CONFIGURATION';
-  if (action.startsWith('incident.') || action.startsWith('device.') || action.startsWith('edge_device.'))
+  if (action.startsWith('platform.tenant') || action.startsWith('tenant.')) return 'TENANT_MANAGEMENT';
+  if (action.startsWith('platform.admin')) return 'PLATFORM_ADMIN';
+  if (action.startsWith('incident.') || action.startsWith('device.') || action.startsWith('edge_device.') || action.startsWith('camera.') || action.startsWith('gate.'))
     return 'MONITORING';
-  if (action.startsWith('camera.') || action.startsWith('gate.')) return 'MONITORING';
   if (action.startsWith('api_credential.')) return 'CREDENTIAL';
-  if (action.startsWith('session.')) return 'SECURITY';
   if (action.startsWith('audit.')) return 'SYSTEM';
+  const stored = (a.category ?? '').toUpperCase() as AuditLogItem['category'];
+  if (AUDIT_CATEGORIES.includes(stored)) return stored;
   return a.actorType === 'platform_admin' ? 'PLATFORM_ADMIN' : 'TENANT_MANAGEMENT';
 };
 

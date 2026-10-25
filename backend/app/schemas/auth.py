@@ -103,12 +103,11 @@ class SessionOut(CamelModel):
     user_agent: str | None
     mfa_verified: bool
     device_fingerprint: str | None = None
-    risk_level: str = "normal"
     created_at: datetime
     last_seen_at: datetime | None
     expires_at: datetime
     revoked_at: datetime | None
-    risk_level: str | None = None
+    risk_level: str | None = "normal"
     current: bool = False
 
     @field_validator("ip", mode="before")

@@ -507,6 +507,8 @@ export const SecurityPage: React.FC = () => {
                           <Button
                             variant="outline"
                             size="sm"
+                            disabled={c.status !== 'ACTIVE'}
+                            title={c.status !== 'ACTIVE' ? t('Only active credentials can be rotated') : undefined}
                             onClick={() => {
                               if (window.confirm(t('Rotate the secret for {{name}}? The current key stops working immediately.', { name: c.name }))) {
                                 rotateCredential(c.id);

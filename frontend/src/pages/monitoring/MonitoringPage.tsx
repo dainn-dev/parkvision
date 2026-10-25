@@ -160,7 +160,7 @@ export const MonitoringPage: React.FC = () => {
                   <div>
                     <span className="text-slate-500 block">{t('SLA Uptime:')}</span>
                     <span className="font-mono font-bold text-emerald-400">
-                      {srv.uptimePercent != null ? `${srv.uptimePercent}%` : '—'}
+                      {srv.uptimePercent != null ? `${srv.uptimePercent}%` : t('uptime n/a')}
                     </span>
                   </div>
                 </div>

@@ -21,6 +21,7 @@ from app.models import (
     BarrierGate,
     BarrierIncident,
     Camera,
+    DriverUser,
     EdgeDevice,
     FeatureFlag,
     GateCommand,
@@ -696,6 +697,14 @@ async def list_all_sessions(
                 await db.execute(
                     select(PlatformAdmin.id, PlatformAdmin.email, PlatformAdmin.full_name).where(
                         PlatformAdmin.id.in_(user_ids)
+                    )
+                )
+            ).all():
+                identities.setdefault(uid, (email, full_name))
+            for uid, email, full_name in (
+                await db.execute(
+                    select(DriverUser.id, DriverUser.email, DriverUser.full_name).where(
+                        DriverUser.id.in_(user_ids)
                     )
                 )
             ).all():

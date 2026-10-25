@@ -274,3 +274,68 @@ async def test_platform_telemetry_snapshot_includes_cameras_devices_and_gates(
     assert any(d["name"] == "Fleet Edge" and d["tenantName"] == tenant_name and d["siteName"] == "Fleet Site" for d in body["devices"])
     assert any(g["gateName"] == "Fleet Gate" and g["tenantName"] == tenant_name for g in body["gates"])
     assert any(c["name"] == "Fleet Camera" and c["tenantName"] == tenant_name and c["siteName"] == "Fleet Site" for c in body["cameras"])
+
+
+@pytest.mark.asyncio
+async def test_platform_list_sessions_resolves_driver_identity(client, admin_engine):
+    """Platform session endpoint resolves driver identities (DEFECT-21)."""
+    from datetime import datetime, timedelta, timezone
+    from app.models import DriverUser, UserSession
+    from app.services.audit_service import audit_category
+    from app.core.enums import ActorType
+
+    driver_id = uuid.uuid4()
+    driver_email = f"driver-{uuid.uuid4().hex[:8]}@example.com"
+    driver_name = "Nguyen Van Driver"
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        driver = DriverUser(
+            id=driver_id,
+            email=driver_email,
+            password_hash="dummy_hash",
+            full_name=driver_name,
+        )
+        db.add(driver)
+        await db.flush()
+
+        sess = UserSession(
+            user_id=driver_id,
+            user_type=ActorType.DRIVER,
+            tenant_id=None,
+            family_id=uuid.uuid4(),
+            refresh_token_hash="dummy_refresh_hash",
+            expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+            last_seen_at=datetime.now(timezone.utc),
+        )
+        db.add(sess)
+        await db.commit()
+
+    email, password = await _platform_admin(admin_engine)
+    await login(client, email, password)
+
+    res = await client.get("/api/v1/platform/sessions?active_only=true")
+    assert res.status_code == 200, res.text
+    sessions = res.json()
+    matching = next((s for s in sessions if s["userId"] == str(driver_id)), None)
+    assert matching is not None
+    assert matching["userEmail"] == driver_email
+    assert matching["userName"] == driver_name
+    assert matching["userType"] == ActorType.DRIVER
+
+
+def test_audit_category_prefixes_cover_all_security_and_config():
+    """audit_category correctly maps platform session and security alert actions (DEFECT-20)."""
+    from app.services.audit_service import audit_category
+
+    assert audit_category("platform.session.revoked") == "SECURITY"
+    assert audit_category("platform.security_alert.acknowledged") == "SECURITY"
+    assert audit_category("platform.security_alert.resolved") == "SECURITY"
+    assert audit_category("session.created") == "SECURITY"
+    assert audit_category("auth.token_refreshed") == "AUTHENTICATION"
+    assert audit_category("platform.setting.updated") == "CONFIGURATION"
+    assert audit_category("platform.flag.updated") == "CONFIGURATION"
+    assert audit_category("tenant.settings.updated") == "CONFIGURATION"
+    assert audit_category("platform.tenant.status_changed") == "TENANT_MANAGEMENT"
+    assert audit_category("tenant.created") == "TENANT_MANAGEMENT"
+
