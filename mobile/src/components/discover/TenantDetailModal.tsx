@@ -6,6 +6,11 @@ import { getSite, listSitePlans, PublicMapLevelOut } from '../../api/public';
 import { PublicPlanOut } from '../../api/types';
 import { vehicles as vehiclesApi } from '../../api/driver';
 
+// Fast-poll just the open site's occupancy so it doesn't visibly drift from
+// the tenant admin dashboard (which updates instantly over WebSocket). The
+// list view behind this modal still refreshes on its own slower cadence.
+const LIVE_CAPACITY_POLL_MS = 4000;
+
 interface TenantDetailModalProps {
   tenant: Tenant | null;
   isAuthed: boolean;
@@ -33,6 +38,7 @@ export const TenantDetailModal: React.FC<TenantDetailModalProps> = ({
   const [activeTab, setActiveTab] = useState<'overview' | 'floors' | 'memberships' | 'reviews'>('overview');
   const [levels, setLevels] = useState<PublicMapLevelOut[] | null>(null);
   const [plans, setPlans] = useState<PublicPlanOut[] | null>(null);
+  const [liveCapacity, setLiveCapacity] = useState<Tenant['capacity'] | null>(null);
 
   // membership request state
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
@@ -45,6 +51,7 @@ export const TenantDetailModal: React.FC<TenantDetailModalProps> = ({
   useEffect(() => {
     setLevels(null);
     setPlans(null);
+    setLiveCapacity(null);
     setExpandedPlanId(null);
     setSelectedVehicleId(null);
     setRequestError(null);
@@ -53,7 +60,10 @@ export const TenantDetailModal: React.FC<TenantDetailModalProps> = ({
     let cancelled = false;
     getSite(siteId)
       .then((detail) => {
-        if (!cancelled) setLevels(detail.levels);
+        if (!cancelled) {
+          setLevels(detail.levels);
+          setLiveCapacity(detail.capacity);
+        }
       })
       .catch(() => {
         if (!cancelled) setLevels([]);
@@ -67,6 +77,34 @@ export const TenantDetailModal: React.FC<TenantDetailModalProps> = ({
       });
     return () => {
       cancelled = true;
+    };
+  }, [siteId]);
+
+  // While the modal stays open, re-poll just this site's occupancy on a
+  // short interval instead of waiting for the slower background list poll
+  // (useSites) to come around — the number a driver is staring at here
+  // should track the tenant admin's view closely.
+  useEffect(() => {
+    if (!siteId) return;
+    const refresh = () => {
+      getSite(siteId)
+        .then((detail) => setLiveCapacity(detail.capacity))
+        .catch(() => {
+          // Transient network error — keep showing the last known value
+          // rather than blanking it out.
+        });
+    };
+    const interval = setInterval(refresh, LIVE_CAPACITY_POLL_MS);
+    // Timers are throttled/suspended while backgrounded — refresh
+    // immediately on return instead of waiting out the rest of the
+    // interval, so a reopened app doesn't show a minutes-stale number.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [siteId]);
 
@@ -110,8 +148,9 @@ export const TenantDetailModal: React.FC<TenantDetailModalProps> = ({
 
   if (!tenant) return null;
 
-  const available = tenant.capacity.available;
-  const total = tenant.capacity.total;
+  const capacity = liveCapacity ?? tenant.capacity;
+  const available = capacity.available;
+  const total = capacity.total;
   const occupied = total - available;
   const fillPercentage = total > 0 ? Math.round((occupied / total) * 100) : 0;
 

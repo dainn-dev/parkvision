@@ -34,6 +34,25 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
   });
   const [isLoading, setIsLoading] = useState(false);
 
+  // UI-only hint for the Stream URL field — not persisted. Swaps the
+  // placeholder/example text between source presets so users don't need to
+  // remember each source's URL scheme by heart.
+  const [sourcePreset, setSourcePreset] = useState<'rtsp' | 'droidcam' | 'http'>('rtsp');
+  const sourcePresets: Record<typeof sourcePreset, { placeholder: string; hint: string }> = {
+    rtsp: {
+      placeholder: 'rtsp://user:pass@192.168.1.10:554/stream1',
+      hint: t('rtsp://, rtsps:// or http(s):// — credentials in the URL are stored with the camera.'),
+    },
+    droidcam: {
+      placeholder: 'http://192.168.1.50:4747/video',
+      hint: t('DroidCam app on the phone, same Wi-Fi as the edge device. Default port 4747, MJPEG feed at /video.'),
+    },
+    http: {
+      placeholder: 'http://192.168.1.20:8080/stream.mjpg',
+      hint: t('Generic HTTP/MJPEG IP camera endpoint.'),
+    },
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     setFormData({
@@ -165,19 +184,29 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
           </div>
 
           <div>
-            <label className="block text-[#c9d1d9] font-medium mb-1.5">
-              {t('Stream URL')} <span className="text-[#f85149]">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-[#c9d1d9] font-medium">
+                {t('Stream URL')} <span className="text-[#f85149]">*</span>
+              </label>
+              <select
+                value={sourcePreset}
+                onChange={(e) => setSourcePreset(e.target.value as typeof sourcePreset)}
+                className="bg-[#161b22] border border-[#30363d] text-[#8b949e] rounded-md px-2 py-0.5 text-[10px] focus:outline-none focus:border-[#58a6ff]"
+                title={t('Connection type (fills in the example below — does not change what is saved)')}
+              >
+                <option value="rtsp">{t('RTSP (IP camera)')}</option>
+                <option value="droidcam">{t('DroidCam (phone)')}</option>
+                <option value="http">{t('HTTP/MJPEG')}</option>
+              </select>
+            </div>
             <Input
-              placeholder={t('rtsp://user:pass@192.168.1.10:554/stream1')}
+              placeholder={sourcePresets[sourcePreset].placeholder}
               value={formData.streamUrl}
               onChange={(e) => setFormData({ ...formData, streamUrl: e.target.value })}
               required
               className="bg-[#161b22] border-[#30363d] text-white font-mono"
             />
-            <p className="text-[10px] text-[#8b949e] mt-1">
-              {t('rtsp://, rtsps:// or http(s):// — credentials in the URL are stored with the camera.')}
-            </p>
+            <p className="text-[10px] text-[#8b949e] mt-1">{sourcePresets[sourcePreset].hint}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -187,20 +187,18 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
                 {(filters.maxHourlyPrice).toLocaleString()} đ{t('perHour')}
               </span>
             </div>
-            <div className="grid grid-cols-4 gap-2">
-              {[20000, 30000, 50000, 100000].map((price) => (
-                <button
-                  key={price}
-                  onClick={() => onUpdateFilter({ maxHourlyPrice: price })}
-                  className={`py-2 rounded-xl text-xs font-semibold border transition-all ${
-                    filters.maxHourlyPrice === price
-                      ? 'bg-emerald-600 text-white border-emerald-500'
-                      : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-                  }`}
-                >
-                  {(price / 1000)}k đ
-                </button>
-              ))}
+            <input
+              type="range"
+              min={0}
+              max={100000}
+              step={5000}
+              value={filters.maxHourlyPrice}
+              onChange={(e) => onUpdateFilter({ maxHourlyPrice: Number(e.target.value) })}
+              className="w-full h-2 rounded-full appearance-none bg-slate-800 accent-emerald-500 cursor-pointer"
+            />
+            <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+              <span>0 đ</span>
+              <span>100k đ</span>
             </div>
           </div>
 

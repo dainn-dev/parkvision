@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { listSites } from '../api/public';
 import { Tenant, UserLocation } from '../types';
 
-const POLL_MS = 15000;
+// Tightened from 15s: tenant admin updates occupancy instantly over
+// WebSocket, so the list view should not lag behind it by more than a
+// few seconds. The currently open site detail (TenantDetailModal) polls
+// on its own faster interval on top of this.
+const POLL_MS = 8000;
 const DEBOUNCE_MS = 300;
 
 export function useSites({
@@ -51,6 +55,19 @@ export function useSites({
     const interval = setInterval(() => void fetchRef.current(), POLL_MS);
     return () => clearInterval(interval);
   }, [enabled, location.lat, location.lng, debouncedKeyword]);
+
+  // Timers are throttled/suspended while a mobile tab is backgrounded, so a
+  // user returning from another app can otherwise stare at a number that's
+  // been stale for minutes. Refetch immediately on return to foreground
+  // instead of waiting for the next regular poll tick.
+  useEffect(() => {
+    if (!enabled) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void fetchRef.current();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [enabled]);
 
   const refetch = useCallback(() => fetchRef.current(), []);
 
