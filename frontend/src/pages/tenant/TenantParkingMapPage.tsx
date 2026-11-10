@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { MapPinned, Plus, Layers, Car, X, Pencil } from 'lucide-react';
 import { usePlatform } from '../../context/PlatformContext';
 import { Button, Card, Select } from '../../components/ui';
+import { canTenantWrite } from '../../lib/permissions';
 import { ParkingMapCanvas } from '../../components/tenant/parking/ParkingMapCanvas';
 import { VehicleLocatePanel } from '../../components/tenant/parking/VehicleLocatePanel';
 import { ParkingLevelEditor } from '../../components/tenant/parking/ParkingLevelEditor';
@@ -30,7 +31,9 @@ export const TenantParkingMapPage: React.FC = () => {
   const [levelEditorOpen, setLevelEditorOpen] = useState(false);
   const [zoneEditor, setZoneEditor] = useState<{ zone: MapZoneOut | null; bounds: ZoneBounds | null } | null>(null);
 
-  const canWrite = /owner|admin|operator/i.test(currentUser.role);
+  // Mirrors tenant/parking.py's `require_roles(*WRITE_ROLES)`. Uses the raw
+  // backend role, not the `role` display string ("Tenant owner").
+  const canWrite = canTenantWrite(currentUser.rawRole);
 
   const levels = useMemo(
     () =>

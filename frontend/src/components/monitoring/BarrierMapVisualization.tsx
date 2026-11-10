@@ -17,6 +17,7 @@ import {
   relTime,
 } from '../../services/barrierMapData';
 import { usePlatform } from '../../context/PlatformContext';
+import { canTenantWrite } from '../../lib/permissions';
 import { anomalyDetectorService } from '../../services/anomalyDetectionService';
 import { BarrierAnomalyResult } from '../../types/anomaly';
 import { BarrierAnomalyInspector } from './BarrierAnomalyInspector';
@@ -101,8 +102,15 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
     resolveTenantAlert,
     simulateNewAccessEvent,
     isTenantRefreshing,
+    currentUser,
   } = usePlatform();
   const { t } = useTranslation('monitoring');
+
+  // triggerGateCommand hits tenantApi.sendCommand, which requires
+  // require_tenant_user + WRITE_ROLES server-side — platform admins (who have
+  // no tenant role) always fail this call, so canTenantWrite correctly gates
+  // both workspaces from one check. Mirrors tenant/gates.py's `require_roles(*WRITE_ROLES)`.
+  const canManage = canTenantWrite(currentUser.rawRole);
 
   // Active view: 'd3-map' | 'grid'
   const [viewMode, setViewMode] = useState<'d3-map' | 'grid'>('d3-map');
@@ -917,6 +925,10 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
   // GATE INTERACTION HANDLERS
   // =========================================================================
   const handleToggleBarrierArm = (siteId: string, gateId: string, targetAction: 'OPEN' | 'CLOSE') => {
+    if (!canManage) {
+      addToast({ type: 'warning', title: t('Insufficient permissions'), description: t('Your role cannot issue gate commands.') });
+      return;
+    }
     const site = sites.find(s => s.id === siteId);
     const gate = site?.gates.find(g => g.id === gateId);
     if (!gate || gate.health === 'OFFLINE') {
@@ -949,6 +961,10 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
   };
 
   const handleEmergencyLock = (siteId: string, gateId: string) => {
+    if (!canManage) {
+      addToast({ type: 'warning', title: t('Insufficient permissions'), description: t('Your role cannot issue gate commands.') });
+      return;
+    }
     const site = sites.find(s => s.id === siteId);
     const gate = site?.gates.find(g => g.id === gateId);
     if (!gate) return;
@@ -978,6 +994,10 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
   };
 
   const handleRecordTestPassage = (siteId: string, gateId: string) => {
+    if (!canManage) {
+      addToast({ type: 'warning', title: t('Insufficient permissions'), description: t('Your role cannot record access events.') });
+      return;
+    }
     simulateNewAccessEvent({ siteId, gateId });
   };
 
@@ -1077,6 +1097,10 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
   // Resolve a single alert: close the backend incident and optionally send a
   // relay command to recover the gate.
   const resolveBarrierIncident = (alertId: string, actionType: 'REBOOT' | 'FORCE_OPEN' | 'DISPATCH' = 'REBOOT') => {
+    if (!canManage) {
+      addToast({ type: 'warning', title: t('Insufficient permissions'), description: t('Your role cannot resolve incidents.') });
+      return;
+    }
     const alert = alerts.find(a => a.id === alertId);
     if (!alert) return;
 
@@ -1116,6 +1140,10 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
 
   // Resolve all open alerts in one pass (per-incident API calls).
   const resolveAllIncidents = () => {
+    if (!canManage) {
+      addToast({ type: 'warning', title: t('Insufficient permissions'), description: t('Your role cannot resolve incidents.') });
+      return;
+    }
     const openAlerts = alerts.filter(a => !a.resolved);
     if (openAlerts.length === 0) {
       setIsIncidentsDrawerOpen(false);

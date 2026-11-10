@@ -43,6 +43,7 @@ import {
   Legend
 } from 'recharts';
 import { Button, Card, Badge } from '../../components/ui';
+import { canTenantWrite } from '../../lib/permissions';
 import { EditLocationSheet } from '../../components/tenant/EditLocationSheet';
 import { EditOperatingHoursDialog } from '../../components/tenant/EditOperatingHoursDialog';
 import { DeactivateLocationDialog } from '../../components/tenant/DeactivateLocationDialog';
@@ -63,8 +64,13 @@ export const TenantLocationPage: React.FC = () => {
     updateLocationOperatingHours,
     toggleLocationStatus,
     setTenantNavTab,
-    addToast
+    addToast,
+    currentUser
   } = usePlatform();
+
+  // Edit location/hours and activate/deactivate are WRITE_ROLES
+  // (owner/admin/operator) — mirrors tenant/sites.py's `require_roles(*WRITE_ROLES)`.
+  const canManage = canTenantWrite(currentUser.rawRole);
 
   // Dialog / Sheet states
   const [isEditLocationOpen, setIsEditLocationOpen] = useState(false);
@@ -146,15 +152,17 @@ export const TenantLocationPage: React.FC = () => {
 
         {/* Action Controls */}
         <div className="flex items-center gap-2.5 self-start sm:self-auto">
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setIsEditLocationOpen(true)}
-            className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 font-semibold shadow-xs"
-          >
-            <Edit className="w-3.5 h-3.5" />
-            {t('Edit Location')}
-          </Button>
+          {canManage && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsEditLocationOpen(true)}
+              className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 font-semibold shadow-xs"
+            >
+              <Edit className="w-3.5 h-3.5" />
+              {t('Edit Location')}
+            </Button>
+          )}
 
           {/* Secondary Actions Dropdown */}
           <div className="relative">
@@ -183,33 +191,37 @@ export const TenantLocationPage: React.FC = () => {
                     <span>{showInteractiveMap ? t('Hide Map View') : t('View on Map')}</span>
                   </button>
 
-                  <button
-                    onClick={() => {
-                      setIsMoreMenuOpen(false);
-                      setIsEditHoursOpen(true);
-                    }}
-                    className="w-full px-3.5 py-2 text-left text-[#c9d1d9] hover:text-white hover:bg-[#21262d] flex items-center gap-2.5 transition-colors"
-                  >
-                    <Clock className="w-4 h-4 text-[#3fb950]" />
-                    <span>{t('Manage Operating Hours')}</span>
-                  </button>
+                  {canManage && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setIsMoreMenuOpen(false);
+                          setIsEditHoursOpen(true);
+                        }}
+                        className="w-full px-3.5 py-2 text-left text-[#c9d1d9] hover:text-white hover:bg-[#21262d] flex items-center gap-2.5 transition-colors"
+                      >
+                        <Clock className="w-4 h-4 text-[#3fb950]" />
+                        <span>{t('Manage Operating Hours')}</span>
+                      </button>
 
-                  <div className="border-t border-[#30363d] my-1" />
+                      <div className="border-t border-[#30363d] my-1" />
 
-                  <button
-                    onClick={() => {
-                      setIsMoreMenuOpen(false);
-                      setIsDeactivateOpen(true);
-                    }}
-                    className={`w-full px-3.5 py-2 text-left flex items-center gap-2.5 transition-colors ${
-                      isActive
-                        ? 'text-[#f85149] hover:bg-[#da3633]/15'
-                        : 'text-[#3fb950] hover:bg-[#238636]/15'
-                    }`}
-                  >
-                    <Power className="w-4 h-4" />
-                    <span>{isActive ? t('Deactivate Location') : t('Activate Location')}</span>
-                  </button>
+                      <button
+                        onClick={() => {
+                          setIsMoreMenuOpen(false);
+                          setIsDeactivateOpen(true);
+                        }}
+                        className={`w-full px-3.5 py-2 text-left flex items-center gap-2.5 transition-colors ${
+                          isActive
+                            ? 'text-[#f85149] hover:bg-[#da3633]/15'
+                            : 'text-[#3fb950] hover:bg-[#238636]/15'
+                        }`}
+                      >
+                        <Power className="w-4 h-4" />
+                        <span>{isActive ? t('Deactivate Location') : t('Activate Location')}</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </>
             )}
@@ -248,19 +260,21 @@ export const TenantLocationPage: React.FC = () => {
           </div>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsDeactivateOpen(true)}
-          className={`text-xs self-start sm:self-auto shrink-0 border ${
-            isActive
-              ? 'border-[#30363d] text-[#8b949e] hover:text-[#f85149] hover:border-[#da3633]/40'
-              : 'border-[#238636]/50 bg-[#238636]/20 text-[#3fb950] hover:bg-[#238636]/30'
-          }`}
-        >
-          <Power className="w-3.5 h-3.5 mr-1.5" />
-          {isActive ? t('Deactivate') : t('Activate Location')}
-        </Button>
+        {canManage && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsDeactivateOpen(true)}
+            className={`text-xs self-start sm:self-auto shrink-0 border ${
+              isActive
+                ? 'border-[#30363d] text-[#8b949e] hover:text-[#f85149] hover:border-[#da3633]/40'
+                : 'border-[#238636]/50 bg-[#238636]/20 text-[#3fb950] hover:bg-[#238636]/30'
+            }`}
+          >
+            <Power className="w-3.5 h-3.5 mr-1.5" />
+            {isActive ? t('Deactivate') : t('Activate Location')}
+          </Button>
+        )}
       </div>
 
       {/* 3. Overview Row (2 Columns: Location Info + System Health) */}
@@ -273,14 +287,16 @@ export const TenantLocationPage: React.FC = () => {
                 <MapPin className="w-4 h-4 text-[#58a6ff]" />
                 <span>{t('Location Information')}</span>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsEditLocationOpen(true)}
-                className="text-[11px] text-[#58a6ff] hover:text-white p-0 h-auto font-medium"
-              >
-                {t('Edit')}
-              </Button>
+              {canManage && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditLocationOpen(true)}
+                  className="text-[11px] text-[#58a6ff] hover:text-white p-0 h-auto font-medium"
+                >
+                  {t('Edit')}
+                </Button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
@@ -621,14 +637,16 @@ export const TenantLocationPage: React.FC = () => {
                 <Clock className="w-4 h-4 text-[#3fb950]" />
                 <span>{t('Operating Hours')}</span>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsEditHoursOpen(true)}
-                className="text-[11px] text-[#58a6ff] hover:text-white p-0 h-auto font-medium"
-              >
-                {t('Edit Hours')}
-              </Button>
+              {canManage && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditHoursOpen(true)}
+                  className="text-[11px] text-[#58a6ff] hover:text-white p-0 h-auto font-medium"
+                >
+                  {t('Edit Hours')}
+                </Button>
+              )}
             </div>
 
             {location.operatingHours.isOpen24_7 ? (
@@ -681,14 +699,16 @@ export const TenantLocationPage: React.FC = () => {
                 <Phone className="w-4 h-4 text-[#a371f7]" />
                 <span>{t('Facility Contact Information')}</span>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsEditLocationOpen(true)}
-                className="text-[11px] text-[#58a6ff] hover:text-white p-0 h-auto font-medium"
-              >
-                {t('Edit')}
-              </Button>
+              {canManage && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditLocationOpen(true)}
+                  className="text-[11px] text-[#58a6ff] hover:text-white p-0 h-auto font-medium"
+                >
+                  {t('Edit')}
+                </Button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">

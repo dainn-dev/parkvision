@@ -28,6 +28,7 @@ import {
   Tabs
 } from '../../components/ui';
 import { useTranslation } from 'react-i18next';
+import { canManagePlatformAdmins, canRevokePlatformSessions } from '../../lib/permissions';
 
 export const PlatformAdminsPage: React.FC = () => {
   const { t } = useTranslation('platform');
@@ -40,8 +41,16 @@ export const PlatformAdminsPage: React.FC = () => {
     sessions,
     revokeSession,
     revokeAllUserSessions,
-    auditLogs
+    auditLogs,
+    currentUser
   } = usePlatform();
+
+  // Create/disable admins and reset another admin's MFA are super_admin-only —
+  // mirrors `require_platform_admin((PlatformAdminRole.SUPER_ADMIN,))` in platform.py.
+  const canManage = canManagePlatformAdmins(currentUser.rawRole);
+  // Revoking sessions is super_admin or support — mirrors platform.py's
+  // `require_platform_admin((SUPER_ADMIN, SUPPORT))` on /sessions/{id}/revoke.
+  const canRevoke = canRevokePlatformSessions(currentUser.rawRole);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAdmin, setSelectedAdmin] = useState<PlatformAdmin | null>(null);
@@ -109,14 +118,16 @@ export const PlatformAdminsPage: React.FC = () => {
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          icon={Plus}
-          onClick={() => setIsAddModalOpen(true)}
-          className="shadow-md shadow-indigo-600/30"
-        >
-          {t('Add Administrator')}
-        </Button>
+        {canManage && (
+          <Button
+            variant="primary"
+            icon={Plus}
+            onClick={() => setIsAddModalOpen(true)}
+            className="shadow-md shadow-indigo-600/30"
+          >
+            {t('Add Administrator')}
+          </Button>
+        )}
       </div>
 
       {/* Search Bar */}
@@ -201,7 +212,7 @@ export const PlatformAdminsPage: React.FC = () => {
                         onClick={() => setSelectedAdmin(admin)}
                       />
 
-                      {admin.status === 'ACTIVE' && (
+                      {canManage && admin.status === 'ACTIVE' && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -268,14 +279,16 @@ export const PlatformAdminsPage: React.FC = () => {
                     {selectedAdmin.mfaEnabled ? t('Enrolled with Time-Based One-Time Password (TOTP)') : t('MFA is currently pending setup.')}
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={RotateCcw}
-                  onClick={() => openMfaModal('reset_admin', selectedAdmin.name, selectedAdmin.id)}
-                >
-                  {t('Reset MFA Secret')}
-                </Button>
+                {canManage && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={RotateCcw}
+                    onClick={() => openMfaModal('reset_admin', selectedAdmin.name, selectedAdmin.id)}
+                  >
+                    {t('Reset MFA Secret')}
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -284,13 +297,15 @@ export const PlatformAdminsPage: React.FC = () => {
             <div className="space-y-3 text-xs pt-3">
               <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                 <span className="text-slate-400">{t('Active Device Sessions')}</span>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={() => revokeAllUserSessions(selectedAdmin.id)}
-                >
-                  {t('Revoke All Device Sessions')}
-                </Button>
+                {canRevoke && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => revokeAllUserSessions(selectedAdmin.id)}
+                  >
+                    {t('Revoke All Device Sessions')}
+                  </Button>
+                )}
               </div>
 
               {adminSessions.length === 0 ? (
@@ -305,9 +320,11 @@ export const PlatformAdminsPage: React.FC = () => {
                         {sess.location ? ` (${sess.location})` : ''}
                       </span>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => revokeSession(sess.id)}>
-                      {t('Revoke')}
-                    </Button>
+                    {canRevoke && (
+                      <Button variant="outline" size="sm" onClick={() => revokeSession(sess.id)}>
+                        {t('Revoke')}
+                      </Button>
+                    )}
                   </div>
                 ))
               )}

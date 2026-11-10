@@ -140,6 +140,10 @@ interface PlatformContextType {
     name: string;
     email: string;
     role: string;
+    // Raw backend role string (tenant: owner|admin|operator|viewer; platform:
+    // super_admin|ops|support), unlike `role` above which is a display label
+    // ("Tenant owner"). Used by lib/permissions.ts to gate menu items/buttons.
+    rawRole: string;
     mfaEnabled: boolean;
   };
   login: (email: string, pass: string, otp?: string) => Promise<{ requiresMfa: boolean; success: boolean; message?: string; code?: string; mfaExpiresIn?: number }>;
@@ -408,7 +412,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   // ---------- Auth ----------
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isSessionLoading, setIsSessionLoading] = useState<boolean>(true);
-  const [currentUser, setCurrentUser] = useState({ id: '', name: '', email: '', role: '', mfaEnabled: false });
+  const [currentUser, setCurrentUser] = useState({ id: '', name: '', email: '', role: '', rawRole: '', mfaEnabled: false });
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [tenantSlug, setTenantSlug] = useState<string | null>(null);
   const [userType, setUserType] = useState<string>('');
@@ -424,6 +428,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         name: me.user.fullName,
         email: me.user.email,
         role: me.userType === 'platform_admin' ? `Platform ${me.user.role}` : `Tenant ${me.user.role}`,
+        rawRole: me.user.role,
         mfaEnabled: me.user.mfaEnabled,
       });
       setIsMfaVerified(me.mfaVerified);
@@ -475,7 +480,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     setIsAuthenticated(false);
     setTenantId(null);
     setUserType('');
-    setCurrentUser({ id: '', name: '', email: '', role: '', mfaEnabled: false });
+    setCurrentUser({ id: '', name: '', email: '', role: '', rawRole: '', mfaEnabled: false });
   };
 
   // ---------- Theme ----------

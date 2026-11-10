@@ -24,6 +24,7 @@ import {
   ImageOff
 } from 'lucide-react';
 import { Button, Badge } from '../ui';
+import { canTenantWrite } from '../../lib/permissions';
 import { useTranslation } from 'react-i18next';
 
 interface AccessEventDrawerProps {
@@ -41,7 +42,11 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
   onOverride,
   onBlock
 }) => {
-  const { activeTenantId, addToast } = usePlatform();
+  const { activeTenantId, addToast, currentUser } = usePlatform();
+
+  // Plate correction and gate override/block are WRITE_ROLES
+  // (owner/admin/operator) — mirrors tenant/events.py's `require_roles(*WRITE_ROLES)`.
+  const canManage = canTenantWrite(currentUser.rawRole);
   const { t } = useTranslation('tenant');
   const [correctionInput, setCorrectionInput] = useState('');
   const [isCorrecting, setIsCorrecting] = useState(false);
@@ -188,23 +193,27 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={correctionInput}
-                onChange={(e) => setCorrectionInput(e.target.value.toUpperCase())}
-                placeholder={t('Correct plate (e.g. 30F12345)')}
-                className="flex-1 px-3 py-1.5 bg-[#0d0e12] border border-[#30363d] rounded-lg font-mono text-[11px] text-white focus:outline-none focus:border-[#58a6ff]"
-              />
-              <button
-                type="button"
-                onClick={submitCorrection}
-                disabled={isCorrecting || !correctionInput.trim()}
-                className="px-3 py-1.5 rounded-lg bg-[#1f6feb]/20 border border-[#1f6feb]/40 text-[#58a6ff] text-[11px] font-semibold hover:bg-[#1f6feb]/30 disabled:opacity-40 transition-colors cursor-pointer"
-              >
-                {isCorrecting ? t('Saving…') : t('Correct')}
-              </button>
-            </div>
+            {canManage ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={correctionInput}
+                  onChange={(e) => setCorrectionInput(e.target.value.toUpperCase())}
+                  placeholder={t('Correct plate (e.g. 30F12345)')}
+                  className="flex-1 px-3 py-1.5 bg-[#0d0e12] border border-[#30363d] rounded-lg font-mono text-[11px] text-white focus:outline-none focus:border-[#58a6ff]"
+                />
+                <button
+                  type="button"
+                  onClick={submitCorrection}
+                  disabled={isCorrecting || !correctionInput.trim()}
+                  className="px-3 py-1.5 rounded-lg bg-[#1f6feb]/20 border border-[#1f6feb]/40 text-[#58a6ff] text-[11px] font-semibold hover:bg-[#1f6feb]/30 disabled:opacity-40 transition-colors cursor-pointer"
+                >
+                  {isCorrecting ? t('Saving…') : t('Correct')}
+                </button>
+              </div>
+            ) : (
+              <span className="text-[#8b949e] text-[11px] italic">{t('View only')}</span>
+            )}
           </div>
 
           {/* AI Vision & OCR Sensor Card */}
@@ -412,31 +421,33 @@ export const AccessEventDrawer: React.FC<AccessEventDrawerProps> = ({
             {t('Close Sheet')}
           </Button>
 
-          <div className="flex items-center gap-2">
-            {event.decision !== 'ALLOWED' && onOverride && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => onOverride(event)}
-                className="bg-[#238636] hover:bg-[#2ea043] text-white text-xs gap-1.5"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                {t('Override & Open Gate')}
-              </Button>
-            )}
+          {canManage && (
+            <div className="flex items-center gap-2">
+              {event.decision !== 'ALLOWED' && onOverride && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => onOverride(event)}
+                  className="bg-[#238636] hover:bg-[#2ea043] text-white text-xs gap-1.5"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {t('Override & Open Gate')}
+                </Button>
+              )}
 
-            {event.decision !== 'BLOCKED' && onBlock && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onBlock(event)}
-                className="text-[#f85149] hover:bg-[#da3633]/20 border-[#da3633]/40 text-xs gap-1.5"
-              >
-                <Ban className="w-3.5 h-3.5" />
-                {t('Add to Blocklist')}
-              </Button>
-            )}
-          </div>
+              {event.decision !== 'BLOCKED' && onBlock && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onBlock(event)}
+                  className="text-[#f85149] hover:bg-[#da3633]/20 border-[#da3633]/40 text-xs gap-1.5"
+                >
+                  <Ban className="w-3.5 h-3.5" />
+                  {t('Add to Blocklist')}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

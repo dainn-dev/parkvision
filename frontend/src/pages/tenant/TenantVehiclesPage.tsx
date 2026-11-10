@@ -25,6 +25,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { Button, Input, Pagination } from '../../components/ui';
+import { canTenantWrite } from '../../lib/permissions';
 import { TenantVehicle, VehicleType, VehicleStatus, VehicleAccessStatus } from '../../types/tenant';
 import { AddVehicleModal } from '../../components/tenant/AddVehicleModal';
 import { VehicleDetailsModal } from '../../components/tenant/vehicles/VehicleDetailsModal';
@@ -41,8 +42,13 @@ export const TenantVehiclesPage: React.FC = () => {
     tenantVehicles,
     activateTenantVehicle,
     deactivateTenantVehicle,
-    archiveTenantVehicle
+    archiveTenantVehicle,
+    currentUser
   } = usePlatform();
+
+  // Enroll/edit/suspend/reassign are WRITE_ROLES (owner/admin/operator) —
+  // mirrors tenant/vehicles.py's `require_roles(*WRITE_ROLES)`.
+  const canManage = canTenantWrite(currentUser.rawRole);
 
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -137,24 +143,26 @@ export const TenantVehiclesPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <Button
-            variant="outline"
-            onClick={() => setIsImportModalOpen(true)}
-            className="text-xs h-9 gap-1.5 border-[#30363d] bg-[#161b22] text-[#c9d1d9] hover:text-white"
-          >
-            <UploadCloud className="w-4 h-4" />
-            {t('Bulk CSV Import')}
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => setIsAddModalOpen(true)}
-            className="text-xs h-9 bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            {t('Enroll Vehicle')}
-          </Button>
-        </div>
+        {canManage && (
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={() => setIsImportModalOpen(true)}
+              className="text-xs h-9 gap-1.5 border-[#30363d] bg-[#161b22] text-[#c9d1d9] hover:text-white"
+            >
+              <UploadCloud className="w-4 h-4" />
+              {t('Bulk CSV Import')}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => setIsAddModalOpen(true)}
+              className="text-xs h-9 bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              {t('Enroll Vehicle')}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards */}
@@ -434,43 +442,47 @@ export const TenantVehiclesPage: React.FC = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => setSelectedVehicleForEdit(vehicle)}
-                            className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
-                            title={t('Edit Vehicle Specs')}
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setSelectedVehicleForPlate(vehicle)}
-                            className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
-                            title={t('Update License Plate')}
-                          >
-                            <Tag className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setSelectedVehicleForAssign(vehicle)}
-                            className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
-                            title={t('Assign / Reassign Member')}
-                          >
-                            <UserCheck className="w-4 h-4" />
-                          </button>
-                          {isSuspended ? (
-                            <button
-                              onClick={() => activateTenantVehicle(vehicle.id)}
-                              className="p-1.5 rounded hover:bg-[#238636]/20 text-[#3fb950] transition-colors cursor-pointer"
-                              title={t('Reactivate Vehicle')}
-                            >
-                              <CheckCircle2 className="w-4 h-4" />
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => setSelectedVehicleForSuspend(vehicle)}
-                              className="p-1.5 rounded hover:bg-[#d29922]/20 text-[#8b949e] hover:text-[#e3b341] transition-colors cursor-pointer"
-                              title={t('Suspend Access')}
-                            >
-                              <Ban className="w-4 h-4" />
-                            </button>
+                          {canManage && (
+                            <>
+                              <button
+                                onClick={() => setSelectedVehicleForEdit(vehicle)}
+                                className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
+                                title={t('Edit Vehicle Specs')}
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => setSelectedVehicleForPlate(vehicle)}
+                                className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
+                                title={t('Update License Plate')}
+                              >
+                                <Tag className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => setSelectedVehicleForAssign(vehicle)}
+                                className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
+                                title={t('Assign / Reassign Member')}
+                              >
+                                <UserCheck className="w-4 h-4" />
+                              </button>
+                              {isSuspended ? (
+                                <button
+                                  onClick={() => activateTenantVehicle(vehicle.id)}
+                                  className="p-1.5 rounded hover:bg-[#238636]/20 text-[#3fb950] transition-colors cursor-pointer"
+                                  title={t('Reactivate Vehicle')}
+                                >
+                                  <CheckCircle2 className="w-4 h-4" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => setSelectedVehicleForSuspend(vehicle)}
+                                  className="p-1.5 rounded hover:bg-[#d29922]/20 text-[#8b949e] hover:text-[#e3b341] transition-colors cursor-pointer"
+                                  title={t('Suspend Access')}
+                                >
+                                  <Ban className="w-4 h-4" />
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
                       </td>

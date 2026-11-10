@@ -52,6 +52,7 @@ import {
   Legend
 } from 'recharts';
 import { Button, Card, Badge } from '../../components/ui';
+import { canManageTenantUsers, canTenantWrite } from '../../lib/permissions';
 import { AccessEvent, TenantSite } from '../../types/tenant';
 import { AccessEventDrawer } from '../../components/tenant/AccessEventDrawer';
 import { SiteDetailDrawer } from '../../components/tenant/SiteDetailDrawer';
@@ -81,8 +82,15 @@ export const TenantDashboardPage: React.FC = () => {
     tenantLanes,
     gates,
     edgeDevices,
-    addToast
+    addToast,
+    currentUser
   } = usePlatform();
+
+  // Register vehicle / create rule are WRITE_ROLES (owner/admin/operator);
+  // inviting a user is ADMIN_ROLES (owner/admin only) — mirrors
+  // tenant/{vehicles,rules}.py vs. tenant/users.py's `require_roles(*ADMIN_ROLES)`.
+  const canManage = canTenantWrite(currentUser.rawRole);
+  const canInvite = canManageTenantUsers(currentUser.rawRole);
 
   // 1 Tenant = 1 Site constraint: Get the single dedicated site
   const site: TenantSite = tenantSites[0] || {
@@ -274,16 +282,18 @@ export const TenantDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => resolveTenantAlert(activeAlert.id)}
-              className="text-xs text-[#8b949e] hover:text-white border-[#30363d]"
-            >
-              {t('Dismiss')}
-            </Button>
-          </div>
+          {canManage && (
+            <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => resolveTenantAlert(activeAlert.id)}
+                className="text-xs text-[#8b949e] hover:text-white border-[#30363d]"
+              >
+                {t('Dismiss')}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -514,30 +524,36 @@ export const TenantDashboardPage: React.FC = () => {
               </div>
 
               {/* Manual Override Action Controls */}
-              <div className="pt-2 border-t border-[#30363d] flex items-center gap-1.5">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    triggerGateCommand(lane.gateId, 'OPEN');
-                  }}
-                  className="flex-1 text-[11px] py-1.5 bg-[#238636]/15 hover:bg-[#238636]/30 text-[#3fb950] border-[#238636]/40 gap-1 justify-center"
-                >
-                  <Unlock className="w-3 h-3" />
-                  {t('Open Barrier')}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    triggerGateCommand(lane.gateId, 'RESET');
-                  }}
-                  className="text-[11px] py-1.5 px-2 bg-[#161b22] text-[#8b949e] hover:text-white border-[#30363d]"
-                  title={t('Reset Controller')}
-                >
-                  <RotateCcw className="w-3 h-3" />
-                </Button>
-              </div>
+              {canManage ? (
+                <div className="pt-2 border-t border-[#30363d] flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      triggerGateCommand(lane.gateId, 'OPEN');
+                    }}
+                    className="flex-1 text-[11px] py-1.5 bg-[#238636]/15 hover:bg-[#238636]/30 text-[#3fb950] border-[#238636]/40 gap-1 justify-center"
+                  >
+                    <Unlock className="w-3 h-3" />
+                    {t('Open Barrier')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      triggerGateCommand(lane.gateId, 'RESET');
+                    }}
+                    className="text-[11px] py-1.5 px-2 bg-[#161b22] text-[#8b949e] hover:text-white border-[#30363d]"
+                    title={t('Reset Controller')}
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="pt-2 border-t border-[#30363d] text-[11px] text-[#8b949e] italic text-center">
+                  {t('View only')}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -946,32 +962,38 @@ export const TenantDashboardPage: React.FC = () => {
       <div className="p-5 rounded-2xl bg-gradient-to-r from-[#161b22] via-[#161b22] to-[#1f6feb]/10 border border-[#30363d]">
         <h3 className="text-sm font-bold text-white tracking-tight mb-3">{t('Quick Actions')}</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Button
-            variant="outline"
-            onClick={() => setIsAddVehicleOpen(true)}
-            className="text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] py-3 gap-2 justify-center"
-          >
-            <Car className="w-4 h-4 text-[#58a6ff]" />
-            {t('+ Register Vehicle')}
-          </Button>
+          {canManage && (
+            <Button
+              variant="outline"
+              onClick={() => setIsAddVehicleOpen(true)}
+              className="text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] py-3 gap-2 justify-center"
+            >
+              <Car className="w-4 h-4 text-[#58a6ff]" />
+              {t('+ Register Vehicle')}
+            </Button>
+          )}
 
-          <Button
-            variant="outline"
-            onClick={() => setIsInviteMemberOpen(true)}
-            className="text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] py-3 gap-2 justify-center"
-          >
-            <UserPlus className="w-4 h-4 text-[#3fb950]" />
-            {t('+ Invite Operator')}
-          </Button>
+          {canInvite && (
+            <Button
+              variant="outline"
+              onClick={() => setIsInviteMemberOpen(true)}
+              className="text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] py-3 gap-2 justify-center"
+            >
+              <UserPlus className="w-4 h-4 text-[#3fb950]" />
+              {t('+ Invite Operator')}
+            </Button>
+          )}
 
-          <Button
-            variant="outline"
-            onClick={() => setIsCreateRuleOpen(true)}
-            className="text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] py-3 gap-2 justify-center"
-          >
-            <ShieldCheck className="w-4 h-4 text-[#e3b341]" />
-            {t('+ Add Access Rule')}
-          </Button>
+          {canManage && (
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateRuleOpen(true)}
+              className="text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] py-3 gap-2 justify-center"
+            >
+              <ShieldCheck className="w-4 h-4 text-[#e3b341]" />
+              {t('+ Add Access Rule')}
+            </Button>
+          )}
 
           <Button
             variant="outline"

@@ -9,6 +9,7 @@ import {
   HardDrive
 } from 'lucide-react';
 import { Button, Input } from '../../components/ui';
+import { canTenantWrite } from '../../lib/permissions';
 import { useTranslation } from 'react-i18next';
 
 interface TenantSettingsForm {
@@ -44,7 +45,11 @@ const DEFAULTS: TenantSettingsForm = {
 
 export const TenantSettingsPage: React.FC = () => {
   const { t } = useTranslation('tenant');
-  const { addToast, activeTenantId } = usePlatform();
+  const { addToast, activeTenantId, currentUser } = usePlatform();
+
+  // PUT /settings is WRITE_ROLES (owner/admin/operator) — mirrors
+  // tenant/events.py's `put_tenant_settings` `require_roles(*WRITE_ROLES)`.
+  const canManage = canTenantWrite(currentUser.rawRole);
 
   const [settings, setSettings] = useState<TenantSettingsForm>(DEFAULTS);
   const [isSaving, setIsSaving] = useState(false);
@@ -127,6 +132,12 @@ export const TenantSettingsPage: React.FC = () => {
       </div>
 
       <form onSubmit={handleSave} className="space-y-5 text-xs">
+        {!canManage && (
+          <div className="p-3 rounded-xl bg-[#d29922]/10 border border-[#d29922]/30 text-[#e3b341] text-[11px]">
+            {t('Your role has read-only access to these settings.')}
+          </div>
+        )}
+        <fieldset disabled={!canManage} className="space-y-5 contents">
         {/* Org Profile */}
         <div className="p-5 rounded-2xl bg-[#161b22] border border-[#30363d] space-y-4">
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -286,18 +297,21 @@ export const TenantSettingsPage: React.FC = () => {
             </p>
           </div>
         </div>
+        </fieldset>
 
-        <div className="flex justify-end pt-2">
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={isSaving}
-            className="bg-[#238636] hover:bg-[#2ea043] text-white gap-2"
-          >
-            <Save className="w-4 h-4" />
-            {isSaving ? t('Saving…') : t('Save Changes')}
-          </Button>
-        </div>
+        {canManage && (
+          <div className="flex justify-end pt-2">
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={isSaving}
+              className="bg-[#238636] hover:bg-[#2ea043] text-white gap-2"
+            >
+              <Save className="w-4 h-4" />
+              {isSaving ? t('Saving…') : t('Save Changes')}
+            </Button>
+          </div>
+        )}
       </form>
     </div>
   );

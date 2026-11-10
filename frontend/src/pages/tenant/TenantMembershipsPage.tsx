@@ -11,6 +11,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { Badge, Button, Input, Modal, Pagination, Select } from '../../components/ui';
+import { canTenantWrite } from '../../lib/permissions';
 import {
   MembershipPlanIn,
   MembershipPlanOut,
@@ -46,7 +47,12 @@ const fmtVnd = (v: number) => `${v.toLocaleString()}đ`;
 
 export const TenantMembershipsPage: React.FC = () => {
   const { t } = useTranslation('tenant');
-  const { activeTenantId, tenantSites, addToast } = usePlatform();
+  const { activeTenantId, tenantSites, addToast, currentUser } = usePlatform();
+
+  // Plan CRUD, membership activate/reject/revoke, and payment refund are all
+  // WRITE_ROLES (owner/admin/operator) — mirrors tenant/memberships.py and
+  // tenant/payments.py's `require_roles(*WRITE_ROLES)`.
+  const canManage = canTenantWrite(currentUser.rawRole);
 
   const [tab, setTab] = useState<Tab>('requests');
 
@@ -273,7 +279,7 @@ export const TenantMembershipsPage: React.FC = () => {
             <RefreshCw className="w-4 h-4" />
             {t('Refresh')}
           </Button>
-          {tab === 'plans' && (
+          {tab === 'plans' && canManage && (
             <Button
               variant="primary"
               onClick={() => openPlanModal(null)}
@@ -384,37 +390,43 @@ export const TenantMembershipsPage: React.FC = () => {
                         </td>
                         <td className="py-3.5 px-4 text-[#8b949e] whitespace-nowrap">{fmtDate(m.createdAt)}</td>
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          {m.status === 'pending' && (
-                            <div className="flex items-center justify-end gap-1.5">
-                              <Button
-                                size="sm"
-                                onClick={() => { setAction({ kind: 'activate', row: m }); setActionNote(''); }}
-                                className="text-[11px] h-7 bg-[#238636] hover:bg-[#2ea043] text-white"
-                              >
-                                <ShieldCheck className="w-3.5 h-3.5" />
-                                {t('Activate')}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => { setAction({ kind: 'reject', row: m }); setActionNote(''); }}
-                                className="text-[11px] h-7 border-[#30363d] text-[#f85149]"
-                              >
-                                <XCircle className="w-3.5 h-3.5" />
-                                {t('Reject')}
-                              </Button>
-                            </div>
-                          )}
-                          {m.status === 'active' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => { setAction({ kind: 'revoke', row: m }); setActionNote(''); }}
-                              className="text-[11px] h-7 border-[#30363d] text-[#f85149]"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                              {t('Revoke')}
-                            </Button>
+                          {!canManage ? (
+                            <span className="text-[#8b949e] text-[11px] italic">{t('View only')}</span>
+                          ) : (
+                            <>
+                              {m.status === 'pending' && (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => { setAction({ kind: 'activate', row: m }); setActionNote(''); }}
+                                    className="text-[11px] h-7 bg-[#238636] hover:bg-[#2ea043] text-white"
+                                  >
+                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                    {t('Activate')}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => { setAction({ kind: 'reject', row: m }); setActionNote(''); }}
+                                    className="text-[11px] h-7 border-[#30363d] text-[#f85149]"
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" />
+                                    {t('Reject')}
+                                  </Button>
+                                </div>
+                              )}
+                              {m.status === 'active' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => { setAction({ kind: 'revoke', row: m }); setActionNote(''); }}
+                                  className="text-[11px] h-7 border-[#30363d] text-[#f85149]"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  {t('Revoke')}
+                                </Button>
+                              )}
+                            </>
                           )}
                         </td>
                       </tr>
@@ -506,15 +518,19 @@ export const TenantMembershipsPage: React.FC = () => {
                           <Badge variant={p.status === 'active' ? 'emerald' : 'slate'}>{t(p.status)}</Badge>
                         </td>
                         <td className="py-3.5 px-4 text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openPlanModal(p)}
-                            className="text-[11px] h-7 border-[#30363d] text-[#c9d1d9]"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                            {t('Edit')}
-                          </Button>
+                          {canManage ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openPlanModal(p)}
+                              className="text-[11px] h-7 border-[#30363d] text-[#c9d1d9]"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              {t('Edit')}
+                            </Button>
+                          ) : (
+                            <span className="text-[#8b949e] text-[11px] italic">{t('View only')}</span>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -610,7 +626,7 @@ export const TenantMembershipsPage: React.FC = () => {
                         </td>
                         <td className="py-3.5 px-4 text-[#8b949e] whitespace-nowrap">{fmtDate(p.paidAt ?? p.createdAt)}</td>
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          {p.status === 'paid' && p.kind !== 'topup' && (
+                          {canManage && p.status === 'paid' && p.kind !== 'topup' && (
                             <Button
                               size="sm"
                               variant="outline"

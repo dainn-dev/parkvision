@@ -21,10 +21,15 @@ import {
   Switch
 } from '../../components/ui';
 import { useTranslation } from 'react-i18next';
+import { canManagePlatformOps } from '../../lib/permissions';
 
 export const PlatformSettingsPage: React.FC = () => {
   const { t } = useTranslation('platform');
   const { settings, updateSettings, settingsSection, setSettingsSection, openMfaModal, currentUser } = usePlatform();
+
+  // Writing platform settings is super_admin or ops — mirrors platform.py's
+  // `require_platform_admin((SUPER_ADMIN, OPS))` on PUT /platform/settings/{key}.
+  const canManage = canManagePlatformOps(currentUser.rawRole);
 
   const [formData, setFormData] = useState<any>(settings[settingsSection]);
 
@@ -142,9 +147,14 @@ export const PlatformSettingsPage: React.FC = () => {
           />
 
           <CardContent className="space-y-5">
+            {!canManage && (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+                {t('Your role has read-only access to platform settings.')}
+              </div>
+            )}
             {/* 1. GENERAL SETTINGS */}
             {settingsSection === 'general' && (
-              <div className="space-y-4">
+              <fieldset disabled={!canManage} className="space-y-4 contents">
                 <Input
                   label={t('Platform System Name')}
                   value={formData.platformName || ''}
@@ -186,12 +196,12 @@ export const PlatformSettingsPage: React.FC = () => {
                   value={formData.supportEmail || ''}
                   onChange={(e) => handleChange('supportEmail', e.target.value)}
                 />
-              </div>
+              </fieldset>
             )}
 
             {/* 2. AUTHENTICATION SETTINGS */}
             {settingsSection === 'authentication' && (
-              <div className="space-y-4">
+              <fieldset disabled={!canManage} className="space-y-4 contents">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
                     label={t('Access Token Lifetime (Minutes)')}
@@ -239,60 +249,64 @@ export const PlatformSettingsPage: React.FC = () => {
                   checked={formData.revokeSessionsOnPasswordReset ?? true}
                   onChange={(val) => handleChange('revokeSessionsOnPasswordReset', val)}
                 />
-              </div>
+              </fieldset>
             )}
 
             {/* 3. SECURITY SETTINGS */}
             {settingsSection === 'security' && (
               <div className="space-y-4">
-                <Input
-                  label={t('Minimum Password Length')}
-                  type="number"
-                  value={formData.minPasswordLength || 12}
-                  onChange={(e) => handleChange('minPasswordLength', Number(e.target.value))}
-                />
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                  <Switch
-                    label={t('Require Uppercase Characters')}
-                    checked={formData.requireUppercase ?? true}
-                    onChange={(val) => handleChange('requireUppercase', val)}
-                  />
-
-                  <Switch
-                    label={t('Require Special Characters (!@#$%^&*)')}
-                    checked={formData.requireSpecialChars ?? true}
-                    onChange={(val) => handleChange('requireSpecialChars', val)}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <fieldset disabled={!canManage} className="space-y-4 contents">
                   <Input
-                    label={t('Max Failed Login Attempts Before Lockout')}
+                    label={t('Minimum Password Length')}
                     type="number"
-                    value={formData.maxFailedLoginAttempts || 5}
-                    onChange={(e) => handleChange('maxFailedLoginAttempts', Number(e.target.value))}
+                    value={formData.minPasswordLength || 12}
+                    onChange={(e) => handleChange('minPasswordLength', Number(e.target.value))}
                   />
 
-                  <Input
-                    label={t('Account Lockout Duration (Minutes)')}
-                    type="number"
-                    value={formData.accountLockoutMinutes || 15}
-                    onChange={(e) => handleChange('accountLockoutMinutes', Number(e.target.value))}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    <Switch
+                      label={t('Require Uppercase Characters')}
+                      checked={formData.requireUppercase ?? true}
+                      onChange={(val) => handleChange('requireUppercase', val)}
+                    />
+
+                    <Switch
+                      label={t('Require Special Characters (!@#$%^&*)')}
+                      checked={formData.requireSpecialChars ?? true}
+                      onChange={(val) => handleChange('requireSpecialChars', val)}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label={t('Max Failed Login Attempts Before Lockout')}
+                      type="number"
+                      value={formData.maxFailedLoginAttempts || 5}
+                      onChange={(e) => handleChange('maxFailedLoginAttempts', Number(e.target.value))}
+                    />
+
+                    <Input
+                      label={t('Account Lockout Duration (Minutes)')}
+                      type="number"
+                      value={formData.accountLockoutMinutes || 15}
+                      onChange={(e) => handleChange('accountLockoutMinutes', Number(e.target.value))}
+                    />
+                  </div>
+
+                  <Select
+                    label={t('Multi-Factor Authentication (MFA) Policy')}
+                    value={formData.mfaEnforcement || 'MANDATORY_ADMINS'}
+                    onChange={(e) => handleChange('mfaEnforcement', e.target.value)}
+                    options={[
+                      { value: 'MANDATORY_ALL', label: t('Mandatory for ALL Users') },
+                      { value: 'MANDATORY_ADMINS', label: t('Mandatory for Administrators Only') },
+                      { value: 'OPTIONAL', label: t('Optional Self-Enrollment') }
+                    ]}
                   />
-                </div>
+                </fieldset>
 
-                <Select
-                  label={t('Multi-Factor Authentication (MFA) Policy')}
-                  value={formData.mfaEnforcement || 'MANDATORY_ADMINS'}
-                  onChange={(e) => handleChange('mfaEnforcement', e.target.value)}
-                  options={[
-                    { value: 'MANDATORY_ALL', label: t('Mandatory for ALL Users') },
-                    { value: 'MANDATORY_ADMINS', label: t('Mandatory for Administrators Only') },
-                    { value: 'OPTIONAL', label: t('Optional Self-Enrollment') }
-                  ]}
-                />
-
+                {/* Self-service MFA enrollment is not role-gated server-side —
+                    every platform admin manages their own MFA regardless of role. */}
                 <div className="p-4 bg-[#0d0e12] border border-[#30363d] rounded-xl flex items-center justify-between gap-3">
                   <div>
                     <h5 className="font-bold text-white text-xs">{t('Self-Enrollment & Verification Test')}</h5>
@@ -326,7 +340,7 @@ export const PlatformSettingsPage: React.FC = () => {
 
             {/* 4. STORAGE SETTINGS */}
             {settingsSection === 'storage' && (
-              <div className="space-y-4">
+              <fieldset disabled={!canManage} className="space-y-4 contents">
                 <Select
                   label={t('Object Storage Engine Provider')}
                   value={formData.provider || 'MinIO'}
@@ -360,12 +374,12 @@ export const PlatformSettingsPage: React.FC = () => {
                   checked={formData.autoCleanupEnabled ?? true}
                   onChange={(val) => handleChange('autoCleanupEnabled', val)}
                 />
-              </div>
+              </fieldset>
             )}
 
             {/* 5. NOTIFICATION SETTINGS */}
             {settingsSection === 'notifications' && (
-              <div className="space-y-4">
+              <fieldset disabled={!canManage} className="space-y-4 contents">
                 <Switch
                   label={t('Enable Platform Email Dispatch Engine')}
                   description={t('Routes security notifications and system alerts via SMTP gateway')}
@@ -401,18 +415,20 @@ export const PlatformSettingsPage: React.FC = () => {
                     onChange={(val) => handleChange('notifySystemHealthAlerts', val)}
                   />
                 </div>
-              </div>
+              </fieldset>
             )}
 
             {/* Save / Reset Bar */}
-            <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-800">
-              <Button variant="ghost" size="sm" icon={RotateCcw} onClick={handleReset}>
-                {t('Reset Section')}
-              </Button>
-              <Button variant="primary" size="sm" icon={Check} onClick={handleSave}>
-                {t('Save Changes')}
-              </Button>
-            </div>
+            {canManage && (
+              <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-800">
+                <Button variant="ghost" size="sm" icon={RotateCcw} onClick={handleReset}>
+                  {t('Reset Section')}
+                </Button>
+                <Button variant="primary" size="sm" icon={Check} onClick={handleSave}>
+                  {t('Save Changes')}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

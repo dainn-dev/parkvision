@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { TenantAccessRule, AccessRuleAction, AccessRuleStatus } from '../../types/tenant';
 import { Button, Input } from '../../components/ui';
+import { canTenantWrite } from '../../lib/permissions';
 import { RuleDetailsDrawer } from '../../components/tenant/rules/RuleDetailsDrawer';
 import { CreateEditRuleModal } from '../../components/tenant/rules/CreateEditRuleModal';
 import { RuleSimulatorModal } from '../../components/tenant/rules/RuleSimulatorModal';
@@ -45,8 +46,13 @@ export const TenantRulesPage: React.FC = () => {
     deleteTenantAccessRule,
     activateTenantAccessRule,
     deactivateTenantAccessRule,
-    duplicateTenantAccessRule
+    duplicateTenantAccessRule,
+    currentUser
   } = usePlatform();
+
+  // Create/edit/delete/duplicate/toggle/simulate/reorder are all WRITE_ROLES
+  // (owner/admin/operator) — mirrors tenant/rules.py's `require_roles(*WRITE_ROLES)`.
+  const canManage = canTenantWrite(currentUser.rawRole);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -184,37 +190,39 @@ export const TenantRulesPage: React.FC = () => {
         </div>
 
         {/* Global Action Buttons */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleOpenSimulator()}
-            className="text-xs border-[#1f6feb]/40 bg-[#1f6feb]/10 text-[#58a6ff] hover:bg-[#1f6feb]/20 gap-1.5"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-[#58a6ff]" />
-            {t('Test & Simulate Rule')}
-          </Button>
+        {canManage && (
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleOpenSimulator()}
+              className="text-xs border-[#1f6feb]/40 bg-[#1f6feb]/10 text-[#58a6ff] hover:bg-[#1f6feb]/20 gap-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#58a6ff]" />
+              {t('Test & Simulate Rule')}
+            </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsReorderModalOpen(true)}
-            className="text-xs border-[#30363d] text-[#c9d1d9] hover:bg-[#21262d] gap-1.5"
-          >
-            <ArrowUpDown className="w-3.5 h-3.5" />
-            {t('Reorder Priorities')}
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsReorderModalOpen(true)}
+              className="text-xs border-[#30363d] text-[#c9d1d9] hover:bg-[#21262d] gap-1.5"
+            >
+              <ArrowUpDown className="w-3.5 h-3.5" />
+              {t('Reorder Priorities')}
+            </Button>
 
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleOpenCreateModal}
-            className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm font-semibold"
-          >
-            <Plus className="w-4 h-4" />
-            {t('Create Access Rule')}
-          </Button>
-        </div>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleOpenCreateModal}
+              className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm font-semibold"
+            >
+              <Plus className="w-4 h-4" />
+              {t('Create Access Rule')}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Evaluation Sequence Notice Banner */}
@@ -447,51 +455,53 @@ export const TenantRulesPage: React.FC = () => {
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleOpenSimulator(rule)}
-                      className="p-1.5 rounded hover:bg-[#1f6feb]/20 text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
-                      title={t('Test in Simulator')}
-                    >
-                      <Play className="w-3.5 h-3.5" />
-                    </button>
+                  {canManage && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleOpenSimulator(rule)}
+                        className="p-1.5 rounded hover:bg-[#1f6feb]/20 text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
+                        title={t('Test in Simulator')}
+                      >
+                        <Play className="w-3.5 h-3.5" />
+                      </button>
 
-                    <button
-                      onClick={() => handleOpenEditModal(rule)}
-                      className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
-                      title={t('Edit Rule')}
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                    </button>
+                      <button
+                        onClick={() => handleOpenEditModal(rule)}
+                        className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
+                        title={t('Edit Rule')}
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
 
-                    <button
-                      onClick={() => duplicateTenantAccessRule(rule.id)}
-                      className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
-                      title={t('Duplicate Rule')}
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
+                      <button
+                        onClick={() => duplicateTenantAccessRule(rule.id)}
+                        className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
+                        title={t('Duplicate Rule')}
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
 
-                    <button
-                      onClick={() => handleToggleStatus(rule.id, rule.status)}
-                      className={`p-1.5 rounded transition-colors cursor-pointer ${
-                        rule.status === 'ACTIVE'
-                          ? 'text-[#8b949e] hover:text-[#e3b341] hover:bg-[#e3b341]/10'
-                          : 'text-[#8b949e] hover:text-[#3fb950] hover:bg-[#3fb950]/10'
-                      }`}
-                      title={rule.status === 'ACTIVE' ? t('Deactivate Rule') : t('Activate Rule')}
-                    >
-                      <Power className="w-3.5 h-3.5" />
-                    </button>
+                      <button
+                        onClick={() => handleToggleStatus(rule.id, rule.status)}
+                        className={`p-1.5 rounded transition-colors cursor-pointer ${
+                          rule.status === 'ACTIVE'
+                            ? 'text-[#8b949e] hover:text-[#e3b341] hover:bg-[#e3b341]/10'
+                            : 'text-[#8b949e] hover:text-[#3fb950] hover:bg-[#3fb950]/10'
+                        }`}
+                        title={rule.status === 'ACTIVE' ? t('Deactivate Rule') : t('Activate Rule')}
+                      >
+                        <Power className="w-3.5 h-3.5" />
+                      </button>
 
-                    <button
-                      onClick={() => setRuleToDelete(rule)}
-                      className="p-1.5 rounded hover:bg-[#da3633]/20 text-[#8b949e] hover:text-[#f85149] transition-colors cursor-pointer"
-                      title={t('Delete Rule')}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                      <button
+                        onClick={() => setRuleToDelete(rule)}
+                        className="p-1.5 rounded hover:bg-[#da3633]/20 text-[#8b949e] hover:text-[#f85149] transition-colors cursor-pointer"
+                        title={t('Delete Rule')}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -587,29 +597,31 @@ export const TenantRulesPage: React.FC = () => {
                       </td>
 
                       <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => handleOpenSimulator(rule)}
-                            className="p-1.5 rounded hover:bg-[#1f6feb]/20 text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
-                            title={t('Test Rule')}
-                          >
-                            <Play className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleOpenEditModal(rule)}
-                            className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
-                            title={t('Edit')}
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setRuleToDelete(rule)}
-                            className="p-1.5 rounded hover:bg-[#da3633]/20 text-[#8b949e] hover:text-[#f85149] transition-colors cursor-pointer"
-                            title={t('Delete')}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        {canManage && (
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => handleOpenSimulator(rule)}
+                              className="p-1.5 rounded hover:bg-[#1f6feb]/20 text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
+                              title={t('Test Rule')}
+                            >
+                              <Play className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleOpenEditModal(rule)}
+                              className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
+                              title={t('Edit')}
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setRuleToDelete(rule)}
+                              className="p-1.5 rounded hover:bg-[#da3633]/20 text-[#8b949e] hover:text-[#f85149] transition-colors cursor-pointer"
+                              title={t('Delete')}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );

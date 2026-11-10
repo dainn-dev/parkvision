@@ -38,6 +38,7 @@ import {
   Lock
 } from 'lucide-react';
 import { Button, Pagination } from '../../components/ui';
+import { canManageTenantUsers, canTenantWrite } from '../../lib/permissions';
 import { AddUserDialog } from '../../components/tenant/users/AddUserDialog';
 import { ChangeRoleDialog } from '../../components/tenant/users/ChangeRoleDialog';
 import { DeactivateUserDialog } from '../../components/tenant/users/DeactivateUserDialog';
@@ -55,8 +56,16 @@ export const TenantUsersPage: React.FC = () => {
     userAuditLogs,
     resendTenantInvitation,
     cancelTenantInvitation,
-    addToast
+    addToast,
+    currentUser
   } = usePlatform();
+
+  // Only owner/admin may invite, change roles, reset passwords, deactivate,
+  // or manage invitations — mirrors `ADMIN_ROLES` in backend/app/api/deps.py.
+  const canManage = canManageTenantUsers(currentUser.rawRole);
+  // Membership suspend/reactivate are WRITE_ROLES (owner/admin/operator) —
+  // mirrors tenant/memberships.py's `require_roles(*WRITE_ROLES)`.
+  const canManageMemberships = canTenantWrite(currentUser.rawRole);
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<'USERS' | 'MEMBERS' | 'INVITATIONS' | 'AUDIT'>('USERS');
@@ -285,14 +294,16 @@ export const TenantUsersPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <Button
-            variant="secondary"
-            onClick={() => setIsImportOpen(true)}
-            className="text-xs bg-[#21262d] hover:bg-[#30363d] text-white gap-1.5 border border-[#30363d]"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            {t('Import CSV')}
-          </Button>
+          {canManage && (
+            <Button
+              variant="secondary"
+              onClick={() => setIsImportOpen(true)}
+              className="text-xs bg-[#21262d] hover:bg-[#30363d] text-white gap-1.5 border border-[#30363d]"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              {t('Import CSV')}
+            </Button>
+          )}
 
           <Button
             variant="secondary"
@@ -303,14 +314,16 @@ export const TenantUsersPage: React.FC = () => {
             {t('Export Users')}
           </Button>
 
-          <Button
-            variant="primary"
-            onClick={() => setIsAddUserOpen(true)}
-            className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 font-bold shadow-sm"
-          >
-            <UserPlus className="w-4 h-4" />
-            {t('Add User')}
-          </Button>
+          {canManage && (
+            <Button
+              variant="primary"
+              onClick={() => setIsAddUserOpen(true)}
+              className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 font-bold shadow-sm"
+            >
+              <UserPlus className="w-4 h-4" />
+              {t('Add User')}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -691,37 +704,41 @@ export const TenantUsersPage: React.FC = () => {
 
                       {/* Actions */}
                       <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button
-                            variant="secondary"
-                            onClick={() => setSelectedUserForRole(user)}
-                            className="text-[11px] py-1 px-2 bg-[#21262d] hover:bg-[#30363d] text-white border border-[#30363d]"
-                          >
-                            <Shield className="w-3 h-3 text-[#58a6ff]" />
-                            {t('Role')}
-                          </Button>
+                        {canManage ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant="secondary"
+                              onClick={() => setSelectedUserForRole(user)}
+                              className="text-[11px] py-1 px-2 bg-[#21262d] hover:bg-[#30363d] text-white border border-[#30363d]"
+                            >
+                              <Shield className="w-3 h-3 text-[#58a6ff]" />
+                              {t('Role')}
+                            </Button>
 
-                          <Button
-                            variant="secondary"
-                            onClick={() => setSelectedUserForPassword(user)}
-                            className="text-[11px] py-1 px-2 bg-[#21262d] hover:bg-[#30363d] text-white border border-[#30363d]"
-                            title={t('Reset password')}
-                          >
-                            <Key className="w-3 h-3 text-[#e3b341]" />
-                          </Button>
+                            <Button
+                              variant="secondary"
+                              onClick={() => setSelectedUserForPassword(user)}
+                              className="text-[11px] py-1 px-2 bg-[#21262d] hover:bg-[#30363d] text-white border border-[#30363d]"
+                              title={t('Reset password')}
+                            >
+                              <Key className="w-3 h-3 text-[#e3b341]" />
+                            </Button>
 
-                          <Button
-                            variant="secondary"
-                            onClick={() => setSelectedUserForDeactivate(user)}
-                            className={`text-[11px] py-1 px-2 border ${
-                              user.status === 'ACTIVE'
-                                ? 'bg-[#f85149]/10 text-[#ff7b72] border-[#f85149]/30 hover:bg-[#f85149]/20'
-                                : 'bg-[#238636]/10 text-[#3fb950] border-[#238636]/30 hover:bg-[#238636]/20'
-                            }`}
-                          >
-                            {user.status === 'ACTIVE' ? <UserX className="w-3 h-3" /> : <UserCheck className="w-3 h-3" />}
-                          </Button>
-                        </div>
+                            <Button
+                              variant="secondary"
+                              onClick={() => setSelectedUserForDeactivate(user)}
+                              className={`text-[11px] py-1 px-2 border ${
+                                user.status === 'ACTIVE'
+                                  ? 'bg-[#f85149]/10 text-[#ff7b72] border-[#f85149]/30 hover:bg-[#f85149]/20'
+                                  : 'bg-[#238636]/10 text-[#3fb950] border-[#238636]/30 hover:bg-[#238636]/20'
+                              }`}
+                            >
+                              {user.status === 'ACTIVE' ? <UserX className="w-3 h-3" /> : <UserCheck className="w-3 h-3" />}
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-[#8b949e] text-[11px] italic">{t('View only')}</span>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -846,27 +863,31 @@ export const TenantUsersPage: React.FC = () => {
 
                         {/* Access Control Action Buttons */}
                         <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1.5">
-                            {m.status === 'ACTIVE' ? (
-                              <Button
-                                variant="secondary"
-                                onClick={() => setSelectedUserForMembership({ user, action: 'SUSPEND' })}
-                                className="text-[11px] py-1 px-2.5 bg-[#d29922]/15 text-[#e3b341] border border-[#d29922]/30 hover:bg-[#d29922]/25"
-                              >
-                                <Ban className="w-3 h-3" />
-                                {t('Suspend Pass')}
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="secondary"
-                                onClick={() => setSelectedUserForMembership({ user, action: 'ACTIVATE' })}
-                                className="text-[11px] py-1 px-2.5 bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30 hover:bg-[#238636]/25"
-                              >
-                                <CheckCircle2 className="w-3 h-3" />
-                                {t('Reactivate')}
-                              </Button>
-                            )}
-                          </div>
+                          {canManageMemberships ? (
+                            <div className="flex items-center justify-end gap-1.5">
+                              {m.status === 'ACTIVE' ? (
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => setSelectedUserForMembership({ user, action: 'SUSPEND' })}
+                                  className="text-[11px] py-1 px-2.5 bg-[#d29922]/15 text-[#e3b341] border border-[#d29922]/30 hover:bg-[#d29922]/25"
+                                >
+                                  <Ban className="w-3 h-3" />
+                                  {t('Suspend Pass')}
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => setSelectedUserForMembership({ user, action: 'ACTIVATE' })}
+                                  className="text-[11px] py-1 px-2.5 bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30 hover:bg-[#238636]/25"
+                                >
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  {t('Reactivate')}
+                                </Button>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[#8b949e] text-[11px] italic">{t('View only')}</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -966,7 +987,7 @@ export const TenantUsersPage: React.FC = () => {
 
                       {/* Actions */}
                       <td className="py-3 px-4 text-right">
-                        {inv.status === 'PENDING' ? (
+                        {inv.status === 'PENDING' && canManage ? (
                           <div className="flex items-center justify-end gap-1.5">
                             <Button
                               variant="secondary"
@@ -985,7 +1006,9 @@ export const TenantUsersPage: React.FC = () => {
                             </Button>
                           </div>
                         ) : (
-                          <span className="text-[#8b949e] text-[11px] italic">{t('Resolved')}</span>
+                          <span className="text-[#8b949e] text-[11px] italic">
+                            {inv.status === 'PENDING' ? t('View only') : t('Resolved')}
+                          </span>
                         )}
                       </td>
                     </tr>

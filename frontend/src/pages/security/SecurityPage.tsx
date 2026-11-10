@@ -30,6 +30,7 @@ import {
   Pagination
 } from '../../components/ui';
 import { useTranslation } from 'react-i18next';
+import { canManagePlatformAdmins, canManagePlatformOps, canRevokePlatformSessions } from '../../lib/permissions';
 
 export const SecurityPage: React.FC = () => {
   const { t } = useTranslation('security');
@@ -56,6 +57,13 @@ export const SecurityPage: React.FC = () => {
     setSecuritySubTab,
     addToast
   } = usePlatform();
+
+  // Reset another admin's MFA is super_admin-only; revoking sessions is
+  // super_admin|support; API credential issue/rotate/revoke is super_admin|ops.
+  // Mirrors platform.py's per-route `require_platform_admin((...))` role tuples.
+  const canResetMfa = canManagePlatformAdmins(currentUser.rawRole);
+  const canRevoke = canRevokePlatformSessions(currentUser.rawRole);
+  const canManageCredentials = canManagePlatformOps(currentUser.rawRole);
 
   const [selectedAlertModal, setSelectedAlertModal] = useState<any>(null);
   const [sessionPage, setSessionPage] = useState(1);
@@ -260,18 +268,20 @@ export const SecurityPage: React.FC = () => {
                             : t('Never')}
                         </td>
                         <td className="py-3.5 px-4 text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={!admin.mfaEnabled}
-                            onClick={() => {
-                              if (window.confirm(t('Reset the MFA secret for {{name}}? All their sessions will be revoked.', { name: admin.name }))) {
-                                resetAdminMfa(admin.id);
-                              }
-                            }}
-                          >
-                            {t('Reset MFA')}
-                          </Button>
+                          {canResetMfa && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={!admin.mfaEnabled}
+                              onClick={() => {
+                                if (window.confirm(t('Reset the MFA secret for {{name}}? All their sessions will be revoked.', { name: admin.name }))) {
+                                  resetAdminMfa(admin.id);
+                                }
+                              }}
+                            >
+                              {t('Reset MFA')}
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -431,18 +441,20 @@ export const SecurityPage: React.FC = () => {
                       </Badge>
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-red-400 hover:bg-red-950/50 hover:border-red-800"
-                        onClick={() => {
-                          if (window.confirm(t('Revoke the session for {{user}}? They will be signed out immediately.', { user: s.userEmail || s.userName }))) {
-                            revokeSession(s.id);
-                          }
-                        }}
-                      >
-                        {t('Revoke')}
-                      </Button>
+                      {canRevoke && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-400 hover:bg-red-950/50 hover:border-red-800"
+                          onClick={() => {
+                            if (window.confirm(t('Revoke the session for {{user}}? They will be signed out immediately.', { user: s.userEmail || s.userName }))) {
+                              revokeSession(s.id);
+                            }
+                          }}
+                        >
+                          {t('Revoke')}
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -463,11 +475,13 @@ export const SecurityPage: React.FC = () => {
       {securitySubTab === 'credentials' && (
         <Card className="overflow-hidden">
           <CardHeader title={t('Edge Hardware & Service API Credentials')} subtitle={t('Issued authentication secrets and rotation lifecycle')} />
-          <div className="px-6 pb-3 flex justify-end border-b border-slate-800 -mt-2">
-            <Button variant="primary" size="sm" icon={Key} onClick={() => { setCredName(''); setCredTenantId(''); setIsCreateCredOpen(true); }}>
-              {t('Issue Credential')}
-            </Button>
-          </div>
+          {canManageCredentials && (
+            <div className="px-6 pb-3 flex justify-end border-b border-slate-800 -mt-2">
+              <Button variant="primary" size="sm" icon={Key} onClick={() => { setCredName(''); setCredTenantId(''); setIsCreateCredOpen(true); }}>
+                {t('Issue Credential')}
+              </Button>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
@@ -502,6 +516,8 @@ export const SecurityPage: React.FC = () => {
                     <td className="py-3.5 px-4 text-right">
                       {c.status === 'REVOKED' ? (
                         <span className="text-[11px] text-slate-500">{t('No actions — credential revoked')}</span>
+                      ) : !canManageCredentials ? (
+                        <span className="text-[11px] text-slate-500 italic">{t('View only')}</span>
                       ) : (
                         <div className="inline-flex items-center gap-2">
                           <Button

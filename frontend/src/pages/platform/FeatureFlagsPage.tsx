@@ -13,10 +13,15 @@ import {
   Select
 } from '../../components/ui';
 import { useTranslation } from 'react-i18next';
+import { canManagePlatformOps } from '../../lib/permissions';
 
 export const FeatureFlagsPage: React.FC = () => {
   const { t } = useTranslation('platform');
-  const { featureFlags, toggleFeatureFlag, createFeatureFlag, addToast } = usePlatform();
+  const { featureFlags, toggleFeatureFlag, createFeatureFlag, addToast, currentUser } = usePlatform();
+
+  // Create/toggle flags are super_admin or ops — mirrors platform.py's
+  // `require_platform_admin((SUPER_ADMIN, OPS))` on PUT /platform/feature-flags/{key}.
+  const canManage = canManagePlatformOps(currentUser.rawRole);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -61,14 +66,16 @@ export const FeatureFlagsPage: React.FC = () => {
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          icon={Plus}
-          onClick={() => setIsAddModalOpen(true)}
-          className="shadow-md shadow-indigo-600/30"
-        >
-          {t('New Feature Flag')}
-        </Button>
+        {canManage && (
+          <Button
+            variant="primary"
+            icon={Plus}
+            onClick={() => setIsAddModalOpen(true)}
+            className="shadow-md shadow-indigo-600/30"
+          >
+            {t('New Feature Flag')}
+          </Button>
+        )}
       </div>
 
       {/* Search Bar */}
@@ -121,6 +128,7 @@ export const FeatureFlagsPage: React.FC = () => {
                 <Switch
                   checked={flag.enabled}
                   onChange={() => toggleFeatureFlag(flag.id)}
+                  disabled={!canManage}
                 />
               </div>
             </div>

@@ -16,6 +16,7 @@ import {
   Ban
 } from 'lucide-react';
 import { Button, Input, Pagination } from '../../components/ui';
+import { canTenantWrite } from '../../lib/permissions';
 import { TenantEdgeDevice } from '../../types/tenant';
 import { RegisterDeviceModal } from '../../components/tenant/devices/RegisterDeviceModal';
 import { EditDeviceModal } from '../../components/tenant/devices/EditDeviceModal';
@@ -68,7 +69,12 @@ const UsageBar: React.FC<{ label: string; value: number }> = ({ label, value }) 
 
 export const TenantEdgeDevicesPage: React.FC = () => {
   const { t } = useTranslation('tenant');
-  const { tenantDevices, tenantDevicesTotal, tenantSites } = usePlatform();
+  const { tenantDevices, tenantDevicesTotal, tenantSites, currentUser } = usePlatform();
+
+  // Register/edit/reboot/decommission/reactivate/delete/token ops are all
+  // WRITE_ROLES (owner/admin/operator) — mirrors tenant/gates.py device routes'
+  // `require_roles(*WRITE_ROLES)`.
+  const canManage = canTenantWrite(currentUser.rawRole);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -126,16 +132,18 @@ export const TenantEdgeDevicesPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <Button
-            variant="primary"
-            onClick={() => setIsRegisterOpen(true)}
-            className="text-xs h-9 bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            {t('Register Device')}
-          </Button>
-        </div>
+        {canManage && (
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <Button
+              variant="primary"
+              onClick={() => setIsRegisterOpen(true)}
+              className="text-xs h-9 bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              {t('Register Device')}
+            </Button>
+          </div>
+        )}
       </div>
 
       {tenantDevicesTotal > tenantDevices.length && (
@@ -344,65 +352,69 @@ export const TenantEdgeDevicesPage: React.FC = () => {
 
                       {/* Actions */}
                       <td className="py-3.5 px-4">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            title={t('Edit device')}
-                            onClick={() => setEditTarget(device)}
-                            className="p-1.5 rounded-lg text-[#8b949e] hover:text-white hover:bg-[#30363d] transition-colors cursor-pointer"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          {!isDecommissioned && (
-                            <>
-                              <button
-                                title={t('Generate activation code')}
-                                onClick={() => setActivationTarget(device)}
-                                className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#58a6ff] hover:bg-[#58a6ff]/10 transition-colors cursor-pointer"
-                              >
-                                <KeyRound className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                title={t('Revoke device token')}
-                                onClick={() => setRevokeTarget(device)}
-                                className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#f85149] hover:bg-[#f85149]/10 transition-colors cursor-pointer"
-                              >
-                                <Ban className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                title={t('Reboot device')}
-                                onClick={() => setRebootTarget(device)}
-                                className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#e3b341] hover:bg-[#d29922]/10 transition-colors cursor-pointer"
-                              >
-                                <RotateCcw className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                title={t('Decommission device')}
-                                onClick={() => setDecommissionTarget(device)}
-                                className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#e3b341] hover:bg-[#d29922]/10 transition-colors cursor-pointer"
-                              >
-                                <PowerOff className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          )}
-                          {isDecommissioned && (
-                            <>
-                              <button
-                                title={t('Reactivate device')}
-                                onClick={() => setReactivateTarget(device)}
-                                className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#3fb950] hover:bg-[#238636]/10 transition-colors cursor-pointer"
-                              >
-                                <RefreshCw className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                title={t('Delete permanently')}
-                                onClick={() => setDeleteTarget(device)}
-                                className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#f85149] hover:bg-[#f85149]/10 transition-colors cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          )}
-                        </div>
+                        {canManage ? (
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              title={t('Edit device')}
+                              onClick={() => setEditTarget(device)}
+                              className="p-1.5 rounded-lg text-[#8b949e] hover:text-white hover:bg-[#30363d] transition-colors cursor-pointer"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            {!isDecommissioned && (
+                              <>
+                                <button
+                                  title={t('Generate activation code')}
+                                  onClick={() => setActivationTarget(device)}
+                                  className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#58a6ff] hover:bg-[#58a6ff]/10 transition-colors cursor-pointer"
+                                >
+                                  <KeyRound className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  title={t('Revoke device token')}
+                                  onClick={() => setRevokeTarget(device)}
+                                  className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#f85149] hover:bg-[#f85149]/10 transition-colors cursor-pointer"
+                                >
+                                  <Ban className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  title={t('Reboot device')}
+                                  onClick={() => setRebootTarget(device)}
+                                  className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#e3b341] hover:bg-[#d29922]/10 transition-colors cursor-pointer"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  title={t('Decommission device')}
+                                  onClick={() => setDecommissionTarget(device)}
+                                  className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#e3b341] hover:bg-[#d29922]/10 transition-colors cursor-pointer"
+                                >
+                                  <PowerOff className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                            {isDecommissioned && (
+                              <>
+                                <button
+                                  title={t('Reactivate device')}
+                                  onClick={() => setReactivateTarget(device)}
+                                  className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#3fb950] hover:bg-[#238636]/10 transition-colors cursor-pointer"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  title={t('Delete permanently')}
+                                  onClick={() => setDeleteTarget(device)}
+                                  className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#f85149] hover:bg-[#f85149]/10 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[#8b949e] text-[11px] italic block text-right">{t('View only')}</span>
+                        )}
                       </td>
                     </tr>
                   );
