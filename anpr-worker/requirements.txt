@@ -13,6 +13,11 @@ pandas
 ultralytics
 lap>=0.5.12
 scipy
+# Needed to load the plate detector: the vendored YOLOv5 source imports
+# seaborn at load time, and its hub loader checks for gitpython and would
+# otherwise try to pip-install the missing packages at runtime.
+seaborn
+gitpython
 # DAI-292 OCR dependencies are deliberately separated:
 #   requirements-ocr-production.txt                  PaddleOCR production path
 #   ../tools/plate_eval/requirements-ocr-benchmark.txt  EasyOCR/VietOCR offline comparison

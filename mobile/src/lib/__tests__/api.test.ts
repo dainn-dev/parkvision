@@ -141,3 +141,84 @@ describe('api client', () => {
     window.removeEventListener('pv:logout', logout);
   });
 });
+
+describe('api client in native bearer mode (VITE_AUTH_MODE=bearer)', () => {
+  async function loadBearerClient() {
+    vi.resetModules();
+    vi.stubEnv('VITE_AUTH_MODE', 'bearer');
+    return import('../api');
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    setCookie('');
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    setCookie('');
+  });
+
+  it('logs in without asking for cookie mode, so the backend returns tokens', async () => {
+    const client = await loadBearerClient();
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse(200, { accessToken: 'a1', refreshToken: 'r1', expiresIn: 900 })
+    );
+
+    await client.api('/driver/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'synthetic@example.com', password: 'synthetic' }),
+      auth: false,
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Headers).get('X-Auth-Mode')).toBeNull();
+  });
+
+  it('keeps the stored session on startup instead of exchanging it for cookies', async () => {
+    const client = await loadBearerClient();
+    client.tokenStore.set({ accessToken: 'a1', refreshToken: 'r1' });
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+
+    expect(await client.migrateStoredDriverTokens()).toBe(true);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(client.tokenStore.get()).toEqual({ access: 'a1', refresh: 'r1' });
+  });
+
+  it('sends the bearer token even when an API CSRF cookie is visible', async () => {
+    const client = await loadBearerClient();
+    setCookie('pv_driver_csrf=csrf-test');
+    client.tokenStore.set({ accessToken: 'a1', refreshToken: 'r1' });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(200, { ok: true }));
+
+    await client.api('/driver/vehicles', { method: 'POST', body: '{}' });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Headers;
+    expect(headers.get('Authorization')).toBe('Bearer a1');
+    expect(headers.get('X-Auth-Mode')).toBeNull();
+    expect(headers.get('X-CSRF-Token')).toBeNull();
+  });
+
+  it('refreshes with the stored refresh token and keeps the rotated pair', async () => {
+    const client = await loadBearerClient();
+    client.tokenStore.set({ accessToken: 'old', refreshToken: 'r1' });
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse(401, { error: { code: 'unauthorized', message: 'expired' } }))
+      .mockResolvedValueOnce(jsonResponse(200, { accessToken: 'a2', refreshToken: 'r2', expiresIn: 900 }))
+      .mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+
+    await client.api('/driver/auth/me');
+
+    const [, refreshInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect((refreshInit.headers as Headers).get('X-Auth-Mode')).toBeNull();
+    expect(refreshInit.body).toBe(JSON.stringify({ refreshToken: 'r1' }));
+    expect(client.tokenStore.get()).toEqual({ access: 'a2', refresh: 'r2' });
+    const [, retryInit] = fetchMock.mock.calls[2] as [string, RequestInit];
+    expect((retryInit.headers as Headers).get('Authorization')).toBe('Bearer a2');
+  });
+});

@@ -489,7 +489,7 @@ Derived from `anpr-worker/edge/` (`ocr_engine.py`, `vehicle_tracker.py`, `camera
 | ANP-05b | Mid-stream read failure | `read()` returns False after some frames | loop breaks, logs `reconnecting`, reopens; **no** `stream.disconnected` is emitted (helper unused) | P1 | I | ⬜ |
 | ANP-05c | File source cannot open | bad `file` path | `ConfigValidationError`, exit 3, no retry | P2 | I | ⬜ |
 | ANP-06 | IPC contract: worker → edge | Capture real stdout lines (`stream.connected`, `stream.error`, `frame.observed`, `preview.frame`, `barrier.*`, structured logs) and feed each to `worker_ipc::parse_line` | `stream.connected` / `stream.error` / `preview.frame` map to matching `WorkerEvent` with cameraId, size, fps; structured logs (no `type`, has `stage`) → `Log`; `frame.observed`, `barrier.*` → `Other` without error; bad `cameraId` → nil UUID. `worker.ready/stopping/stopped`, `queue.depth`, `stream.disconnected` are never emitted by the worker | P0 | I | 🟡 worker_ipc.rs:130-237 (hand-written lines only, not real worker output) |
-| ANP-06b | HTTP contract: worker → edge ingest | Run worker ingest client against edge `ingest.rs` | Per `docs/anpr-worker.md` §9.2 these known mismatches would currently fail: Rust returns **200** but Python requires **202** with `{"eventId", "status":"accepted"}`; Rust reads only the `snapshot` part while Python sends `original_frame` / `plate_crop`; generated config has `ocr.comparators=[]`, which Python rejects (exit 2) | P0 | I | ⬜ |
+| ANP-06b | HTTP contract: worker → edge ingest | Run worker ingest client against edge `ingest.rs` | Per `docs/anpr-worker.md` §9.2: Rust returns **202** with `{"eventId", "status":"accepted"}`; `original_frame` / `plate_crop` parts are saved as overview/plate captures; generated config with `ocr.comparators=[]` loads in Python | P0 | I | ⬜ |
 | ANP-06c | Event envelope shape | build `PlateRecognized` / `VehicleDetected` | `{eventId, eventType, cameraId, occurredAt, payload}`; payload has `eventVersion:1`, `pipeline`, `frame`, `tracker`, `vehicle`, `plate{text, normalizedText, detectionConfidence, recognitionConfidence, boundingBox}`, `models`; vehicle class only `car` or `motorbike`; headers `X-Camera-Id`, `X-Camera-Key`, `Idempotency-Key=eventId` | P1 | U | 🟡 test_camera_ingest_client.py |
 | ANP-06d | Ingest retry & spool | server returns 408 / 425 / 429 / 5xx / connection error vs 4xx | retryable → exponential delay `min(retry_max, base·2^(n-1))` or `Retry-After`, then spooled to SQLite queue and replayed; non-retryable 4xx not retried | P0 | I | 🟡 test_camera_ingest_client.py |
 | ANP-06e | Timestamp format | `frame.observed` with tz-aware datetime | `at` is valid ISO-8601; currently `isoformat()+"Z"` yields `+00:00Z` (malformed) — defect to fix or pin | P2 | U | ⬜ |
@@ -583,8 +583,8 @@ Cases below are written for E2E (Playwright) unless noted.
 - **Edge:** no test for the default 8.5 A overcurrent trip (FSM-05) or stuck-while-closing (FSM-08);
   HAL-02 asserts retries and `link_ok=false` but not that an incident is raised.
 - **ANPR worker:** no VN plate-pattern validation exists (feature gap, not a test gap); worker → edge
-  HTTP contract has known mismatches (200 vs 202, snapshot part names, empty `ocr.comparators`),
-  see ANP-06b.
+  HTTP contract (202 ACK, snapshot part names, empty `ocr.comparators`) is covered by unit tests on
+  each side only — no test runs the real worker against the real ingest server, see ANP-06b.
 
 ## 18. Open questions found while writing these cases
 

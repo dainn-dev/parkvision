@@ -34,7 +34,7 @@
 
 ## Giới hạn đã ghi nhận
 
-- Python ANPR và Rust sidecar ingest có chênh lệch giao thức/config cần xử lý trước khi nghiệm thu end-to-end.
+- Python ANPR và Rust sidecar ingest đã khớp giao thức/config ở mức unit test; chưa có nghiệm thu end-to-end với camera và trọng số thật.
 - Mobile là web SPA, chưa có bằng chứng build native hay push notification hoàn chỉnh.
 - Một số thao tác security/anomaly trên dashboard chỉ có hiệu ứng cục bộ; xem mục giới hạn web apps.
 - MQTT QoS, HTTP ACK và hàng đợi không bảo đảm exactly-once hay trạng thái phần cứng thực.

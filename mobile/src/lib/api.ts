@@ -15,7 +15,16 @@ const readCookie = (name: string): string | null => {
   return m ? decodeURIComponent(m[1]) : null;
 };
 
-const csrfToken = (): string | null => readCookie(CSRF_COOKIE);
+/**
+ * Native (APK) builds set VITE_AUTH_MODE=bearer. There the UI is served from
+ * the app's own origin while the API lives on another host, so the API's
+ * session cookies are neither sent nor readable; the session is carried by
+ * bearer tokens instead, which the backend returns when cookie mode is not
+ * requested.
+ */
+const BEARER_ONLY = import.meta.env.VITE_AUTH_MODE === "bearer";
+
+const csrfToken = (): string | null => (BEARER_ONLY ? null : readCookie(CSRF_COOKIE));
 const hasCookieAuth = (): boolean => csrfToken() !== null;
 
 export const tokenStore = {
@@ -67,7 +76,8 @@ async function refreshTokens(): Promise<boolean> {
   const { refresh } = tokenStore.get();
   if (!hasCookieAuth() && !refresh) return false;
   try {
-    const headers = new Headers({ "Content-Type": "application/json", [AUTH_MODE_HEADER]: "cookie" });
+    const headers = new Headers({ "Content-Type": "application/json" });
+    if (!BEARER_ONLY) headers.set(AUTH_MODE_HEADER, "cookie");
     const csrf = csrfToken();
     if (csrf) headers.set("X-CSRF-Token", csrf);
     const res = await fetch(`${BASE_URL}/driver/auth/refresh`, {
@@ -103,6 +113,10 @@ function refreshOnce(): Promise<boolean> {
 
 /** One-time upgrade of a pre-cookie session: swap stored tokens for HttpOnly cookies. */
 export async function migrateStoredDriverTokens(): Promise<boolean> {
+  if (BEARER_ONLY) {
+    // Stored tokens are the session itself here; there is nothing to migrate to.
+    return tokenStore.hasAuth();
+  }
   if (hasCookieAuth()) {
     tokenStore.clear();
     return true;
@@ -128,7 +142,7 @@ export async function api<T>(
     if (init?.body && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json");
     }
-    if (hasCookieAuth() || COOKIE_MODE_PATHS.has(path)) {
+    if (!BEARER_ONLY && (hasCookieAuth() || COOKIE_MODE_PATHS.has(path))) {
       headers.set(AUTH_MODE_HEADER, "cookie");
       const csrf = csrfToken();
       if (csrf && MUTATING.has((init?.method ?? "GET").toUpperCase())) {

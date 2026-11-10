@@ -330,7 +330,9 @@ def load_camera_pipeline_config(path: str | Path,
         issues.append("thresholds.motion.min_foreground_area_ratio must be greater than 0")
 
     languages = _string_list(ocr, "languages", "ocr.languages", issues)
-    comparators = _string_list(ocr, "comparators", "ocr.comparators", issues)
+    # Comparators are benchmark-only; a production profile (such as the one
+    # edge-client generates) legitimately lists none.
+    comparators = _string_list(ocr, "comparators", "ocr.comparators", issues, allow_empty=True)
     ocr_config = OcrConfig(
         primary=_string(ocr, "primary", "ocr.primary", issues),
         languages=tuple(languages),
@@ -580,9 +582,13 @@ def _boolean(parent: Mapping[str, object], key: str, path: str, issues: list[str
     return value
 
 
-def _string_list(parent: Mapping[str, object], key: str, path: str, issues: list[str]) -> list[str]:
+def _string_list(parent: Mapping[str, object], key: str, path: str, issues: list[str],
+                 *, allow_empty: bool = False) -> list[str]:
     value = parent.get(key)
-    if not isinstance(value, list) or not value or any(not isinstance(item, str) or not item.strip() for item in value):
+    if not isinstance(value, list) or any(not isinstance(item, str) or not item.strip() for item in value):
+        issues.append(f"{path} is required and must be a list of non-empty strings")
+        return []
+    if not value and not allow_empty:
         issues.append(f"{path} is required and must be a non-empty list of strings")
         return []
     return [item.strip() for item in value]

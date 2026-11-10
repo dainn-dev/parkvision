@@ -108,6 +108,38 @@ def test_normalization_is_conservative_and_vietnamese_aware():
     assert normalize_vietnamese_plate("O0-I1-B8") == "O0I1B8", "must not guess ambiguous glyphs"
 
 
+def test_local_cls_directory_is_passed_only_when_bundled():
+    # Without it PaddleOCR downloads an angle classifier at startup.
+    with tempfile.TemporaryDirectory() as raw:
+        engine, _, factory = _engine(Path(raw), [])
+        engine.ensure_ready()
+        assert "cls_model_dir" not in factory.calls[0]
+
+    with tempfile.TemporaryDirectory() as raw:
+        root = _bundle(Path(raw))
+        (root / "cls").mkdir()
+        factory = _Factory(_PaddleModel([]))
+        config = ModelArtifactConfig("PaddleOCR", root, "pp-ocr-mobile", device="cpu")
+        LocalPaddleOcrEngine(config, ("en",), factory, cuda_available=lambda: False).ensure_ready()
+        assert Path(factory.calls[0]["cls_model_dir"]).name == "cls"
+
+
+def test_tight_two_line_plate_is_read_top_line_first():
+    # Box geometry PaddleOCR returned for a real 66x36 crop of plate
+    # 30G-705.16: padded boxes put the two lines 9px apart, inside the row
+    # tolerance, with the wider bottom line centred slightly to the left.
+    with tempfile.TemporaryDirectory() as raw:
+        native = [[
+            [_polygon(10, 14, 44, 19), ("705.16", 0.98)],
+            [_polygon(22, 8, 26, 13), ("30G", 0.99)],
+        ]]
+        engine, _, _ = _engine(Path(raw), native)
+        read = engine.recognize(np.zeros((36, 66, 3), dtype=np.uint8))
+
+        assert read.text == "30G\n705.16"
+        assert read.normalized_text == "30G70516"
+
+
 def test_paddle_items_are_ordered_and_confidence_is_character_weighted():
     with tempfile.TemporaryDirectory() as raw:
         # Deliberately shuffled two-line boxes: 51A above 123.45.
@@ -261,6 +293,8 @@ def test_service_uses_in_memory_crop_and_isolates_candidate_failures():
 def run():
     tests = (
         test_normalization_is_conservative_and_vietnamese_aware,
+        test_local_cls_directory_is_passed_only_when_bundled,
+        test_tight_two_line_plate_is_read_top_line_first,
         test_paddle_items_are_ordered_and_confidence_is_character_weighted,
         test_empty_and_threshold_policies_remain_internal,
         test_missing_bundle_and_cuda_failures_are_cached_before_factory_use,

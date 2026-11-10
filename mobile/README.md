@@ -107,7 +107,24 @@ npm run preview   # xem thử build local
 npm run clean     # rm -rf dist server.js, cần shell hỗ trợ rm
 ```
 
-`build` không tự chạy typecheck hoặc tests. Không có Dockerfile/package script native build trong `mobile/`. Triển khai `dist/` lên static host/reverse proxy; cấu hình `/api` tới backend và `/ws/driver/sessions` với WebSocket Upgrade. Vite proxy không đi vào `dist` và `preview` không phải API gateway production. Nếu dùng base URL tuyệt đối, build với URL đúng và kiểm tra CORS/WS origin/TLS; không chỉ set env runtime của static server.
+`build` không tự chạy typecheck hoặc tests. Không có Dockerfile trong `mobile/`.
+
+### APK Android (Capacitor)
+
+`mobile/android/` là lớp vỏ Capacitor bọc bản build web; app vẫn là SPA chạy trong WebView, không phải app native. Build cần JDK 21 và Android SDK (`JAVA_HOME`, `ANDROID_HOME`):
+
+```sh
+VITE_API_BASE_URL=https://<api-host>/api/v1 VITE_AUTH_MODE=bearer npm run build
+npx cap sync android
+cd android && ./gradlew assembleDebug   # app/build/outputs/apk/debug/app-debug.apk
+```
+
+- `VITE_AUTH_MODE=bearer` là bắt buộc cho APK: giao diện chạy ở origin `https://localhost` còn API ở host khác, nên cookie phiên của API không dùng được; client giữ phiên bằng Bearer token trong `localStorage`. Bản web cùng origin không đặt biến này và vẫn dùng cookie HttpOnly.
+- `CapacitorHttp` được bật trong `capacitor.config.ts` để `fetch` đi qua lớp HTTP native, không phụ thuộc `CORS_ORIGINS` của backend.
+- `assembleDebug` ký bằng khóa debug. Bản phát hành cho người dùng cuối cần keystore riêng; APK ký debug không nâng cấp được lên bản ký bằng khóa khác.
+- Chưa có kiểm thử trên thiết bị/emulator cho luồng đăng nhập, WebSocket và định vị trong APK.
+
+ Triển khai `dist/` lên static host/reverse proxy; cấu hình `/api` tới backend và `/ws/driver/sessions` với WebSocket Upgrade. Vite proxy không đi vào `dist` và `preview` không phải API gateway production. Nếu dùng base URL tuyệt đối, build với URL đúng và kiểm tra CORS/WS origin/TLS; không chỉ set env runtime của static server.
 
 Leaflet tải tile từ `*.tile.openstreetmap.org`; Google Maps mở URL ngoài; ảnh bãi và ảnh ANPR dùng URL API cấp. Cần kết nối mạng, chính sách dữ liệu và kiểm tra quy định attribution/tile usage trước phát hành.
 

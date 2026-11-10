@@ -18,3 +18,13 @@ edge-client/node_modules/
 edge-client/dist/
 edge-client/src-tauri/target/
 edge-client/src-tauri/gen/schemas/
+
+# ANPR model weights — provisioned per machine, never committed
+anpr-worker/model/*.pt
+anpr-worker/model/paddleocr/
+# Exception: the Vietnamese plate detector checkpoint is tracked
+# (source: github.com/trungdinh22/License-Plate-Recognition, model/).
+!anpr-worker/model/LP_detector_nano_61.pt
+
+# Locally built release assets
+release-artifacts/

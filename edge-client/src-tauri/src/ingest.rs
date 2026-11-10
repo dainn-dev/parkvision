@@ -15,7 +15,7 @@ use anyhow::{Context, Result};
 use axum::body::Bytes;
 use axum::extract::{DefaultBodyLimit, FromRequest, Multipart, Path, Request, State};
 use axum::http::{header, HeaderMap, StatusCode};
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Response};
 use axum::routing::post;
 use axum::Json;
 use axum::Router;
@@ -166,19 +166,39 @@ struct Envelope {
     payload: serde_json::Value,
 }
 
+/// Image evidence carried by a multipart event. The worker names parts by
+/// snapshot kind (`plate_crop`, `original_frame`); a bare `snapshot` part is
+/// the single-image form and is treated as the plate crop.
+#[derive(Default)]
+struct Snapshots {
+    plate_crop: Option<Bytes>,
+    original_frame: Option<Bytes>,
+}
+
+/// The acknowledgement the worker's ingest client requires before it treats
+/// an event as delivered: HTTP 202 with the echoed `eventId`. Anything else
+/// makes it log a failure (or re-queue) even though we routed the event.
+fn accepted(event_id: &str) -> Response {
+    (
+        StatusCode::ACCEPTED,
+        Json(serde_json::json!({"eventId": event_id, "status": "accepted"})),
+    )
+        .into_response()
+}
+
 async fn parking_event(
     State(inner): State<Arc<Inner>>,
     headers: HeaderMap,
     request: Request,
-) -> impl IntoResponse {
+) -> Response {
     if let Err(code) = authed(&inner, &headers) {
-        return code;
+        return code.into_response();
     }
     let Ok(camera_id) = camera_id_of(&headers) else {
-        return StatusCode::BAD_REQUEST;
+        return StatusCode::BAD_REQUEST.into_response();
     };
     let Some(route) = inner.routes.get(&camera_id) else {
-        return StatusCode::NOT_FOUND;
+        return StatusCode::NOT_FOUND.into_response();
     };
 
     let is_multipart = headers
@@ -187,10 +207,10 @@ async fn parking_event(
         .map(|ct| ct.starts_with("multipart/"))
         .unwrap_or(false);
 
-    let (envelope, snapshot) = if is_multipart {
+    let (envelope, snapshots) = if is_multipart {
         match multipart_parts(request, &inner).await {
             Ok(v) => v,
-            Err(code) => return code,
+            Err(code) => return code.into_response(),
         }
     } else {
         match serde_json::from_slice::<Envelope>(
@@ -198,14 +218,10 @@ async fn parking_event(
                 .await
                 .unwrap_or_default(),
         ) {
-            Ok(e) => (e, None),
-            Err(_) => return StatusCode::BAD_REQUEST,
+            Ok(e) => (e, Snapshots::default()),
+            Err(_) => return StatusCode::BAD_REQUEST.into_response(),
         }
     };
-
-    if !remember(&inner, &envelope.event_id) {
-        return StatusCode::OK; // duplicate — client treats as delivered
-    }
 
     if envelope.event_type == "PlateRecognized" {
         let plate = &envelope.payload["plate"];
@@ -216,64 +232,94 @@ async fn parking_event(
             .trim()
             .to_string();
         if text.is_empty() {
-            return StatusCode::BAD_REQUEST;
+            return StatusCode::BAD_REQUEST.into_response();
+        }
+        // Checked only once the event is known to be valid, so a rejected
+        // event never poisons the id for a corrected retry.
+        if !remember(&inner, &envelope.event_id) {
+            return accepted(&envelope.event_id); // duplicate — already routed
         }
         let confidence = plate["recognitionConfidence"]
             .as_f64()
             .or_else(|| plate["detectionConfidence"].as_f64())
             .unwrap_or(0.0) as f32;
-        let plate_image_path = snapshot.and_then(|bytes| {
-            // event_id is remote input — strip anything path-unsafe.
-            let safe: String = envelope
-                .event_id
-                .chars()
-                .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
-                .take(64)
-                .collect();
-            if safe.is_empty() {
-                return None;
-            }
-            let path = route.captures_dir.join(format!("plate-{safe}.jpg"));
-            std::fs::write(&path, bytes).ok().map(|_| path)
-        });
         let reading = PlateReading {
             plate: text,
             confidence,
-            plate_image_path,
-            overview_image_path: None,
+            plate_image_path: save_capture(route, &envelope.event_id, "plate", snapshots.plate_crop),
+            overview_image_path: save_capture(
+                route,
+                &envelope.event_id,
+                "overview",
+                snapshots.original_frame,
+            ),
         };
         if route.plate_tx.try_send(reading).is_err() {
-            return StatusCode::SERVICE_UNAVAILABLE; // retryable per worker backoff
+            // Not routed — forget the id so the worker's retry is processed.
+            inner.seen.lock().unwrap().remove(&envelope.event_id);
+            return StatusCode::SERVICE_UNAVAILABLE.into_response(); // retryable per worker backoff
         }
     }
     // VehicleDetected / SnapshotSaved — accepted, no plate routing.
-    StatusCode::OK
+    accepted(&envelope.event_id)
 }
 
-/// Multipart → (`event` part as envelope JSON, optional `snapshot` bytes).
+/// Writes one evidence image under the route's captures dir as
+/// `<prefix>-<event id>.jpg`. `event_id` is remote input, so anything
+/// path-unsafe is stripped first. A failed write drops the image, not the
+/// plate reading.
+fn save_capture(
+    route: &CameraRoute,
+    event_id: &str,
+    prefix: &str,
+    bytes: Option<Bytes>,
+) -> Option<PathBuf> {
+    let bytes = bytes?;
+    let safe: String = event_id
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
+        .take(64)
+        .collect();
+    if safe.is_empty() {
+        return None;
+    }
+    let path = route.captures_dir.join(format!("{prefix}-{safe}.jpg"));
+    match std::fs::write(&path, bytes) {
+        Ok(()) => Some(path),
+        Err(e) => {
+            warn!("could not save {prefix} capture: {e}");
+            None
+        }
+    }
+}
+
+/// Multipart → (`event` part as envelope JSON, optional image parts).
 async fn multipart_parts(
     request: Request,
     inner: &Arc<Inner>,
-) -> Result<(Envelope, Option<Bytes>), StatusCode> {
+) -> Result<(Envelope, Snapshots), StatusCode> {
     let mut m = Multipart::from_request(request, &inner)
         .await
         .map_err(|_| StatusCode::BAD_REQUEST)?;
     let mut envelope: Option<Envelope> = None;
-    let mut snapshot: Option<Bytes> = None;
+    let mut snapshots = Snapshots::default();
     while let Ok(Some(field)) = m.next_field().await {
         match field.name() {
             Some("event") => {
                 let bytes = field.bytes().await.map_err(|_| StatusCode::BAD_REQUEST)?;
                 envelope = serde_json::from_slice::<Envelope>(&bytes).ok();
             }
-            Some("snapshot") => {
-                snapshot = field.bytes().await.ok();
+            Some("plate_crop") | Some("snapshot") => {
+                snapshots.plate_crop = field.bytes().await.ok();
+            }
+            Some("original_frame") => {
+                snapshots.original_frame = field.bytes().await.ok();
             }
             _ => {}
         }
     }
     envelope
-        .map(|e| (e, snapshot))
+        .map(|e| (e, snapshots))
         .ok_or(StatusCode::BAD_REQUEST)
 }
 
@@ -416,7 +462,11 @@ mod tests {
             .send()
             .await
             .unwrap();
-        assert_eq!(res.status(), 200);
+        // The worker only counts an event as delivered on 202 + echoed id.
+        assert_eq!(res.status(), 202);
+        let ack: serde_json::Value = res.json().await.unwrap();
+        assert_eq!(ack["eventId"], "ev-1");
+        assert_eq!(ack["status"], "accepted");
 
         let reading = rx.recv().await.unwrap();
         assert_eq!(reading.plate, "30E89241");
@@ -438,11 +488,77 @@ mod tests {
                 .send()
                 .await
                 .unwrap();
-            assert_eq!(res.status(), 200);
+            assert_eq!(res.status(), 202);
         }
         let first = rx.recv().await.unwrap();
         assert_eq!(first.plate, "51A12345");
         assert!(rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn event_refused_on_full_channel_is_routed_when_retried() {
+        let (camera_id, route, mut rx) = route(1);
+        let (store, _dir) = test_store();
+        let server = IngestServer::start(vec![(camera_id, route)], store).await.unwrap();
+        let url = format!("http://127.0.0.1:{}/api/v1/parking-events", server.port);
+        let client = reqwest::Client::new();
+        let post = |id: &'static str, plate: &'static str| {
+            client
+                .post(&url)
+                .headers(headers(camera_id, &server.camera_key))
+                .json(&envelope(id, plate))
+                .send()
+        };
+
+        assert_eq!(post("ev-a", "30A00001").await.unwrap().status(), 202);
+        // Channel (capacity 1) is full → retryable refusal.
+        assert_eq!(post("ev-b", "30A00002").await.unwrap().status(), 503);
+        assert_eq!(rx.recv().await.unwrap().plate, "30A00001");
+        // The worker retries with the same event id; it must not be
+        // swallowed as a duplicate.
+        assert_eq!(post("ev-b", "30A00002").await.unwrap().status(), 202);
+        assert_eq!(rx.recv().await.unwrap().plate, "30A00002");
+    }
+
+    /// The part names the Python worker actually sends
+    /// (`SnapshotDescriptor.kind`): both images must reach the reading.
+    #[tokio::test]
+    async fn worker_snapshot_kinds_become_plate_and_overview_images() {
+        let (camera_id, route, mut rx) = route(4);
+        let captures = route.captures_dir.clone();
+        let (store, _dir) = test_store();
+        let server = IngestServer::start(vec![(camera_id, route)], store).await.unwrap();
+        let url = format!("http://127.0.0.1:{}/api/v1/parking-events", server.port);
+
+        let jpeg = |name: &'static str, body: &'static [u8]| {
+            reqwest::multipart::Part::bytes(body.to_vec())
+                .file_name(name)
+                .mime_str("image/jpeg")
+                .unwrap()
+        };
+        let form = reqwest::multipart::Form::new()
+            .text(
+                "event",
+                serde_json::to_string(&envelope("ev-kinds", "29A11111")).unwrap(),
+            )
+            .part("original_frame", jpeg("frame.jpg", b"\xff\xd8frame"))
+            .part("plate_crop", jpeg("crop.jpg", b"\xff\xd8crop"));
+        let res = reqwest::Client::new()
+            .post(&url)
+            .headers(headers(camera_id, &server.camera_key))
+            .multipart(form)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(res.status(), 202);
+
+        let reading = rx.recv().await.unwrap();
+        let plate = reading.plate_image_path.unwrap();
+        let overview = reading.overview_image_path.unwrap();
+        assert_eq!(plate, captures.join("plate-ev-kinds.jpg"));
+        assert_eq!(overview, captures.join("overview-ev-kinds.jpg"));
+        assert_eq!(std::fs::read(&plate).unwrap(), b"\xff\xd8crop");
+        assert_eq!(std::fs::read(&overview).unwrap(), b"\xff\xd8frame");
     }
 
     #[tokio::test]
@@ -499,7 +615,7 @@ mod tests {
             .send()
             .await
             .unwrap();
-        assert_eq!(res.status(), 200);
+        assert_eq!(res.status(), 202);
 
         let reading = rx.recv().await.unwrap();
         assert_eq!(reading.plate, "29A99999");

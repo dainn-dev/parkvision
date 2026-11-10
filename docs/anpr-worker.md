@@ -185,7 +185,7 @@ Nếu không ghi rõ là tùy chọn ở phần sau, phải khai báo trường.
 - `thresholds.vehicle`: `confidence=0.4`, `nms_iou=0.5`, đều trong [0, 1].
 - `thresholds.plate_confidence=0.6`, `plate_padding_ratio=0.1`, `ocr_confidence=0.8`, đều trong [0, 1]; `min_plate_width_px=20`, `min_plate_height_px=8`, số nguyên >= 1.
 - `thresholds.tracker`: `high_confidence=0.4`, `low_confidence=0.1`, `match=0.8` trong [0, 1], low không vượt high; `buffer_frames=30`, `min_hits=3`, số nguyên >= 1.
-- `ocr.primary="PaddleOCR"`, `languages=["en", "vi"]`, `comparators=["EasyOCR", "VietOCR"]`, `automatic_fallback=false`, `low_confidence_policy="reject"`. Policy có thể là `accept_flagged`. Cả `languages` và `comparators` hiện buộc là danh sách **không rỗng**, dù comparators không được chạy.
+- `ocr.primary="PaddleOCR"`, `languages=["en", "vi"]`, `comparators=["EasyOCR", "VietOCR"]`, `automatic_fallback=false`, `low_confidence_policy="reject"`. Policy có thể là `accept_flagged`. `languages` buộc là danh sách **không rỗng**; `comparators` phải là danh sách chuỗi nhưng được phép rỗng (comparators không được chạy).
 - `snapshot.backend="local"`, `content_type="image/jpeg"`: chỉ hỗ trợ đúng hai giá trị này. `output_dir="camera-snapshots"`, `jpeg_quality=80` (1..100), `max_width=1280` (>= 1).
 - `ingest.url="http://localhost:8080/api/v1/parking-events"`: URL ví dụ, không phải endpoint tự chạy. Phải là HTTP(S). `timeout_seconds=10` (nguyên >= 1), `snapshot_part="snapshot"` (chỉ chấp nhận tên này), `dry_run=true`, `max_attempts=3` (>= 1), `retry_base_seconds=0.5`, `retry_max_seconds=5.0` (>= base, đều >= 0). `camera_key` tùy chọn lúc parse, mặc định rỗng; runtime validation vẫn buộc key không rỗng, kể cả ingest dry-run.
 - `logging.level="INFO"`, `service="camera-pipeline"`: level còn hỗ trợ DEBUG/WARNING/ERROR/CRITICAL. Logger chính ghi JSON qua stderr; `service` là nhãn trong JSON, không đổi tên tiến trình.
@@ -480,7 +480,7 @@ ingest.queue_path                    = /runtime/state/camera-event-queue.sqlite3
 barrier.enabled                      = false
 ```
 
-JSON thật vẫn cần toàn bộ field bắt buộc; danh sách trên chỉ là phần phải chỉnh. Tạo trước thư mục cha ghi được, giữ config hợp lệ `ocr.comparators` không rỗng, cung cấp camera key và URL receiver đúng hợp đồng.
+JSON thật vẫn cần toàn bộ field bắt buộc; danh sách trên chỉ là phần phải chỉnh. Tạo trước thư mục cha ghi được, cung cấp camera key và URL receiver đúng hợp đồng.
 
 ```powershell
 # Từ root repo; các thư mục đã được chuẩn bị trước.
@@ -518,17 +518,17 @@ HTTP server Rust bind `127.0.0.1:0`, sinh key ngẫu nhiên mỗi boot rồi đ�
 
 Supervisor thêm CLI args, đọc stdout JSONL, phát camera UI events, restart khi child thoát/spawn lỗi theo delay **1, 2, 4… tối đa 60 giây**. Đây là retry tiến trình, tách biệt RTSP reconnect và HTTP retry. Không thấy reset backoff sau một phiên chạy ổn định.
 
-### 9.2 Các lệch hợp đồng đã xác nhận
+### 9.2 Hợp đồng Python ↔ Rust
 
-Không coi các mục này đã được sửa bởi tài liệu:
+Các lệch hợp đồng từng ghi nhận ở mục này đã được sửa trong source; hành vi hiện tại:
 
-1. **Generated config bị từ chối.** `camera_worker.rs::render_worker_config` sinh `ocr.comparators=[]`, trong khi `_string_list` ở Python yêu cầu danh sách không rỗng. Parser báo `ocr.comparators is required and must be a non-empty list of strings`, exit 2 trước inference. Việc để comparators rỗng về ý nghĩa runtime là hợp lý nhưng chưa được parser hiện tại chấp nhận.
-2. **ACK HTTP.** Rust trả `200 OK` cả sự kiện mới và trùng; Python chỉ coi `202` + JSON ACK đúng ID là delivered. Sự kiện có thể đã được route tới gate nhưng worker log lỗi không retryable; queue không cứu được mismatch này.
-3. **Ảnh multipart.** Rust chỉ đọc part `snapshot`; pipeline gửi `original_frame`/`plate_crop`. Text biển số vẫn có thể được route nhưng ảnh bị bỏ qua. `snapshotUpload.part="snapshot"` cũng không phản ánh tên part thực gửi.
-4. **Không phải exactly-once.** Rust dedup bằng HashSet trong RAM, xóa khi đạt 10.000 và mất sau restart; ghi nhớ event ID trước khi `try_send` vào channel. Nếu channel đầy trả 503, lần retry có thể bị xem là duplicate dù reading chưa được route. Cần kiểm chứng riêng luồng lỗi này trước khi dựa vào retry để tránh mất event.
-5. **stderr có thể làm child nghẽn.** Supervisor hiện đọc stdout tới EOF rồi mới drain stderr, không drain hai pipe đồng thời. Worker log nhiều ở INFO; buffer stderr có thể đầy khi chạy lâu, làm child block. Không khẳng định pipeline đã ổn định lâu dài chỉ từ tests unit.
+1. **Generated config.** `camera_worker.rs::render_worker_config` sinh `ocr.comparators=[]` và parser Python chấp nhận danh sách rỗng cho `comparators` (vẫn buộc `languages` không rỗng).
+2. **ACK HTTP.** `ingest.rs` trả `202` kèm `{"eventId":"<id>","status":"accepted"}` cho cả sự kiện mới và trùng, đúng điều kiện delivered của `CameraIngestClient`.
+3. **Ảnh multipart.** Rust đọc part `plate_crop` (hoặc `snapshot` cho dạng một ảnh) thành `plate-<eventId>.jpg` và `original_frame` thành `overview-<eventId>.jpg` trong thư mục captures. `snapshotUpload.part="snapshot"` trong metadata event vẫn không phản ánh tên part thực gửi.
+4. **Retry sau 503.** Event ID chỉ được ghi nhớ khi event hợp lệ, và bị quên lại nếu channel của gate đầy (503), nên lần retry được route thay vì bị coi là trùng.
+5. **stderr.** Supervisor drain stderr song song với stdout, chỉ giữ 5 dòng cuối cho log khi child thoát.
 
-Các lỗi trên cần thay đổi source trong công việc khác; không thể giải quyết chỉ bằng lựa chọn env. Chỉnh JSON generated thủ công cũng có thể bị ghi đè khi host sinh lại. Khi vận hành standalone với receiver riêng, receiver cần chủ động đáp ứng đúng hợp đồng Python.
+Vẫn còn giới hạn: dedup của Rust là HashSet trong RAM, xóa khi đạt 10.000 và mất sau restart, nên đây **không phải exactly-once**. Các sửa đổi trên được kiểm bằng unit test hai phía; luồng Tauri spawn worker với camera thật vẫn phải thử trên máy mục tiêu. Khi vận hành standalone với receiver riêng, receiver cần chủ động đáp ứng đúng hợp đồng Python.
 
 ### 9.3 Build sidecar
 
@@ -587,7 +587,7 @@ Docker test stage cung cấp đường kiểm tra theo dependency image, nhưng 
 ### 10.2 Trình tự kiểm tra local
 
 1. Dùng venv Python 3.11, cài core/OCR requirements và pytest theo [README](../anpr-worker/README.md).
-2. Chuẩn bị profile riêng, ảnh/video thật và artifact. Không dùng đường ảnh mẫu thiếu sẵn trong repo. Đảm bảo `ocr.comparators` không rỗng và `barrier.enabled=false`.
+2. Chuẩn bị profile riêng, ảnh/video thật và artifact. Không dùng đường ảnh mẫu thiếu sẵn trong repo. Đảm bảo `barrier.enabled=false`.
 3. Chạy `--dry-run` với ảnh local và `ingest.dry_run=true` để kiểm tra metadata/path, hoặc `--dry-run-sequence static` để xem motion summary. Không coi mode này là test nhận diện.
 4. Chạy `--validate-runtime` với camera key đã cấu hình. Bước này có nạp model/tạo audit DB; kiểm tra quyền ghi trước khi chạy.
 5. Chạy `--run-feed` với clip đủ dài để vượt warmup/min hits. Nếu giữ `ingest.dry_run=true`, payload chỉ được log nhưng snapshot vẫn ghi. Quan sát từng stage thay vì chỉ exit code.
@@ -606,7 +606,7 @@ python run_camera_pipeline.py --config camera.local.json --run-camera --max-fram
 <a id="11-chan-doan-va-gioi-han-con-lai"></a>
 ## 11. Chẩn đoán và giới hạn còn lại
 
-- **Exit 2 ngay khi Tauri spawn:** kiểm tra `ocr.comparators=[]` trong generated JSON và các `DAI_*` kế thừa. Không chỉ nhìn file weight.
+- **Exit 2 ngay khi Tauri spawn:** config bị parser từ chối; đọc danh sách lỗi trong stderr tail của supervisor và kiểm tra các `DAI_*` kế thừa. Không chỉ nhìn file weight.
 - **`camera.source.path` thiếu:** path tính theo JSON. Profile mẫu tham chiếu ảnh không có sẵn; chuyển tới file thật.
 - **Thiếu `ultralytics_yolov5_master`:** đặt source cạnh plate checkpoint; mount ở `/models` khác `/app/model` là nguyên nhân thường gặp.
 - **Không nạp được PaddleOCR:** kiểm tra package đúng file `requirements-ocr.txt`, bundle `det/rec` thực, Python/wheel/device tương thích; tên `requirements-ocr-production.txt` trong lỗi là tham chiếu cũ.

@@ -1,43 +1,43 @@
 #!/usr/bin/env python3
 """
-Build sidecar executable for Tauri desktop app.
+Build the camera worker sidecar for the edge-client desktop app.
 
-Usage:
+Usage (from anpr-worker/, inside the worker's virtualenv):
+    python -m pip install pyinstaller
     python build_sidecar.py
 
-Requirements:
-    pip install pyinstaller
-
 Output:
-    dist/camera-edge/camera-edge.exe (Windows)
-    dist/camera-edge/camera-edge (Linux/macOS)
+    dist/camera-edge/camera-edge.exe   (Windows)
+    dist/camera-edge/camera-edge       (Linux/macOS)
+
+Copy the whole dist/camera-edge/ folder next to the edge-client executable.
+Model weights are not part of the build; see README.md for the model layout.
 """
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 
-def main():
-    spec_file = Path(__file__).parent / "camera-edge.spec"
+def main() -> int:
+    root = Path(__file__).resolve().parent
+    spec_file = root / "camera-edge.spec"
 
     if not spec_file.exists():
         print(f"Error: {spec_file} not found")
         return 1
 
+    # Run PyInstaller from the interpreter running this script, so the build
+    # uses this environment's packages rather than whatever is on PATH.
+    cmd = [sys.executable, "-m", "PyInstaller", "--clean", "--noconfirm", str(spec_file)]
     print("Building camera worker sidecar...")
-    print(f"Spec file: {spec_file}")
-
-    cmd = ["pyinstaller", "--clean", str(spec_file)]
-
     try:
-        subprocess.run(cmd, check=True)
-        print("\n✅ Sidecar built successfully!")
-        print("Output: dist/camera-edge/")
-        return 0
-    except subprocess.CalledProcessError as e:
-        print(f"\n❌ Build failed: {e}")
+        subprocess.run(cmd, check=True, cwd=root)
+    except subprocess.CalledProcessError as exc:
+        print(f"Build failed: {exc}")
         return 1
+    print(f"Sidecar built: {root / 'dist' / 'camera-edge'}")
+    return 0
 
 
 if __name__ == "__main__":

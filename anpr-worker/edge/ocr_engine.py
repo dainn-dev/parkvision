@@ -19,6 +19,9 @@ MAX_DEBUG_ITEMS = 16
 MAX_ITEM_TEXT = 64
 MAX_DISPLAY_TEXT = 128
 MAX_DEBUG_BYTES = 8192
+# Share of the narrower box's width two boxes must have in common to count as
+# stacked lines rather than neighbours on one line.
+STACKED_OVERLAP_RATIO = 0.5
 
 
 class OcrEngineError(RuntimeError):
@@ -110,6 +113,26 @@ class _RecognitionItem:
         ys = [point[1] for point in self.polygon]
         return max(1.0, max(ys) - min(ys))
 
+    @property
+    def left(self) -> float:
+        return min(point[0] for point in self.polygon) if self.polygon else 0.0
+
+    @property
+    def right(self) -> float:
+        return max(point[0] for point in self.polygon) if self.polygon else 0.0
+
+    def is_stacked_with(self, other: "_RecognitionItem") -> bool:
+        """True when the two boxes share most of their horizontal extent.
+
+        Fragments of one text line sit side by side; the two lines of a
+        square plate sit one above the other. Detector boxes are padded, so
+        on a small crop those lines can be vertically closer than the row
+        tolerance, and only the horizontal overlap tells them apart.
+        """
+        overlap = min(self.right, other.right) - max(self.left, other.left)
+        narrower = min(self.right - self.left, other.right - other.left)
+        return narrower > 0 and overlap / narrower > STACKED_OVERLAP_RATIO
+
 
 class LocalPaddleOcrEngine:
     """Lazy PaddleOCR adapter that requires an explicit local det/rec model bundle."""
@@ -141,12 +164,18 @@ class LocalPaddleOcrEngine:
             factory = self._model_factory or self._default_model_factory
             device = self.model_config.device or "cpu"
             gpu_id = int(device.split(":", 1)[1]) if ":" in device else 0
+            # PaddleOCR resolves an angle-classifier model even with
+            # use_angle_cls=False and downloads it when none is given. A
+            # local cls/ directory keeps startup offline.
+            cls_dir = root / "cls"
+            local_cls = {"cls_model_dir": str(cls_dir)} if cls_dir.is_dir() else {}
             self._model = factory(
                 det_model_dir=str(det_dir),
                 rec_model_dir=str(rec_dir),
                 use_gpu=device.startswith("cuda"),
                 gpu_id=gpu_id,
                 lang=self.languages[0] if self.languages else "en",
+                **local_cls,
             )
         except OcrEngineUnavailable as exc:
             self._unavailable = exc
@@ -273,7 +302,8 @@ def _order_items(items: list[_RecognitionItem]) -> list[list[_RecognitionItem]]:
         for row in rows:
             center = sum(existing.center_y for existing in row) / len(row)
             tolerance = max(existing.height for existing in row + [item]) * 0.6
-            if abs(item.center_y - center) <= tolerance:
+            if (abs(item.center_y - center) <= tolerance
+                    and not any(item.is_stacked_with(existing) for existing in row)):
                 row.append(item)
                 break
         else:

@@ -208,6 +208,25 @@ def test_invalid_configuration_reports_multiple_actionable_issues() -> None:
         )
 
 
+def test_profile_without_ocr_comparators_loads_but_languages_stay_required() -> None:
+    # edge-client's generated worker config sends "comparators": [].
+    with tempfile.TemporaryDirectory() as raw:
+        directory = Path(raw)
+        profile = _profile()
+        profile["ocr"]["comparators"] = []
+        path, _ = _write_profile(directory, profile)
+
+        config = load_camera_pipeline_config(path, environ={})
+        assert config.ocr.comparators == ()
+
+        profile["ocr"]["languages"] = []
+        path, _ = _write_profile(directory, profile)
+        _expect_validation(
+            lambda: load_camera_pipeline_config(path, environ={}),
+            "ocr.languages is required and must be a non-empty list of strings",
+        )
+
+
 def test_vehicle_device_changes_configuration_hash() -> None:
     with tempfile.TemporaryDirectory() as raw:
         directory = Path(raw)

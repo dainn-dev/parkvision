@@ -108,7 +108,7 @@ Hai script mặc định cùng chọn cổng 3000, vì vậy ví dụ trên ch�
 5. Cấu hình camera, model và sidecar theo [ANPR docs](docs/anpr-worker.md).
 6. Cấu hình và probe relay theo [barrier relay setup](docs/barrier-relay-setup.md), nghiệm thu an toàn tại hiện trường.
 
-**Không xem pipeline camera là plug-and-play:** source hiện có chênh lệch ACK HTTP, tên multipart ảnh và `ocr.comparators` giữa Python/Rust. Các giới hạn và điểm đối chiếu được ghi ở [ANPR docs](docs/anpr-worker.md) và [edge docs](docs/edge-client.md). Tài liệu này không sửa mã tích hợp đó.
+**Không xem pipeline camera là plug-and-play:** hợp đồng HTTP/config giữa Python và Rust đã khớp ở mức unit test, nhưng trọng số model không đi kèm repo và luồng Tauri–worker với camera thật phải được thử trên máy mục tiêu. Các giới hạn và điểm đối chiếu được ghi ở [ANPR docs](docs/anpr-worker.md) và [edge docs](docs/edge-client.md).
 
 ## Đọc tài liệu theo nhu cầu
 

@@ -381,7 +381,7 @@ Supervisor đọc JSONL stdout để phát preview/status; khi process thoát ho
 
 Server bind `127.0.0.1` **cổng ngẫu nhiên**, không phải service LAN cố định. Mỗi lần server start sinh token ngẫu nhiên 24 byte, ghi vào worker config làm `X-Camera-Key`.
 
-- `POST /api/v1/parking-events`: cần key và `X-Camera-Id` UUID đã được route. JSON envelope có `eventId`, `eventType`, `payload`; multipart hỗ trợ phần `event` + `snapshot`.
+- `POST /api/v1/parking-events`: cần key và `X-Camera-Id` UUID đã được route. JSON envelope có `eventId`, `eventType`, `payload`; multipart hỗ trợ phần `event` cùng ảnh `plate_crop` (hoặc `snapshot`) và `original_frame`. Thành công trả `202` kèm `{"eventId","status":"accepted"}`.
 - `PlateRecognized`: lấy `payload.plate.normalizedText`, fallback `text`; confidence ưu tiên recognition rồi detection. Đẩy vào channel gate (capacity 16); snapshot tùy chọn được ghi local. `VehicleDetected`/`SnapshotSaved` được nhận nhưng không tạo reading mở cổng.
 - `POST /api/vehicles/check-vehicle`: cần key, body `licensePlateNumber` và `type` tùy chọn (mặc định entry). Chỉ xét quyền từ cache, không ghi local event hay điều khiển cổng.
 - `POST /api/cameras/{id}/heartbeat`: cần key và camera đã gán; ghi thời điểm heartbeat, phát sự kiện camera.

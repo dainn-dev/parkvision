@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ParkVision</string>
+    <string name="title_activity_main">ParkVision</string>
+    <string name="package_name">online.dainn.parkvision</string>
+    <string name="custom_url_scheme">online.dainn.parkvision</string>
+</resources>

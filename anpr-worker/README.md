@@ -110,10 +110,10 @@ Tests dùng adapter/factory/capture/HTTP giả cùng ảnh tổng hợp; có ki�
 
 ## Các điểm phải biết trước khi triển khai
 
-- **ACK không khớp:** Python chỉ chấp nhận `202` kèm `{"eventId":"...","status":"accepted"}`; `edge-client/src-tauri/src/ingest.rs` hiện trả `200`. Worker có thể log thất bại dù Rust đã nhận sự kiện.
-- **Multipart không khớp:** service gửi ảnh dưới tên `original_frame`/`plate_crop`; Rust chỉ lấy part `snapshot`. Không được mặc định rằng ảnh sẽ tới UI.
-- **Config sinh từ Rust chưa qua parser Python:** Rust ghi `ocr.comparators=[]`, trong khi Python yêu cầu danh sách không rỗng. Worker có thể thoát với code `2` ngay lúc đọc cấu hình.
-- PyInstaller spec tham chiếu `config.example.json` không tồn tại và không tự đóng gói model/source YOLOv5 ngoài bundle. Chưa thể coi `python build_sidecar.py` là quy trình phát hành đã hoàn thiện.
+- **Hợp đồng với edge-client:** Python chỉ coi event là delivered khi nhận `202` kèm `{"eventId":"...","status":"accepted"}`, gửi ảnh dưới tên part `original_frame`/`plate_crop`, và chấp nhận `ocr.comparators=[]` do Rust sinh. `edge-client/src-tauri/src/ingest.rs` đáp ứng cả ba; receiver tự viết cũng phải làm đúng như vậy.
+- **Đóng gói sidecar:** `python -m pip install pyinstaller` rồi `python build_sidecar.py` tạo `dist/camera-edge/` (khoảng 1,4 GB, gồm PyTorch và PaddleOCR). Chép cả thư mục này vào cạnh executable của edge-client; Rust tìm `camera-edge/camera-edge.exe` ở đó. Bundle **không** chứa model: thư mục model (mặc định `<app_data>/models`) phải có `yolo11n.pt`, `LP_detector_nano_61.pt`, `ultralytics_yolov5_master/` và `paddleocr/{det,rec,cls}`. Thiếu `paddleocr/cls` thì PaddleOCR sẽ tự tải model đó từ Internet lúc khởi động.
+- **Thứ tự nạp trên Windows:** PyTorch phải được nạp trước PaddleOCR; nạp ngược lại làm torch lỗi DLL (`WinError 127`). Pipeline nạp theo đúng thứ tự này; script tự viết cần `import torch` trước.
+- **Đường dẫn snapshot dài:** cây thư mục snapshot sâu, nên thư mục làm việc quá dài có thể vượt giới hạn 260 ký tự của Windows và làm hỏng việc lưu ảnh (`WinError 206`).
 - Không có MQTT publisher hay bộ chuyển đổi sự kiện monitor trong worker. Hợp đồng [MQTT monitor-camera detection](../docs/mqtt-camera-detection.md) là luồng khác, không phải payload HTTP `PlateRecognized`.
 
-Chi tiết và hướng kiểm tra từng lỗi: [docs/anpr-worker.md](../docs/anpr-worker.md). Các hạn chế trên được ghi nhận, không sửa source trong lần cập nhật tài liệu này.
+Chi tiết và hướng kiểm tra từng lỗi: [docs/anpr-worker.md](../docs/anpr-worker.md).

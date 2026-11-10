@@ -5,8 +5,9 @@
 //! UI-facing camera events.
 
 use std::path::{Path, PathBuf};
-use std::{fs::OpenOptions, io::Write};
 use std::time::Duration;
+#[cfg(unix)]
+use std::{fs::OpenOptions, io::Write};
 
 use anyhow::{Context, Result};
 use serde_json::json;
@@ -40,17 +41,22 @@ impl WorkerCommand {
             });
         }
         let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
-        for name in ["camera-edge.exe", "camera-edge"] {
-            let cand = exe_dir.join(name);
-            if cand.is_file() {
-                return Some(Self {
-                    program: cand.to_string_lossy().into_owned(),
-                    prefix_args: Vec::new(),
-                });
-            }
-        }
-        None
+        let program = find_bundled_worker(&exe_dir)?;
+        Some(Self {
+            program: program.to_string_lossy().into_owned(),
+            prefix_args: Vec::new(),
+        })
     }
+}
+
+/// Locates the packaged worker relative to the app's install directory:
+/// either the binary itself beside the app, or the PyInstaller one-folder
+/// build dropped in as `camera-edge/` (binary plus its `_internal/` runtime).
+fn find_bundled_worker(exe_dir: &Path) -> Option<PathBuf> {
+    ["camera-edge.exe", "camera-edge"]
+        .into_iter()
+        .flat_map(|name| [exe_dir.join(name), exe_dir.join("camera-edge").join(name)])
+        .find(|candidate| candidate.is_file())
 }
 
 /// Model artifact directory — `PARKVISION_ANPR_MODEL_DIR` or
@@ -320,6 +326,10 @@ async fn supervise(
         );
         let _ = camera_tx.send(camera_status(camera_id, "starting", ""));
 
+        // The worker logs to stderr continuously, so it must be drained
+        // while stdout is being read — otherwise the pipe fills and the
+        // child blocks mid-run.
+        let stderr_tail = child.stderr.take().map(|stderr| tokio::spawn(drain_tail(stderr)));
         if let Some(stdout) = child.stdout.take() {
             let mut lines = BufReader::new(stdout).lines();
             while let Ok(Some(line)) = lines.next_line().await {
@@ -330,12 +340,8 @@ async fn supervise(
                 );
             }
         }
-        // Drain stderr so pipe buffers never block the child.
-        if let Some(mut stderr) = child.stderr.take() {
-            let mut buf = String::new();
-            use tokio::io::AsyncReadExt;
-            let _ = stderr.read_to_string(&mut buf).await;
-            let tail: String = buf.lines().rev().take(5).collect::<Vec<_>>().join(" | ");
+        if let Some(task) = stderr_tail {
+            let tail = task.await.unwrap_or_default().join(" | ");
             if !tail.is_empty() {
                 warn!("camera worker stderr tail: {}", redact_secret(&tail, &camera_key));
             }
@@ -346,6 +352,31 @@ async fn supervise(
         tokio::time::sleep(backoff).await;
         backoff = (backoff * 2).min(Duration::from_secs(60));
     }
+}
+
+/// How many trailing stderr lines are kept for the exit diagnostic.
+const STDERR_TAIL_LINES: usize = 5;
+
+/// Reads a stream to EOF, discarding everything but the last
+/// `STDERR_TAIL_LINES` lines (oldest first). Lines are decoded lossily:
+/// native libraries on Windows write non-UTF-8 bytes, and stopping on those
+/// would leave the pipe undrained and block the child.
+async fn drain_tail<R: tokio::io::AsyncRead + Unpin>(reader: R) -> Vec<String> {
+    let mut tail = std::collections::VecDeque::with_capacity(STDERR_TAIL_LINES);
+    let mut reader = BufReader::new(reader);
+    let mut line = Vec::new();
+    loop {
+        line.clear();
+        match reader.read_until(b'\n', &mut line).await {
+            Ok(0) | Err(_) => break,
+            Ok(_) => {}
+        }
+        if tail.len() == STDERR_TAIL_LINES {
+            tail.pop_front();
+        }
+        tail.push_back(String::from_utf8_lossy(&line).trim_end().to_string());
+    }
+    tail.into()
 }
 
 /// Replace any occurrence of a secret value with `***` in text that may
@@ -509,6 +540,47 @@ mod tests {
             use std::os::unix::fs::PermissionsExt;
             assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
         }
+    }
+
+    #[tokio::test]
+    async fn drain_tail_reads_to_eof_and_keeps_only_last_lines() {
+        // Far more than an OS pipe buffer holds, to prove nothing is retained.
+        let noise: String = (0..20_000).map(|i| format!("log line {i}\n")).collect();
+        let tail = drain_tail(noise.as_bytes()).await;
+        assert_eq!(tail.len(), STDERR_TAIL_LINES);
+        assert_eq!(tail.first().unwrap(), "log line 19995");
+        assert_eq!(tail.last().unwrap(), "log line 19999");
+    }
+
+    #[tokio::test]
+    async fn drain_tail_keeps_draining_past_non_utf8_bytes() {
+        let tail = drain_tail(&b"ok\n\xff\xfe broken\nlast\n"[..]).await;
+        assert_eq!(tail.len(), 3);
+        assert_eq!(tail[0], "ok");
+        assert!(tail[1].ends_with("broken"));
+        assert_eq!(tail[2], "last");
+    }
+
+    #[test]
+    fn bundled_worker_is_found_in_camera_edge_folder_or_beside_app() {
+        let install = tempfile::tempdir().unwrap();
+        assert_eq!(find_bundled_worker(install.path()), None);
+
+        // PyInstaller one-folder layout dropped next to the app.
+        let folder = install.path().join("camera-edge");
+        std::fs::create_dir(&folder).unwrap();
+        std::fs::write(folder.join("camera-edge.exe"), b"").unwrap();
+        assert_eq!(
+            find_bundled_worker(install.path()),
+            Some(folder.join("camera-edge.exe"))
+        );
+
+        // A binary directly beside the app takes precedence.
+        std::fs::write(install.path().join("camera-edge.exe"), b"").unwrap();
+        assert_eq!(
+            find_bundled_worker(install.path()),
+            Some(install.path().join("camera-edge.exe"))
+        );
     }
 
     #[test]
