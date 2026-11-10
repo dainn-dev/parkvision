@@ -1,0 +1,12 @@
+.git
+.github
+.vscode
+backend
+anpr-worker
+edge-client
+docs
+qa-toolbox
+tests
+**/node_modules
+**/dist
+**/__pycache__
