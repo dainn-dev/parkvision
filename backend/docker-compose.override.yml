@@ -1,0 +1,84 @@
+# Raspberry Pi deployment overrides. This file is local to this checkout and is
+# not part of the upstream repository.
+#
+# - Admin-only ports (Postgres, Redis, EMQX dashboard, Mailpit) bind to loopback.
+# - API (8000), MQTT (1883) and S3 presign endpoint (9000) stay on the LAN so
+#   edge devices and browsers can reach them.
+# - `omniroute` is optional and is kept behind a profile (it is not part of the
+#   ParkVision flow, and port 20128 is already used by another container here).
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports: !override
+      - "127.0.0.1:5432:5432"
+    restart: unless-stopped
+
+  redis:
+    ports: !override
+      - "127.0.0.1:6379:6379"
+    restart: unless-stopped
+
+  emqx:
+    ports: !override
+      - "1883:1883"
+      - "127.0.0.1:18083:18083"
+    restart: unless-stopped
+
+  s3:
+    ports: !override
+      - "9000:4566"
+    restart: unless-stopped
+
+  mailpit:
+    ports: !override
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    restart: unless-stopped
+
+  # Build the backend image once and reuse it for every app process.
+  migrate:
+    image: parkvision-backend:local
+  api:
+    image: parkvision-backend:local
+    restart: unless-stopped
+  worker:
+    image: parkvision-backend:local
+    restart: unless-stopped
+  mqtt-bridge:
+    image: parkvision-backend:local
+    restart: unless-stopped
+
+  # Admin dashboard: Vite build served by Nginx, /api + /ws proxied to the API.
+  frontend:
+    build:
+      context: ../frontend
+    image: parkvision-frontend:local
+    ports:
+      - "8080:80"
+    environment:
+      API_UPSTREAM: http://api:8000
+      S3_PUBLIC_ORIGIN: ${S3_PUBLIC_ORIGIN_URL:?set S3_PUBLIC_ORIGIN_URL in .env}
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Driver web app (responsive SPA), same-origin /api and /ws proxy.
+  mobile:
+    build:
+      context: ..
+      dockerfile: deploy/mobile.Dockerfile
+    image: parkvision-mobile:local
+    ports:
+      - "8081:80"
+    environment:
+      API_UPSTREAM: http://api:8000
+      S3_PUBLIC_ORIGIN: ${S3_PUBLIC_ORIGIN_URL:?set S3_PUBLIC_ORIGIN_URL in .env}
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  omniroute:
+    profiles: ["omniroute"]
