@@ -245,6 +245,15 @@ pub fn server_api_base_url() -> String {
     url.trim().trim_end_matches('/').to_string()
 }
 
+/// Whether a persisted config was activated against a different server than
+/// this build uses — e.g. a config left by a dev build pointing at a LAN
+/// backend. Release builds must not run such a config: it can never reach its
+/// server, and the operator would get no way back to the activation screen.
+pub fn is_foreign_config(config_api_base_url: &str, server_url: &str) -> bool {
+    let normalize = |u: &str| u.trim().trim_end_matches('/').to_ascii_lowercase();
+    normalize(config_api_base_url) != normalize(server_url)
+}
+
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -366,6 +375,15 @@ pub fn revoked_watcher(rt: &SharedRuntime) -> tokio::sync::watch::Receiver<bool>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn config_for_another_server_is_foreign() {
+        let server = "https://api-parkvision.dainn.online/api/v1";
+        assert!(!is_foreign_config("https://api-parkvision.dainn.online/api/v1/", server));
+        assert!(!is_foreign_config("HTTPS://api-parkvision.dainn.online/api/v1", server));
+        assert!(is_foreign_config("http://10.34.1.55:8000/api/v1", server));
+        assert!(is_foreign_config("", server));
+    }
 
     #[test]
     fn server_url_is_built_in_and_has_no_trailing_slash() {

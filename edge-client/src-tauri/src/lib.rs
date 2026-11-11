@@ -277,12 +277,43 @@ async fn resync(rt: State<'_, RuntimeState>) -> Result<String, String> {
     Ok(format!("{} vehicles / {} rules", w.upserted, r))
 }
 
+/// Drop a persisted config activated against another server (and the kiosk
+/// lock set for it), so the app opens on the activation screen instead of
+/// running a config that can never connect. Local data (edge.db, captures)
+/// is kept, as with a tenant-side deprovision.
+fn reset_foreign_config(cfg_dir: &std::path::Path) {
+    let store = ConfigStore::new(cfg_dir.join("edge-config.json"));
+    let Ok(Some(cfg)) = store.load() else {
+        return;
+    };
+    let server = activation::server_api_base_url();
+    if !activation::is_foreign_config(&cfg.api_base_url, &server) {
+        return;
+    }
+    tracing::warn!(
+        "saved config targets {} but this build uses {server}; re-activation required",
+        cfg.api_base_url
+    );
+    if let Err(e) = store.clear() {
+        tracing::error!("could not clear foreign config: {e:#}");
+        return;
+    }
+    if let Err(e) = lock::LockStore::new(cfg_dir.join("edge-lock.json")).set_password(None) {
+        tracing::warn!("could not clear kiosk lock: {e:#}");
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
             let cfg_dir = app.path().app_config_dir()?;
+            // Before the UI asks for the config: a release build only runs
+            // configs activated against its built-in server.
+            if !cfg!(debug_assertions) {
+                reset_foreign_config(&cfg_dir);
+            }
             app.manage(SharedConfigStore::new(Some(ConfigStore::new(
                 cfg_dir.join("edge-config.json"),
             ))));
