@@ -312,6 +312,9 @@ class ActivationMqttOut(CamelModel):
     host: str
     port: int
     tls: bool
+    # "tcp" (plain MQTT) or "websocket" (MQTT over ws/wss at ws_path).
+    transport: Literal["tcp", "websocket"] = "tcp"
+    ws_path: str | None = None
     username: str
     password: str | None = None  # only on activate
 
@@ -1302,6 +1305,8 @@ class MqttAuthIn(CamelModel):
 
 class MqttAuthOut(CamelModel):
     result: str  # "allow" | "deny"
+    # EMQX reads this exact key; superusers skip the authorization check.
+    is_superuser: bool = Field(default=False, serialization_alias="is_superuser")
 
 
 # ---------- driver memberships (tenant admin view) ----------

@@ -19,7 +19,12 @@ services:
       - "127.0.0.1:6379:6379"
     restart: unless-stopped
 
+  # 8083 (MQTT over WebSocket) stays internal: devices reach it through the
+  # dashboard's /mqtt route, which is what Cloudflare can proxy.
   emqx:
+    environment:
+      MQTT_HOOK_SECRET: ${MQTT_HOOK_SECRET:?set MQTT_HOOK_SECRET in .env}
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_DASHBOARD_PASSWORD:?set EMQX_DASHBOARD_PASSWORD in .env}
     ports: !override
       - "1883:1883"
       - "127.0.0.1:18083:18083"
@@ -39,14 +44,22 @@ services:
   # Build the backend image once and reuse it for every app process.
   migrate:
     image: parkvision-backend:local
+  # The API answers EMQX's auth hook and the bridge logs in through it, so both
+  # need the hook secret and a non-default bridge password. Compose refuses to
+  # start without them; the API also refuses the published default password.
   api:
     image: parkvision-backend:local
+    environment:
+      MQTT_HOOK_SECRET: ${MQTT_HOOK_SECRET:?set MQTT_HOOK_SECRET in .env}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:?set a unique MQTT_PASSWORD in .env}
     restart: unless-stopped
   worker:
     image: parkvision-backend:local
     restart: unless-stopped
   mqtt-bridge:
     image: parkvision-backend:local
+    environment:
+      MQTT_PASSWORD: ${MQTT_PASSWORD:?set a unique MQTT_PASSWORD in .env}
     restart: unless-stopped
 
   # Admin dashboard: Vite build served by Nginx, /api + /ws proxied to the API.
@@ -58,6 +71,7 @@ services:
       - "8080:80"
     environment:
       API_UPSTREAM: http://api:8000
+      MQTT_WS_UPSTREAM: http://emqx:8083
       S3_PUBLIC_ORIGIN: ${S3_PUBLIC_ORIGIN_URL:?set S3_PUBLIC_ORIGIN_URL in .env}
     depends_on:
       api:

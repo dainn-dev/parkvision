@@ -21,7 +21,7 @@ thiserror = "2"
 anyhow = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-rumqttc = { version = "0.24", features = ["use-rustls"] }
+rumqttc = { version = "0.24", features = ["use-rustls", "websocket"] }
 async-trait = "0.1"
 futures = "0.3"
 tokio-util = "0.7"

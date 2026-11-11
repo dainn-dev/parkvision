@@ -16,8 +16,55 @@ Local deployment of the ParkVision monorepo on this Raspberry Pi 5
 | MQTT (edge devices) | `192.168.0.153:1883` |
 | S3 presigned endpoint | http://192.168.0.153:9000 |
 | Mailpit (this host only) | http://127.0.0.1:8025 |
-| EMQX dashboard (this host only) | http://127.0.0.1:18083 (`admin` / `public`) |
+| EMQX dashboard (this host only) | http://127.0.0.1:18083 (`admin` / `EMQX_DASHBOARD_PASSWORD` from `backend/.env`) |
 | PostgreSQL / Redis (this host only) | `127.0.0.1:5432` / `127.0.0.1:6379` |
+
+## Public access (Cloudflare)
+
+| Hostname | Serves |
+|---|---|
+| `https://parkvision.dainn.online` | Admin dashboard (`frontend`, port 8080); also proxies `/api`, `/ws` and `/mqtt` |
+| `https://api-parkvision.dainn.online` | REST API + WebSocket (`api`, port 8000) — used by the driver APK and the edge client |
+
+Cloudflare only proxies HTTP(S), so plain MQTT on 1883 is LAN-only. Edge
+devices outside the LAN use **MQTT over WebSocket** through the dashboard's
+`/mqtt` route (`frontend` → `emqx:8083`). Add to `backend/.env`:
+
+```sh
+MQTT_PUBLIC_HOST=parkvision.dainn.online
+MQTT_PUBLIC_TRANSPORT=websocket
+MQTT_PUBLIC_PORT=443
+MQTT_PUBLIC_TLS=true
+MQTT_PUBLIC_WS_PATH=/mqtt
+# Generate each once, e.g. `openssl rand -hex 32`.
+MQTT_HOOK_SECRET=<random>      # shared by the API and EMQX
+MQTT_PASSWORD=<random>         # the mqtt-bridge's login; must not be backend-secret
+EMQX_DASHBOARD_PASSWORD=<random>
+```
+
+`docker compose` refuses to start without these three. With a hook secret
+set, the API also refuses the published default bridge password
+(`backend-secret`) and logs `refusing bridge login with the default
+MQTT_PASSWORD` — the bridge then cannot connect until a unique password is set.
+
+EMQX authenticates **every** MQTT client through the API's
+`/api/v1/edge/mqtt-auth` hook: devices log in with their activation
+credential and may only use their own `tenants/<id>/` topics; the
+`mqtt-bridge` logs in with `MQTT_USERNAME` / `MQTT_PASSWORD` as superuser.
+Anonymous MQTT is no longer accepted.
+
+Devices activated before this change keep the old MQTT address until their
+config is refreshed: restart the edge app (it re-reads `/edge/config` on
+start) or re-activate it.
+
+### S3 / camera snapshots — still LAN-only
+
+`S3_PUBLIC_ENDPOINT_URL` is `http://192.168.0.153:9000` (LocalStack). Presigned
+image URLs only open on this LAN. Serving them publicly needs a dedicated
+hostname (e.g. `s3-parkvision.dainn.online` → port 9000 through Cloudflare);
+then set `S3_PUBLIC_ENDPOINT_URL` and `S3_PUBLIC_ORIGIN_URL` to it. Do not
+route a bucket path through the dashboard host: LocalStack does not verify
+presigned signatures, so a public bucket route is effectively unauthenticated.
 
 ## Accounts
 
@@ -51,6 +98,13 @@ docker compose build api frontend mobile
 docker compose up -d
 ```
 
+`emqx` is recreated by `up -d` when its environment changes (auth hook).
+Check afterwards that the bridge logs in:
+
+```sh
+docker compose logs --tail=20 mqtt-bridge   # expect "subscribed to 4 topic patterns"
+```
+
 ## What runs here
 
 - `api`, `worker` (arq), `mqtt-bridge`, one-shot `migrate`
@@ -79,8 +133,9 @@ This is the documented **development baseline** exposed on the LAN over HTTP:
 
 - No TLS; cookies are `COOKIE_SECURE=false`. Put a TLS reverse proxy in front
   before using real credentials, then set `COOKIE_SECURE=true`.
-- EMQX allows anonymous MQTT and LocalStack S3 uses `test`/`test` keys.
-  Configure MQTT auth/ACL and real object storage (e.g. MinIO) for production.
+- MQTT clients are authenticated and topic-scoped by the API hook (see
+  above). LocalStack S3 still uses `test`/`test` keys and does not check
+  presigned signatures; use real object storage (e.g. MinIO) for production.
 - Demo seed accounts and `omniroute` defaults must not be used in production.
 - Postgres/Redis/Mailpit/EMQX-dashboard are bound to loopback on this host.
 - Review `docs/development-and-operations.md` §7 before a real deployment.

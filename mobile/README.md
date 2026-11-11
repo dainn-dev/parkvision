@@ -114,10 +114,13 @@ npm run clean     # rm -rf dist server.js, cần shell hỗ trợ rm
 `mobile/android/` là lớp vỏ Capacitor bọc bản build web; app vẫn là SPA chạy trong WebView, không phải app native. Build cần JDK 21 và Android SDK (`JAVA_HOME`, `ANDROID_HOME`):
 
 ```sh
-VITE_API_BASE_URL=https://<api-host>/api/v1 VITE_AUTH_MODE=bearer npm run build
-npx cap sync android
+npm run build:android                   # đọc .env.android, rồi cap sync android
 cd android && ./gradlew assembleDebug   # app/build/outputs/apk/debug/app-debug.apk
 ```
+
+`.env.android` (được commit) trỏ API tới `https://api-parkvision.dainn.online/api/v1`. Đổi server thì sửa file này rồi build lại; địa chỉ được gắn cứng vào APK lúc build.
+
+Chạy dev với backend đã deploy thay vì backend local: `VITE_API_PROXY=https://api-parkvision.dainn.online npm run dev`.
 
 - `VITE_AUTH_MODE=bearer` là bắt buộc cho APK: giao diện chạy ở origin `https://localhost` còn API ở host khác, nên cookie phiên của API không dùng được; client giữ phiên bằng Bearer token trong `localStorage`. Bản web cùng origin không đặt biến này và vẫn dùng cookie HttpOnly.
 - `CapacitorHttp` được bật trong `capacitor.config.ts` để `fetch` đi qua lớp HTTP native, không phụ thuộc `CORS_ORIGINS` của backend.

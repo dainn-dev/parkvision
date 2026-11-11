@@ -8,6 +8,9 @@ const input =
  * needs the code, not the server URL again. */
 const LAST_SERVER_URL_KEY = "pv_edge_last_api_base_url";
 
+/** Pre-filled server for a first activation; the last server used wins after that. */
+const DEFAULT_SERVER_URL = import.meta.env.VITE_DEFAULT_API_BASE_URL ?? "";
+
 /** Normalize typed activation codes: trim, uppercase, allow spaces. */
 function normalizeCode(raw: string): string {
   return raw.trim().toUpperCase().replace(/\s+/g, "");
@@ -16,9 +19,9 @@ function normalizeCode(raw: string): string {
 export default function SetupScreen({ onDone }: { onDone: () => void }) {
   const [apiBaseUrl, setApiBaseUrl] = useState(() => {
     try {
-      return localStorage.getItem(LAST_SERVER_URL_KEY) ?? "";
+      return localStorage.getItem(LAST_SERVER_URL_KEY) ?? DEFAULT_SERVER_URL;
     } catch {
-      return "";
+      return DEFAULT_SERVER_URL;
     }
   });
   const [code, setCode] = useState("");
@@ -116,7 +119,7 @@ export default function SetupScreen({ onDone }: { onDone: () => void }) {
           <input
             required
             className={input}
-            placeholder="http://localhost:8000/api/v1"
+            placeholder="https://api-parkvision.dainn.online/api/v1"
             value={apiBaseUrl}
             onChange={(e) => setApiBaseUrl(e.target.value)}
           />

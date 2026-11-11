@@ -16,6 +16,9 @@ export default defineConfig(() => {
         '/api': {
           target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8000',
           changeOrigin: true,
+          // A deployed API may scope its session cookies to its own domain
+          // (COOKIE_DOMAIN); drop that so the dev server's origin keeps them.
+          cookieDomainRewrite: '',
         },
         '/ws': {
           target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8000',

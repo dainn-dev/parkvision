@@ -14,8 +14,8 @@ use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 
 use crate::config::{
-    CameraBinding, ConfigStore, EdgeConfig, GateBinding, MqttConfig, SharedConfigStore,
-    CONFIG_VERSION,
+    CameraBinding, ConfigStore, EdgeConfig, GateBinding, MqttConfig, MqttTransport,
+    SharedConfigStore, CONFIG_VERSION,
 };
 use crate::hal::config::BarrierConfig;
 use crate::runtime::SharedRuntime;
@@ -50,6 +50,11 @@ struct MqttOut {
     host: String,
     port: u16,
     tls: bool,
+    /// Absent on backends that predate MQTT over WebSocket → TCP.
+    #[serde(default)]
+    transport: MqttTransport,
+    #[serde(default)]
+    ws_path: Option<String>,
     username: String,
     password: Option<String>,
 }
@@ -97,6 +102,8 @@ fn bundle_to_config(
             username: Some(bundle.mqtt.username.clone()),
             password: Some(bundle.mqtt.password.clone().unwrap_or(token)),
             tls: bundle.mqtt.tls,
+            transport: bundle.mqtt.transport,
+            ws_path: bundle.mqtt.ws_path.clone(),
         },
         gates: bundle
             .gates
@@ -341,6 +348,27 @@ pub fn revoked_watcher(rt: &SharedRuntime) -> tokio::sync::watch::Receiver<bool>
 mod tests {
     use super::*;
 
+    #[test]
+    fn websocket_mqtt_from_bundle_is_kept() {
+        let mut v = bundle_json();
+        v["mqtt"]["host"] = serde_json::json!("mqtt.example.com");
+        v["mqtt"]["port"] = serde_json::json!(443);
+        v["mqtt"]["tls"] = serde_json::json!(true);
+        v["mqtt"]["transport"] = serde_json::json!("websocket");
+        v["mqtt"]["wsPath"] = serde_json::json!("/mqtt");
+        let bundle: BundleOut = serde_json::from_value(v).unwrap();
+        let cfg = bundle_to_config(
+            &bundle,
+            "https://api.example.com/api/v1",
+            None,
+            &HashMap::new(),
+        )
+        .unwrap();
+        assert_eq!(cfg.mqtt.transport, MqttTransport::Websocket);
+        assert_eq!(cfg.mqtt.ws_path.as_deref(), Some("/mqtt"));
+        assert_eq!((cfg.mqtt.port, cfg.mqtt.tls), (443, true));
+    }
+
     fn bundle_json() -> serde_json::Value {
         serde_json::json!({
             "deviceId": "44444444-4444-4444-4444-444444444444",
@@ -372,6 +400,8 @@ mod tests {
         assert_eq!(cfg.api_key, "pk_abc");
         assert_eq!(cfg.api_base_url, "http://api:8000");
         assert_eq!(cfg.mqtt.username.as_deref(), Some("edge-4444"));
+        // Bundles from backends without the field fall back to plain TCP.
+        assert_eq!(cfg.mqtt.transport, MqttTransport::Tcp);
         assert_eq!(cfg.gates.len(), 1);
         assert_eq!(cfg.gates[0].cameras.len(), 1);
         cfg.validate().unwrap();
@@ -383,7 +413,13 @@ mod tests {
         v["api"]["token"] = serde_json::Value::Null;
         v["mqtt"]["password"] = serde_json::Value::Null;
         let bundle: BundleOut = serde_json::from_value(v).unwrap();
-        let cfg = bundle_to_config(&bundle, "http://api", Some("pk_persisted".into()), &HashMap::new()).unwrap();
+        let cfg = bundle_to_config(
+            &bundle,
+            "http://api",
+            Some("pk_persisted".into()),
+            &HashMap::new(),
+        )
+        .unwrap();
         assert_eq!(cfg.api_key, "pk_persisted");
         assert_eq!(cfg.mqtt.password.as_deref(), Some("pk_persisted"));
     }

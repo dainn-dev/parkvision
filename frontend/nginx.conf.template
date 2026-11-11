@@ -39,6 +39,20 @@ server {
         proxy_read_timeout 3600s;
     }
 
+    # MQTT over WebSocket for edge devices that can only reach this host over
+    # HTTPS (e.g. behind Cloudflare). EMQX still authenticates every client
+    # through the API's /edge/mqtt-auth hook.
+    location = /mqtt {
+        proxy_pass ${MQTT_WS_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
     # SPA fallback — React Router owns every non-asset path.
     location / {
         try_files $uri $uri/ /index.html;

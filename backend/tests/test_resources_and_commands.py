@@ -99,7 +99,13 @@ async def test_command_idempotency_and_outbox(client: AsyncClient, tenant, gate)
     async def _listen() -> None:
         from app.config import settings
 
-        async with aiomqtt.Client(settings.mqtt_host, settings.mqtt_port) as m:
+        async with aiomqtt.Client(
+            settings.mqtt_host,
+            settings.mqtt_port,
+            # EMQX authenticates every client; observe as the backend bridge.
+            username=settings.mqtt_username,
+            password=settings.mqtt_password,
+        ) as m:
             await m.subscribe("tenants/+/sites/+/gates/+/command")
             async for raw in m.messages:
                 delivered.payload = _json.loads(raw.payload)

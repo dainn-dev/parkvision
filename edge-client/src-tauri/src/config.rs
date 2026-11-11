@@ -29,6 +29,22 @@ pub struct MqttConfig {
     pub password: Option<String>,
     #[serde(default)]
     pub tls: bool,
+    /// Plain MQTT over TCP, or MQTT over WebSocket for brokers that are only
+    /// reachable through an HTTP(S) proxy. Configs written before this field
+    /// existed load as TCP.
+    #[serde(default)]
+    pub transport: MqttTransport,
+    /// WebSocket path on the broker (e.g. "/mqtt"); only used for WebSocket.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ws_path: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MqttTransport {
+    #[default]
+    Tcp,
+    Websocket,
 }
 
 /// One camera bound to a gate — mirrors backend `cameras` rows.
@@ -182,6 +198,8 @@ impl fmt::Debug for MqttConfig {
             .field("port", &self.port)
             .field("username", &self.username)
             .field("password", &self.password.as_ref().map(|_| "***"))
+            .field("transport", &self.transport)
+            .field("ws_path", &self.ws_path)
             .field("tls", &self.tls)
             .finish()
     }
@@ -353,6 +371,8 @@ mod tests {
                 port: 8883,
                 username: Some("edge-a".to_string()),
                 password: Some("pw".to_string()),
+                transport: Default::default(),
+                ws_path: None,
                 tls: true,
             },
             gates: vec![

@@ -285,6 +285,8 @@ mod tests {
                 port: 1883,
                 username: None,
                 password: None,
+                transport: Default::default(),
+                ws_path: None,
                 tls: false,
             },
             gates: vec![GateBinding {

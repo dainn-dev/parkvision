@@ -8,6 +8,8 @@ one-time code into a device credential + config bundle.
 """
 
 import ipaddress
+import logging
+import secrets
 import uuid
 from datetime import datetime, timezone
 
@@ -15,6 +17,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy import select
 
 from app.api.deps import forbidden, unauthorized
+from app.config import settings
 from app.core.errors import ApiError, bad_request, conflict
 from app.core.rate_limit import rate_limited
 from app.database import platform_session
@@ -47,6 +50,8 @@ from app.services.activation_service import (
 from app.services.audit_service import write_audit
 from app.services.credential_service import authenticate_api_key
 from app.services.storage import presign_upload
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/edge", tags=["edge"])
 camera_router = APIRouter(tags=["cameras"])
@@ -322,8 +327,45 @@ async def edge_presign_upload(
 _DENY = MqttAuthOut(result="deny")
 
 
+# Bridge passwords that ship in the repo (.env.example / settings default).
+_DEFAULT_BRIDGE_PASSWORDS = frozenset({"", "backend-secret"})
+
+
+def _exposed_deployment() -> bool:
+    """A deployment that must not run on published defaults.
+
+    Setting MQTT_HOOK_SECRET is what the Internet-facing overlay requires, so it
+    marks one; so does any ENVIRONMENT other than development. The plain dev
+    Compose stack (no secret, ENVIRONMENT=development) keeps working as before.
+    """
+    return bool(settings.mqtt_hook_secret) or settings.environment != "development"
+
+
+def _is_backend_bridge(body: MqttAuthIn) -> bool:
+    """The backend's own mqtt-bridge login (MQTT_USERNAME / MQTT_PASSWORD).
+
+    Once EMQX checks every client against this hook, the bridge must pass too;
+    it is a superuser because it subscribes to every tenant's topics. Only the
+    authn call carries a password, so authz never reaches this branch — and
+    superusers skip authz in EMQX anyway.
+    """
+    if settings.mqtt_password in _DEFAULT_BRIDGE_PASSWORDS and _exposed_deployment():
+        # The published default would hand unrestricted MQTT to anyone who
+        # reads .env.example; an exposed bridge needs its own password.
+        log.error("mqtt-auth: refusing bridge login with the default MQTT_PASSWORD; set a unique one")
+        return False
+    return bool(
+        body.password
+        and body.username == settings.mqtt_username
+        and secrets.compare_digest(body.password.encode(), settings.mqtt_password.encode())
+    )
+
+
 @router.post("/mqtt-auth", response_model=MqttAuthOut)
-async def mqtt_auth(body: MqttAuthIn) -> MqttAuthOut:
+async def mqtt_auth(
+    body: MqttAuthIn,
+    hook_secret: str | None = Header(default=None, alias="X-Mqtt-Hook-Secret"),
+) -> MqttAuthOut:
     """EMQX http authn/authz hook.
 
     Authn: EMQX posts {username, password}. Authz: posts {username, action,
@@ -332,6 +374,15 @@ async def mqtt_auth(body: MqttAuthIn) -> MqttAuthOut:
     device's `mqtt_client_id` (`edge-{device_id}` default) and topics are
     scoped to the credential's tenant prefix.
     """
+    if not settings.mqtt_hook_secret:
+        if _exposed_deployment():
+            # Outside development an unsigned hook is an open credential
+            # oracle on the public API: fail closed instead.
+            return _DENY
+    elif not secrets.compare_digest((hook_secret or "").encode(), settings.mqtt_hook_secret.encode()):
+        return _DENY
+    if _is_backend_bridge(body):
+        return MqttAuthOut(result="allow", is_superuser=True)
     async with platform_session() as db:
         if body.password:
             cred = await authenticate_api_key(db, body.password)

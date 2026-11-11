@@ -312,7 +312,10 @@ impl EdgeRuntime {
                         let sensors = hal.sensors();
                         for ev in events {
                             match ev {
-                                FsmEvent::Incident { kind: "barrier_link_up", .. } => {
+                                FsmEvent::Incident {
+                                    kind: "barrier_link_up",
+                                    ..
+                                } => {
                                     incidents.clear("barrier_link_down").await;
                                     incidents.report(&ev, &sensors).await;
                                 }
@@ -647,6 +650,8 @@ mod tests {
                 port: 1883,
                 username: None,
                 password: None,
+                transport: Default::default(),
+                ws_path: None,
                 tls: false,
             },
             gates: vec![

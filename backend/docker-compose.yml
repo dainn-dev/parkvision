@@ -31,10 +31,26 @@ services:
     image: emqx/emqx:5.8.1
     environment:
       EMQX_DASHBOARD__DEFAULT_USERNAME: admin
-      EMQX_DASHBOARD__DEFAULT_PASSWORD: public
-      EMQX_ALLOW_ANONYMOUS: "true"
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_DASHBOARD_PASSWORD:-public}
+      # Every client (edge devices and the backend's mqtt-bridge) is checked by
+      # the API's /edge/mqtt-auth hook; devices may only use their own tenant's
+      # topics. With MQTT_HOOK_SECRET unset the hook accepts unsigned calls (dev).
+      EMQX_AUTHENTICATION: >-
+        [{mechanism = password_based, backend = http, method = post,
+        url = "http://api:8000/api/v1/edge/mqtt-auth",
+        headers {"content-type" = "application/json", "x-mqtt-hook-secret" = "${MQTT_HOOK_SECRET:-}"},
+        body {username = "$${username}", password = "$${password}", clientid = "$${clientid}"},
+        request_timeout = "5s"}]
+      EMQX_AUTHORIZATION__NO_MATCH: deny
+      EMQX_AUTHORIZATION__SOURCES: >-
+        [{type = http, method = post,
+        url = "http://api:8000/api/v1/edge/mqtt-auth",
+        headers {"content-type" = "application/json", "x-mqtt-hook-secret" = "${MQTT_HOOK_SECRET:-}"},
+        body {username = "$${username}", clientid = "$${clientid}", action = "$${action}", topic = "$${topic}"},
+        request_timeout = "5s"}]
     ports:
-      - "1883:1883"   # MQTT
+      - "1883:1883"   # MQTT over TCP (LAN)
+      - "8083:8083"   # MQTT over WebSocket, path /mqtt — put behind the HTTPS proxy
       - "18083:18083" # dashboard
     healthcheck:
       test: ["CMD", "/opt/emqx/bin/emqx", "ping"]

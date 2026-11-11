@@ -3,6 +3,7 @@
 
 import asyncio
 import json
+import os
 import sys
 import time
 import uuid
@@ -61,7 +62,13 @@ async def main():
 
         # ---------- S6 command lifecycle ----------
         inbox = asyncio.Queue()
-        async with aiomqtt.Client(hostname="localhost", port=1883) as mq:
+        async with aiomqtt.Client(
+            hostname="localhost",
+            port=1883,
+            # EMQX authenticates every client; use the bridge login from .env.
+            username=os.environ.get("MQTT_USERNAME", "backend"),
+            password=os.environ.get("MQTT_PASSWORD", "backend-secret"),
+        ) as mq:
 
             async def consume():
                 async for m in mq.messages:

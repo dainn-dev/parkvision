@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -56,6 +57,18 @@ class Settings(BaseSettings):
     # mqtt_host to the internal service name (`emqx`), which devices outside
     # the Docker network cannot resolve — set this to a LAN/public address.
     mqtt_public_host: str = ""
+    # How edge devices reach the broker when that differs from the bridge's
+    # internal connection (e.g. behind an HTTP-only proxy such as Cloudflare):
+    # "websocket" makes devices use ws(s)://<public host>:<port><ws path>.
+    # Port/TLS fall back to mqtt_port/mqtt_tls when unset.
+    mqtt_public_transport: Literal["tcp", "websocket"] = "tcp"
+    mqtt_public_port: int | None = None
+    mqtt_public_tls: bool | None = None
+    mqtt_public_ws_path: str = "/mqtt"
+    # Shared secret EMQX sends to /edge/mqtt-auth (X-Mqtt-Hook-Secret). When
+    # set, calls without it are denied, so the public route cannot be used to
+    # probe credentials.
+    mqtt_hook_secret: str = ""
     mqtt_port: int = 1883
     mqtt_username: str = "backend"
     mqtt_password: str = "backend-secret"
@@ -108,6 +121,14 @@ class Settings(BaseSettings):
 
     seed_platform_admin_email: str = "admin@example.com"
     seed_platform_admin_password: str = "ChangeMe!123"
+
+    @field_validator("mqtt_public_port", "mqtt_public_tls", mode="before")
+    @classmethod
+    def blank_is_unset(cls, v: object) -> object:
+        # `MQTT_PUBLIC_PORT=` in .env means "fall back", not "invalid integer".
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
     @field_validator("jwt_previous_secrets", "cors_origins", "s3_cors_origins", mode="before")
     @classmethod

@@ -698,3 +698,114 @@ async def test_client_ip_endpoint_honors_xff_behind_proxy(client: AsyncClient):
     async with _edge_client("127.0.0.1") as edge:
         res = await edge.get("/api/v1/edge/client-ip", headers={"X-Forwarded-For": "203.0.113.77, 10.0.0.1"})
     assert res.json()["ip"] == "203.0.113.77"
+
+
+@pytest.mark.asyncio
+async def test_activate_advertises_websocket_mqtt_for_proxied_brokers(
+    client: AsyncClient, tenant, activation_setup, monkeypatch
+):
+    """Behind an HTTP-only proxy, devices must be told to use MQTT over wss."""
+    monkeypatch.setattr(settings, "mqtt_public_host", "mqtt.edge.example.com")
+    monkeypatch.setattr(settings, "mqtt_public_transport", "websocket")
+    monkeypatch.setattr(settings, "mqtt_public_port", 443)
+    monkeypatch.setattr(settings, "mqtt_public_tls", True)
+    monkeypatch.setattr(settings, "mqtt_public_ws_path", "/mqtt")
+
+    res = await client.post("/api/v1/edge/activate", json={"code": activation_setup["code"]})
+    assert res.status_code == 200, res.text
+    mqtt = res.json()["mqtt"]
+    assert (mqtt["host"], mqtt["port"], mqtt["tls"]) == ("mqtt.edge.example.com", 443, True)
+    assert mqtt["transport"] == "websocket"
+    assert mqtt["wsPath"] == "/mqtt"
+
+
+@pytest.mark.asyncio
+async def test_activate_defaults_to_plain_tcp_mqtt(client: AsyncClient, tenant, activation_setup):
+    res = await client.post("/api/v1/edge/activate", json={"code": activation_setup["code"]})
+    mqtt = res.json()["mqtt"]
+    assert mqtt["transport"] == "tcp"
+    assert mqtt["port"] == settings.mqtt_port
+    assert mqtt["wsPath"] is None
+
+
+@pytest.mark.asyncio
+async def test_mqtt_auth_admits_backend_bridge_as_superuser(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr(settings, "mqtt_username", "backend")
+    monkeypatch.setattr(settings, "mqtt_password", "bridge-secret")
+
+    ok = await client.post(
+        "/api/v1/edge/mqtt-auth", json={"username": "backend", "password": "bridge-secret"}
+    )
+    assert ok.json() == {"result": "allow", "is_superuser": True}
+
+    bad = await client.post("/api/v1/edge/mqtt-auth", json={"username": "backend", "password": "nope"})
+    assert bad.json()["result"] == "deny"
+    assert bad.json()["is_superuser"] is False
+
+
+@pytest.mark.asyncio
+async def test_mqtt_auth_requires_hook_secret_when_configured(
+    client: AsyncClient, tenant, activation_setup, monkeypatch
+):
+    act = await client.post("/api/v1/edge/activate", json={"code": activation_setup["code"]})
+    body = act.json()
+    creds = {"username": body["mqtt"]["username"], "password": body["api"]["token"]}
+    monkeypatch.setattr(settings, "mqtt_hook_secret", "hook-secret")
+
+    missing = await client.post("/api/v1/edge/mqtt-auth", json=creds)
+    wrong = await client.post(
+        "/api/v1/edge/mqtt-auth", json=creds, headers={"X-Mqtt-Hook-Secret": "guess"}
+    )
+    right = await client.post(
+        "/api/v1/edge/mqtt-auth", json=creds, headers={"X-Mqtt-Hook-Secret": "hook-secret"}
+    )
+    assert missing.json()["result"] == "deny"
+    assert wrong.json()["result"] == "deny"
+    assert right.json()["result"] == "allow"
+    assert right.json()["is_superuser"] is False
+
+
+@pytest.mark.asyncio
+async def test_exposed_deployment_refuses_default_bridge_password(client: AsyncClient, monkeypatch):
+    """With a hook secret set, the published default bridge password is not a superuser."""
+    monkeypatch.setattr(settings, "mqtt_hook_secret", "hook-secret")
+    monkeypatch.setattr(settings, "mqtt_username", "backend")
+    monkeypatch.setattr(settings, "mqtt_password", "backend-secret")
+
+    res = await client.post(
+        "/api/v1/edge/mqtt-auth",
+        json={"username": "backend", "password": "backend-secret"},
+        headers={"X-Mqtt-Hook-Secret": "hook-secret"},
+    )
+    assert res.json() == {"result": "deny", "is_superuser": False}
+
+
+@pytest.mark.asyncio
+async def test_dev_stack_keeps_default_bridge_password(client: AsyncClient, monkeypatch):
+    """Plain dev Compose (no hook secret, ENVIRONMENT=development) still works."""
+    monkeypatch.setattr(settings, "environment", "development")
+    monkeypatch.setattr(settings, "mqtt_hook_secret", "")
+    monkeypatch.setattr(settings, "mqtt_username", "backend")
+    monkeypatch.setattr(settings, "mqtt_password", "backend-secret")
+
+    res = await client.post(
+        "/api/v1/edge/mqtt-auth", json={"username": "backend", "password": "backend-secret"}
+    )
+    assert res.json() == {"result": "allow", "is_superuser": True}
+
+
+@pytest.mark.asyncio
+async def test_unsigned_hook_fails_closed_outside_development(
+    client: AsyncClient, tenant, activation_setup, monkeypatch
+):
+    """A production API with no hook secret must not answer credential checks."""
+    act = await client.post("/api/v1/edge/activate", json={"code": activation_setup["code"]})
+    body = act.json()
+    monkeypatch.setattr(settings, "environment", "production")
+    monkeypatch.setattr(settings, "mqtt_hook_secret", "")
+
+    res = await client.post(
+        "/api/v1/edge/mqtt-auth",
+        json={"username": body["mqtt"]["username"], "password": body["api"]["token"]},
+    )
+    assert res.json()["result"] == "deny"

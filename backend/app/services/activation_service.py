@@ -89,8 +89,12 @@ async def build_activation_bundle(
         api=ActivationApiOut(token=token, token_status="active", base_url=None),
         mqtt=ActivationMqttOut(
             host=settings.mqtt_public_host or settings.mqtt_host,
-            port=settings.mqtt_port,
-            tls=settings.mqtt_tls,
+            port=settings.mqtt_public_port or settings.mqtt_port,
+            tls=settings.mqtt_tls if settings.mqtt_public_tls is None else settings.mqtt_public_tls,
+            transport=settings.mqtt_public_transport,
+            ws_path=(
+                settings.mqtt_public_ws_path if settings.mqtt_public_transport == "websocket" else None
+            ),
             username=device.mqtt_client_id or f"edge-{device.id}",
             password=token,
         ),

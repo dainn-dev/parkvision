@@ -13,7 +13,7 @@ use rumqttc::{AsyncClient, Event, Incoming, MqttOptions, QoS, Transport};
 use tokio::sync::mpsc;
 use tracing::{info, warn};
 
-use crate::config::MqttConfig;
+use crate::config::{MqttConfig, MqttTransport};
 
 #[async_trait]
 pub trait Publisher: Send + Sync {
@@ -89,6 +89,41 @@ impl Publisher for MqttClient {
     }
 }
 
+/// WebSocket URL for a broker reached as MQTT over WebSocket. rumqttc takes
+/// host and port from this URL, not from `MqttOptions::new`'s arguments.
+fn websocket_url(cfg: &MqttConfig) -> String {
+    let scheme = if cfg.tls { "wss" } else { "ws" };
+    let path = cfg.ws_path.as_deref().unwrap_or("/mqtt");
+    let path = if path.starts_with('/') {
+        path.to_string()
+    } else {
+        format!("/{path}")
+    };
+    format!("{scheme}://{}:{}{path}", cfg.host, cfg.port)
+}
+
+/// Broker address and transport for `cfg`.
+fn mqtt_options(cfg: &MqttConfig, client_id: &str) -> MqttOptions {
+    match cfg.transport {
+        MqttTransport::Tcp => {
+            let mut opts = MqttOptions::new(client_id, &cfg.host, cfg.port);
+            if cfg.tls {
+                opts.set_transport(Transport::tls_with_default_config());
+            }
+            opts
+        }
+        MqttTransport::Websocket => {
+            let mut opts = MqttOptions::new(client_id, websocket_url(cfg), cfg.port);
+            opts.set_transport(if cfg.tls {
+                Transport::wss_with_default_config()
+            } else {
+                Transport::Ws
+            });
+            opts
+        }
+    }
+}
+
 impl MqttClient {
     /// Connect, subscribe, and spawn the event-loop task.
     /// Returns the client handle and a receiver of raw JSON bodies published
@@ -98,13 +133,10 @@ impl MqttClient {
         client_id: &str,
         sub_topics: &[String],
     ) -> Result<(Arc<Self>, mpsc::Receiver<serde_json::Value>)> {
-        let mut opts = MqttOptions::new(client_id, &cfg.host, cfg.port);
+        let mut opts = mqtt_options(cfg, client_id);
         opts.set_keep_alive(Duration::from_secs(10));
         if let (Some(u), Some(p)) = (&cfg.username, &cfg.password) {
             opts.set_credentials(u, p);
-        }
-        if cfg.tls {
-            opts.set_transport(Transport::tls_with_default_config());
         }
 
         let (client, mut eventloop) = AsyncClient::new(opts, 64);
@@ -189,6 +221,87 @@ mod tests {
         assert_eq!(pub_.sent.lock().unwrap().len(), 1);
     }
 
+    fn ws_cfg(tls: bool, ws_path: Option<&str>) -> MqttConfig {
+        MqttConfig {
+            host: "mqtt.example.com".to_string(),
+            port: 443,
+            username: None,
+            password: None,
+            transport: MqttTransport::Websocket,
+            ws_path: ws_path.map(str::to_string),
+            tls,
+        }
+    }
+
+    #[test]
+    fn websocket_url_uses_scheme_port_and_path() {
+        assert_eq!(
+            websocket_url(&ws_cfg(true, Some("/mqtt"))),
+            "wss://mqtt.example.com:443/mqtt"
+        );
+        assert_eq!(
+            websocket_url(&ws_cfg(false, Some("mqtt"))),
+            "ws://mqtt.example.com:443/mqtt"
+        );
+        assert_eq!(
+            websocket_url(&ws_cfg(true, None)),
+            "wss://mqtt.example.com:443/mqtt"
+        );
+    }
+
+    #[test]
+    fn options_select_transport_from_config() {
+        let ws = mqtt_options(&ws_cfg(true, Some("/mqtt")), "edge-1");
+        assert!(matches!(ws.transport(), Transport::Wss(_)));
+        assert_eq!(ws.broker_address().0, "wss://mqtt.example.com:443/mqtt");
+
+        let tcp_cfg = MqttConfig {
+            transport: MqttTransport::Tcp,
+            tls: false,
+            ..ws_cfg(false, None)
+        };
+        let tcp = mqtt_options(&tcp_cfg, "edge-1");
+        assert!(matches!(tcp.transport(), Transport::Tcp));
+        assert_eq!(tcp.broker_address(), ("mqtt.example.com".to_string(), 443));
+    }
+
+    /// Needs EMQX with its WebSocket listener on localhost:8083 (/mqtt).
+    /// Run with: cargo test mqtt::tests::live_websocket_roundtrip -- --ignored
+    #[tokio::test]
+    #[ignore]
+    async fn live_websocket_roundtrip() {
+        let cfg = MqttConfig {
+            host: "localhost".to_string(),
+            port: std::env::var("PV_TEST_MQTT_WS_PORT")
+                .ok()
+                .and_then(|p| p.parse().ok())
+                .unwrap_or(8083),
+            username: std::env::var("PV_TEST_MQTT_USER").ok(),
+            password: std::env::var("PV_TEST_MQTT_PASS").ok(),
+            transport: MqttTransport::Websocket,
+            ws_path: Some("/mqtt".to_string()),
+            tls: false,
+        };
+        let topic = std::env::var("PV_TEST_MQTT_TOPIC")
+            .unwrap_or_else(|_| "tenants/t/sites/s/gates/g/command".to_string());
+        let client_id = cfg
+            .username
+            .clone()
+            .unwrap_or_else(|| "edge-ws-test".to_string());
+        let (client, mut rx) = MqttClient::connect(&cfg, &client_id, &[topic.clone()])
+            .await
+            .unwrap();
+        client
+            .publish(&topic, json!({"commandId": "ws"}), 1)
+            .await
+            .unwrap();
+        let msg = tokio::time::timeout(std::time::Duration::from_secs(10), rx.recv())
+            .await
+            .expect("no message within 10s")
+            .expect("channel closed");
+        assert_eq!(msg["commandId"], "ws");
+    }
+
     /// Integration test — needs the repo's docker-compose EMQX on localhost:1883.
     /// Run with: cargo test mqtt::tests::live_broker_roundtrip -- --ignored
     #[tokio::test]
@@ -199,6 +312,8 @@ mod tests {
             port: 1883,
             username: None,
             password: None,
+            transport: Default::default(),
+            ws_path: None,
             tls: false,
         };
         let topic = "tenants/t/sites/s/gates/g/command";
