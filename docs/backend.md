@@ -33,7 +33,7 @@ Redis không thay PostgreSQL làm nguồn sự thật cho resource và command r
 
 ### Stack thực tế
 
-`backend/pyproject.toml` yêu cầu Python `>=3.10`, pin FastAPI `0.115.6`, SQLAlchemy `2.0.36`, asyncpg `0.30.0`, Alembic `1.14.0`, Pydantic `2.9.2`, arq `0.26.0`, aiomqtt `2.3.0`. Dockerfile dùng `python:3.12-slim`, chạy bằng user `appuser` UID 10001. Compose dùng PostgreSQL 16, Redis 7, EMQX 5.8.1, LocalStack S3 và Mailpit.
+`backend/pyproject.toml` yêu cầu Python `>=3.10`, pin FastAPI `0.115.6`, SQLAlchemy `2.0.36`, asyncpg `0.30.0`, Alembic `1.14.0`, Pydantic `2.9.2`, arq `0.26.0`, aiomqtt `2.3.0`. Dockerfile dùng `python:3.12-slim`, chạy bằng user `appuser` UID 10001. Compose dùng PostgreSQL 16, Redis 7, EMQX 5.8.1, SeaweedFS (S3) và Mailpit.
 
 ## 2. HTTP, schema và lỗi
 
@@ -511,7 +511,7 @@ Job lấy incident severity `critical`, chưa resolved/chưa notified, tối đa
 
 `backend/app/services/storage.py` dùng boto3 signature v4 với hai client: `S3_ENDPOINT_URL` cho thao tác server (bucket, CORS, ghi CSV export) và `S3_PUBLIC_ENDPOINT_URL` cho URL presign mà browser mở; nếu biến public để trống thì dùng chung endpoint nội bộ. PUT trả `uploadUrl`, `objectKey`, `expiresIn`; default TTL 900 giây, key dạng `{tenant_id}/{kind}/{uuid}`. Các field có hậu tố `_url` trong DB có thể đang giữ object key, không phải URL public vĩnh viễn.
 
-Trong Compose, `s3:4566` truy cập được từ container nhưng thường không từ trình duyệt/edge host; `localhost:9000` truy cập được từ host nhưng không phải LocalStack khi nhìn từ container. Vì vậy URL presign được ký theo `S3_PUBLIC_ENDPOINT_URL`, còn thao tác server đi qua `S3_ENDPOINT_URL`. Không tự sửa hostname sau khi ký vì có thể làm sai chữ ký. Khi khởi động, `ensure_bucket()` đặt bucket CORS từ `S3_CORS_ORIGINS` (default `["*"]`) để browser PUT/GET presign trực tiếp; frontend nginx cũng phải khai báo origin đó trong CSP (`S3_PUBLIC_ORIGIN`, default `http://localhost:9000`) cho `img-src` và `connect-src`, nếu không trình duyệt sẽ chặn URL presign dù chữ ký hợp lệ. Không cần ảnh đi qua API bằng multipart chỉ vì API cấp URL upload.
+Trong Compose, `s3:4566` truy cập được từ container nhưng thường không từ trình duyệt/edge host; `localhost:9000` truy cập được từ host nhưng không phải S3 khi nhìn từ container. Vì vậy URL presign được ký theo `S3_PUBLIC_ENDPOINT_URL`, còn thao tác server đi qua `S3_ENDPOINT_URL`. Không tự sửa hostname sau khi ký vì có thể làm sai chữ ký. Khi khởi động, `ensure_bucket()` đặt bucket CORS từ `S3_CORS_ORIGINS` (default `["*"]`) để browser PUT/GET presign trực tiếp; frontend nginx cũng phải khai báo origin đó trong CSP (`S3_PUBLIC_ORIGIN`, default `http://localhost:9000`) cho `img-src` và `connect-src`, nếu không trình duyệt sẽ chặn URL presign dù chữ ký hợp lệ. Không cần ảnh đi qua API bằng multipart chỉ vì API cấp URL upload.
 
 **Nguồn:** `backend/app/workers/jobs.py`, `backend/app/workers/worker.py`, `backend/app/api/v1/tenant/vehicles.py`, `backend/app/api/v1/tenant/audit.py`, `backend/app/services/storage.py`.
 
@@ -546,7 +546,7 @@ docker compose ps
 docker compose logs --since 10m api worker mqtt-bridge migrate
 ```
 
-Trong container DB/Redis/SMTP/MQTT dùng tên service `postgres`, `redis`, `mailpit`, `emqx`; S3 và broker trong activation bundle cần xử lý khả năng truy cập ngoài Docker như đã nêu. API công bố 8000; PostgreSQL 5432; Redis 6379; MQTT 1883; EMQX dashboard 18083; LocalStack S3 9000→4566; Mailpit SMTP 1025/UI 8025.
+Trong container DB/Redis/SMTP/MQTT dùng tên service `postgres`, `redis`, `mailpit`, `emqx`; S3 và broker trong activation bundle cần xử lý khả năng truy cập ngoài Docker như đã nêu. API công bố 8000; PostgreSQL 5432; Redis 6379; MQTT 1883; EMQX dashboard 18083; SeaweedFS S3 9000→4566; Mailpit SMTP 1025/UI 8025.
 
 Compose hiện có service `omniroute` và volume riêng; không có bằng chứng từ các luồng service đã khảo sát rằng đó là dependency nghiệp vụ ANPR/payment. Giữ nguyên các tùy chỉnh Compose có sẵn khi làm việc tài liệu. Không dùng cấu hình dev gồm password mẫu, broker anonymous và cổng DB công bố trực tiếp làm cấu hình production.
 

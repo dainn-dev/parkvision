@@ -10,7 +10,7 @@ Tài liệu này dành cho khởi động và phát triển backend. Xem [tài l
 - FastAPI, Uvicorn, Pydantic 2; SQLAlchemy 2 async + asyncpg; PostgreSQL 16 và Alembic.
 - Redis 7: rate limit, hàng đợi arq, danh sách lệnh MQTT và pub/sub WebSocket.
 - EMQX 5: broker MQTT; tiến trình `mqtt-bridge` ghi dữ liệu vào PostgreSQL và phát realtime.
-- S3-compatible: URL PUT/GET ký sẵn cho ảnh và CSV; Compose dùng LocalStack, không phải MinIO.
+- S3-compatible: URL PUT/GET ký sẵn cho ảnh và CSV; Compose dùng SeaweedFS, chỉ nhận request được ký bằng `S3_ACCESS_KEY`/`S3_SECRET_KEY`.
 - arq worker: email, import xe, export audit và cron bảo trì; Mailpit nhận SMTP khi phát triển.
 - Argon2, JWT access token, refresh token xoay vòng; dashboard dùng cookie/CSRF, tài xế dùng Bearer token, edge dùng `X-Api-Key`.
 
@@ -44,7 +44,7 @@ Các cổng host trong cấu hình hiện tại:
 - API: `http://localhost:8000`; Swagger `/docs`, OpenAPI `/openapi.json`.
 - PostgreSQL `5432`, Redis `6379`.
 - MQTT `1883`, EMQX dashboard `http://localhost:18083`.
-- LocalStack S3 `http://localhost:9000` (container LocalStack nghe `4566`).
+- SeaweedFS S3 `http://localhost:9000` (container nghe `4566`); dữ liệu giữ trong volume `s3data`.
 - SMTP Mailpit `1025`, giao diện `http://localhost:8025`.
 
 Kiểm tra và xem log:

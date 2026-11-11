@@ -58,19 +58,32 @@ services:
       timeout: 5s
       retries: 12
 
+  # S3-compatible object storage (SeaweedFS). Unlike LocalStack it checks every
+  # request's signature (unsigned or forged presigned URLs get 403) and keeps
+  # objects across restarts in the s3data volume. The only identity comes from
+  # S3_ACCESS_KEY / S3_SECRET_KEY, written to the S3 config at start-up.
   s3:
-    image: localstack/localstack:3.8
+    image: chrislusf/seaweedfs:4.53
     environment:
-      SERVICES: s3
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-test}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-test}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        printf '{"identities":[{"name":"parkvision","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","Write","List","Tagging"]}]}'
+        "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY" > /tmp/s3.json &&
+        exec weed server -dir=/data -s3 -s3.port=4566 -s3.config=/tmp/s3.json
+        -master.volumeSizeLimitMB=256 -volume.max=0
     ports:
       - "9000:4566"
     volumes:
-      - s3data:/var/lib/localstack
+      - s3data:/data
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:4566/_localstack/health"]
+      # Any HTTP answer means the S3 gateway is up (anonymous calls get 403).
+      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://localhost:4566/ | grep -qE '^[2-4]'"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 18
 
   mailpit:
     image: axllent/mailpit:v1.21.3

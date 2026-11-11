@@ -14,7 +14,7 @@ Local deployment of the ParkVision monorepo on this Raspberry Pi 5
 | Swagger / OpenAPI | http://192.168.0.153:8000/docs |
 | Health | http://192.168.0.153:8000/healthz · `/readyz` |
 | MQTT (edge devices) | `192.168.0.153:1883` |
-| S3 presigned endpoint | http://192.168.0.153:9000 |
+| S3 presigned endpoint | https://s3-parking.dainn.online (LAN: http://192.168.0.153:9000) |
 | Mailpit (this host only) | http://127.0.0.1:8025 |
 | EMQX dashboard (this host only) | http://127.0.0.1:18083 (`admin` / `EMQX_DASHBOARD_PASSWORD` from `backend/.env`) |
 | PostgreSQL / Redis (this host only) | `127.0.0.1:5432` / `127.0.0.1:6379` |
@@ -42,7 +42,7 @@ MQTT_PASSWORD=<random>         # the mqtt-bridge's login; must not be backend-se
 EMQX_DASHBOARD_PASSWORD=<random>
 ```
 
-`docker compose` refuses to start without these three. With a hook secret
+`docker compose` refuses to start without these three (or without the S3 keys below). With a hook secret
 set, the API also refuses the published default bridge password
 (`backend-secret`) and logs `refusing bridge login with the default
 MQTT_PASSWORD` — the bridge then cannot connect until a unique password is set.
@@ -57,14 +57,27 @@ Devices activated before this change keep the old MQTT address until their
 config is refreshed: restart the edge app (it re-reads `/edge/config` on
 start) or re-activate it.
 
-### S3 / camera snapshots — still LAN-only
+### S3 / camera snapshots
 
-`S3_PUBLIC_ENDPOINT_URL` is `http://192.168.0.153:9000` (LocalStack). Presigned
-image URLs only open on this LAN. Serving them publicly needs a dedicated
-hostname (e.g. `s3-parkvision.dainn.online` → port 9000 through Cloudflare);
-then set `S3_PUBLIC_ENDPOINT_URL` and `S3_PUBLIC_ORIGIN_URL` to it. Do not
-route a bucket path through the dashboard host: LocalStack does not verify
-presigned signatures, so a public bucket route is effectively unauthenticated.
+Object storage is SeaweedFS (`s3` service), published on host port 9000 and
+proxied by Cloudflare as `https://s3-parking.dainn.online`. It accepts only
+requests signed with `S3_ACCESS_KEY` / `S3_SECRET_KEY`: unsigned, forged or
+expired presigned URLs get 403, so the public hostname only serves the links
+the API hands out. Objects persist in the `s3data` volume. Add to
+`backend/.env`:
+
+```sh
+S3_ACCESS_KEY=<random>                 # e.g. openssl rand -hex 16
+S3_SECRET_KEY=<random>                 # e.g. openssl rand -hex 32
+S3_PUBLIC_ENDPOINT_URL=https://s3-parking.dainn.online
+S3_PUBLIC_ORIGIN_URL=https://s3-parking.dainn.online
+S3_CORS_ORIGINS=["https://parkvision.dainn.online"]
+```
+
+`S3_ENDPOINT_URL=http://s3:4566` stays as is (API → s3 inside Docker). The API
+creates the bucket and its CORS rule on start-up. Switching from LocalStack
+starts with an empty bucket: images stored in LocalStack are not migrated
+(LocalStack kept them only in memory anyway).
 
 ## Accounts
 
@@ -108,7 +121,7 @@ docker compose logs --tail=20 mqtt-bridge   # expect "subscribed to 4 topic patt
 ## What runs here
 
 - `api`, `worker` (arq), `mqtt-bridge`, one-shot `migrate`
-- `postgres`, `redis`, `emqx`, `s3` (LocalStack), `mailpit`
+- `postgres`, `redis`, `emqx`, `s3` (SeaweedFS), `mailpit`
 - `frontend` (dashboard, Nginx, `/api` + `/ws` proxy to `api:8000`)
 - `mobile` (driver SPA, same-origin proxy)
 
@@ -133,9 +146,8 @@ This is the documented **development baseline** exposed on the LAN over HTTP:
 
 - No TLS; cookies are `COOKIE_SECURE=false`. Put a TLS reverse proxy in front
   before using real credentials, then set `COOKIE_SECURE=true`.
-- MQTT clients are authenticated and topic-scoped by the API hook (see
-  above). LocalStack S3 still uses `test`/`test` keys and does not check
-  presigned signatures; use real object storage (e.g. MinIO) for production.
+- MQTT clients are authenticated and topic-scoped by the API hook, and S3
+  only accepts requests signed with the configured key pair (see above).
 - Demo seed accounts and `omniroute` defaults must not be used in production.
 - Postgres/Redis/Mailpit/EMQX-dashboard are bound to loopback on this host.
 - Review `docs/development-and-operations.md` §7 before a real deployment.

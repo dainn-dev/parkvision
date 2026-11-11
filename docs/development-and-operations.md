@@ -14,7 +14,7 @@ docker compose ps -a
 docker compose logs --since 10m migrate api worker mqtt-bridge
 ```
 
-Compose gồm PostgreSQL, Redis, EMQX, LocalStack S3, Mailpit và các tiến trình ứng dụng. `migrate` phải thoát thành công trước API/worker/bridge; đây không phải service cần chạy liên tục. Tệp Compose trong workspace còn có `omniroute` và volume riêng; source ParkVision được mô tả ở đây không yêu cầu nó cho luồng cổng/ANPR/thanh toán. Khi chỉ cần stack ParkVision, có thể chỉ định service:
+Compose gồm PostgreSQL, Redis, EMQX, SeaweedFS (S3), Mailpit và các tiến trình ứng dụng. `migrate` phải thoát thành công trước API/worker/bridge; đây không phải service cần chạy liên tục. Tệp Compose trong workspace còn có `omniroute` và volume riêng; source ParkVision được mô tả ở đây không yêu cầu nó cho luồng cổng/ANPR/thanh toán. Khi chỉ cần stack ParkVision, có thể chỉ định service:
 
 ```sh
 docker compose up -d --build api worker mqtt-bridge mailpit
@@ -26,7 +26,7 @@ Compose sẽ khởi động các dependency được khai báo. Không xóa serv
 
 - PostgreSQL: `postgres:5432`; Redis: `redis:6379`.
 - MQTT: `emqx:1883`; SMTP: `mailpit:1025`.
-- LocalStack: `s3:4566` cho truy cập mạng container, nhưng cần cân nhắc URL ký sẵn bên dưới.
+- S3 (SeaweedFS): `s3:4566` cho truy cập mạng container; chỉ nhận request ký bằng `S3_ACCESS_KEY`/`S3_SECRET_KEY`, nhưng cần cân nhắc URL ký sẵn bên dưới.
 - Migration/seed dùng tài khoản DB đặc quyền; runtime dùng `vehicle_app` chịu RLS. `APP_DB_PASSWORD` khi migration phải tương ứng mật khẩu trong runtime `DATABASE_URL` nếu đổi khỏi dev default.
 
 ### B. Backend chạy trên host, hạ tầng trong Compose
@@ -51,7 +51,7 @@ Camera RTSP phải truy cập từ máy chạy ANPR. Không mở HTTP ingest loo
 `S3_ENDPOINT_URL` tạo client cho thao tác server; `S3_PUBLIC_ENDPOINT_URL` dùng để ký URL presign mà browser mở (nếu trống thì dùng chung endpoint nội bộ). `ensure_bucket()` đặt bucket CORS theo `S3_CORS_ORIGINS` (default `["*"]`) lúc API khởi động, và frontend nginx phải khai báo origin presign qua `S3_PUBLIC_ORIGIN` (default `http://localhost:9000`) trong CSP `img-src`/`connect-src`.
 
 - `http://s3:4566` hợp lệ giữa container nhưng browser host thường không resolve `s3` — chỉ dùng cho `S3_ENDPOINT_URL`.
-- `http://localhost:9000` hợp lệ trên host nhưng `localhost` trong API container không phải LocalStack — dùng cho `S3_PUBLIC_ENDPOINT_URL`.
+- `http://localhost:9000` hợp lệ trên host nhưng `localhost` trong API container không phải S3 — dùng cho `S3_PUBLIC_ENDPOINT_URL`.
 - Không thay hostname trong URL đã ký ở phía client: chữ ký phụ thuộc request được ký.
 - Chọn hostname/reverse proxy hoặc DNS/mạng phù hợp với mọi bên; xác minh PUT và GET thực tế từ cả browser lẫn backend. `host.docker.internal` là cơ chế Docker Desktop, không phải hostname được bảo đảm ở mọi host/thiết bị.
 

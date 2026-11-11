@@ -30,7 +30,13 @@ services:
       - "127.0.0.1:18083:18083"
     restart: unless-stopped
 
+  # Public at https://s3-parking.dainn.online (Cloudflare → host port 9000).
+  # SeaweedFS rejects anything not signed with S3_ACCESS_KEY / S3_SECRET_KEY,
+  # so the public hostname only serves the API's presigned URLs.
   s3:
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
     ports: !override
       - "9000:4566"
     restart: unless-stopped
@@ -52,9 +58,15 @@ services:
     environment:
       MQTT_HOOK_SECRET: ${MQTT_HOOK_SECRET:?set MQTT_HOOK_SECRET in .env}
       MQTT_PASSWORD: ${MQTT_PASSWORD:?set a unique MQTT_PASSWORD in .env}
+      # Same key pair the s3 container accepts (it signs presigned URLs).
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
     restart: unless-stopped
   worker:
     image: parkvision-backend:local
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
     restart: unless-stopped
   mqtt-bridge:
     image: parkvision-backend:local
