@@ -187,16 +187,16 @@ export const barrierTestOutput = (cfg: BarrierConfig, output: number) =>
 export const barrierReadInputs = (cfg: BarrierConfig) =>
   invoke<boolean[] | null>("barrier_read_inputs", { cfg });
 
-export const activate = (apiBaseUrl: string, code: string) =>
+/// Activates against the server built into this app — no URL from the UI.
+export const activate = (code: string) =>
   invoke<void>("activate", {
-    args: { apiBaseUrl, code, deviceInfo: { hostname: window.location.hostname || null } },
+    args: { code, deviceInfo: { hostname: window.location.hostname || null } },
   });
 
 export const deprovision = () => invoke<void>("deprovision");
 
 /// Public IP the backend sees for this device (for activation-code IP pinning).
-export const detectPublicIp = (apiBaseUrl: string) =>
-  invoke<string>("detect_public_ip", { apiBaseUrl });
+export const detectPublicIp = () => invoke<string>("detect_public_ip");
 
 /// This device's primary local IP — shown in the corner badge.
 export const deviceIp = () => invoke<string | null>("device_ip");

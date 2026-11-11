@@ -224,10 +224,31 @@ pub async fn handle_revoked(app: &AppHandle) {
 
 // ---------- Tauri commands ----------
 
+/// Production API, built into release binaries so operators never type it.
+/// Override at build time with `PARKVISION_API_BASE_URL=... npm run tauri build`.
+const RELEASE_API_BASE_URL: &str = match option_env!("PARKVISION_API_BASE_URL") {
+    Some(url) => url,
+    None => "https://api-parkvision.dainn.online/api/v1",
+};
+
+/// Local backend for `tauri dev`; a debug build may also point elsewhere via
+/// the `PARKVISION_API_BASE_URL` environment variable at run time.
+const DEV_API_BASE_URL: &str = "http://localhost:8000/api/v1";
+
+/// The server this build activates against.
+pub fn server_api_base_url() -> String {
+    let url = if cfg!(debug_assertions) {
+        std::env::var("PARKVISION_API_BASE_URL").unwrap_or_else(|_| DEV_API_BASE_URL.to_string())
+    } else {
+        RELEASE_API_BASE_URL.to_string()
+    };
+    url.trim().trim_end_matches('/').to_string()
+}
+
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivateArgs {
-    pub api_base_url: String,
     pub code: String,
     pub device_info: Option<serde_json::Value>,
 }
@@ -238,7 +259,8 @@ pub async fn activate(
     app: AppHandle,
     cfg_store: tauri::State<'_, SharedConfigStore>,
 ) -> Result<(), String> {
-    let base = args.api_base_url.trim_end_matches('/');
+    let base_url = server_api_base_url();
+    let base = base_url.as_str();
     let http = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .build()
@@ -309,11 +331,8 @@ pub fn device_ip() -> Option<String> {
 /// reports this to the tenant admin so they can pin `allowedIp` on the
 /// activation code.
 #[tauri::command]
-pub async fn detect_public_ip(api_base_url: String) -> Result<String, String> {
-    let base = api_base_url.trim().trim_end_matches('/');
-    if base.is_empty() {
-        return Err("server URL is empty".to_string());
-    }
+pub async fn detect_public_ip() -> Result<String, String> {
+    let base = server_api_base_url();
     let http = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(8))
         .build()
@@ -347,6 +366,14 @@ pub fn revoked_watcher(rt: &SharedRuntime) -> tokio::sync::watch::Receiver<bool>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn server_url_is_built_in_and_has_no_trailing_slash() {
+        let url = server_api_base_url();
+        assert!(url.starts_with("http"), "{url}");
+        assert!(url.ends_with("/api/v1"), "{url}");
+        assert!(RELEASE_API_BASE_URL.starts_with("https://"));
+    }
 
     #[test]
     fn websocket_mqtt_from_bundle_is_kept() {

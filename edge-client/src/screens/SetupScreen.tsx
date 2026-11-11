@@ -1,15 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { activate, detectPublicIp, setLockPassword } from "../lib/tauri";
 
 const input =
   "w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-emerald-500";
-
-/** Survives deprovision (which wipes the edge config) so re-activation only
- * needs the code, not the server URL again. */
-const LAST_SERVER_URL_KEY = "pv_edge_last_api_base_url";
-
-/** Pre-filled server for a first activation; the last server used wins after that. */
-const DEFAULT_SERVER_URL = import.meta.env.VITE_DEFAULT_API_BASE_URL ?? "";
 
 /** Normalize typed activation codes: trim, uppercase, allow spaces. */
 function normalizeCode(raw: string): string {
@@ -17,13 +10,6 @@ function normalizeCode(raw: string): string {
 }
 
 export default function SetupScreen({ onDone }: { onDone: () => void }) {
-  const [apiBaseUrl, setApiBaseUrl] = useState(() => {
-    try {
-      return localStorage.getItem(LAST_SERVER_URL_KEY) ?? DEFAULT_SERVER_URL;
-    } catch {
-      return DEFAULT_SERVER_URL;
-    }
-  });
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -31,14 +17,11 @@ export default function SetupScreen({ onDone }: { onDone: () => void }) {
   type IpState = "idle" | "loading" | "ok" | "failed";
   const [publicIp, setPublicIp] = useState<string | null>(null);
   const [ipState, setIpState] = useState<IpState>("idle");
-  const ipTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
   const detectIp = async () => {
-    const url = apiBaseUrl.trim();
-    if (!/^https?:\/\/.+/.test(url)) return;
     setIpState("loading");
     try {
-      setPublicIp(await detectPublicIp(url));
+      setPublicIp(await detectPublicIp());
       setIpState("ok");
     } catch {
       setPublicIp(null);
@@ -46,22 +29,10 @@ export default function SetupScreen({ onDone }: { onDone: () => void }) {
     }
   };
 
-  // Debounce-detect the IP the server sees once a plausible URL is typed —
-  // this is the address the tenant admin pins on the activation code.
+  // The address the tenant admin pins on the activation code.
   useEffect(() => {
-    if (ipTimer.current) clearTimeout(ipTimer.current);
-    const url = apiBaseUrl.trim();
-    if (!/^https?:\/\/.+/.test(url)) {
-      setIpState("idle");
-      setPublicIp(null);
-      return;
-    }
-    ipTimer.current = setTimeout(detectIp, 600);
-    return () => {
-      if (ipTimer.current) clearTimeout(ipTimer.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiBaseUrl]);
+    void detectIp();
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,12 +47,7 @@ export default function SetupScreen({ onDone }: { onDone: () => void }) {
       // Apply the lock before activating: a consumed one-time code must not
       // be wasted because the local lock step failed.
       await setLockPassword(lockPassword || null);
-      await activate(apiBaseUrl.trim(), normalizeCode(code));
-      try {
-        localStorage.setItem(LAST_SERVER_URL_KEY, apiBaseUrl.trim());
-      } catch {
-        // Storage unavailable — activation still succeeded.
-      }
+      await activate(normalizeCode(code));
       onDone();
     } catch (ex) {
       const msg = String(ex);
@@ -94,7 +60,7 @@ export default function SetupScreen({ onDone }: { onDone: () => void }) {
       else if (msg.includes("no gates bound"))
         setErr("Thiết bị chưa được gán cổng nào. Yêu cầu quản trị viên gán cổng trước khi kích hoạt.");
       else if (msg.includes("cannot reach server")) setErr("Không kết nối được server.");
-      else setErr("Kích hoạt thất bại. Kiểm tra lại mã và URL server.");
+      else setErr("Kích hoạt thất bại. Kiểm tra lại mã kích hoạt.");
     } finally {
       setBusy(false);
     }
@@ -114,49 +80,39 @@ export default function SetupScreen({ onDone }: { onDone: () => void }) {
           </p>
         </div>
 
-        <label className="block">
-          <span className="mb-1 block text-xs font-medium text-zinc-400">Địa chỉ server</span>
-          <input
-            required
-            className={input}
-            placeholder="https://api-parkvision.dainn.online/api/v1"
-            value={apiBaseUrl}
-            onChange={(e) => setApiBaseUrl(e.target.value)}
-          />
-          {ipState !== "idle" && (
-            <span className="mt-1 flex items-center gap-1.5 text-[11px] text-zinc-500">
-              IP server nhìn thấy thiết bị:
-              {ipState === "loading" && <span className="text-zinc-400">đang kiểm tra…</span>}
-              {ipState === "ok" && (
-                <>
-                  <code className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-emerald-400 select-all">
-                    {publicIp}
-                  </code>
-                  <button
-                    type="button"
-                    title="Sao chép IP"
-                    onClick={() => publicIp && navigator.clipboard.writeText(publicIp)}
-                    className="text-zinc-500 hover:text-zinc-300"
-                  >
-                    ⧉
-                  </button>
-                </>
-              )}
-              {ipState === "failed" && (
-                <>
-                  <span className="text-amber-500">không lấy được — kiểm tra URL/server</span>
-                  <button
-                    type="button"
-                    onClick={detectIp}
-                    className="rounded border border-zinc-700 px-1.5 py-0.5 text-zinc-400 hover:bg-zinc-800"
-                  >
-                    Thử lại
-                  </button>
-                </>
-              )}
-            </span>
-          )}
-        </label>
+        {ipState !== "idle" && (
+          <p className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+            IP server nhìn thấy thiết bị:
+            {ipState === "loading" && <span className="text-zinc-400">đang kiểm tra…</span>}
+            {ipState === "ok" && (
+              <>
+                <code className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-emerald-400 select-all">
+                  {publicIp}
+                </code>
+                <button
+                  type="button"
+                  title="Sao chép IP"
+                  onClick={() => publicIp && navigator.clipboard.writeText(publicIp)}
+                  className="text-zinc-500 hover:text-zinc-300"
+                >
+                  ⧉
+                </button>
+              </>
+            )}
+            {ipState === "failed" && (
+              <>
+                <span className="text-amber-500">không lấy được — kiểm tra kết nối mạng</span>
+                <button
+                  type="button"
+                  onClick={detectIp}
+                  className="rounded border border-zinc-700 px-1.5 py-0.5 text-zinc-400 hover:bg-zinc-800"
+                >
+                  Thử lại
+                </button>
+              </>
+            )}
+          </p>
+        )}
 
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-zinc-400">Mã kích hoạt</span>
