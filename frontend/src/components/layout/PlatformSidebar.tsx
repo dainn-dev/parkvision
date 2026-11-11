@@ -97,7 +97,7 @@ export const PlatformSidebar: React.FC = () => {
             {/* Main Dashboard */}
             <button
               onClick={() => setTenantNavTab('dashboard')}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                 tenantNavTab === 'dashboard'
                   ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
                   : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -116,7 +116,7 @@ export const PlatformSidebar: React.FC = () => {
               {/* Location */}
               <button
                 onClick={() => setTenantNavTab('location')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                   tenantNavTab === 'location' || tenantNavTab === 'sites'
                     ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
                     : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -134,7 +134,7 @@ export const PlatformSidebar: React.FC = () => {
               {/* Users & Members */}
               <button
                 onClick={() => setTenantNavTab('team')}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                   tenantNavTab === 'team' || tenantNavTab === 'users'
                     ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
                     : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -154,7 +154,7 @@ export const PlatformSidebar: React.FC = () => {
               {/* Vehicles & Whitelist */}
               <button
                 onClick={() => setTenantNavTab('vehicles')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                   tenantNavTab === 'vehicles'
                     ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
                     : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -172,7 +172,7 @@ export const PlatformSidebar: React.FC = () => {
               {/* Access Rules */}
               <button
                 onClick={() => setTenantNavTab('access_rules')}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                   tenantNavTab === 'access_rules' || tenantNavTab === 'access-rules'
                     ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
                     : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -185,7 +185,7 @@ export const PlatformSidebar: React.FC = () => {
               {/* Memberships */}
               <button
                 onClick={() => setTenantNavTab('memberships')}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                   tenantNavTab === 'memberships'
                     ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
                     : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -205,7 +205,7 @@ export const PlatformSidebar: React.FC = () => {
               {/* Barrier Map */}
               <button
                 onClick={() => setTenantNavTab('gates')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                   tenantNavTab === 'gates'
                     ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
                     : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -224,7 +224,7 @@ export const PlatformSidebar: React.FC = () => {
               {/* Parking Map */}
               <button
                 onClick={() => setTenantNavTab('parking-map')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                   tenantNavTab === 'parking-map'
                     ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
                     : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -243,7 +243,7 @@ export const PlatformSidebar: React.FC = () => {
               {/* Edge Devices */}
               <button
                 onClick={() => setTenantNavTab('edge-devices')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                   tenantNavTab === 'edge-devices'
                     ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
                     : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -261,7 +261,7 @@ export const PlatformSidebar: React.FC = () => {
               {/* Access Events */}
               <button
                 onClick={() => setTenantNavTab('access_events')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                   tenantNavTab === 'access_events' || tenantNavTab === 'access-events'
                     ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
                     : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -287,7 +287,7 @@ export const PlatformSidebar: React.FC = () => {
               {/* Site Settings */}
               <button
                 onClick={() => setTenantNavTab('settings')}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                   tenantNavTab === 'settings'
                     ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
                     : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -309,7 +309,7 @@ export const PlatformSidebar: React.FC = () => {
                 setPrimaryTab('dashboard');
                 setSelectedTenantId(null);
               }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                 primaryTab === 'dashboard'
                   ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
                   : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -325,7 +325,7 @@ export const PlatformSidebar: React.FC = () => {
                 setPrimaryTab('tenants');
                 setSelectedTenantId(null);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                 primaryTab === 'tenants'
                   ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
                   : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -347,7 +347,7 @@ export const PlatformSidebar: React.FC = () => {
                   setPrimaryTab('platform');
                   setIsPlatformOpen(!isPlatformOpen);
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                   primaryTab === 'platform'
                     ? 'bg-[#161b22] text-[#58a6ff] font-semibold'
                     : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -417,7 +417,7 @@ export const PlatformSidebar: React.FC = () => {
                   setPrimaryTab('monitoring');
                   setIsMonitoringOpen(!isMonitoringOpen);
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                   primaryTab === 'monitoring'
                     ? 'bg-[#161b22] text-[#58a6ff] font-semibold'
                     : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -515,7 +515,7 @@ export const PlatformSidebar: React.FC = () => {
                   setPrimaryTab('security');
                   setIsSecurityOpen(!isSecurityOpen);
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                   primaryTab === 'security'
                     ? 'bg-[#161b22] text-[#58a6ff] font-semibold'
                     : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
@@ -591,7 +591,7 @@ export const PlatformSidebar: React.FC = () => {
                 setPrimaryTab('audit');
                 setSelectedTenantId(null);
               }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
                 primaryTab === 'audit'
                   ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
                   : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'

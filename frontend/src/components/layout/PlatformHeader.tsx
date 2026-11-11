@@ -190,19 +190,13 @@ export const PlatformHeader: React.FC<{
               description: t('Switched to {{mode}} Mode.', { mode: theme === 'dark' ? t('Light') : t('Dark') })
             });
           }}
-          className="p-2 px-2.5 text-[#8b949e] hover:text-white bg-[#161b22] hover:bg-[#21262d] rounded-lg border border-[#30363d] transition-colors cursor-pointer flex items-center gap-1.5"
+          className="p-2 text-[#8b949e] hover:text-white bg-[#161b22] hover:bg-[#21262d] rounded-lg border border-[#30363d] transition-colors cursor-pointer flex items-center"
           title={t('Switch to {{mode}} Mode', { mode: theme === 'dark' ? t('Light') : t('Dark') })}
         >
           {theme === 'dark' ? (
-            <>
-              <Sun className="w-4 h-4 text-amber-400" />
-              <span className="text-xs font-semibold hidden sm:inline text-[#c9d1d9]">{t('Light Mode')}</span>
-            </>
+            <Sun className="w-4 h-4 text-amber-400" />
           ) : (
-            <>
-              <Moon className="w-4 h-4 text-sky-500" />
-              <span className="text-xs font-semibold hidden sm:inline text-[#c9d1d9]">{t('Dark Mode')}</span>
-            </>
+            <Moon className="w-4 h-4 text-sky-500" />
           )}
         </button>
 

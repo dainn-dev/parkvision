@@ -28,3 +28,6 @@ anpr-worker/model/paddleocr/
 
 # Locally built release assets
 release-artifacts/
+gui-test-screenshots/mobile/*.png
+gui-test-screenshots/edge-client/*.png
+gui-test-screenshots/mobile-fix-verify/*.png

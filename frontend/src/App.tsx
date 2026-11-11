@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { PlatformProvider, usePlatform } from './context/PlatformContext';
 import { PlatformSidebar } from './components/layout/PlatformSidebar';
 import { PlatformHeader } from './components/layout/PlatformHeader';
@@ -113,60 +114,79 @@ const PlatformAppContent: React.FC = () => {
           <PublicNavbar
             currentView={publicView}
             onNavigate={setPublicView}
+            onScrollToSection={(sectionId) => {
+              document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
           />
         )}
 
         {/* Main Content by Public Route */}
         <main className="flex-1">
-          {publicView === 'landing' && (
-            <LandingPage
-              onNavigate={setPublicView}
-              onSelectPlan={(plan) => setSelectedPricingPlan(plan)}
-            />
-          )}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={publicView}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+              className="min-h-full"
+            >
+              {publicView === 'landing' && (
+                <LandingPage
+                  onNavigate={setPublicView}
+                  onSelectPlan={(plan) => setSelectedPricingPlan(plan)}
+                />
+              )}
 
-          {publicView === 'privacy' && (
-            <PrivacyPolicyPage onNavigate={setPublicView} />
-          )}
+              {publicView === 'privacy' && (
+                <PrivacyPolicyPage onNavigate={setPublicView} />
+              )}
 
-          {publicView === 'terms' && (
-            <TermsOfServicePage onNavigate={setPublicView} />
-          )}
+              {publicView === 'terms' && (
+                <TermsOfServicePage onNavigate={setPublicView} />
+              )}
 
-          {publicView === 'sla' && (
-            <SlaPolicyPage onNavigate={setPublicView} />
-          )}
+              {publicView === 'sla' && (
+                <SlaPolicyPage onNavigate={setPublicView} />
+              )}
 
-          {publicView === 'login' && (
-            <LoginPage onNavigate={setPublicView} />
-          )}
+              {publicView === 'login' && (
+                <LoginPage onNavigate={setPublicView} />
+              )}
 
-          {publicView === 'activate' && (
-            <ActivatePage onNavigate={setPublicView} token={inviteToken} />
-          )}
+              {publicView === 'activate' && (
+                <ActivatePage onNavigate={setPublicView} token={inviteToken} />
+              )}
 
-          {publicView === 'reset-password' && (
-            <ResetPasswordPage onNavigate={setPublicView} token={inviteToken} />
-          )}
+              {publicView === 'reset-password' && (
+                <ResetPasswordPage onNavigate={setPublicView} token={inviteToken} />
+              )}
 
-          {publicView === 'find-car' && (
-            <FindMyCarPage tenantSlug={findCarParams.tenant} initialPlate={findCarParams.plate} />
-          )}
+              {publicView === 'find-car' && (
+                <FindMyCarPage tenantSlug={findCarParams.tenant} initialPlate={findCarParams.plate} />
+              )}
 
-          {publicView === 'register' && (
-            <RegisterPage
-              initialPlan={selectedPricingPlan}
-              onNavigate={setPublicView}
-              onRegistrationSuccess={() => {
-                setIsPreviewingLandingAsAuth(false);
-              }}
-            />
-          )}
+              {publicView === 'register' && (
+                <RegisterPage
+                  initialPlan={selectedPricingPlan}
+                  onNavigate={setPublicView}
+                  onRegistrationSuccess={() => {
+                    setIsPreviewingLandingAsAuth(false);
+                  }}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </main>
 
         {/* Public Footer (only on content pages) */}
         {publicView !== 'login' && publicView !== 'register' && publicView !== 'activate' && publicView !== 'reset-password' && (
-          <PublicFooter onNavigate={setPublicView} />
+          <PublicFooter
+            onNavigate={setPublicView}
+            onScrollToSection={(sectionId) => {
+              document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          />
         )}
 
         <ToastContainer />
@@ -222,6 +242,15 @@ const PlatformAppContent: React.FC = () => {
         {/* Scrollable Page Viewport */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
           <ErrorBoundary>
+          <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={`${appWorkspace}:${appWorkspace === 'tenant' ? tenantNavTab : `${primaryTab}:${platformSubTab}:${selectedTenantId ?? ''}`}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+            className="space-y-6"
+          >
             {/* ========================================================================= */}
           {/* TENANT WORKSPACE VIEWS */}
           {/* ========================================================================= */}
@@ -288,6 +317,8 @@ const PlatformAppContent: React.FC = () => {
               {primaryTab === 'audit' && <AuditLogsPage />}
             </>
           )}
+          </motion.div>
+          </AnimatePresence>
           </ErrorBoundary>
         </main>
       </div>
