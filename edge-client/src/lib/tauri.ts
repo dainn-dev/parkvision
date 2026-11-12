@@ -244,3 +244,22 @@ export const onCamera = (cb: (e: CameraEvent) => void): Promise<UnlistenFn> =>
 /// wipes local config; the UI must return to the activation screen.
 export const onDeprovisioned = (cb: () => void): Promise<UnlistenFn> =>
   listen("edge://deprovisioned", () => cb());
+
+// ---------- app updates (staff-triggered) ----------
+
+export type UpdateInfo = {
+  currentVersion: string;
+  /** null when this build is already the newest published one. */
+  availableVersion: string | null;
+  notes: string | null;
+};
+
+export type UpdateProgress = { downloaded: number; total: number | null };
+
+export const checkUpdate = () => invoke<UpdateInfo>("check_update");
+
+/** Downloads, verifies and installs; the app then restarts on its own. */
+export const installUpdate = () => invoke<void>("install_update");
+
+export const onUpdateProgress = (cb: (p: UpdateProgress) => void): Promise<UnlistenFn> =>
+  listen<UpdateProgress>("edge://update-progress", (e) => cb(e.payload));

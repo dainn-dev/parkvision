@@ -1,13 +1,16 @@
 {
   "name": "parkvision-edge",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
+    "version:patch": "node ../scripts/bump-version.mjs edge patch",
+    "version:minor": "node ../scripts/bump-version.mjs edge minor",
+    "version:major": "node ../scripts/bump-version.mjs edge major",
     "tauri": "tauri"
   },
   "dependencies": {

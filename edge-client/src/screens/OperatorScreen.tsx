@@ -15,6 +15,7 @@ import {
 } from "../lib/tauri";
 import GatePanel from "../components/GatePanel";
 import EventFeed from "../components/EventFeed";
+import UpdateButton from "../components/UpdateButton";
 import BarrierSettingsScreen from "./BarrierSettingsScreen";
 
 export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) {
@@ -115,6 +116,7 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
           >
             Đồng bộ lại
           </button>
+          <UpdateButton notify={notify} />
           {lock?.enabled && (
             <button
               onClick={() => {

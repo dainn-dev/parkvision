@@ -74,6 +74,8 @@ pub enum FsmReject {
     NotLocked,
     #[error("not_faulted")]
     NotFaulted,
+    #[error("update_in_progress")]
+    UpdateInProgress,
 }
 
 impl FsmReject {
@@ -83,6 +85,7 @@ impl FsmReject {
             FsmReject::Fault => "fault",
             FsmReject::NotLocked => "not_locked",
             FsmReject::NotFaulted => "not_faulted",
+            FsmReject::UpdateInProgress => "update_in_progress",
         }
     }
 }
@@ -95,6 +98,7 @@ pub struct GateFsm {
     entered_at: Instant,
     loop_clear_since: Option<Instant>,
     fault_reported: bool,
+    update_in_progress: bool,
     link_was_ok: bool,
     latch_was_faulted: bool,
     open_too_long_warned: bool,
@@ -114,6 +118,7 @@ impl GateFsm {
             entered_at: Instant::now(),
             loop_clear_since: None,
             fault_reported: false,
+            update_in_progress: false,
             link_was_ok: true,
             latch_was_faulted: false,
             open_too_long_warned: false,
@@ -134,11 +139,41 @@ impl GateFsm {
     }
 
     fn reject(&self) -> Result<(), FsmReject> {
+        if self.update_in_progress {
+            return Err(FsmReject::UpdateInProgress);
+        }
         match self.state {
             GateState::Locked => Err(FsmReject::Locked),
             GateState::Fault => Err(FsmReject::Fault),
             _ => Ok(()),
         }
+    }
+
+    /// True while `Closed`/`Locked`/`Fault` — the only states an app restart
+    /// may happen in without interrupting barrier motion.
+    pub fn is_quiescent(&self) -> bool {
+        matches!(self.state, GateState::Closed | GateState::Locked | GateState::Fault)
+    }
+
+    /// Enter the update-hold: every open/close/lock/unlock/reboot call is
+    /// rejected with `UpdateInProgress` until `end_update()`. Called only
+    /// while every gate is already quiescent (checked by the caller under
+    /// the same lock acquisition that sets this flag — see
+    /// `update::begin_update_hold`), so it never needs to itself transition
+    /// state.
+    pub fn begin_update(&mut self) -> Result<(), FsmReject> {
+        // One install at a time: a second caller joining the hold could later
+        // release it (on its own failure) while the first is still downloading.
+        if self.update_in_progress || !self.is_quiescent() {
+            return Err(FsmReject::UpdateInProgress);
+        }
+        self.update_in_progress = true;
+        Ok(())
+    }
+
+    /// Leave the update-hold (the pending install failed, or was aborted).
+    pub fn end_update(&mut self) {
+        self.update_in_progress = false;
     }
 
     /// Remote/ANPR open — rejected only while Locked or Fault.
@@ -164,18 +199,23 @@ impl GateFsm {
         Ok(())
     }
 
-    pub fn lock(&mut self) {
+    pub fn lock(&mut self) -> Result<(), FsmReject> {
+        self.reject()?;
         if self.state != GateState::Locked {
             self.locked_from = self.state;
             let _ = self.hal.cut_motor();
             self.state = GateState::Locked;
             self.entered_at = Instant::now();
         }
+        Ok(())
     }
 
     /// Return to the state the gate was in when locked (transient states
     /// settle by angle: >=90° → Open, else Closed).
     pub fn unlock(&mut self) -> Result<(), FsmReject> {
+        if self.update_in_progress {
+            return Err(FsmReject::UpdateInProgress);
+        }
         if self.state != GateState::Locked {
             return Err(FsmReject::NotLocked);
         }
@@ -200,6 +240,9 @@ impl GateFsm {
     /// Power-cycle the relay + home-calibrate — only legal from Fault or
     /// Locked (spec §6.2 remediation).
     pub fn reboot(&mut self) -> Result<(), FsmReject> {
+        if self.update_in_progress {
+            return Err(FsmReject::UpdateInProgress);
+        }
         match self.state {
             GateState::Fault | GateState::Locked => {}
             _ => return Err(FsmReject::NotFaulted),
@@ -219,6 +262,9 @@ impl GateFsm {
     /// Periodic tick: advance the HAL physics (caller does that for the sim,
     /// real drivers don't need it), enforce stuck/overcurrent/auto-close.
     pub fn tick(&mut self, now: Instant, _dt: Duration) -> Vec<FsmEvent> {
+        if self.update_in_progress {
+            return Vec::new();
+        }
         let mut events = Vec::new();
         let sensors = self.hal.sensors();
         let energized = matches!(self.state, GateState::Opening | GateState::Closing);
@@ -485,7 +531,7 @@ mod tests {
         let hal = Arc::new(SimulatedHal::new());
         let mut fsm = GateFsm::new(hal.clone());
 
-        fsm.lock();
+        fsm.lock().unwrap();
         assert!(matches!(fsm.state(), GateState::Locked));
         assert!(matches!(fsm.request_open(), Err(FsmReject::Locked)));
         assert!(matches!(fsm.request_close(), Err(FsmReject::Locked)));
