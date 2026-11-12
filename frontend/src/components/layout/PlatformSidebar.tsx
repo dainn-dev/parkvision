@@ -67,7 +67,7 @@ export const PlatformSidebar: React.FC = () => {
   return (
     <aside className="w-64 bg-[#0d0e12] border-r border-[#30363d] flex flex-col shrink-0 select-none">
       {/* Brand Header */}
-      <div className="h-14 px-5 border-b border-[#30363d] flex items-center justify-between bg-[#0d0e12]">
+      <div className="h-14 px-6 border-b border-[#30363d] flex items-center justify-between bg-[#0d0e12]">
         <div className="flex items-center gap-2.5">
           <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
             appWorkspace === 'tenant'
