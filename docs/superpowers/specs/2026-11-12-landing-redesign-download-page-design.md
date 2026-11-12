@@ -104,9 +104,12 @@ frontend/src/pages/public/
 frontend/src/lib/publicRoutes.ts   # PUBLIC_ROUTES + path -> view helper
 ```
 
-Each section file stays under 300 lines. Colours use CSS tokens defined in
-`index.css` (dark values by default, light values behind the existing theme
-toggle) instead of hard-coded hex.
+Each section file stays under 300 lines. Colours use the semantic tokens that
+already exist in `index.css` (`--background`, `--card`, `--border`,
+`--primary`, `--muted-foreground`, `--success`, `--warning`; the `.dark` class
+switches them) through Tailwind classes such as `bg-background`, `bg-card`,
+`border-border`, `text-primary`, `text-muted-foreground`. No hard-coded hex and
+no new token definitions.
 
 ## 5. Landing page (B2B)
 
@@ -149,9 +152,10 @@ Content rules:
   the code from the dashboard; APK: allow install from this source), and a
   "verify your download" block with
   `Get-FileHash -Algorithm SHA256 <file>` (Windows) and `sha256sum <file>`.
-- States per card: loading skeleton; error with retry; "no published release
-  yet" when the channel is absent from the response. One card failing does not
-  hide the other.
+- States: while the single `/updates/latest` request is pending both cards show
+  a skeleton; a failed request shows one page-level error with a retry button;
+  a channel absent from a successful response shows "no published release yet"
+  on its own card without affecting the other card.
 - Not shown: `minSupportedVersion`, internal ids, unpublished builds.
 
 ## 7. Backend
@@ -214,7 +218,9 @@ Add `LatestReleaseOut` and `LatestReleasesOut` to `schemas/resources.py`
 
 ## 9. Testing and verification
 
-Backend (`backend/tests/`, needs the isolated Postgres/Redis per CLAUDE.md):
+Backend (`backend/tests/test_app_releases.py`; needs the isolated Postgres/Redis
+per CLAUDE.md **and** a real S3 endpoint via `S3_ENDPOINT_URL`, `S3_ACCESS_KEY`,
+`S3_SECRET_KEY`, because uploads go to the bucket):
 
 - `/updates/latest`: returns only published releases, highest version per
   channel, omits empty channels, no URL/signature fields, correct cache header.
@@ -227,8 +233,13 @@ Frontend (vitest + jsdom already present):
 - Unit: `publicRoutes` (view <-> path round trip, unknown path -> landing),
   `formatRelease` (bytes/date).
 - Component: add `@testing-library/react` (+ `user-event`) as dev dependencies
-  and test `DownloadPage` states (loading, both releases, one missing, error +
-  retry) with `fetch` stubbed via `vi.fn` (MSW is not introduced).
+  and test `DownloadPage` states (loading, both releases, one channel missing,
+  error + retry) with `publicApi.latestReleases` stubbed via `vi.spyOn` (MSW
+  is not introduced).
+  `vite.config.ts` has no `test` block, so vitest runs in the `node`
+  environment: each component test file starts with
+  `// @vitest-environment jsdom` and calls RTL `cleanup()` in `afterEach`
+  (no globals, no jest-dom).
 - `npm run lint` (tsc) and `npm run build` pass.
 - Manual browser check: `/`, `/download`, hard refresh on `/download`, Back
   button, dark and light theme, mobile width, vi and en.
