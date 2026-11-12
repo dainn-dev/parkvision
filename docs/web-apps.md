@@ -46,7 +46,7 @@ Ba route đọc query từ router location:
 - `/reset-password?token=...`: đặt lại mật khẩu bằng token.
 - `/find-my-car?tenant=<slug>&plate=<bien-so>`: tra vị trí xe; `tenant` bắt buộc, `plate` tùy chọn để auto-search, tối thiểu 4 ký tự sau trim.
 
-Các pathname không khớp render landing. Màn public được render khi chưa đăng nhập hoặc qua chế độ preview landing của admin.
+Các pathname không khớp render landing. Màn public được render khi chưa đăng nhập hoặc khi admin đã đăng nhập bật chế độ preview landing; trong preview, mọi route public vẫn điều hướng được. Ngoài preview, sau khi đăng nhập URL bị thay bằng `/` (`navigate('/', { replace: true })`) và workspace được render thay cho màn public; thoát preview ('Back to Admin Dashboard') khi đang ở route khác `/` cũng đưa về `/` qua cùng cơ chế.
 
 Landing có nội dung marketing, simulator và bảng giá. Login có credentials, MFA challenge, backup code, quên mật khẩu; thử phục hồi MFA pending qua `/auth/mfa/session`. Register kiểm tra slug có debounce 350 ms, chọn gói rồi `POST /register`, sau đó đăng nhập. Các trường có trên form không nhất thiết được gửi: payload đăng ký được thể hiện trực tiếp trong `RegisterPage.tsx`.
 

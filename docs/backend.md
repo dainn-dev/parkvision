@@ -130,7 +130,7 @@ Các endpoint dưới đây dùng prefix mặc định. `{tenant_id}`, `{site_id
 
 ### 4.1 Public — không có prefix public chung cho toàn nhóm
 
-Nguồn: `backend/app/api/v1/public.py`.
+Nguồn: `backend/app/api/v1/public.py`; riêng hai endpoint `/updates/latest` và `/updates/download/{channel}` nằm ở `backend/app/api/v1/updates.py`.
 
 - `GET /api/v1/plans`: gói SaaS public, **khác** gói gửi xe tại site.
 - `GET /api/v1/legal/{doc_type}`: tài liệu pháp lý phiên bản mới nhất.
@@ -143,6 +143,7 @@ Nguồn: `backend/app/api/v1/public.py`.
 - `POST /api/v1/public/payments/momo/ipn`: callback máy-chủ MoMo, kiểm chứng chữ ký trong payment service.
 - `GET /api/v1/updates/latest`: bản phát hành mới nhất đã publish của mỗi kênh (chỉ kênh có bản publish), dạng `{"releases":[{channel, version, versionCode, notes, sizeBytes, sha256, publishedAt}]}`; không trả URL tải hay signature. `Cache-Control: public, max-age=60`; giới hạn bucket `release-public` 60 request/60 giây. Trang `/download` của frontend dùng endpoint này.
 - `GET /api/v1/updates/download/{channel}`: `channel` phải là `edge-windows-x86_64` hoặc `android`, ngược lại 404; 404 nếu kênh chưa có bản publish; thành công trả 302 tới presigned URL mới tạo, `Cache-Control: no-store`. Cùng bucket `release-public`.
+- Rate limit sau Nginx của frontend: mặc định (`TRUST_PROXY_HEADERS=false`) API thấy proxy là client, nên bucket `release-public` dùng chung cho mọi khách truy cập. Đặt `TRUST_PROXY_HEADERS=true` trong môi trường của API thì limiter khóa theo phần tử đầu của `X-Forwarded-For` (`backend/app/core/rate_limit.py`); Nginx này ghi đè header đó bằng địa chỉ kết nối trực tiếp (`$remote_addr`) ở `/api/` và `/ws`, nên client không giả mạo được.
 - Kênh cập nhật tự host (nguồn `backend/app/api/v1/updates.py`): `GET /api/v1/updates/edge/{target}/{arch}/{current_version}` (contract dynamic-server của Tauri updater, 204 khi không có bản mới) và `GET /api/v1/updates/android?versionCode=N`; cả hai dùng bucket `update-check` 60/60 giây.
 
 Discovery site chỉ công bố site active của tenant active và `public_profile.listed != false`; mặc định listed là true. Hai endpoint map/locate theo tenant slug chỉ kiểm tra tenant active theo nhánh code riêng, không lấy `listed` làm điều kiện giống site discovery. Các API public có giới hạn request theo route, không phải tất cả cùng một ngưỡng.
