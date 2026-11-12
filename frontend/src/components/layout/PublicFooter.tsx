@@ -238,7 +238,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                 </button>
               </li>
               <li>
-                <Link to="/download" className="hover:text-foreground transition-colors">
+                <Link to="/download" className="hover:text-white transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                   {t('Download')}
                 </Link>
               </li>

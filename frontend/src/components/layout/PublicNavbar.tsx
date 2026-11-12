@@ -115,7 +115,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
             to="/download"
             className={({ isActive }) =>
               `px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
-                isActive ? 'bg-primary/10 text-primary' : 'hover:text-foreground hover:bg-card'
+                isActive ? 'bg-primary/10 text-primary' : 'hover:text-white hover:bg-white/10'
               }`
             }
           >
@@ -258,7 +258,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               to="/download"
               onClick={() => setMobileMenuOpen(false)}
               className={({ isActive }) =>
-                `w-full px-3 py-2 rounded-lg flex items-center justify-between hover:bg-background ${
+                `w-full px-3 py-2 rounded-lg flex items-center justify-between hover:bg-white/10 hover:text-white ${
                   isActive ? 'text-primary' : ''
                 }`
               }
