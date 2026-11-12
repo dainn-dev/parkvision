@@ -266,7 +266,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               <span className="flex items-center gap-2">
                 <Download className="w-4 h-4" /> {t('Download')}
               </span>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              <ChevronRight className="w-4 h-4 text-white/60" />
             </NavLink>
           </div>
 
