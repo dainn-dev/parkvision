@@ -113,10 +113,7 @@ impl CommandExecutor {
             match cmd.command.as_str() {
                 "open" => fsm.request_open().map_err(|r| r.as_str().to_string()),
                 "close" => fsm.request_close().map_err(|r| r.as_str().to_string()),
-                "lock" => {
-                    fsm.lock();
-                    Ok(())
-                }
+                "lock" => fsm.lock().map_err(|r| r.as_str().to_string()),
                 "unlock" => fsm.unlock().map_err(|r| r.as_str().to_string()),
                 "reboot" => fsm.reboot().map_err(|r| r.as_str().to_string()),
                 // MQTT subscription is live (we just received this), so relink

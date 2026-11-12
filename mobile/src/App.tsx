@@ -27,6 +27,8 @@ import { NearbyParking } from './components/discover/NearbyParking';
 import { TenantDetailModal } from './components/discover/TenantDetailModal';
 import { FindMyVehicleModal } from './components/discover/FindMyVehicleModal';
 import { BottomNavigation } from './components/discover/BottomNavigation';
+import { AppUpdateBanner } from './components/AppUpdateBanner';
+import { useAppUpdate } from './hooks/useAppUpdate';
 
 import { MapViewScreen } from './components/views/MapViewScreen';
 import { MyParkingScreen } from './components/views/MyParkingScreen';
@@ -78,6 +80,7 @@ function MainAppContent() {
     enabled: auth.status === 'authed' || auth.status === 'guest'
   });
   const { session: activeSession } = useActiveSession(isAuthed);
+  const appUpdate = useAppUpdate();
   const favorites = useFavorites(isAuthed);
   const membershipHook = useMemberships(isAuthed);
   const paymentsHook = usePayments(isAuthed);
@@ -415,6 +418,8 @@ function MainAppContent() {
         session={activeSession}
         onClose={() => setIsFindVehicleModalOpen(false)}
       />
+
+      {appUpdate && <AppUpdateBanner update={appUpdate} />}
     </div>
   );
 }

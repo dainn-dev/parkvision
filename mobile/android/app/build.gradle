@@ -1,14 +1,31 @@
 apply plugin: 'com.android.application'
 
+// Release signing lives outside the repo: a properties file with storeFile,
+// storePassword, keyAlias and keyPassword. Without it, release builds stay
+// unsigned instead of failing, so debug builds and CI keep working.
+def releaseSigningFile = new File(
+    System.getenv("PARKVISION_KEYSTORE_PROPERTIES")
+        ?: "${System.getProperty('user.home')}/.parkvision-signing/keystore.properties"
+)
+def releaseSigning = new Properties()
+if (releaseSigningFile.exists()) {
+    releaseSigningFile.withInputStream { releaseSigning.load(it) }
+}
+
 android {
     namespace = "online.dainn.parkvision"
     compileSdk = rootProject.ext.compileSdkVersion
+    buildFeatures {
+        // AppUpdaterPlugin reports the installed version from BuildConfig; AGP 8
+        // no longer generates that class unless it is asked for.
+        buildConfig = true
+    }
     defaultConfig {
         applicationId "online.dainn.parkvision"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.0.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +33,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (releaseSigningFile.exists()) {
+                storeFile file(releaseSigning.getProperty("storeFile"))
+                storePassword releaseSigning.getProperty("storePassword")
+                keyAlias releaseSigning.getProperty("keyAlias")
+                keyPassword releaseSigning.getProperty("keyPassword")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (releaseSigningFile.exists()) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

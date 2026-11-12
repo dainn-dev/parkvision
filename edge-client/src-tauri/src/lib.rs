@@ -16,6 +16,7 @@ pub mod runtime;
 pub mod store;
 pub mod sync;
 pub mod telemetry;
+pub mod update;
 pub mod worker_ipc;
 
 use std::sync::{Arc, Mutex};
@@ -226,8 +227,8 @@ fn manual_close(gate_id: Option<Uuid>, rt: State<'_, RuntimeState>) -> Result<()
 fn manual_lock(gate_id: Option<Uuid>, rt: State<'_, RuntimeState>) -> Result<(), String> {
     let guard = rt.lock().map_err(|e| e.to_string())?;
     let rt = guard.as_ref().ok_or("runtime not provisioned")?;
-    gate_for(rt, gate_id)?.fsm.lock().unwrap().lock();
-    Ok(())
+    let res = gate_for(rt, gate_id)?.fsm.lock().unwrap().lock();
+    res.map_err(|r| r.as_str().to_string())
 }
 
 #[tauri::command]
@@ -307,6 +308,7 @@ fn reset_foreign_config(cfg_dir: &std::path::Path) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let cfg_dir = app.path().app_config_dir()?;
             // Before the UI asks for the config: a release build only runs
@@ -346,6 +348,8 @@ pub fn run() {
             activation::deprovision,
             activation::detect_public_ip,
             activation::device_ip,
+            update::check_update,
+            update::install_update,
             lock::set_lock_password,
             lock::unlock,
             lock::lock_now,
