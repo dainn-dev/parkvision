@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import '../../../i18n';
@@ -69,6 +69,19 @@ describe('DownloadPage', () => {
     vi.spyOn(publicApi, 'latestReleases').mockResolvedValue([]);
     renderPage();
     expect(await screen.findAllByText('No published release yet')).toHaveLength(2);
+  });
+
+  test('shows the platform logo on each card, with or without a published release', async () => {
+    vi.spyOn(publicApi, 'latestReleases').mockResolvedValue([edge]);
+    renderPage();
+    await screen.findByText('1.2.0');
+    const edgeCard = screen.getByRole('heading', { name: 'Edge Client - Windows x64' }).closest('section');
+    const driverCard = screen.getByRole('heading', { name: 'Driver app - Android' }).closest('section');
+    // The logos are decorative (aria-hidden), so they have no role to query by.
+    const windowsLogo = within(edgeCard as HTMLElement).getByTestId('channel-icon-windows');
+    const androidLogo = within(driverCard as HTMLElement).getByTestId('channel-icon-android');
+    expect(windowsLogo.getAttribute('aria-hidden')).toBe('true');
+    expect(androidLogo.getAttribute('aria-hidden')).toBe('true');
   });
 
   test('shows one error alert with a retry button and recovers on retry', async () => {

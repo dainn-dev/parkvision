@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LatestReleaseOut, ReleaseChannel } from '../../../services/api';
+import { ChannelIcon } from './ChannelIcon';
 import { formatBytes, formatDate } from './formatRelease';
 
 interface ReleaseCardProps {
@@ -33,7 +34,10 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = ({ channel, release }) =>
 
   return (
     <section className="flex flex-col gap-4 rounded-lg border border-border bg-card p-6">
-      <h2 className="text-lg font-semibold">{t(TITLES[channel])}</h2>
+      <div className="flex items-center gap-3">
+        <ChannelIcon channel={channel} />
+        <h2 className="text-lg font-semibold">{t(TITLES[channel])}</h2>
+      </div>
       {!release ? (
         <p className="text-sm text-muted-foreground">{t('No published release yet')}</p>
       ) : (
