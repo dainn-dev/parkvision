@@ -357,8 +357,8 @@ interface PlatformContextType {
   reorderRulePriorities: (ruleIdsInOrder: string[]) => void;
   detectRuleConflicts: (rule: Partial<TenantAccessRule>, excludeRuleId?: string) => string[];
 
-  createTenantDevice: (data: TenantEdgeDeviceInput) => Promise<{ success: boolean; message?: string }>;
-  updateTenantDevice: (deviceId: string, data: Partial<TenantEdgeDeviceInput>) => Promise<{ success: boolean; message?: string }>;
+  createTenantDevice: (data: TenantEdgeDeviceInput) => Promise<{ success: boolean; message?: string; code?: string }>;
+  updateTenantDevice: (deviceId: string, data: Partial<TenantEdgeDeviceInput>) => Promise<{ success: boolean; message?: string; code?: string }>;
   decommissionTenantDevice: (deviceId: string) => Promise<{ success: boolean; message?: string }>;
   reactivateTenantDevice: (deviceId: string) => Promise<{ success: boolean; message?: string }>;
   deleteTenantDevice: (deviceId: string) => Promise<{ success: boolean; message?: string }>;
@@ -407,6 +407,7 @@ interface PlatformContextType {
 const PlatformContext = createContext<PlatformContextType | undefined>(undefined);
 
 const errText = (e: unknown): string => (e instanceof ApiError ? e.message : 'Unexpected error');
+const errCode = (e: unknown): string | undefined => (e instanceof ApiError ? e.code : undefined);
 
 export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // ---------- Auth ----------
@@ -2226,7 +2227,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       await loadTenantData(activeTenantId);
       return { success: true };
     } catch (e) {
-      return { success: false, message: errText(e) };
+      return { success: false, message: errText(e), code: errCode(e) };
     }
   };
 

@@ -76,6 +76,10 @@ export const TenantEdgeDevicesPage: React.FC = () => {
   // `require_roles(*WRITE_ROLES)`.
   const canManage = canTenantWrite(currentUser.rawRole);
 
+  // A tenant is one site: the site filter, column and wording only earn their space
+  // for the rare tenant that has several.
+  const hasSeveralSites = tenantSites.length > 1;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [siteFilter, setSiteFilter] = useState<string>('ALL');
@@ -161,7 +165,9 @@ export const TenantEdgeDevicesPage: React.FC = () => {
           <div>
             <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Total Devices')}</span>
             <div className="text-xl font-bold text-white mt-1">{metrics.total}</div>
-            <span className="text-[10px] text-[#8b949e]">{t('Across all sites')}</span>
+            <span className="text-[10px] text-[#8b949e]">
+              {hasSeveralSites ? t('Across all sites') : t('At your location')}
+            </span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
             <Server className="w-5 h-5" />
@@ -207,7 +213,11 @@ export const TenantEdgeDevicesPage: React.FC = () => {
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 text-[#8b949e] absolute left-3 top-1/2 -translate-y-1/2" />
           <Input
-            placeholder={t('Search by name, serial, MAC, IP, MQTT client, or site...')}
+            placeholder={
+              hasSeveralSites
+                ? t('Search by name, serial, MAC, IP, MQTT client, or site...')
+                : t('Search by name, serial, MAC, IP, or MQTT client...')
+            }
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -233,19 +243,21 @@ export const TenantEdgeDevicesPage: React.FC = () => {
             <option value="DECOMMISSIONED">{t('Decommissioned')}</option>
           </select>
 
-          <select
-            value={siteFilter}
-            onChange={(e) => {
-              setSiteFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
-          >
-            <option value="ALL">{t('Site: All')}</option>
-            {tenantSites.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+          {hasSeveralSites && (
+            <select
+              value={siteFilter}
+              onChange={(e) => {
+                setSiteFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
+            >
+              <option value="ALL">{t('Site: All')}</option>
+              {tenantSites.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          )}
 
           {(searchQuery || statusFilter !== 'ALL' || siteFilter !== 'ALL') && (
             <Button
@@ -272,7 +284,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
             <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px]">
               <tr>
                 <th className="py-3 px-4">{t('Device')}</th>
-                <th className="py-3 px-4">{t('Site')}</th>
+                {hasSeveralSites && <th className="py-3 px-4">{t('Site')}</th>}
                 <th className="py-3 px-4">{t('Status')}</th>
                 <th className="py-3 px-4">{t('Resource Usage')}</th>
                 <th className="py-3 px-4">{t('Latency')}</th>
@@ -284,7 +296,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
             <tbody className="divide-y divide-[#30363d]/60 font-medium">
               {paginatedDevices.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-[#8b949e]">
+                  <td colSpan={hasSeveralSites ? 8 : 7} className="py-12 text-center text-[#8b949e]">
                     <Server className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/50" />
                     <p className="font-semibold text-white">{t('No edge devices found')}</p>
                     <p className="text-xs mt-1">{t('Register a device or reset your filters')}</p>
@@ -313,7 +325,9 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                       </td>
 
                       {/* Site */}
-                      <td className="py-3.5 px-4 text-[#c9d1d9]">{device.siteName || '—'}</td>
+                      {hasSeveralSites && (
+                        <td className="py-3.5 px-4 text-[#c9d1d9]">{device.siteName || '—'}</td>
+                      )}
 
                       {/* Status */}
                       <td className="py-3.5 px-4">

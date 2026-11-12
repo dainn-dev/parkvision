@@ -49,14 +49,17 @@ export const EditDeviceModal: React.FC<EditDeviceModalProps> = ({ device, isOpen
   const set = (key: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setFormData((prev) => ({ ...prev, [key]: e.target.value }));
 
+  // A tenant is one site, so the picker only appears for the rare tenant with several.
+  const hasSeveralSites = tenantSites.length > 1;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!device || !formData.name.trim() || !formData.siteId) return;
+    if (!device || !formData.name.trim() || (hasSeveralSites && !formData.siteId)) return;
 
     setIsLoading(true);
     setError(null);
     const result = await updateTenantDevice(device.id, {
-      siteId: formData.siteId,
+      ...(hasSeveralSites ? { siteId: formData.siteId } : {}),
       name: formData.name.trim(),
       deviceSerial: formData.deviceSerial.trim() || undefined,
       hardwareModel: formData.hardwareModel.trim() || undefined,
@@ -108,16 +111,18 @@ export const EditDeviceModal: React.FC<EditDeviceModalProps> = ({ device, isOpen
           required
         />
 
-        <Select
-          label={t('Site')}
-          value={formData.siteId}
-          onChange={set('siteId')}
-          required
-          options={[
-            { value: '', label: t('Select a site…') },
-            ...tenantSites.map((s) => ({ value: s.id, label: s.name }))
-          ]}
-        />
+        {hasSeveralSites && (
+          <Select
+            label={t('Site')}
+            value={formData.siteId}
+            onChange={set('siteId')}
+            required
+            options={[
+              { value: '', label: t('Select a site…') },
+              ...tenantSites.map((s) => ({ value: s.id, label: s.name }))
+            ]}
+          />
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <Input label={t('Serial Number')} value={formData.deviceSerial} onChange={set('deviceSerial')} />

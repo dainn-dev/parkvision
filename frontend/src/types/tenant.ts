@@ -208,7 +208,8 @@ export interface TenantDashboardSummary {
 }
 
 export interface TenantEdgeDeviceInput {
-  siteId: string;
+  /** Omit for a single-site tenant: the server uses its only site. */
+  siteId?: string;
   name: string;
   deviceSerial?: string;
   hardwareModel?: string;

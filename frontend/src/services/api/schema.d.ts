@@ -1236,7 +1236,7 @@ export interface components {
              * Siteid
              * Format: uuid
              */
-            siteId: string;
+            siteId?: string | null;
             /** Name */
             name: string;
             /** Deviceserial */

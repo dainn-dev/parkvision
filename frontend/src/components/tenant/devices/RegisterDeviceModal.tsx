@@ -20,6 +20,12 @@ const EMPTY_FORM = {
   firmwareVersion: ''
 };
 
+// Server error codes that mean "there is no (single) site to attach to", in plain words.
+const SITE_ERRORS: Record<string, string> = {
+  no_site: 'Set up your location first, then register the device.',
+  site_required: 'Choose which site this device belongs to.',
+};
+
 export const RegisterDeviceModal: React.FC<RegisterDeviceModalProps> = ({ isOpen, onClose }) => {
   const { tenantSites, createTenantDevice } = usePlatform();
   const { t } = useTranslation('tenant');
@@ -35,14 +41,18 @@ export const RegisterDeviceModal: React.FC<RegisterDeviceModalProps> = ({ isOpen
   const set = (key: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setFormData((prev) => ({ ...prev, [key]: e.target.value }));
 
+  // A tenant is one site, so the picker only appears for the rare tenant with several;
+  // otherwise the server attaches the device to the only site.
+  const hasSeveralSites = tenantSites.length > 1;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.siteId) return;
+    if (!formData.name.trim() || (hasSeveralSites && !formData.siteId)) return;
 
     setIsLoading(true);
     setError(null);
     const result = await createTenantDevice({
-      siteId: formData.siteId,
+      ...(hasSeveralSites ? { siteId: formData.siteId } : {}),
       name: formData.name.trim(),
       deviceSerial: formData.deviceSerial.trim() || undefined,
       hardwareModel: formData.hardwareModel.trim() || undefined,
@@ -57,7 +67,8 @@ export const RegisterDeviceModal: React.FC<RegisterDeviceModalProps> = ({ isOpen
       setFormData(EMPTY_FORM);
       onClose();
     } else {
-      setError(result.message || t('Failed to register device'));
+      const plainMessage = result.code ? SITE_ERRORS[result.code] : undefined;
+      setError(plainMessage ? t(plainMessage) : result.message || t('Failed to register device'));
     }
   };
 
@@ -71,7 +82,11 @@ export const RegisterDeviceModal: React.FC<RegisterDeviceModalProps> = ({ isOpen
           {t('Register Edge Device')}
         </span>
       }
-      subtitle={t('Provision a new edge gateway on a site')}
+      subtitle={
+        hasSeveralSites
+          ? t('Provision a new edge gateway on a site')
+          : t('Provision a new edge gateway for your location')
+      }
       footer={
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose} type="button">{t('Cancel')}</Button>
@@ -96,16 +111,18 @@ export const RegisterDeviceModal: React.FC<RegisterDeviceModalProps> = ({ isOpen
           required
         />
 
-        <Select
-          label={t('Site')}
-          value={formData.siteId}
-          onChange={set('siteId')}
-          required
-          options={[
-            { value: '', label: t('Select a site…') },
-            ...tenantSites.map((s) => ({ value: s.id, label: s.name }))
-          ]}
-        />
+        {hasSeveralSites && (
+          <Select
+            label={t('Site')}
+            value={formData.siteId}
+            onChange={set('siteId')}
+            required
+            options={[
+              { value: '', label: t('Select a site…') },
+              ...tenantSites.map((s) => ({ value: s.id, label: s.name }))
+            ]}
+          />
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <Input label={t('Serial Number')} value={formData.deviceSerial} onChange={set('deviceSerial')} placeholder="SN-0000" />

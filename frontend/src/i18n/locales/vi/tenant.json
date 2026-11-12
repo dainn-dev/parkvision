@@ -1372,5 +1372,10 @@
   "The linked membership is revoked and its gate access suspended.": "Thẻ thành viên liên kết sẽ bị thu hồi và chặn qua cổng.",
   "Payment refunded": "Đã hoàn thanh toán",
   "{{amount}} returned via {{method}}": "Đã hoàn {{amount}} qua {{method}}",
-  "Refund failed": "Hoàn tiền thất bại"
+  "Refund failed": "Hoàn tiền thất bại",
+  "Provision a new edge gateway for your location": "Cấp gateway biên mới cho địa điểm của bạn",
+  "Set up your location first, then register the device.": "Hãy thiết lập địa điểm của bạn trước, rồi đăng ký thiết bị.",
+  "Choose which site this device belongs to.": "Hãy chọn thiết bị này thuộc địa điểm nào.",
+  "At your location": "Tại địa điểm của bạn",
+  "Search by name, serial, MAC, IP, or MQTT client...": "Tìm theo tên, serial, MAC, IP hoặc MQTT client..."
 }

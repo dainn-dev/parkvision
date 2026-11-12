@@ -449,7 +449,7 @@ export const tenantApi = {
 
   devices: (t: string, p: { page?: number; limit?: number; siteId?: string } = {}) => api.get<Page<DeviceOut>>(T(t, `/devices${qs(p)}`)),
   device: (t: string, id: string) => api.get<DeviceOut>(T(t, `/devices/${id}`)),
-  createDevice: (t: string, body: { siteId: string; name: string; deviceSerial?: string; hardwareModel?: string; mac?: string; ipAddress?: string; mqttClientId?: string; firmwareVersion?: string }) => api.post<DeviceOut>(T(t, '/devices'), body),
+  createDevice: (t: string, body: { siteId?: string; name: string; deviceSerial?: string; hardwareModel?: string; mac?: string; ipAddress?: string; mqttClientId?: string; firmwareVersion?: string }) => api.post<DeviceOut>(T(t, '/devices'), body),
   updateDevice: (t: string, id: string, body: Partial<{ siteId: string; name: string; deviceSerial: string; hardwareModel: string; mac: string; ipAddress: string; mqttClientId: string; firmwareVersion: string }>) => api.patch<DeviceOut>(T(t, `/devices/${id}`), body),
   decommissionDevice: (t: string, id: string) => api.post<DeviceOut>(T(t, `/devices/${id}/decommission`)),
   reactivateDevice: (t: string, id: string) => api.post<DeviceOut>(T(t, `/devices/${id}/reactivate`)),
