@@ -1431,3 +1431,19 @@ class AndroidUpdateOut(CamelModel):
     download_url: str | None = None
     sha256: str | None = None
     size_bytes: int | None = None
+
+
+class LatestReleaseOut(CamelModel):
+    """Public description of the newest published build of one channel."""
+
+    channel: str
+    version: str
+    version_code: int | None
+    notes: str | None
+    size_bytes: int
+    sha256: str
+    published_at: datetime
+
+
+class LatestReleasesOut(CamelModel):
+    releases: list[LatestReleaseOut]

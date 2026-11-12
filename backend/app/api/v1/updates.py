@@ -12,6 +12,7 @@ import asyncio
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, Response, UploadFile, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -21,7 +22,13 @@ from app.core.errors import bad_request, conflict, not_found
 from app.core.rate_limit import rate_limited
 from app.database import platform_session
 from app.models import AppRelease
-from app.schemas.resources import AndroidUpdateOut, AppReleaseOut, AppReleasePatchIn
+from app.schemas.resources import (
+    AndroidUpdateOut,
+    AppReleaseOut,
+    AppReleasePatchIn,
+    LatestReleaseOut,
+    LatestReleasesOut,
+)
 from app.services import release_service
 from app.services.audit_service import write_audit
 from app.services.release_service import MAX_UPLOAD_BYTES, ReleaseError
@@ -36,6 +43,7 @@ admin_router = APIRouter(
 )
 
 _update_check_limit = Depends(rate_limited("update-check", 60, 60))
+_release_public_limit = Depends(rate_limited("release-public", 60, 60))
 
 
 def _out(row: AppRelease) -> AppReleaseOut:
@@ -115,6 +123,53 @@ async def android_update(version_code: int = Query(alias="versionCode", ge=0)) -
         download_url=release_service.download_url(latest),
         sha256=latest.sha256,
         size_bytes=latest.size_bytes,
+    )
+
+
+@public_router.get("/latest", response_model=LatestReleasesOut, dependencies=[_release_public_limit])
+async def latest_releases(response: Response) -> LatestReleasesOut:
+    """Newest published build per channel, for the public download page."""
+    async with platform_session() as db:
+        rows = [
+            row
+            for channel in release_service.CHANNELS
+            if (row := await release_service.latest_published(db, channel)) is not None
+        ]
+    response.headers["Cache-Control"] = "public, max-age=60"
+    return LatestReleasesOut(
+        releases=[
+            LatestReleaseOut(
+                channel=row.channel,
+                version=row.version,
+                version_code=row.version_code,
+                notes=row.notes,
+                size_bytes=row.size_bytes,
+                sha256=row.sha256,
+                published_at=row.published_at or row.created_at,
+            )
+            for row in rows
+        ]
+    )
+
+
+@public_router.get(
+    "/download/{channel}",
+    response_class=RedirectResponse,
+    status_code=status.HTTP_302_FOUND,
+    dependencies=[_release_public_limit],
+)
+async def download_release(channel: str) -> RedirectResponse:
+    """302 to a fresh presigned URL for the newest published build of `channel`."""
+    if channel not in release_service.CHANNELS:
+        raise not_found("Release", channel)
+    async with platform_session() as db:
+        row = await release_service.latest_published(db, channel)
+    if row is None:
+        raise not_found("Release", channel)
+    return RedirectResponse(
+        release_service.download_url(row),
+        status_code=status.HTTP_302_FOUND,
+        headers={"Cache-Control": "no-store"},
     )
 
 

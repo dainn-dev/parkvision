@@ -8,7 +8,9 @@ import hashlib
 import uuid
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models import PlatformAdmin
@@ -63,6 +65,13 @@ async def _publish(client: AsyncClient, release_id: str, published: bool = True)
 @pytest.fixture
 def bucket():
     ensure_bucket()
+
+
+@pytest_asyncio.fixture
+async def no_releases(admin_engine):
+    """Public listings are global, so start from an empty release table."""
+    async with admin_engine.begin() as conn:
+        await conn.execute(text("DELETE FROM app_releases"))
 
 
 def test_version_ordering_is_numeric_not_lexical():
@@ -181,3 +190,63 @@ async def test_release_management_is_platform_admin_only(client, admin_engine, t
         headers=csrf(client),
     )
     assert res.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_latest_lists_only_published_highest_version_per_channel(client, admin_engine, bucket, no_releases):
+    email, password = await _platform_admin(admin_engine)
+    await login(client, email, password)
+    for version in ("0.9.0", "0.10.0"):
+        row = await _upload(client, channel=EDGE, version=version, body=b"MZ " + uuid.uuid4().bytes, signature="sig")
+        await _publish(client, row["id"])
+    await _upload(client, channel=EDGE, version="0.11.0", body=b"MZ " + uuid.uuid4().bytes, signature="sig")
+    client.cookies.clear()
+
+    res = await client.get("/api/v1/updates/latest")
+
+    assert res.status_code == 200
+    releases = res.json()["releases"]
+    assert len(releases) == 1
+    assert releases[0]["version"] == "0.10.0"
+    assert releases[0]["channel"] == EDGE
+    assert set(releases[0]) == {
+        "channel", "version", "versionCode", "notes", "sizeBytes", "sha256", "publishedAt",
+    }
+    assert res.headers["cache-control"] == "public, max-age=60"
+    assert "signature" not in res.text
+    assert "url" not in res.text.lower()
+
+
+@pytest.mark.asyncio
+async def test_latest_is_empty_when_nothing_is_published(client, bucket, no_releases):
+    res = await client.get("/api/v1/updates/latest")
+
+    assert res.status_code == 200
+    assert res.json() == {"releases": []}
+
+
+@pytest.mark.asyncio
+async def test_download_redirects_to_fresh_presigned_url(client, admin_engine, bucket):
+    email, password = await _platform_admin(admin_engine)
+    await login(client, email, password)
+    row = await _upload(client, channel="android", version="1.0.0", body=b"PK apk", versionCode=1)
+    await _publish(client, row["id"])
+    client.cookies.clear()
+
+    res = await client.get("/api/v1/updates/download/android", follow_redirects=False)
+
+    assert res.status_code == 302
+    assert "X-Amz-Signature=" in res.headers["location"]
+    assert res.headers["cache-control"] == "no-store"
+
+
+@pytest.mark.asyncio
+async def test_download_404_for_unknown_unpublished_or_pathlike_channel(client, admin_engine, bucket, no_releases):
+    email, password = await _platform_admin(admin_engine)
+    await login(client, email, password)
+    await _upload(client, channel="android", version="2.0.0", body=b"PK apk", versionCode=2)
+    client.cookies.clear()
+
+    for path in ("windows", "..%2Fandroid", "android"):
+        res = await client.get(f"/api/v1/updates/download/{path}", follow_redirects=False)
+        assert res.status_code == 404, path
