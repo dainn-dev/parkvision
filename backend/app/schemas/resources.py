@@ -239,7 +239,8 @@ class LaneOut(CamelModel):
 
 
 class DeviceIn(CamelModel):
-    site_id: uuid.UUID
+    # Optional: a tenant is one site, so the server picks it when omitted.
+    site_id: uuid.UUID | None = None
     name: str = Field(min_length=2, max_length=200)
     device_serial: str | None = None
     hardware_model: str | None = None

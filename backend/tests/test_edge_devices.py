@@ -127,6 +127,67 @@ async def test_register_rejects_foreign_site(client: AsyncClient, tenant, other_
 
 
 @pytest.mark.asyncio
+async def test_register_without_site_uses_the_tenants_only_site(client: AsyncClient, tenant, site):
+    """A tenant is one site, so the device form does not have to name it."""
+    res = await client.post(
+        f"/api/v1/tenants/{tenant['tenant_id']}/devices",
+        json={"name": "Edge GW-Solo"},
+        headers=csrf(client),
+    )
+    assert res.status_code == 201, res.text
+    assert res.json()["siteId"] == site
+
+
+@pytest.mark.asyncio
+async def test_register_without_site_fails_clearly_when_tenant_has_no_site(client: AsyncClient, tenant):
+    await login(client, tenant["email"], tenant["password"])
+    res = await client.post(
+        f"/api/v1/tenants/{tenant['tenant_id']}/devices",
+        json={"name": "Edge GW-Orphan"},
+        headers=csrf(client),
+    )
+    assert res.status_code == 400, res.text
+    assert res.json()["error"]["code"] == "no_site"
+    listed = await client.get(f"/api/v1/tenants/{tenant['tenant_id']}/devices")
+    assert listed.json()["meta"]["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_register_without_site_fails_clearly_when_tenant_has_several_sites(
+    client: AsyncClient, tenant, site
+):
+    tid = tenant["tenant_id"]
+    second = await client.post(
+        f"/api/v1/tenants/{tid}/sites", json={"name": "Lot B"}, headers=csrf(client)
+    )
+    assert second.status_code == 201, second.text
+    res = await client.post(
+        f"/api/v1/tenants/{tid}/devices", json={"name": "Edge GW-Ambiguous"}, headers=csrf(client)
+    )
+    assert res.status_code == 400, res.text
+    assert res.json()["error"]["code"] == "site_required"
+    # Naming the site explicitly still works for such a tenant.
+    explicit = await client.post(
+        f"/api/v1/tenants/{tid}/devices",
+        json={"siteId": second.json()["id"], "name": "Edge GW-Lot-B"},
+        headers=csrf(client),
+    )
+    assert explicit.status_code == 201, explicit.text
+    assert explicit.json()["siteId"] == second.json()["id"]
+
+
+@pytest.mark.asyncio
+async def test_patch_device_without_site_keeps_its_site(client: AsyncClient, tenant, site, device):
+    res = await client.patch(
+        f"/api/v1/tenants/{tenant['tenant_id']}/devices/{device['id']}",
+        json={"name": "Renamed again"},
+        headers=csrf(client),
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["siteId"] == site
+
+
+@pytest.mark.asyncio
 async def test_register_conflicts_duplicate_serial(client: AsyncClient, tenant, site):
     tid = tenant["tenant_id"]
     body = {"siteId": site, "name": "GW-1", "deviceSerial": "SN-DUP"}

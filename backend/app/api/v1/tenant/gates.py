@@ -3,14 +3,14 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import WRITE_ROLES, csrf_protect, require_roles
 from app.api.v1.tenant import TenantCtx, get_tenant_db, tenant_ctx
-from app.core.errors import bad_request, conflict, not_found
+from app.core.errors import ApiError, bad_request, conflict, not_found
 from app.models import (
     ApiCredential,
     BarrierGate,
@@ -84,6 +84,38 @@ async def _require_site(db: AsyncSession, tenant_id: uuid.UUID, site_id: uuid.UU
     ).scalar_one_or_none()
     if exists is None:
         raise not_found("site", site_id)
+
+
+async def _resolve_site_id(
+    db: AsyncSession, tenant_id: uuid.UUID, site_id: uuid.UUID | None
+) -> uuid.UUID:
+    """The site a new device belongs to.
+
+    A tenant is one site, so callers normally omit `site_id` and get that site.
+    An explicit id is still honoured (and checked) for tenants that have several.
+    """
+    if site_id is not None:
+        await _require_site(db, tenant_id, site_id)
+        return site_id
+    # Two rows are enough to tell "exactly one" from "several".
+    site_ids = (
+        (await db.execute(select(TenantSite.id).where(TenantSite.tenant_id == tenant_id).limit(2)))
+        .scalars()
+        .all()
+    )
+    if not site_ids:
+        raise ApiError(
+            status.HTTP_400_BAD_REQUEST,
+            "no_site",
+            "This tenant has no site yet. Set up the location before registering a device.",
+        )
+    if len(site_ids) > 1:
+        raise ApiError(
+            status.HTTP_400_BAD_REQUEST,
+            "site_required",
+            "This tenant has more than one site. Specify siteId.",
+        )
+    return site_ids[0]
 
 
 # ---------- gates ----------
@@ -353,11 +385,11 @@ async def register_device(
 ) -> DeviceOut:
     import secrets
 
-    await _require_site(db, ctx.tenant_id, body.site_id)
+    site_id = await _resolve_site_id(db, ctx.tenant_id, body.site_id)
     row = EdgeDevice(
         tenant_id=ctx.tenant_id,
         device_key=f"edge-{secrets.token_hex(12)}",
-        **body.model_dump(),
+        **{**body.model_dump(), "site_id": site_id},
     )
     db.add(row)
     try:
