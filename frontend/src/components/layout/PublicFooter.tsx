@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Globe
 } from 'lucide-react';
+import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { PublicViewType } from './PublicNavbar';
 
@@ -69,14 +70,15 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* Brand Info */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-3">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#58a6ff] to-[#1f6feb] flex items-center justify-center text-slate-950 font-black shadow-md">
                 <Car className="w-5 h-5 text-slate-950" />
               </div>
-              <span className="text-lg font-extrabold text-white tracking-tight font-mono">
-                ANPR<span className="text-[#58a6ff]">.CLOUD</span>
-              </span>
-            </div>
+              <span className="text-lg font-extrabold text-white tracking-tight">ParkVision</span>
+            </Link>
             <p className="text-xs leading-relaxed text-[#8b949e] max-w-sm">
               {t('A next-generation vehicle access control platform powered by Edge AI ANPR, automating barriers and centrally managing multi-site parking in the cloud.')}
             </p>
@@ -235,6 +237,11 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                   {t('Pricing & Plans')}
                 </button>
               </li>
+              <li>
+                <Link to="/download" className="hover:text-foreground transition-colors">
+                  {t('Download')}
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -290,7 +297,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
 
         {/* Bottom Bar */}
         <div className="mt-12 pt-6 border-t border-[#30363d] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-          <p>{t('© 2026 ANPR.CLOUD SaaS Platform. All rights reserved by Global Digital Security Solutions JSC.')}</p>
+          <p>{t('© 2026 ParkVision. All rights reserved by Global Digital Security Solutions JSC.')}</p>
           <div className="flex items-center gap-6">
             <button onClick={() => onNavigate('privacy')} className="hover:text-white transition-colors">
               {t('Data Privacy')}
