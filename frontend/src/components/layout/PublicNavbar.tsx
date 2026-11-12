@@ -22,7 +22,8 @@ import { useTranslation } from 'react-i18next';
 import { Button, Badge } from '../ui';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
 
-export type PublicViewType = 'landing' | 'login' | 'register' | 'privacy' | 'terms' | 'sla' | 'activate' | 'reset-password' | 'find-car';
+import type { PublicViewType } from '../../lib/publicRoutes';
+export type { PublicViewType } from '../../lib/publicRoutes';
 
 interface PublicNavbarProps {
   currentView: PublicViewType;
