@@ -66,14 +66,14 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
           </div>
           <div>
             <span className="block text-base font-extrabold text-white tracking-tight">ParkVision</span>
-            <p className="text-[10px] text-[#8b949e] font-medium hidden sm:block">
+            <p className="text-[10px] text-[#8b949e] font-medium hidden sm:block lg:hidden xl:block">
               {t('Smart Access Control & Barriers')}
             </p>
           </div>
         </Link>
 
         {/* Desktop Nav Links */}
-        <nav className="hidden lg:flex items-center gap-1 xl:gap-2 text-xs font-medium text-[#8b949e]">
+        <nav className="hidden lg:flex items-center gap-1 xl:gap-2 whitespace-nowrap text-xs font-medium text-[#8b949e]">
           <button
             onClick={() => handleNavClick('features')}
             className="px-3 py-1.5 rounded-lg hover:text-white hover:bg-[#161b22] transition-colors cursor-pointer"
@@ -152,7 +152,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               {/* Login Button */}
               <button
                 onClick={() => onNavigate('login')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                className={`shrink-0 whitespace-nowrap px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
                   currentView === 'login'
                     ? 'bg-[#21262d] text-[#58a6ff] border border-[#58a6ff]/40'
                     : 'text-[#c9d1d9] hover:text-white hover:bg-[#161b22] border border-[#30363d]'
@@ -168,7 +168,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
                 size="sm"
                 icon={UserPlus}
                 onClick={() => onNavigate('register')}
-                className="shadow-sm shadow-[#58a6ff]/30 text-xs py-2 px-3.5"
+                className="shrink-0 whitespace-nowrap shadow-sm shadow-[#58a6ff]/30 text-xs py-2 px-3.5"
               >
                 {t('14-Day Free Trial')}
               </Button>

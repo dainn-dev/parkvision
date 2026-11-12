@@ -54,7 +54,7 @@ function scrollToDemo() {
 const PipelineDiagram: React.FC = () => {
   const { t } = useTranslation('landing');
   return (
-    <figure className="rounded-xl border border-border bg-card">
+    <figure className="rounded-xl border border-border bg-card shadow-xl shadow-primary/10">
       <div className="flex items-center justify-between border-b border-border px-5 py-3">
         <span className="font-mono text-xs text-muted-foreground">{t('pipeline')}</span>
         <span className="font-mono text-xs text-muted-foreground">camera → edge → cloud</span>
@@ -91,6 +91,11 @@ const PipelineDiagram: React.FC = () => {
                 <div className="flex items-center gap-3 py-2 pl-[2.2rem]" aria-hidden="true">
                   <span className="h-8 w-px border-l border-dashed border-border" />
                   <span className="font-mono text-xs text-muted-foreground">{t(link.label)}</span>
+                  {index === 0 && (
+                    <span className="rounded border-2 border-zinc-800 bg-white px-2 py-0.5 font-mono text-xs font-bold tracking-wider text-zinc-900">
+                      30A-123.45
+                    </span>
+                  )}
                 </div>
               )}
             </li>
@@ -107,15 +112,31 @@ const PipelineDiagram: React.FC = () => {
 export const HeroSection: React.FC<HeroSectionProps> = ({ onNavigate }) => {
   const { t } = useTranslation('landing');
   return (
-    <section aria-labelledby="hero-heading" className="border-b border-border">
-      <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-16 lg:px-8">
+    <section aria-labelledby="hero-heading" className="relative overflow-hidden border-b border-border">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <div
+          className="absolute inset-0 opacity-60"
+          style={{
+            backgroundImage:
+              'linear-gradient(to right, var(--border) 1px, transparent 1px), linear-gradient(to bottom, var(--border) 1px, transparent 1px)',
+            backgroundSize: '56px 56px',
+            maskImage: 'radial-gradient(ellipse 70% 60% at 70% 40%, #000 20%, transparent 75%)',
+            WebkitMaskImage: 'radial-gradient(ellipse 70% 60% at 70% 40%, #000 20%, transparent 75%)',
+          }}
+        />
+      </div>
+      <div className="relative mx-auto grid w-full max-w-6xl gap-12 px-4 py-16 sm:px-6 sm:py-28 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-16 lg:px-8">
         <div>
-          <p className="font-mono text-xs uppercase tracking-widest text-primary">
+          <p className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 font-mono text-xs uppercase tracking-widest text-primary">
+            <span className="relative flex h-2 w-2" aria-hidden="true">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-success opacity-60 motion-safe:animate-ping" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+            </span>
             {t('ParkVision · plate recognition for parking')}
           </p>
           <h1
             id="hero-heading"
-            className="mt-5 text-4xl font-semibold leading-[1.1] tracking-tight text-foreground sm:text-5xl"
+            className="mt-6 text-4xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-6xl"
           >
             {t('Gate control by number plate, decided at the gate.')}
           </h1>
@@ -128,7 +149,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onNavigate }) => {
             <button
               type="button"
               onClick={() => onNavigate('register')}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition hover:-translate-y-0.5 hover:opacity-90 motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               {t('Start 14-day free trial')}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -149,6 +170,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onNavigate }) => {
         </div>
         <PipelineDiagram />
       </div>
+      <div
+        aria-hidden="true"
+        className="h-1.5 w-full opacity-80"
+        style={{
+          backgroundImage:
+            'repeating-linear-gradient(135deg, #f5c518 0 14px, #1f2328 14px 28px)',
+        }}
+      />
     </section>
   );
 };

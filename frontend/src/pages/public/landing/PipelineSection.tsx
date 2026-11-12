@@ -62,8 +62,10 @@ export const PipelineSection: React.FC = () => {
 
         <div className="mt-14 grid gap-px overflow-hidden rounded-xl border border-border bg-border md:grid-cols-3">
           {PRINCIPLES.map((principle) => (
-            <div key={principle.tag} className="bg-card p-6 sm:p-8">
-              <span className="font-mono text-xs text-primary">{principle.tag}</span>
+            <div key={principle.tag} className="bg-card p-6 transition-colors hover:bg-accent sm:p-8">
+              <span className="rounded border border-border bg-background px-2 py-0.5 font-mono text-xs text-primary">
+                {principle.tag}
+              </span>
               <h3 className="mt-3 text-lg font-semibold text-foreground">{t(principle.title)}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t(principle.body)}</p>
             </div>
@@ -81,7 +83,7 @@ export const PipelineSection: React.FC = () => {
         <ol className="mt-8 grid gap-8 md:grid-cols-3">
           {STEPS.map((step, index) => (
             <li key={step.title} className="border-t border-border pt-6">
-              <span className="font-mono text-sm text-primary" aria-hidden="true">
+              <span className="font-mono text-3xl font-semibold text-primary" aria-hidden="true">
                 {String(index + 1).padStart(2, '0')}
               </span>
               <h4 className="mt-3 text-base font-semibold text-foreground">{t(step.title)}</h4>

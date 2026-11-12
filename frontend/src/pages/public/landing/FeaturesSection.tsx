@@ -66,8 +66,10 @@ export const FeaturesSection: React.FC = () => {
           {FEATURES.map((feature) => {
             const Icon = feature.icon;
             return (
-              <li key={feature.title} className="bg-card p-6 sm:p-8">
-                <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
+              <li key={feature.title} className="bg-card p-6 transition-colors hover:bg-accent sm:p-8">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background text-primary">
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                </span>
                 <h3 className="mt-5 text-base font-semibold text-foreground">{t(feature.title)}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t(feature.body)}</p>
               </li>

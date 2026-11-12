@@ -12,7 +12,14 @@ export const FinalCtaSection: React.FC<FinalCtaSectionProps> = ({ onNavigate }) 
   return (
     <section aria-labelledby="cta-heading">
       <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
-        <div className="rounded-xl border border-border bg-card px-6 py-12 sm:px-12 sm:py-16">
+        <div className="relative overflow-hidden rounded-xl border border-border bg-card px-6 py-12 shadow-xl shadow-primary/10 sm:px-12 sm:py-16">
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-0 top-0 h-1.5 opacity-80"
+            style={{
+              backgroundImage: 'repeating-linear-gradient(135deg, #f5c518 0 14px, #1f2328 14px 28px)',
+            }}
+          />
           <h2 id="cta-heading" className="max-w-2xl text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
             {t('Put ParkVision on your first gate')}
           </h2>
