@@ -80,6 +80,7 @@ from app.services import payment_service
 from app.services.audit_service import write_audit
 from app.services.command_service import issue_command
 from app.services.credential_service import new_api_key as _new_api_key
+from app.services.default_site import build_default_site
 from app.services.infra_service import infra_status
 from app.services.security_service import emit_alert
 from app.workers.jobs import enqueue_audit_export
@@ -274,6 +275,7 @@ async def create_tenant(
                 await db.flush()
             except Exception:
                 raise conflict("A user with the owner email already exists") from None
+        db.add(build_default_site(tenant))
         await _write_platform_audit(
             db,
             tenant_id=tenant.id,

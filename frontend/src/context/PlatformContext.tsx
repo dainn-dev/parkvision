@@ -1533,13 +1533,27 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const toggleLocationStatus = (status: 'ACTIVE' | 'INACTIVE') => {
     setTenantLocation((prev) => ({ ...prev, status }));
     const site = tenantSites[0];
-    if (activeTenantId && site) {
+    if (!activeTenantId) return;
+    if (site) {
       tenantApi
         // SiteIn requires `name` — PATCH omits it → 422.
         .updateSite(activeTenantId, site.id, { name: site.name, status: status.toLowerCase() })
         .then(() => loadTenantData(activeTenantId))
         .catch(toastErr('Failed to update site status'));
+      return;
     }
+    // Older tenants can exist without a site. Activating the location is the
+    // point where the tenant finally needs one, so create it instead of no-oping.
+    if (status !== 'ACTIVE') return;
+    tenantApi
+      .createSite(activeTenantId, {
+        name: tenantLocation.name || 'Main location',
+        timezone: tenantLocation.timezone || 'Asia/Ho_Chi_Minh',
+        status: 'active',
+      })
+      .then(() => loadTenantData(activeTenantId))
+      .then(() => addToast({ type: 'success', title: 'Location activated' }))
+      .catch(toastErr('Failed to activate location'));
   };
 
   const addTenantSite = (siteData: Partial<TenantSite>) => {

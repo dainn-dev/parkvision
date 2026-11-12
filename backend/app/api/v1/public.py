@@ -34,6 +34,7 @@ from app.schemas.resources import (
 )
 from app.security import hash_password
 from app.services import driver_service, membership_service, public_site_service
+from app.services.default_site import build_default_site
 from app.services.parking_service import locate_presence
 from app.services.storage import presign_download
 
@@ -130,6 +131,9 @@ async def register_tenant(body: RegisterTenantIn) -> RegisterTenantOut:
             await db.flush()
         except IntegrityError:
             raise conflict("A user with this email already exists") from None
+
+        # A tenant is one site; without it the owner cannot register an edge device.
+        db.add(build_default_site(tenant))
 
     return RegisterTenantOut(
         tenant_id=tenant.id,
