@@ -36,15 +36,17 @@ React/Vite/TypeScript/Tailwind và Leaflet. Đây là SPA giao diện mobile, kh
 
 ### 2.1. Public và auth của dashboard
 
-App không sử dụng React Router; điều hướng bằng `publicView`, `primaryTab`, `platformSubTab`, `tenantNavTab` và các state khác. Browser Back/Forward và reload không phục hồi đầy đủ màn/tab hiện tại.
+Site public dùng react-router với các route `/`, `/download`, `/privacy`, `/terms`, `/sla`, `/login`, `/register`, `/activate`, `/reset-password`, `/find-my-car`; path không khớp render landing. Workspace đã đăng nhập **không** được route: điều hướng bằng `primaryTab`, `platformSubTab`, `tenantNavTab` và các state khác, URL bị bỏ qua khi đã xác thực, nên Back/Forward và reload không phục hồi đầy đủ màn/tab hiện tại.
 
-Khi khởi tạo, chỉ ba pathname đặc biệt được ánh xạ:
+`/download` liệt kê bản build mới nhất (edge Windows, Android) từ `GET /api/v1/updates/latest` và tải qua `GET /api/v1/updates/download/{channel}`.
+
+Ba route đọc query từ router location:
 
 - `/activate?token=...`: form đặt mật khẩu kích hoạt lời mời.
 - `/reset-password?token=...`: đặt lại mật khẩu bằng token.
 - `/find-my-car?tenant=<slug>&plate=<bien-so>`: tra vị trí xe; `tenant` bắt buộc, `plate` tùy chọn để auto-search, tối thiểu 4 ký tự sau trim.
 
-Các pathname khác khởi tạo landing, không mặc định `/login` hay `/register` là route riêng. Màn public được render khi chưa đăng nhập hoặc qua chế độ preview landing của admin.
+Các pathname không khớp render landing. Màn public được render khi chưa đăng nhập hoặc qua chế độ preview landing của admin.
 
 Landing có nội dung marketing, simulator và bảng giá. Login có credentials, MFA challenge, backup code, quên mật khẩu; thử phục hồi MFA pending qua `/auth/mfa/session`. Register kiểm tra slug có debounce 350 ms, chọn gói rồi `POST /register`, sau đó đăng nhập. Các trường có trên form không nhất thiết được gửi: payload đăng ký được thể hiện trực tiếp trong `RegisterPage.tsx`.
 
@@ -253,7 +255,7 @@ npm run preview   # xem thử dist, không phải production gateway
 npm run clean     # rm -rf dist server.js, cần shell hỗ trợ rm
 ```
 
-Chỉ mobile có `npm test` → `vitest run`; frontend không có script test hay test file trong source đã quét. Hai app cùng cổng mặc định, nên chạy mobile với `npm run dev -- --port 3001` nếu dashboard dùng 3000. Vite có thể tự tăng cổng khi cổng bận; đọc log thay vì mặc định URL luôn đúng.
+Mobile có `npm test` → `vitest run`; frontend cũng có `npm test` (vitest). Baseline đã biết: `src/lib/__tests__/theme.test.ts` hiện fail 6 test trên Windows (`The URL must be of scheme file`). Hai app cùng cổng mặc định, nên chạy mobile với `npm run dev -- --port 3001` nếu dashboard dùng 3000. Vite có thể tự tăng cổng khi cổng bận; đọc log thay vì mặc định URL luôn đúng.
 
 ### Kết quả xác minh của đợt tài liệu này
 

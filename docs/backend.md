@@ -141,6 +141,9 @@ Nguồn: `backend/app/api/v1/public.py`.
 - `GET /api/v1/public/tenants/{slug}/parking/map`: map/occupancy, không trả danh sách biển số.
 - `GET /api/v1/public/tenants/{slug}/parking/locate?plate=...`: tra exact normalized plate, input sau trim tối thiểu 4 ký tự; trả con trỏ tầng/zone và thời gian, không trả hồ sơ chủ xe.
 - `POST /api/v1/public/payments/momo/ipn`: callback máy-chủ MoMo, kiểm chứng chữ ký trong payment service.
+- `GET /api/v1/updates/latest`: bản phát hành mới nhất đã publish của mỗi kênh (chỉ kênh có bản publish), dạng `{"releases":[{channel, version, versionCode, notes, sizeBytes, sha256, publishedAt}]}`; không trả URL tải hay signature. `Cache-Control: public, max-age=60`; giới hạn bucket `release-public` 60 request/60 giây. Trang `/download` của frontend dùng endpoint này.
+- `GET /api/v1/updates/download/{channel}`: `channel` phải là `edge-windows-x86_64` hoặc `android`, ngược lại 404; 404 nếu kênh chưa có bản publish; thành công trả 302 tới presigned URL mới tạo, `Cache-Control: no-store`. Cùng bucket `release-public`.
+- Kênh cập nhật tự host (nguồn `backend/app/api/v1/updates.py`): `GET /api/v1/updates/edge/{target}/{arch}/{current_version}` (contract dynamic-server của Tauri updater, 204 khi không có bản mới) và `GET /api/v1/updates/android?versionCode=N`; cả hai dùng bucket `update-check` 60/60 giây.
 
 Discovery site chỉ công bố site active của tenant active và `public_profile.listed != false`; mặc định listed là true. Hai endpoint map/locate theo tenant slug chỉ kiểm tra tenant active theo nhánh code riêng, không lấy `listed` làm điều kiện giống site discovery. Các API public có giới hạn request theo route, không phải tất cả cùng một ngưỡng.
 
@@ -196,6 +199,7 @@ Prefix **`/api/v1/platform`**, nguồn `backend/app/api/v1/platform.py`:
 - Quan sát: `GET /infra/health`, `/metrics/overview`, `/metrics/throughput-chart`, `/monitoring/telemetry-snapshot`.
 - Device: `POST /edge-devices/{device_id}/reboot`.
 - Credential: `GET/POST /credentials`, `POST /credentials/{cred_id}/rotate`, `/revoke`; plaintext key chỉ trả lúc phát hành/rotate, không đưa vào log.
+- Release: prefix `/api/v1/platform/releases` (`backend/app/api/v1/updates.py`, vai trò super admin/ops): `GET` liệt kê (lọc `channel`), `POST` upload bản build (chưa publish), `PATCH /{release_id}` publish/unpublish, sửa notes hoặc `minSupportedVersion`. Bản mới chỉ được trang `/download` hiển thị sau khi publish.
 
 ### 4.6 Edge và WebSocket
 

@@ -94,8 +94,11 @@ need realtime in dev.
 ```sh
 cd frontend && npm run lint   # tsc --noEmit, no ESLint config
 cd frontend && npm run build
+cd frontend && npm test   # vitest
 ```
-No `npm test` script for the dashboard currently.
+Known baseline: `src/lib/__tests__/theme.test.ts` fails 6 tests on Windows ("The URL must be of scheme file", from `new URL(..., import.meta.url)` under jsdom); pre-existing and unrelated.
+
+**Public site routes** (react-router, `frontend/`): `/`, `/download`, `/privacy`, `/terms`, `/sla`, `/login`, `/register`, `/activate`, `/reset-password`, `/find-my-car`; an unknown path renders the landing. The authenticated workspace is not routed (the URL is ignored while authenticated). `activate`, `reset-password` and `find-my-car` read `token`, `tenant` and `plate` from the router location.
 
 **Backend:**
 ```sh
