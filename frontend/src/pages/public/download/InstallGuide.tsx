@@ -27,9 +27,13 @@ export const InstallGuide: React.FC = () => {
         <pre className="mt-1 overflow-x-auto rounded bg-background p-3 font-mono text-xs">
           Get-FileHash -Algorithm SHA256 &lt;file&gt;
         </pre>
-        <div className="mt-3 text-sm">{t('Linux / macOS')}</div>
+        <div className="mt-3 text-sm">{t('Linux')}</div>
         <pre className="mt-1 overflow-x-auto rounded bg-background p-3 font-mono text-xs">
           sha256sum &lt;file&gt;
+        </pre>
+        <div className="mt-3 text-sm">{t('macOS')}</div>
+        <pre className="mt-1 overflow-x-auto rounded bg-background p-3 font-mono text-xs">
+          shasum -a 256 &lt;file&gt;
         </pre>
       </section>
     </div>

@@ -26,5 +26,6 @@
   "Verify your download": "Xác minh tệp đã tải",
   "Compare the SHA-256 printed by these commands with the value on the card.": "So sánh SHA-256 do các lệnh này in ra với giá trị trên thẻ.",
   "Windows": "Windows",
-  "Linux / macOS": "Linux / macOS"
+  "Linux": "Linux",
+  "macOS": "macOS"
 }

@@ -98,7 +98,7 @@ cd frontend && npm test   # vitest
 ```
 Known baseline: `src/lib/__tests__/theme.test.ts` fails 6 tests on Windows ("The URL must be of scheme file", from `new URL(..., import.meta.url)` under jsdom); pre-existing and unrelated.
 
-**Public site routes** (react-router, `frontend/`): `/`, `/download`, `/privacy`, `/terms`, `/sla`, `/login`, `/register`, `/activate`, `/reset-password`, `/find-my-car`; an unknown path renders the landing. The authenticated workspace is not routed (the URL is ignored while authenticated). `activate`, `reset-password` and `find-my-car` read `token`, `tenant` and `plate` from the router location.
+**Public site routes** (react-router, `frontend/`): `/`, `/download`, `/privacy`, `/terms`, `/sla`, `/login`, `/register`, `/activate`, `/reset-password`, `/find-my-car`; an unknown path renders the landing. The authenticated workspace is not routed: after sign-in the URL is replaced with `/` (`navigate('/', { replace: true })`) and the workspace renders there, except during a platform admin's landing preview, where the public routes stay navigable. `activate`, `reset-password` and `find-my-car` read `token`, `tenant` and `plate` from the router location.
 
 **Backend:**
 ```sh

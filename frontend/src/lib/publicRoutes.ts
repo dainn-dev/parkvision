@@ -31,3 +31,15 @@ export function viewFromPath(pathname: string): PublicViewType {
   const normalized = pathname.toLowerCase().replace(/\/+$/, '') || '/';
   return VIEW_BY_PATH.get(normalized) ?? 'landing';
 }
+
+/**
+ * Signed-in users leave any public path for the workspace root, except an admin
+ * previewing the public site, who must be able to navigate it freely.
+ */
+export function shouldResetToLanding(args: {
+  isAuthenticated: boolean;
+  isPreviewing: boolean;
+  pathname: string;
+}): boolean {
+  return args.isAuthenticated && !args.isPreviewing && args.pathname !== PUBLIC_ROUTES.landing;
+}

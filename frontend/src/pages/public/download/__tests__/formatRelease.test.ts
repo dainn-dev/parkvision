@@ -18,4 +18,8 @@ describe('formatDate', () => {
   test('formats an ISO date in UTC for the locale', () => {
     expect(formatDate('2026-11-10T08:00:00Z', 'en')).toBe('Nov 10, 2026');
   });
+  test('returns the raw input for an invalid date string', () => {
+    expect(formatDate('not-a-date', 'en')).toBe('not-a-date');
+    expect(formatDate('', 'en')).toBe('');
+  });
 });

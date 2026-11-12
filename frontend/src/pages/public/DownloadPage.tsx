@@ -12,7 +12,7 @@ export const DownloadPage: React.FC = () => {
   const { releases, isLoading, hasError, retry } = useLatestReleases();
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-16">
+    <div className="mx-auto w-full max-w-5xl px-4 py-16">
       <h1 className="text-3xl font-semibold">{t('Download ParkVision')}</h1>
       <p className="mt-2 text-muted-foreground">
         {t('Get the gatehouse Edge Client for Windows and the driver app for Android.')}
@@ -50,6 +50,6 @@ export const DownloadPage: React.FC = () => {
       <div className="mt-10">
         <InstallGuide />
       </div>
-    </main>
+    </div>
   );
 };

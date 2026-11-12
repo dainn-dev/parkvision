@@ -10,7 +10,7 @@ import { MfaFlowModal } from './components/modals/MfaFlowModal';
 
 // Public & Marketing Pages
 import { PublicNavbar } from './components/layout/PublicNavbar';
-import { PUBLIC_ROUTES, viewFromPath, type PublicViewType } from './lib/publicRoutes';
+import { PUBLIC_ROUTES, shouldResetToLanding, viewFromPath, type PublicViewType } from './lib/publicRoutes';
 import { DownloadPage } from './pages/public/DownloadPage';
 import { PublicFooter } from './components/layout/PublicFooter';
 import { LandingPage } from './pages/public/LandingPage';
@@ -88,10 +88,10 @@ const PlatformAppContent: React.FC = () => {
 
   // Once signed in, leave any public path (e.g. /login). Guarded on pathname so it cannot loop.
   useEffect(() => {
-    if (isAuthenticated && location.pathname !== PUBLIC_ROUTES.landing) {
+    if (shouldResetToLanding({ isAuthenticated, isPreviewing: isPreviewingLandingAsAuth, pathname: location.pathname })) {
       navigate(PUBLIC_ROUTES.landing, { replace: true });
     }
-  }, [isAuthenticated, location.pathname, navigate]);
+  }, [isAuthenticated, isPreviewingLandingAsAuth, location.pathname, navigate]);
 
   // Helper to render public pages
   const renderPublicContent = (isAuthPreview: boolean = false) => {
