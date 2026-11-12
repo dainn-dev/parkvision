@@ -968,6 +968,32 @@ class PlatformSetting(Base):
     )
 
 
+class AppRelease(Base):
+    """A client build served by the backend's update channel (edge app / driver APK)."""
+
+    __tablename__ = "app_releases"
+    __table_args__ = (UniqueConstraint("channel", "version", name="uq_app_releases_channel_version"),)
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    channel: Mapped[str] = mapped_column(String(40), nullable=False)
+    version: Mapped[str] = mapped_column(String(40), nullable=False)
+    version_code: Mapped[int | None] = mapped_column(Integer)
+    notes: Mapped[str | None] = mapped_column(Text)
+    object_key: Mapped[str] = mapped_column(String(400), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    signature: Mapped[str | None] = mapped_column(Text)
+    min_supported_version: Mapped[str | None] = mapped_column(String(40))
+    is_published: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platform_admins.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class ApiCredential(TimestampMixin, Base):
     """Platform API keys; the plaintext secret is only shown once at create/rotate."""
 

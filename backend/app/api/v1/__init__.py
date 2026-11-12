@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.deps import csrf_protect
-from app.api.v1 import auth, edge, platform, public, ws
+from app.api.v1 import auth, edge, platform, public, updates, ws
 from app.api.v1.driver import auth as driver_auth
 from app.api.v1.driver import favorites as driver_favorites
 from app.api.v1.driver import memberships as driver_memberships
@@ -11,7 +11,19 @@ from app.api.v1.driver import payments as driver_payments
 from app.api.v1.driver import sessions as driver_sessions
 from app.api.v1.driver import shares as driver_shares
 from app.api.v1.driver import vehicles as driver_vehicles
-from app.api.v1.tenant import audit, cameras, events, gates, memberships, parking, payments, rules, sites, users, vehicles
+from app.api.v1.tenant import (
+    audit,
+    cameras,
+    events,
+    gates,
+    memberships,
+    parking,
+    payments,
+    rules,
+    sites,
+    users,
+    vehicles,
+)
 
 api_v1 = APIRouter()
 api_v1.include_router(public.router)
@@ -30,6 +42,8 @@ api_v1.include_router(driver_favorites.router, dependencies=_driver_csrf)
 api_v1.include_router(driver_memberships.router, dependencies=_driver_csrf)
 api_v1.include_router(driver_payments.router, dependencies=_driver_csrf)
 api_v1.include_router(platform.router)
+api_v1.include_router(updates.public_router)
+api_v1.include_router(updates.admin_router)
 api_v1.include_router(edge.router)
 api_v1.include_router(edge.camera_router)
 api_v1.include_router(sites.router)

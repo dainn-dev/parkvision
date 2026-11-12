@@ -15,14 +15,16 @@ import {
   PhoneCall,
   ExternalLink,
   ChevronRight,
-  Sliders
+  Download
 } from 'lucide-react';
+import { Link, NavLink } from 'react-router';
 import { usePlatform } from '../../context/PlatformContext';
 import { useTranslation } from 'react-i18next';
-import { Button, Badge } from '../ui';
+import { Button } from '../ui';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
 
-export type PublicViewType = 'landing' | 'login' | 'register' | 'privacy' | 'terms' | 'sla' | 'activate' | 'reset-password' | 'find-car';
+import type { PublicViewType } from '../../lib/publicRoutes';
+export type { PublicViewType } from '../../lib/publicRoutes';
 
 interface PublicNavbarProps {
   currentView: PublicViewType;
@@ -55,27 +57,20 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
     <header className="sticky top-0 z-50 w-full border-b border-[#30363d] bg-[#0d0e12]/90 backdrop-blur-md transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Brand Logo */}
-        <div
-          onClick={() => onNavigate('landing')}
-          className="flex items-center gap-3 cursor-pointer group select-none"
+        <Link
+          to="/"
+          className="flex items-center gap-3 group select-none rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#58a6ff] to-[#1f6feb] flex items-center justify-center text-slate-950 font-black shadow-lg shadow-[#58a6ff]/20 group-hover:scale-105 transition-transform">
             <Car className="w-5 h-5 text-slate-950" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-base font-extrabold text-white tracking-tight font-mono">
-                ANPR<span className="text-[#58a6ff]">.CLOUD</span>
-              </span>
-              <Badge variant="blue" size="sm" className="hidden sm:inline-flex text-[10px] font-mono">
-                SaaS v4.8
-              </Badge>
-            </div>
+            <span className="block text-base font-extrabold text-white tracking-tight">ParkVision</span>
             <p className="text-[10px] text-[#8b949e] font-medium hidden sm:block">
               {t('Smart Access Control & Barriers')}
             </p>
           </div>
-        </div>
+        </Link>
 
         {/* Desktop Nav Links */}
         <nav className="hidden lg:flex items-center gap-1 xl:gap-2 text-xs font-medium text-[#8b949e]">
@@ -116,6 +111,17 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
           >
             {t('FAQ')}
           </button>
+          <NavLink
+            to="/download"
+            className={({ isActive }) =>
+              `px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
+                isActive ? 'bg-primary/10 text-primary' : 'hover:text-white hover:bg-white/10'
+              }`
+            }
+          >
+            <Download className="w-3.5 h-3.5" />
+            {t('Download')}
+          </NavLink>
         </nav>
 
         {/* Right Actions */}
@@ -248,6 +254,20 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               <span>{t('FAQ')}</span>
               <ChevronRight className="w-4 h-4 text-[#8b949e]" />
             </button>
+            <NavLink
+              to="/download"
+              onClick={() => setMobileMenuOpen(false)}
+              className={({ isActive }) =>
+                `w-full px-3 py-2 rounded-lg flex items-center justify-between hover:bg-white/10 hover:text-white ${
+                  isActive ? 'text-primary' : ''
+                }`
+              }
+            >
+              <span className="flex items-center gap-2">
+                <Download className="w-4 h-4" /> {t('Download')}
+              </span>
+              <ChevronRight className="w-4 h-4 text-white/60" />
+            </NavLink>
           </div>
 
           <div className="pt-2 border-t border-[#30363d] flex items-center justify-between text-xs text-[#8b949e]">

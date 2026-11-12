@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter, useLocation, useNavigate } from 'react-router';
 import { AnimatePresence, motion } from 'motion/react';
 import { PlatformProvider, usePlatform } from './context/PlatformContext';
 import { PlatformSidebar } from './components/layout/PlatformSidebar';
@@ -8,7 +9,9 @@ import { CreateTenantModal } from './pages/tenants/CreateTenantModal';
 import { MfaFlowModal } from './components/modals/MfaFlowModal';
 
 // Public & Marketing Pages
-import { PublicNavbar, PublicViewType } from './components/layout/PublicNavbar';
+import { PublicNavbar } from './components/layout/PublicNavbar';
+import { PUBLIC_ROUTES, shouldResetToLanding, viewFromPath, type PublicViewType } from './lib/publicRoutes';
+import { DownloadPage } from './pages/public/DownloadPage';
 import { PublicFooter } from './components/layout/PublicFooter';
 import { LandingPage } from './pages/public/LandingPage';
 import { PrivacyPolicyPage } from './pages/public/PrivacyPolicyPage';
@@ -68,25 +71,27 @@ const PlatformAppContent: React.FC = () => {
   const { t } = useTranslation('layout');
   const { t: tMonitoring } = useTranslation('monitoring');
 
-  // Public site view state: 'landing' | 'terms' | 'privacy' | 'sla' | 'login' | 'register' | 'activate' | 'find-car'
-  const [publicView, setPublicView] = useState<PublicViewType>(() => {
-    const p = window.location.pathname.replace(/\/$/, '');
-    if (p === '/activate') return 'activate';
-    if (p === '/reset-password') return 'reset-password';
-    if (p === '/find-my-car') return 'find-car';
-    return 'landing';
-  });
-  const [inviteToken] = useState<string>(() => new URLSearchParams(window.location.search).get('token') ?? '');
-  const [findCarParams] = useState(() => {
-    const q = new URLSearchParams(window.location.search);
-    return { tenant: q.get('tenant') ?? '', plate: q.get('plate') ?? '' };
-  });
+  // Public site view is derived from the URL; pages keep the onNavigate(view) contract.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const publicView = viewFromPath(location.pathname);
+  const onNavigate = (view: PublicViewType) => navigate(PUBLIC_ROUTES[view]);
+  const searchParams = new URLSearchParams(location.search);
+  const inviteToken = searchParams.get('token') ?? '';
+  const findCarParams = { tenant: searchParams.get('tenant') ?? '', plate: searchParams.get('plate') ?? '' };
   const [selectedPricingPlan, setSelectedPricingPlan] = useState<string>('business');
 
   // Allow authenticated users to preview the public landing page if desired
   const [isPreviewingLandingAsAuth, setIsPreviewingLandingAsAuth] = useState(false);
 
   const [isCreateTenantModalOpen, setIsCreateTenantModalOpen] = useState(false);
+
+  // Once signed in, leave any public path (e.g. /login). Guarded on pathname so it cannot loop.
+  useEffect(() => {
+    if (shouldResetToLanding({ isAuthenticated, isPreviewing: isPreviewingLandingAsAuth, pathname: location.pathname })) {
+      navigate(PUBLIC_ROUTES.landing, { replace: true });
+    }
+  }, [isAuthenticated, isPreviewingLandingAsAuth, location.pathname, navigate]);
 
   // Helper to render public pages
   const renderPublicContent = (isAuthPreview: boolean = false) => {
@@ -113,7 +118,7 @@ const PlatformAppContent: React.FC = () => {
         {publicView !== 'login' && publicView !== 'register' && publicView !== 'activate' && publicView !== 'reset-password' && (
           <PublicNavbar
             currentView={publicView}
-            onNavigate={setPublicView}
+            onNavigate={onNavigate}
             onScrollToSection={(sectionId) => {
               document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }}
@@ -133,33 +138,35 @@ const PlatformAppContent: React.FC = () => {
             >
               {publicView === 'landing' && (
                 <LandingPage
-                  onNavigate={setPublicView}
+                  onNavigate={onNavigate}
                   onSelectPlan={(plan) => setSelectedPricingPlan(plan)}
                 />
               )}
 
+              {publicView === 'download' && <DownloadPage />}
+
               {publicView === 'privacy' && (
-                <PrivacyPolicyPage onNavigate={setPublicView} />
+                <PrivacyPolicyPage onNavigate={onNavigate} />
               )}
 
               {publicView === 'terms' && (
-                <TermsOfServicePage onNavigate={setPublicView} />
+                <TermsOfServicePage onNavigate={onNavigate} />
               )}
 
               {publicView === 'sla' && (
-                <SlaPolicyPage onNavigate={setPublicView} />
+                <SlaPolicyPage onNavigate={onNavigate} />
               )}
 
               {publicView === 'login' && (
-                <LoginPage onNavigate={setPublicView} />
+                <LoginPage onNavigate={onNavigate} />
               )}
 
               {publicView === 'activate' && (
-                <ActivatePage onNavigate={setPublicView} token={inviteToken} />
+                <ActivatePage onNavigate={onNavigate} token={inviteToken} />
               )}
 
               {publicView === 'reset-password' && (
-                <ResetPasswordPage onNavigate={setPublicView} token={inviteToken} />
+                <ResetPasswordPage onNavigate={onNavigate} token={inviteToken} />
               )}
 
               {publicView === 'find-car' && (
@@ -169,7 +176,7 @@ const PlatformAppContent: React.FC = () => {
               {publicView === 'register' && (
                 <RegisterPage
                   initialPlan={selectedPricingPlan}
-                  onNavigate={setPublicView}
+                  onNavigate={onNavigate}
                   onRegistrationSuccess={() => {
                     setIsPreviewingLandingAsAuth(false);
                   }}
@@ -182,7 +189,7 @@ const PlatformAppContent: React.FC = () => {
         {/* Public Footer (only on content pages) */}
         {publicView !== 'login' && publicView !== 'register' && publicView !== 'activate' && publicView !== 'reset-password' && (
           <PublicFooter
-            onNavigate={setPublicView}
+            onNavigate={onNavigate}
             onScrollToSection={(sectionId) => {
               document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }}
@@ -216,7 +223,7 @@ const PlatformAppContent: React.FC = () => {
         <PlatformHeader
           onOpenQuickActionModal={() => setIsCreateTenantModalOpen(true)}
           onViewLandingPage={() => {
-            setPublicView('landing');
+            navigate(PUBLIC_ROUTES.landing);
             setIsPreviewingLandingAsAuth(true);
           }}
         />
@@ -344,8 +351,10 @@ const PlatformAppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <PlatformProvider>
-      <PlatformAppContent />
-    </PlatformProvider>
+    <BrowserRouter>
+      <PlatformProvider>
+        <PlatformAppContent />
+      </PlatformProvider>
+    </BrowserRouter>
   );
 }

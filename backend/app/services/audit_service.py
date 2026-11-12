@@ -16,6 +16,7 @@ _CATEGORY_PREFIXES: tuple[tuple[str, str], ...] = (
     ("platform.admin", "PLATFORM_ADMIN"),
     ("platform.setting", "CONFIGURATION"),
     ("platform.flag", "CONFIGURATION"),
+    ("platform.release", "CONFIGURATION"),
     ("tenant.settings", "CONFIGURATION"),
     ("incident.", "MONITORING"),
     ("device.", "MONITORING"),

@@ -1394,3 +1394,56 @@ class TenantPaymentOut(CamelModel):
     paid_at: datetime | None
     refunded_at: datetime | None
     created_at: datetime
+
+
+# ---------- app releases (self-hosted update channel) ----------
+
+
+class AppReleaseOut(CamelModel):
+    id: uuid.UUID
+    channel: str
+    version: str
+    version_code: int | None
+    notes: str | None
+    size_bytes: int
+    sha256: str
+    has_signature: bool
+    min_supported_version: str | None
+    is_published: bool
+    created_at: datetime
+    published_at: datetime | None
+
+
+class AppReleasePatchIn(CamelModel):
+    is_published: bool | None = None
+    notes: str | None = Field(default=None, max_length=4000)
+    min_supported_version: str | None = Field(default=None, max_length=40)
+
+
+class AndroidUpdateOut(CamelModel):
+    """What the driver APK needs to decide on and perform an update."""
+
+    update_available: bool
+    required: bool
+    latest_version: str | None = None
+    latest_version_code: int | None = None
+    notes: str | None = None
+    download_url: str | None = None
+    sha256: str | None = None
+    size_bytes: int | None = None
+
+
+class LatestReleaseOut(CamelModel):
+    """Public description of the newest published build of one channel."""
+
+    channel: str
+    version: str
+    version_code: int | None
+    notes: str | None
+    size_bytes: int
+    sha256: str
+    published_at: datetime
+
+
+class LatestReleasesOut(CamelModel):
+    releases: list[LatestReleaseOut]
