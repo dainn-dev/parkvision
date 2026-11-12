@@ -301,7 +301,20 @@ export const authApi = {
 };
 
 // ---------- Public ----------
+export type ReleaseChannel = 'edge-windows-x86_64' | 'android';
+export interface LatestReleaseOut {
+  channel: ReleaseChannel;
+  version: string;
+  versionCode: number | null;
+  notes: string | null;
+  sizeBytes: number;
+  sha256: string;
+  publishedAt: string;
+}
+
 export const publicApi = {
+  latestReleases: () =>
+    api.get<{ releases: LatestReleaseOut[] }>('/updates/latest').then((r) => r.releases),
   plans: () => api.get<Page<PlanOut>>('/plans').then((r) => r.data),
   legal: (doc: 'terms' | 'privacy' | 'dpa' | 'sla') => api.get<LegalDocOut>(`/legal/${doc}`),
   checkCode: (slug: string) => api.get<S['CheckCodeOut']>(`/tenants/check-code${qs({ slug })}`),
