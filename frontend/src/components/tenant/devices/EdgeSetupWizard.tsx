@@ -95,8 +95,25 @@ export const EdgeSetupWizard: React.FC<EdgeSetupWizardProps> = ({ isOpen, onClos
       )}
     >
       <div className="space-y-5 p-6">
-        <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
-          {[1, 2].map((number) => <span key={number} className={`rounded-full px-2.5 py-1 ${step === number ? 'bg-primary text-primary-foreground' : 'bg-background'}`}>{number}</span>)}
+        <div className="grid grid-cols-2 gap-2" aria-label={t('Setup progress')}>
+          {[
+            { number: 1, title: t('Device and gates'), description: t('Name the Edge PC and its gates') },
+            { number: 2, title: t('Activation'), description: t('Enter the code on the Edge PC') },
+          ].map(({ number, title, description }) => {
+            const isComplete = step === 2 && number === 1;
+            const isCurrent = step === number;
+            return (
+              <div key={number} className={`rounded-lg border px-3 py-2 ${isCurrent ? 'border-primary bg-primary/10' : isComplete ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-border bg-background'}`}>
+                <div className="flex items-center gap-2 text-xs font-semibold">
+                  <span className={`flex size-5 items-center justify-center rounded-full text-[10px] ${isCurrent ? 'bg-primary text-primary-foreground' : isComplete ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'}`}>
+                    {isComplete ? <Check className="size-3" /> : number}
+                  </span>
+                  <span>{title}</span>
+                </div>
+                <p className="mt-1 pl-7 text-[10px] text-muted-foreground">{description}</p>
+              </div>
+            );
+          })}
         </div>
         {error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">{error}</div>}
         {step === 1 && (
