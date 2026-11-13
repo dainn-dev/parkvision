@@ -360,7 +360,8 @@ interface PlatformContextType {
   setupTenantEdge: (data: {
     siteId?: string;
     deviceName: string;
-    gateName: string;
+    gates: { name: string; direction: string; gateType?: string }[];
+    gateName?: string;
     gateDirection?: string;
     gateType?: string;
     allowedIp?: string;
@@ -2245,7 +2246,8 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   const setupTenantEdge = async (data: {
     siteId?: string;
     deviceName: string;
-    gateName: string;
+    gates: { name: string; direction: string; gateType?: string }[];
+    gateName?: string;
     gateDirection?: string;
     gateType?: string;
     allowedIp?: string;

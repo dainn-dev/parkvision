@@ -304,6 +304,7 @@ export const authApi = {
 export interface EdgeSetupOut {
   site: SiteOut;
   device: DeviceOut;
+  gates: GateOut[];
   gate: GateOut;
   activation: ActivationCodeOut & { allowedIp: string | null };
   nextSteps: string[];
@@ -469,7 +470,8 @@ export const tenantApi = {
   setupEdge: (t: string, body: {
     siteId?: string;
     deviceName: string;
-    gateName: string;
+    gates: { name: string; direction: string; gateType?: string }[];
+    gateName?: string;
     gateDirection?: string;
     gateType?: string;
     allowedIp?: string;

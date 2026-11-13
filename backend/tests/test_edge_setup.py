@@ -29,8 +29,34 @@ async def test_setup_single_site_creates_bound_gate_and_activation_code(client, 
     assert response.status_code == 201, response.text
     body = response.json()
     assert body["device"]["name"] == "Main Edge"
-    assert body["gate"]["name"] == "Main Entry"
+    assert body["gates"][0]["name"] == "Main Entry"
+    assert body["gates"][0]["edgeDeviceId"] == body["device"]["id"]
+    assert len(body["gates"]) == 1
+    assert body["gate"]["name"] == "Main Entry" # legacy response compatibility
     assert body["gate"]["edgeDeviceId"] == body["device"]["id"]
+    assert body["activation"]["code"]
+    assert body["activation"]["expiresAt"]
+    assert body["activation"]["allowedIp"] is None
+
+
+@pytest.mark.asyncio
+async def test_setup_creates_entry_and_exit_gates_with_one_activation_code(client, tenant, one_site):
+    response = await client.post(
+        f"/api/v1/tenants/{tenant['tenant_id']}/edge-setup",
+        json={"deviceName": "Main Edge", "gates": [
+            {"name": "Main Entry", "direction": "entry"},
+            {"name": "Main Exit", "direction": "exit"},
+        ]},
+        headers=csrf(client),
+    )
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert [(gate["name"], gate["laneId"]) for gate in body["gates"]] == [
+        ("Main Entry", body["gates"][0]["laneId"]),
+        ("Main Exit", body["gates"][1]["laneId"]),
+    ]
+    assert {gate["edgeDeviceId"] for gate in body["gates"]} == {body["device"]["id"]}
     assert body["activation"]["code"]
     assert body["activation"]["expiresAt"]
     assert body["activation"]["allowedIp"] is None

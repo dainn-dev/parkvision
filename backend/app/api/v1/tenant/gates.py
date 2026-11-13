@@ -171,24 +171,27 @@ async def setup_edge_client(
     )
     db.add(device)
     await db.flush()
-    lane = SiteLane(
-        tenant_id=ctx.tenant_id,
-        site_id=site.id,
-        name=body.gate_name,
-        direction=body.gate_direction,
-    )
-    db.add(lane)
-    await db.flush()
-    gate = BarrierGate(
-        tenant_id=ctx.tenant_id,
-        site_id=site.id,
-        lane_id=lane.id,
-        edge_device_id=device.id,
-        name=body.gate_name,
-        gate_type=body.gate_type,
-    )
-    db.add(gate)
-    await db.flush()
+    gates = []
+    for gate_input in body.normalized_gates:
+        lane = SiteLane(
+            tenant_id=ctx.tenant_id,
+            site_id=site.id,
+            name=gate_input.name,
+            direction=gate_input.direction,
+        )
+        db.add(lane)
+        await db.flush()
+        gate = BarrierGate(
+            tenant_id=ctx.tenant_id,
+            site_id=site.id,
+            lane_id=lane.id,
+            edge_device_id=device.id,
+            name=gate_input.name,
+            gate_type=gate_input.gate_type,
+        )
+        db.add(gate)
+        await db.flush()
+        gates.append(gate)
 
     now = datetime.now(timezone.utc)
     code = generate_activation_code()
@@ -212,13 +215,14 @@ async def setup_edge_client(
         resource_type="edge_device",
         resource_id=str(device.id),
         ip=request.client.host if request.client else None,
-        details={"gateId": str(gate.id), "siteId": str(site.id)},
+        details={"gateIds": [str(gate.id) for gate in gates], "siteId": str(site.id)},
     )
     await db.flush()
     return EdgeSetupOut(
         site=site,
         device=device,
-        gate=gate,
+        gates=gates,
+        gate=gates[0],
         activation=EdgeSetupActivationOut(
             code=code,
             code_prefix=activation.code_prefix,
