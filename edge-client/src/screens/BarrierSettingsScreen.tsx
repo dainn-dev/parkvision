@@ -70,9 +70,10 @@ interface Props {
   gate: GateBinding;
   onSaved: (cfg: EdgeConfig) => void;
   onClose: () => void;
+  embedded?: boolean;
 }
 
-export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose }: Props) {
+export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose, embedded = false }: Props) {
   const [enabled, setEnabled] = useState(gate.barrier != null);
   const [draft, setDraft] = useState<BarrierConfig>(() =>
     gate.barrier ? structuredClone(gate.barrier) : defaultBarrier(),
@@ -258,16 +259,16 @@ export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose }: P
   );
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-6">
-      <div className="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900">
-        <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-3">
+    <div className={embedded ? "w-full" : "fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-6"}>
+      <div className={embedded ? "w-full" : "flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900"}>
+        {!embedded && <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-3">
           <h2 className="font-bold">
             Cài đặt barrier — {gate.direction === "entry" ? "Cổng vào" : gate.direction === "exit" ? "Cổng ra" : gate.gateId}
           </h2>
-          <button onClick={onClose} className="rounded px-2 py-1 text-zinc-400 hover:bg-zinc-800">
+          <button type="button" aria-label="Đóng cài đặt barrier" onClick={onClose} className="min-h-11 min-w-11 rounded px-2 py-1 text-zinc-400 hover:bg-zinc-800">
             ✕
           </button>
-        </div>
+        </div>}
 
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
           {/* Mode toggle */}

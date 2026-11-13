@@ -13,10 +13,13 @@ import {
   type EdgeStatus,
   type LockStatus,
 } from "../lib/tauri";
-import GatePanel from "../components/GatePanel";
 import EventFeed from "../components/EventFeed";
+import CameraWorkspace from "../components/operator/CameraWorkspace";
+import GateStatusDock from "../components/operator/GateStatusDock";
+import QuickActions from "../components/operator/QuickActions";
 import UpdateButton from "../components/UpdateButton";
-import BarrierSettingsScreen from "./BarrierSettingsScreen";
+import SettingsModal from "../components/operator/SettingsModal";
+import { Settings } from "lucide-react";
 
 export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) {
   const [status, setStatus] = useState<EdgeStatus | null>(null);
@@ -29,6 +32,8 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
   >({});
   const [toast, setToast] = useState<string | null>(null);
   const [barrierGateId, setBarrierGateId] = useState<string | null>(null);
+  const [selectedCameraId, setSelectedCameraId] = useState<string | undefined>();
+  const [isEventsOpen, setIsEventsOpen] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
   const notify = useCallback((msg: string) => {
@@ -73,6 +78,8 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
   };
 
   const s = status;
+  const primaryGate = s?.gates[0];
+  const workspaceCameras = primaryGate ? cfg?.gates.find((gate) => gate.gateId === primaryGate.gateId)?.cameras ?? [] : [];
 
   return (
     <main className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100">
@@ -117,6 +124,7 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
             Đồng bộ lại
           </button>
           <UpdateButton notify={notify} />
+          {cfg && primaryGate && <button type="button" aria-label="Cài đặt" title="Cài đặt" onClick={() => setBarrierGateId(primaryGate.gateId)} className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-zinc-700 hover:bg-zinc-800"><Settings className="size-4" /></button>}
           {lock?.enabled && (
             <button
               onClick={() => {
@@ -132,47 +140,25 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
         </div>
       </header>
 
-      <div className="flex flex-1 gap-6 p-6">
-        {/* One panel per configured gate — entry/exit run side by side */}
-        <div className="flex flex-1 gap-6">
-          {(s?.gates ?? []).map((g) => (
-            <GatePanel
-              key={g.gateId}
-              gate={g}
-              cameras={
-                cfg?.gates.find((b) => b.gateId === g.gateId)?.cameras ?? []
-              }
-              camLive={cameras}
-              onAction={act}
-              onBarrierSettings={
-                cfg ? () => setBarrierGateId(g.gateId) : undefined
-              }
-            />
-          ))}
-          {s && s.gates.length === 0 && (
-            <div className="flex flex-1 items-center justify-center rounded-xl border border-zinc-800 text-zinc-500">
-              Thiết bị chưa được gán cổng nào.
-            </div>
-          )}
-        </div>
-
-        {/* Right column — recent scans */}
-        <aside className="flex w-[24rem] flex-col">
-          <h2 className="mb-2 text-sm font-semibold text-zinc-400">
-            Sự kiện ra/vào <span className="text-zinc-600">({events.length})</span>
-          </h2>
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-            <EventFeed events={events} gates={s?.gates ?? []} />
-          </div>
-        </aside>
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
+        <CameraWorkspace cameras={workspaceCameras} camLive={cameras} selectedCameraId={selectedCameraId} onSelectCamera={setSelectedCameraId} />
+        <GateStatusDock gates={s?.gates ?? []} />
+        {primaryGate && <QuickActions gate={primaryGate} onAction={act} />}
+        <button type="button" aria-label="Mở sự kiện ra vào" onClick={() => setIsEventsOpen(true)} className="min-h-11 rounded-lg border border-zinc-700 px-3 text-sm hover:bg-zinc-800">Sự kiện ra/vào ({events.length})</button>
       </div>
+      {isEventsOpen && <aside className="fixed inset-y-0 right-0 z-30 flex w-96 max-w-full flex-col border-l border-zinc-800 bg-zinc-950 p-4 shadow-2xl"><div className="flex items-center justify-between"><h2 className="text-sm font-semibold text-zinc-300">Sự kiện ra/vào</h2><button type="button" aria-label="Đóng sự kiện" onClick={() => setIsEventsOpen(false)} className="min-h-11 min-w-11 rounded-lg hover:bg-zinc-800">✕</button></div><div className="min-h-0 flex-1 overflow-y-auto pr-1"><EventFeed events={events} gates={s?.gates ?? []} /></div></aside>}
 
       {cfg && barrierGateId && (
-        <BarrierSettingsScreen
+        <SettingsModal
           cfg={cfg}
           gate={cfg.gates.find((g) => g.gateId === barrierGateId)!}
+          mqttConnected={s?.mqttConnected ?? false}
+          lastSyncAt={s?.lastSyncAt ?? null}
           onSaved={setCfg}
           onClose={() => setBarrierGateId(null)}
+          onResync={() => act(() => resync().then(async (m) => { setCfg(await getConfig()); return m; }), "Đồng bộ xong")}
+          onLock={() => lockNow().then(() => onLocked?.()).catch((e) => notify(`Lỗi: ${e}`))}
+          notify={notify}
         />
       )}
 

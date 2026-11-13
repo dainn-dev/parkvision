@@ -1,0 +1,5 @@
+import type { GateStatus } from '../../lib/tauri';
+
+export default function GateStatusDock({ gates }: { gates: GateStatus[] }) {
+  return <div className="flex gap-2 overflow-x-auto border-y border-zinc-800 py-2">{gates.map((gate) => <div key={gate.gateId} className="min-w-64 flex-1 rounded-lg bg-zinc-900/60 px-3 py-2"><div className="flex items-center justify-between text-xs font-bold"><span className={gate.direction === 'entry' ? 'text-sky-400' : 'text-violet-400'}>{gate.direction === 'entry' ? 'CỔNG VÀO' : 'CỔNG RA'}</span><span>{gate.gateState}</span></div><div className="mt-1 flex items-center justify-between text-xs"><span className={gate.lastDecision === 'allow' ? 'text-emerald-400' : 'text-red-400'}>{gate.lastDecision === 'allow' ? 'MỜI XE QUA' : 'TỪ CHỐI'}</span><span className="font-mono text-zinc-200">{gate.lastPlate ?? '—'}</span></div><div className="mt-1 flex gap-3 text-[10px] text-zinc-500"><span>{gate.armAngleDeg}°</span><span>{gate.motorTempC.toFixed(0)}°</span><span>{gate.upsBattery}%</span><span>{gate.loopActive ? 'Có xe' : 'Trống'}</span></div></div>)}</div>;
+}
