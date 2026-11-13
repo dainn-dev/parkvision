@@ -31,3 +31,4 @@ release-artifacts/
 gui-test-screenshots/mobile/*.png
 gui-test-screenshots/edge-client/*.png
 gui-test-screenshots/mobile-fix-verify/*.png
+graphify-out/*

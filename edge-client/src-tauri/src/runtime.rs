@@ -27,6 +27,7 @@ use crate::commands::{CommandExecutor, InMemCommandLog};
 use crate::config::{EdgeConfig, GateBinding, GateCtx};
 use crate::fsm::{FsmEvent, GateFsm, GateState};
 use crate::hal::BarrierHal;
+use crate::heartbeat::{firmware_version, HeartbeatTracker};
 use crate::incidents::IncidentReporter;
 use crate::mqtt::{MqttClient, Publisher};
 use crate::payloads::{command_topic, incident_topic, telemetry_topic, CommandPayload};
@@ -245,6 +246,10 @@ impl EdgeRuntime {
         };
 
         // ---------- per-gate runtimes ----------
+        let heartbeat_tracker = Arc::new(Mutex::new(HeartbeatTracker::new(
+            4,
+            Duration::from_secs(30),
+        )));
         let mut gates: Vec<Arc<GateRuntime>> = Vec::new();
         let mut executors: Vec<(Uuid, Arc<CommandExecutor>)> = Vec::new();
 
@@ -371,15 +376,40 @@ impl EdgeRuntime {
         spawn(Box::pin(heartbeat_loop(
             publisher.clone(),
             Arc::new(cfg.gate_ctx(&cfg.gates[0])),
+            heartbeat_tracker.clone(),
+            firmware_version().to_string(),
             knots.heartbeat_every,
         )));
 
-        // command dispatch — one inbound channel, routed by gateId
+        // command dispatch — one inbound channel, routed by gateId.
+        // `heartbeat_ack` is routed first (device-scoped RTT bookkeeping,
+        // never a barrier command) before any `CommandPayload` parsing.
         {
             let executors = Arc::new(executors);
             let tenant = cfg.tenant_id;
+            let device_id = cfg.device_id;
+            let tracker = heartbeat_tracker.clone();
             spawn(Box::pin(async move {
                 while let Some(body) = cmd_rx.recv().await {
+                    if body.get("type").and_then(|v| v.as_str()) == Some("heartbeat_ack") {
+                        match serde_json::from_value::<crate::payloads::HeartbeatAck>(body.clone())
+                        {
+                            Ok(ack) if ack.device_id == device_id => {
+                                tracker
+                                    .lock()
+                                    .unwrap()
+                                    .acknowledge(ack.heartbeat_id, Instant::now());
+                            }
+                            Ok(_) => {
+                                warn!("heartbeat ack for unknown device dropped");
+                            }
+                            Err(e) => {
+                                warn!("malformed heartbeat ack dropped: {e}");
+                            }
+                        }
+                        continue;
+                    }
+
                     let gate_id = serde_json::from_value::<CommandPayload>(body.clone())
                         .ok()
                         .filter(|c| c.tenant_id == tenant)
@@ -808,6 +838,85 @@ mod tests {
             .unwrap()
             .iter()
             .any(|(_, b, _)| b["type"] == "command_ack"));
+        rt.stop().await;
+    }
+
+    fn heartbeat_ack_body(device: Uuid, heartbeat_id: Uuid) -> serde_json::Value {
+        json!({
+            "type": "heartbeat_ack",
+            "deviceId": device,
+            "heartbeatId": heartbeat_id,
+            "receivedAt": "2026-11-13T10:00:00Z"
+        })
+    }
+
+    #[tokio::test]
+    async fn heartbeat_ack_updates_tracker_without_invoking_command_executor() {
+        let (rt, pub_, cmd, _dir) = started().await;
+        wait_for(|| pub_.sent.lock().unwrap().iter().any(|(_, b, _)| b["type"] == "heartbeat"))
+            .await;
+        let heartbeat_id = {
+            let sent = pub_.sent.lock().unwrap();
+            let (_, body, _) = sent.iter().find(|(_, b, _)| b["type"] == "heartbeat").unwrap();
+            Uuid::parse_str(body["heartbeatId"].as_str().unwrap()).unwrap()
+        };
+        cmd.send(heartbeat_ack_body(rt.cfg.device_id, heartbeat_id))
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert!(!pub_
+            .sent
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|(_, b, _)| b["type"] == "command_ack"));
+        rt.stop().await;
+    }
+
+    #[tokio::test]
+    async fn heartbeat_ack_for_wrong_device_is_ignored() {
+        let (rt, pub_, cmd, _dir) = started().await;
+        cmd.send(heartbeat_ack_body(Uuid::new_v4(), Uuid::new_v4()))
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert!(!pub_
+            .sent
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|(_, b, _)| b["type"] == "command_ack"));
+        rt.stop().await;
+    }
+
+    #[tokio::test]
+    async fn malformed_heartbeat_ack_does_not_panic_or_route_as_barrier_command() {
+        let (rt, pub_, cmd, _dir) = started().await;
+        cmd.send(json!({"type": "heartbeat_ack", "garbage": true}))
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert!(!pub_
+            .sent
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|(_, b, _)| b["type"] == "command_ack"));
+        rt.stop().await;
+    }
+
+    #[tokio::test]
+    async fn regular_command_still_routes_and_publishes_command_ack() {
+        let (rt, pub_, cmd, _dir) = started().await;
+        cmd.send(cmd_body("open", GATE_A)).await.unwrap();
+        wait_for(|| {
+            pub_.sent
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|(_, b, _)| b["type"] == "command_ack")
+        })
+        .await;
         rt.stop().await;
     }
 

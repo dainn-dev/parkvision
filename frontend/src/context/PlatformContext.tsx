@@ -64,6 +64,11 @@ import type {
   ZoneBounds,
 } from '../services/api';
 import {
+  mergeHeartbeatIntoEdgeDeviceHealth,
+  mergeHeartbeatIntoTenantDevice,
+} from '../services/heartbeat';
+import { mapDeviceSnapshot } from '../services/deviceSnapshot';
+import {
   mapAccessEvent,
   mapApiCredential,
   mapAuditLog,
@@ -710,6 +715,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, []);
 
   const tenantNameRef = useRef('');
+  const tenantSiteNamesRef = useRef<Map<string, string>>(new Map());
   // Optional dashboard panels degrade to empty, but must say so: otherwise a
   // 403 / outage looks identical to "no data". Warn once per panel until it recovers.
   const failedPanelsRef = useRef<Set<string>>(new Set());
@@ -755,6 +761,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       const tName = tenantNameRef.current;
       const sites = sitesPage.data.map((s) => mapSite(s, tId, tName));
       const siteNames = new Map(sitesPage.data.map((s) => [s.id, s.name]));
+      tenantSiteNamesRef.current = siteNames;
       const gatesMapped = gatesPage.data.map((g) => mapGate(g, tId, tName));
       const gateNames = new Map(gatesPage.data.map((g) => [g.id, g.name]));
       const lanesNested = await Promise.all(
@@ -991,6 +998,21 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
       ws = new WebSocket(barrierTelemetryWsUrl(activeTenantId));
       ws.onopen = () => {
         retry = 0;
+        tenantApi.devices(activeTenantId, { limit: 200 })
+          .then((page) => {
+            if (closed) return;
+            const snapshot = mapDeviceSnapshot(
+              page.data,
+              page.meta.total,
+              activeTenantId,
+              tenantNameRef.current,
+              tenantSiteNamesRef.current,
+            );
+            setEdgeDevices(snapshot.edgeDevices);
+            setTenantDevices(snapshot.tenantDevices);
+            setTenantDevicesTotal(snapshot.total);
+          })
+          .catch(() => undefined);
       };
       ws.onmessage = (ev) => {
         try {
@@ -1091,8 +1113,16 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
           if (/heartbeat/i.test(kind)) {
             const deviceId: string | undefined = msg?.deviceId ?? msg?.device_id;
             if (deviceId) {
-              setEdgeDevices((prev) => prev.map((d) => (d.id === deviceId ? { ...d, status: 'ONLINE', lastHeartbeat: nowIso } : d)));
-              setTenantDevices((prev) => prev.map((d) => (d.id === deviceId ? { ...d, status: 'ONLINE', lastHeartbeatAt: nowIso } : d)));
+              setEdgeDevices((prev) => prev.map((d) => (
+                d.id === deviceId
+                  ? mergeHeartbeatIntoEdgeDeviceHealth(d, msg, nowIso)
+                  : d
+              )));
+              setTenantDevices((prev) => prev.map((d) => (
+                d.id === deviceId
+                  ? mergeHeartbeatIntoTenantDevice(d, msg, nowIso)
+                  : d
+              )));
             }
             if (gateId) {
               setLiveGateFrames((prev) => ({ ...prev, [gateId]: { ...prev[gateId], ...msg, receivedAt: Date.now() } }));

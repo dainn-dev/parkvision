@@ -82,6 +82,10 @@ pub struct HeartbeatFrame {
     pub kind: HeartbeatType,
     pub device_id: Uuid,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub heartbeat_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub firmware_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cpu_usage_pct: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ram_usage_pct: Option<f32>,
@@ -102,12 +106,30 @@ impl HeartbeatFrame {
         Self {
             kind: HeartbeatType::Heartbeat,
             device_id,
+            heartbeat_id: None,
+            firmware_version: None,
             cpu_usage_pct: None,
             ram_usage_pct: None,
             storage_usage_pct: None,
             latency_ms: None,
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeartbeatAck {
+    #[serde(rename = "type")]
+    pub kind: HeartbeatAckType,
+    pub device_id: Uuid,
+    pub heartbeat_id: Uuid,
+    pub received_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum HeartbeatAckType {
+    HeartbeatAck,
 }
 
 /// Command result — published back on the telemetry topic (spec §5.1.3).
@@ -229,6 +251,46 @@ mod tests {
         assert_eq!(v["deviceId"], "33333333-3333-3333-3333-333333333333");
         assert_eq!(v["cpuUsagePct"], 12.5);
         assert!(v.get("latency_ms").is_none());
+    }
+
+    #[test]
+    fn heartbeat_serializes_full_camel_case_contract() {
+        let device_id = Uuid::parse_str("44444444-4444-4444-4444-444444444444").unwrap();
+        let heartbeat_id = Uuid::parse_str("55555555-5555-5555-5555-555555555555").unwrap();
+        let frame = HeartbeatFrame {
+            heartbeat_id: Some(heartbeat_id),
+            firmware_version: Some("1.4.2".to_string()),
+            cpu_usage_pct: Some(49.0),
+            ram_usage_pct: Some(53.0),
+            storage_usage_pct: Some(37.0),
+            latency_ms: Some(42),
+            ..HeartbeatFrame::new(device_id)
+        };
+        let v = serde_json::to_value(&frame).unwrap();
+        assert_eq!(v["type"], "heartbeat");
+        assert_eq!(v["deviceId"], device_id.to_string());
+        assert_eq!(v["heartbeatId"], heartbeat_id.to_string());
+        assert_eq!(v["firmwareVersion"], "1.4.2");
+        assert_eq!(v["cpuUsagePct"], 49.0);
+        assert_eq!(v["ramUsagePct"], 53.0);
+        assert_eq!(v["storageUsagePct"], 37.0);
+        assert_eq!(v["latencyMs"], 42);
+    }
+
+    #[test]
+    fn heartbeat_ack_deserializes_correlation_fields() {
+        let device_id = Uuid::parse_str("44444444-4444-4444-4444-444444444444").unwrap();
+        let heartbeat_id = Uuid::parse_str("55555555-5555-5555-5555-555555555555").unwrap();
+        let body = serde_json::json!({
+            "type": "heartbeat_ack",
+            "deviceId": device_id,
+            "heartbeatId": heartbeat_id,
+            "receivedAt": "2026-11-13T10:00:00Z"
+        });
+        let ack: HeartbeatAck = serde_json::from_value(body).unwrap();
+        assert_eq!(ack.kind, HeartbeatAckType::HeartbeatAck);
+        assert_eq!(ack.device_id, device_id);
+        assert_eq!(ack.heartbeat_id, heartbeat_id);
     }
 
     #[test]

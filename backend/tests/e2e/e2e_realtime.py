@@ -207,9 +207,31 @@ async def main():
                 f"dec={ev and ev.get('decision')} reason={ev and ev.get('reason')}",
             )
 
-            # ---------- S8 heartbeat -> device online ----------
+            # ---------- S8 heartbeat -> device snapshot + ACK ----------
             before = await http.get(f"{API}/tenants/{TENANT}/devices/{DEVICE}")
-            await mq.publish(TOPIC_TEL, json.dumps({"type": "heartbeat", "deviceId": DEVICE}), qos=1)
+            heartbeat_id = str(uuid.uuid4())
+            heartbeat_payload = {
+                "type": "heartbeat",
+                "deviceId": DEVICE,
+                "heartbeatId": heartbeat_id,
+                "firmwareVersion": "e2e-1.4.2",
+                "cpuUsagePct": 42,
+                "ramUsagePct": 53,
+                "storageUsagePct": 37,
+                "latencyMs": 18,
+            }
+            await mq.publish(TOPIC_TEL, json.dumps(heartbeat_payload), qos=1)
+            ack_msg = await next_msg(inbox, 15)
+            ack = json.loads(ack_msg.payload) if ack_msg else {}
+            check(
+                "S8a heartbeat -> correlated heartbeat_ack on command topic",
+                bool(ack_msg)
+                and ack.get("type") == "heartbeat_ack"
+                and ack.get("deviceId") == DEVICE
+                and ack.get("heartbeatId") == heartbeat_id,
+                f"ack={ack if ack_msg else 'NONE'}",
+            )
+
             dev = None
             dl = time.time() + 20
             while time.time() < dl:
@@ -224,12 +246,80 @@ async def main():
                     break
                 await asyncio.sleep(1)
             check(
-                "S8 heartbeat -> device online + fresh lastHeartbeatAt",
-                bool(dev),
-                f"status={dev and dev.get('status')} hb={dev and dev.get('lastHeartbeatAt')}",
+                "S8b heartbeat -> resource snapshot persisted",
+                bool(dev)
+                and dev.get("cpuUsagePct") == 42
+                and dev.get("ramUsagePct") == 53
+                and dev.get("storageUsagePct") == 37
+                and dev.get("latencyMs") == 18
+                and dev.get("firmwareVersion") == "e2e-1.4.2",
+                f"device={dev}",
             )
 
             # ---------- S9 WS fan-out + auth ----------
+            url = f"{WSBASE}/ws/tenants/{TENANT}/barrier-telemetry?token={ACCESS}"
+            try:
+                async with websockets.connect(url) as heartbeat_ws:
+                    ws_heartbeat = {**heartbeat_payload, "heartbeatId": str(uuid.uuid4())}
+                    await mq.publish(TOPIC_TEL, json.dumps(ws_heartbeat), qos=1)
+                    try:
+                        frame = await asyncio.wait_for(heartbeat_ws.recv(), 15)
+                        fj = json.loads(frame)
+                        check(
+                            "S9a WS receives complete heartbeat resource delta",
+                            fj.get("type") == "heartbeat"
+                            and fj.get("deviceId") == DEVICE
+                            and fj.get("cpuUsagePct") == 42
+                            and fj.get("ramUsagePct") == 53
+                            and fj.get("storageUsagePct") == 37
+                            and fj.get("latencyMs") == 18
+                            and fj.get("firmwareVersion") == "e2e-1.4.2",
+                            f"frame={frame[:240]}",
+                        )
+                    except asyncio.TimeoutError:
+                        check("S9a WS receives complete heartbeat resource delta", False, "no frame in 15s")
+            except Exception as e:
+                check("S9a WS heartbeat connect+fan-out", False, f"{type(e).__name__}: {e}")
+
+            try:
+                async with websockets.connect(url) as ws:
+                    await mq.publish(
+                        TOPIC_TEL, json.dumps({"plateNumber": "WS-CHK-11", "direction": "entry"}), qos=1
+                    )
+                    try:
+                        frame = await asyncio.wait_for(ws.recv(), 15)
+                        fj = json.loads(frame)
+                        check(
+                            "S9b WS receives telemetry fan-out w/ published plate",
+                            fj.get("type") == "telemetry" and fj.get("plateNumber") == "WS-CHK-11",
+                            f"frame={frame[:160]}",
+                        )
+                    except asyncio.TimeoutError:
+                        check("S9b WS receives telemetry fan-out", False, "no frame in 15s")
+            except Exception as e:
+                check("S9b WS connect+fan-out", False, f"{type(e).__name__}: {e}")
+
+            try:
+                async with websockets.connect(
+                    f"{WSBASE}/ws/tenants/{FOREIGN_TENANT}/barrier-telemetry?token={ACCESS}"
+                ) as ws:
+                    await ws.recv()
+                check("S9c WS foreign tenant -> close 4403", False, "connection stayed open")
+            except websockets.exceptions.ConnectionClosedError as e:
+                check("S9c WS foreign tenant -> close 4403", e.code == 4403, f"code={e.code}")
+            except Exception as e:
+                check("S9c WS foreign tenant -> close 4403", False, f"{type(e).__name__}: {e}")
+
+            try:
+                async with websockets.connect(f"{WSBASE}/ws/tenants/{TENANT}/barrier-telemetry") as ws:
+                    await ws.recv()
+                check("S9d WS no token -> close 4401", False, "connection stayed open")
+            except websockets.exceptions.ConnectionClosedError as e:
+                check("S9d WS no token -> close 4401", e.code == 4401, f"code={e.code}")
+            except Exception as e:
+                check("S9d WS no token -> close 4401", False, f"{type(e).__name__}: {e}")
+
+            # ---------- S6h timeout path (unacked command -> timeout) ----------
             url = f"{WSBASE}/ws/tenants/{TENANT}/barrier-telemetry?token={ACCESS}"
             try:
                 async with websockets.connect(url) as ws:

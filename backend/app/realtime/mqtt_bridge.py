@@ -35,7 +35,7 @@ from app.models import (
     ParkingZone,
 )
 from app.redis_client import get_redis, ws_channel
-from app.services.command_service import MQTT_OUTBOX_KEY, mark_command_ack
+from app.services.command_service import MQTT_OUTBOX_KEY, command_topic, mark_command_ack
 from app.services.event_service import record_access_event
 from app.services.parking_service import (
     mark_presence_exit,
@@ -45,6 +45,107 @@ from app.services.parking_service import (
 
 log = logging.getLogger("mqtt-bridge")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+HEARTBEAT_MAX_LATENCY_MS = 86_400_000
+HEARTBEAT_FIRMWARE_MAX_LENGTH = 60
+
+
+def _bounded_metric(payload: dict, key: str, *, minimum: float, maximum: float):
+    value = payload.get(key)
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    return numeric if minimum <= numeric <= maximum else None
+
+
+def _bounded_latency(payload: dict) -> int | None:
+    value = payload.get("latencyMs")
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        numeric = int(value)
+    except (TypeError, ValueError):
+        return None
+    return numeric if 0 <= numeric <= HEARTBEAT_MAX_LATENCY_MS else None
+
+
+def _firmware_version(payload: dict) -> str | None:
+    value = payload.get("firmwareVersion")
+    if value is None:
+        return None
+    version = str(value).strip()
+    return version if version and len(version) <= HEARTBEAT_FIRMWARE_MAX_LENGTH else None
+
+
+async def enqueue_heartbeat_ack(
+    tenant_id: str, site_id: str, gate_id: str, device_id: str, heartbeat_id: str
+) -> None:
+    await get_redis().lpush(
+        MQTT_OUTBOX_KEY,
+        json.dumps(
+            {
+                "topic": command_topic(tenant_id, site_id, gate_id),
+                "payload": {
+                    "type": "heartbeat_ack",
+                    "deviceId": device_id,
+                    "heartbeatId": heartbeat_id,
+                    "receivedAt": datetime.now(timezone.utc).isoformat(),
+                },
+            }
+        ),
+    )
+
+
+async def handle_heartbeat(
+    tenant_id: str, site_id: str, gate_id: str, payload: dict, now: datetime
+) -> None:
+    device_id = _uuid_or_none(payload.get("deviceId"))
+    if device_id is None:
+        log.warning("heartbeat with invalid device id on gate %s", gate_id)
+        return
+
+    updates: dict = {"last_heartbeat_at": now, "status": "online"}
+    for key, value in (
+        ("cpu_usage_pct", _bounded_metric(payload, "cpuUsagePct", minimum=0, maximum=100)),
+        ("ram_usage_pct", _bounded_metric(payload, "ramUsagePct", minimum=0, maximum=100)),
+        ("storage_usage_pct", _bounded_metric(payload, "storageUsagePct", minimum=0, maximum=100)),
+        ("latency_ms", _bounded_latency(payload)),
+        ("firmware_version", _firmware_version(payload)),
+    ):
+        if value is not None:
+            updates[key] = value
+
+    tid = uuid.UUID(tenant_id)
+    async with platform_session() as db:
+        result = await db.execute(
+            update(EdgeDevice)
+            .where(
+                EdgeDevice.id == device_id,
+                EdgeDevice.tenant_id == tid,
+                EdgeDevice.status != "decommissioned",
+            )
+            .values(**updates)
+        )
+        if result.rowcount == 0:
+            log.warning("heartbeat ignored for unknown/decommissioned device %s", device_id)
+            return
+        db.add(
+            GateTelemetryLog(
+                tenant_id=tid,
+                gate_id=uuid.UUID(gate_id),
+                recorded_at=now,
+                payload=payload,
+            )
+        )
+
+    heartbeat_id = payload.get("heartbeatId")
+    if heartbeat_id is not None and _uuid_or_none(heartbeat_id) is not None:
+        await enqueue_heartbeat_ack(tenant_id, site_id, gate_id, str(device_id), str(heartbeat_id))
+    await publish_ws(tenant_id, {"type": "heartbeat", "siteId": site_id, "gateId": gate_id, **payload})
+
 
 TOPIC_RE = re.compile(
     r"^tenants/(?P<tenant>[^/]+)/sites/(?P<site>[^/]+)/gates/(?P<gate>[^/]+)/(?P<kind>telemetry|incident|command)$"
@@ -73,6 +174,10 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
     kind = payload.get("type", "telemetry")
     now = datetime.now(timezone.utc)
     tid, gid = uuid.UUID(tenant_id), uuid.UUID(gate_id)
+
+    if kind == "heartbeat":
+        await handle_heartbeat(tenant_id, site_id, gate_id, payload, now)
+        return
 
     if kind == "command_ack":
         command_id = payload.get("commandId")
@@ -124,24 +229,6 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
                 update(BarrierGate)
                 .where(BarrierGate.id == gid, BarrierGate.tenant_id == tid)
                 .values(**gate_updates)
-            )
-        if kind == "heartbeat" and _uuid_or_none(payload.get("deviceId")):
-            device_updates: dict = {"last_heartbeat_at": now, "status": "online"}
-            for payload_key, column in (
-                ("cpuUsagePct", "cpu_usage_pct"),
-                ("ramUsagePct", "ram_usage_pct"),
-                ("storageUsagePct", "storage_usage_pct"),
-                ("latencyMs", "latency_ms"),
-            ):
-                if payload.get(payload_key) is not None:
-                    device_updates[column] = payload[payload_key]
-            await db.execute(
-                update(EdgeDevice)
-                .where(
-                    EdgeDevice.id == _uuid_or_none(payload["deviceId"]),
-                    EdgeDevice.status != "decommissioned",
-                )
-                .values(**device_updates)
             )
         # ANPR event piggy-backed on telemetry: record an access event too.
         access_event = None

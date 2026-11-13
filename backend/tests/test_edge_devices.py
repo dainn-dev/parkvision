@@ -296,6 +296,140 @@ async def test_reactivate_returns_to_provisioning(client: AsyncClient, tenant, d
 
 
 @pytest.mark.asyncio
+async def test_heartbeat_persists_metrics_latency_firmware_and_timestamp(
+    client: AsyncClient, tenant, site, device
+):
+    from sqlalchemy import select
+
+    from app.database import platform_session
+    from app.models import EdgeDevice
+    from app.realtime import mqtt_bridge
+
+    gate = await client.post(
+        f"/api/v1/tenants/{tenant['tenant_id']}/gates",
+        json={"name": "Telemetry Gate", "siteId": site, "edgeDeviceId": device['id']},
+        headers=csrf(client),
+    )
+    assert gate.status_code == 201, gate.text
+    payload = {
+        "type": "heartbeat", "deviceId": device["id"], "heartbeatId": str(uuid.uuid4()),
+        "firmwareVersion": "1.4.2", "cpuUsagePct": 42, "ramUsagePct": 53,
+        "storageUsagePct": 37, "latencyMs": 18,
+    }
+    await mqtt_bridge.handle_telemetry(str(tenant["tenant_id"]), site, gate.json()["id"], payload)
+
+    async with platform_session() as db:
+        row = (await db.execute(select(EdgeDevice).where(EdgeDevice.id == uuid.UUID(device["id"]))))
+        row = row.scalar_one()
+    assert row.status == "online"
+    assert float(row.cpu_usage_pct) == 42
+    assert float(row.ram_usage_pct) == 53
+    assert float(row.storage_usage_pct) == 37
+    assert row.latency_ms == 18
+    assert row.firmware_version == "1.4.2"
+    assert row.last_heartbeat_at is not None
+
+
+@pytest.mark.asyncio
+async def test_legacy_heartbeat_preserves_existing_latency_and_firmware(
+    client: AsyncClient, tenant, site, device
+):
+    from sqlalchemy import select
+
+    from app.database import platform_session
+    from app.models import EdgeDevice
+    from app.realtime import mqtt_bridge
+
+    async with platform_session() as db:
+        row = (await db.execute(select(EdgeDevice).where(EdgeDevice.id == uuid.UUID(device["id"]))))
+        row = row.scalar_one()
+        row.latency_ms = 21
+        row.firmware_version = "1.0.0"
+        await db.commit()
+
+    gate = await client.post(
+        f"/api/v1/tenants/{tenant['tenant_id']}/gates",
+        json={"name": "Legacy Gate", "siteId": site, "edgeDeviceId": device['id']},
+        headers=csrf(client),
+    )
+    await mqtt_bridge.handle_telemetry(
+        str(tenant["tenant_id"]), site, gate.json()["id"],
+        {"type": "heartbeat", "deviceId": device["id"], "cpuUsagePct": 44},
+    )
+
+    async with platform_session() as db:
+        row = (await db.execute(select(EdgeDevice).where(EdgeDevice.id == uuid.UUID(device["id"]))))
+        row = row.scalar_one()
+    assert row.cpu_usage_pct == 44
+    assert row.latency_ms == 21
+    assert row.firmware_version == "1.0.0"
+
+
+@pytest.mark.asyncio
+async def test_invalid_heartbeat_metrics_are_not_persisted(client: AsyncClient, tenant, site, device):
+    from sqlalchemy import select
+
+    from app.database import platform_session
+    from app.models import EdgeDevice
+    from app.realtime import mqtt_bridge
+
+    gate = await client.post(
+        f"/api/v1/tenants/{tenant['tenant_id']}/gates",
+        json={"name": "Invalid Gate", "siteId": site, "edgeDeviceId": device['id']},
+        headers=csrf(client),
+    )
+    await mqtt_bridge.handle_telemetry(
+        str(tenant["tenant_id"]), site, gate.json()["id"],
+        {"type": "heartbeat", "deviceId": device["id"], "cpuUsagePct": -1,
+         "ramUsagePct": 101, "storageUsagePct": "not-a-number", "latencyMs": -5},
+    )
+
+    async with platform_session() as db:
+        row = (await db.execute(select(EdgeDevice).where(EdgeDevice.id == uuid.UUID(device["id"]))))
+        row = row.scalar_one()
+    assert float(row.cpu_usage_pct) == 0
+    assert float(row.ram_usage_pct) == 0
+    assert float(row.storage_usage_pct) == 0
+    assert row.latency_ms is None
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_publishes_correlated_ack_and_ws_delta(
+    client: AsyncClient, tenant, site, device, monkeypatch
+):
+    from app.realtime import mqtt_bridge
+
+    published = []
+
+    async def capture_ws(*args):
+        published.append(args)
+
+    monkeypatch.setattr(mqtt_bridge, "publish_ws", capture_ws)
+    queued = []
+
+    async def capture_ack(*args):
+        queued.append(args)
+
+    monkeypatch.setattr(mqtt_bridge, "enqueue_heartbeat_ack", capture_ack)
+    gate = await client.post(
+        f"/api/v1/tenants/{tenant['tenant_id']}/gates",
+        json={"name": "ACK Gate", "siteId": site, "edgeDeviceId": device['id']},
+        headers=csrf(client),
+    )
+    heartbeat_id = str(uuid.uuid4())
+    await mqtt_bridge.handle_telemetry(
+        str(tenant["tenant_id"]), site, gate.json()["id"],
+        {"type": "heartbeat", "deviceId": device["id"], "heartbeatId": heartbeat_id,
+         "cpuUsagePct": 42, "ramUsagePct": 53, "storageUsagePct": 37, "latencyMs": 18},
+    )
+
+    assert queued == [(str(tenant["tenant_id"]), site, gate.json()["id"], device["id"], heartbeat_id)]
+    assert published[0][1]["type"] == "heartbeat"
+    assert published[0][1]["cpuUsagePct"] == 42
+    assert published[0][1]["latencyMs"] == 18
+
+
+@pytest.mark.asyncio
 async def test_heartbeat_does_not_resurrect_decommissioned(client: AsyncClient, tenant, site, device):
     tid, did = tenant["tenant_id"], device["id"]
     gate = await client.post(

@@ -3,13 +3,14 @@
 //! tested directly; `*_loop` are the tokio tasks the orchestrator spawns.
 
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tracing::warn;
 
 use crate::config::GateCtx;
 use crate::fsm::{GateFsm, GateState};
 use crate::hal::{BarrierHal, HalSensors};
+use crate::heartbeat::HeartbeatTracker;
 use crate::mqtt::Publisher;
 use crate::payloads::{telemetry_topic, HeartbeatFrame, TelemetryFrame};
 
@@ -99,15 +100,24 @@ impl SystemMetrics {
     }
 }
 
-pub fn build_heartbeat(cfg: &GateCtx, sys: &SystemMetrics) -> HeartbeatFrame {
-    let (cpu, ram, storage, latency) = sys.sample();
-    HeartbeatFrame {
+pub fn build_heartbeat(
+    cfg: &GateCtx,
+    sys: &SystemMetrics,
+    tracker: &HeartbeatTracker,
+    firmware_version: &str,
+) -> (HeartbeatFrame, uuid::Uuid) {
+    let (cpu, ram, storage, _) = sys.sample();
+    let heartbeat_id = uuid::Uuid::new_v4();
+    let frame = HeartbeatFrame {
+        heartbeat_id: Some(heartbeat_id),
+        firmware_version: Some(firmware_version.to_string()),
         cpu_usage_pct: Some(cpu),
         ram_usage_pct: Some(ram),
         storage_usage_pct: Some(storage),
-        latency_ms: latency,
+        latency_ms: tracker.latest_latency_ms(),
         ..HeartbeatFrame::new(cfg.device_id)
-    }
+    };
+    (frame, heartbeat_id)
 }
 
 /// 1s gate status. Skips publishing while the broker link is down — the
@@ -142,7 +152,13 @@ pub async fn telemetry_loop(
 
 /// 5s device liveness. Also skipped while disconnected (nothing to send
 /// through anyway — but the UI reads `is_connected` for status).
-pub async fn heartbeat_loop(publisher: Arc<dyn Publisher>, cfg: Arc<GateCtx>, every: Duration) {
+pub async fn heartbeat_loop(
+    publisher: Arc<dyn Publisher>,
+    cfg: Arc<GateCtx>,
+    tracker: Arc<Mutex<HeartbeatTracker>>,
+    firmware_version: String,
+    every: Duration,
+) {
     let topic = telemetry_topic(&cfg.tenant_id, &cfg.site_id, &cfg.gate_id);
     let sys = SystemMetrics::new();
     let mut interval = tokio::time::interval(every);
@@ -151,12 +167,18 @@ pub async fn heartbeat_loop(publisher: Arc<dyn Publisher>, cfg: Arc<GateCtx>, ev
         if !publisher.is_connected() {
             continue;
         }
-        let frame = build_heartbeat(&cfg, &sys);
+        let (frame, heartbeat_id) = {
+            let mut state = tracker.lock().unwrap();
+            state.expire(Instant::now());
+            let (frame, heartbeat_id) = build_heartbeat(&cfg, &sys, &state, &firmware_version);
+            state.register(heartbeat_id, Instant::now());
+            (frame, heartbeat_id)
+        };
         if let Err(e) = publisher
             .publish(&topic, serde_json::to_value(&frame).unwrap(), 0)
             .await
         {
-            warn!("heartbeat publish failed: {e}");
+            warn!(heartbeat_id = %heartbeat_id, "heartbeat publish failed: {e}");
         }
     }
 }
@@ -215,10 +237,31 @@ mod tests {
     fn build_heartbeat_emits_type_and_device_id() {
         let cfg = cfg();
         let sys = SystemMetrics::new();
-        let frame = build_heartbeat(&cfg, &sys);
+        let tracker = HeartbeatTracker::new(4, Duration::from_secs(30));
+        let (frame, _) = build_heartbeat(&cfg, &sys, &tracker, "1.0.0");
         let v = serde_json::to_value(&frame).unwrap();
         assert_eq!(v["type"], "heartbeat");
         assert_eq!(v["deviceId"], DEVICE);
+    }
+
+    #[test]
+    fn build_heartbeat_emits_id_firmware_metrics_and_latest_latency() {
+        let cfg = cfg();
+        let sys = SystemMetrics::new();
+        let mut tracker = HeartbeatTracker::new(4, Duration::from_secs(30));
+        let probe_id = uuid::Uuid::new_v4();
+        let sent = Instant::now();
+        tracker.register(probe_id, sent);
+        tracker.acknowledge(probe_id, sent + Duration::from_millis(42));
+
+        let (frame, heartbeat_id) = build_heartbeat(&cfg, &sys, &tracker, "1.4.2");
+        let v = serde_json::to_value(&frame).unwrap();
+        assert_eq!(v["heartbeatId"], heartbeat_id.to_string());
+        assert_eq!(v["firmwareVersion"], "1.4.2");
+        assert_eq!(v["latencyMs"], 42);
+        assert!(v.get("cpuUsagePct").is_some());
+        assert!(v.get("ramUsagePct").is_some());
+        assert!(v.get("storageUsagePct").is_some());
     }
 
     #[tokio::test]

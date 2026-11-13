@@ -6,6 +6,7 @@ pub mod commands;
 pub mod config;
 pub mod fsm;
 pub mod hal;
+pub mod heartbeat;
 pub mod incidents;
 pub mod ingest;
 pub mod lock;
