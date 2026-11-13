@@ -357,6 +357,14 @@ interface PlatformContextType {
   reorderRulePriorities: (ruleIdsInOrder: string[]) => void;
   detectRuleConflicts: (rule: Partial<TenantAccessRule>, excludeRuleId?: string) => string[];
 
+  setupTenantEdge: (data: {
+    siteId?: string;
+    deviceName: string;
+    gateName: string;
+    gateDirection?: string;
+    gateType?: string;
+    allowedIp?: string;
+  }) => Promise<{ success: boolean; data?: import('../services/api').EdgeSetupOut; message?: string; code?: string }>;
   createTenantDevice: (data: TenantEdgeDeviceInput) => Promise<{ success: boolean; message?: string; code?: string }>;
   updateTenantDevice: (deviceId: string, data: Partial<TenantEdgeDeviceInput>) => Promise<{ success: boolean; message?: string; code?: string }>;
   decommissionTenantDevice: (deviceId: string) => Promise<{ success: boolean; message?: string }>;
@@ -2234,6 +2242,24 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     return { importedCount: imported, failedCount: errors.length, errors };
   };
 
+  const setupTenantEdge = async (data: {
+    siteId?: string;
+    deviceName: string;
+    gateName: string;
+    gateDirection?: string;
+    gateType?: string;
+    allowedIp?: string;
+  }) => {
+    if (!activeTenantId) return { success: false, message: 'No tenant selected' };
+    try {
+      const result = await tenantApi.setupEdge(activeTenantId, data);
+      await loadTenantData(activeTenantId);
+      return { success: true, data: result };
+    } catch (e) {
+      return { success: false, message: errText(e), code: errCode(e) };
+    }
+  };
+
   const createTenantDevice = async (data: TenantEdgeDeviceInput) => {
     if (!activeTenantId) return { success: false, message: 'No tenant selected' };
     try {
@@ -2482,6 +2508,7 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
         deleteTenantAccessRule,
         reorderRulePriorities,
         detectRuleConflicts,
+        setupTenantEdge,
         createTenantDevice,
         updateTenantDevice,
         decommissionTenantDevice,

@@ -301,6 +301,14 @@ export const authApi = {
 };
 
 // ---------- Public ----------
+export interface EdgeSetupOut {
+  site: SiteOut;
+  device: DeviceOut;
+  gate: GateOut;
+  activation: ActivationCodeOut & { allowedIp: string | null };
+  nextSteps: string[];
+}
+
 export type ReleaseChannel = 'edge-windows-x86_64' | 'android';
 export interface LatestReleaseOut {
   channel: ReleaseChannel;
@@ -458,6 +466,14 @@ export const tenantApi = {
   generateActivationCode: (t: string, id: string, body: { allowedIp?: string } = {}) =>
     api.post<ActivationCodeOut>(T(t, `/devices/${id}/activation-codes`), body),
   revokeDeviceToken: (t: string, id: string) => api.post<MessageOut>(T(t, `/devices/${id}/revoke-token`)),
+  setupEdge: (t: string, body: {
+    siteId?: string;
+    deviceName: string;
+    gateName: string;
+    gateDirection?: string;
+    gateType?: string;
+    allowedIp?: string;
+  }) => api.post<EdgeSetupOut>(T(t, '/edge-setup'), body),
 
   cameras: (t: string, p: { page?: number; limit?: number; siteId?: string; laneId?: string; status?: string } = {}) =>
     api.get<Page<CameraOut>>(T(t, `/cameras${qs(p)}`)),

@@ -17,10 +17,13 @@ from app.models import (
     DeviceActivationCode,
     EdgeDevice,
     GateTelemetryLog,
+    SiteLane,
+    Tenant,
     TenantSite,
 )
 from app.models import GateCommand as GateCommandRow
 from app.schemas.common import MessageOut, Page, paginate
+from app.schemas.edge_setup import EdgeSetupActivationOut, EdgeSetupIn, EdgeSetupOut
 from app.schemas.resources import (
     ActivationCodeIn,
     ActivationCodeOut,
@@ -37,6 +40,7 @@ from app.schemas.resources import (
 from app.services.audit_service import write_audit
 from app.services.command_service import issue_command
 from app.services.credential_service import generate_activation_code, hash_activation_code
+from app.services.default_site import build_default_site
 
 router = APIRouter(
     prefix="/tenants/{tenant_id}",
@@ -116,6 +120,109 @@ async def _resolve_site_id(
             "This tenant has more than one site. Specify siteId.",
         )
     return site_ids[0]
+
+
+# ---------- guided edge setup ----------
+@router.post("/edge-setup", response_model=EdgeSetupOut, status_code=201)
+async def setup_edge_client(
+    body: EdgeSetupIn,
+    request: Request,
+    ctx: TenantCtx = Depends(tenant_ctx),
+    db: AsyncSession = Depends(get_tenant_db),
+    _: None = Depends(require_roles(*WRITE_ROLES)),
+) -> EdgeSetupOut:
+    """Create a site/device/gate/code in one tenant transaction."""
+    if body.site_id is not None:
+        await _require_site(db, ctx.tenant_id, body.site_id)
+        site = await db.get(TenantSite, body.site_id)
+    else:
+        site_rows = (
+            await db.execute(
+                select(TenantSite).where(TenantSite.tenant_id == ctx.tenant_id).limit(2)
+            )
+        ).scalars().all()
+        if len(site_rows) > 1:
+            raise ApiError(status.HTTP_400_BAD_REQUEST, "site_required", "Specify siteId for this tenant")
+        if site_rows:
+            site = site_rows[0]
+        else:
+            tenant = await db.get(Tenant, ctx.tenant_id)
+            if tenant is None:
+                raise not_found("tenant", ctx.tenant_id)
+            site = build_default_site(tenant)
+            db.add(site)
+            await db.flush()
+
+    import secrets
+
+    device = EdgeDevice(
+        tenant_id=ctx.tenant_id,
+        site_id=site.id,
+        name=body.device_name,
+        device_key=f"edge-{secrets.token_hex(12)}",
+    )
+    db.add(device)
+    await db.flush()
+    lane = SiteLane(
+        tenant_id=ctx.tenant_id,
+        site_id=site.id,
+        name=body.gate_name,
+        direction=body.gate_direction,
+    )
+    db.add(lane)
+    await db.flush()
+    gate = BarrierGate(
+        tenant_id=ctx.tenant_id,
+        site_id=site.id,
+        lane_id=lane.id,
+        edge_device_id=device.id,
+        name=body.gate_name,
+        gate_type=body.gate_type,
+    )
+    db.add(gate)
+    await db.flush()
+
+    now = datetime.now(timezone.utc)
+    code = generate_activation_code()
+    activation = DeviceActivationCode(
+        tenant_id=ctx.tenant_id,
+        edge_device_id=device.id,
+        code_hash=hash_activation_code(code),
+        code_prefix=code[:5],
+        expires_at=now + ACTIVATION_CODE_TTL,
+        allowed_ip=body.allowed_ip,
+        created_by=ctx.auth.user_id,
+    )
+    db.add(activation)
+    await write_audit(
+        db,
+        tenant_id=ctx.tenant_id,
+        actor_type=ctx.auth.user_type,
+        actor_id=ctx.auth.user_id,
+        actor_email=None,
+        action="device.setup_completed",
+        resource_type="edge_device",
+        resource_id=str(device.id),
+        ip=request.client.host if request.client else None,
+        details={"gateId": str(gate.id), "siteId": str(site.id)},
+    )
+    await db.flush()
+    return EdgeSetupOut(
+        site=site,
+        device=device,
+        gate=gate,
+        activation=EdgeSetupActivationOut(
+            code=code,
+            code_prefix=activation.code_prefix,
+            expires_at=activation.expires_at,
+            allowed_ip=activation.allowed_ip,
+        ),
+        next_steps=[
+            "Open ParkVision Edge on the gate PC",
+            "Enter this activation code",
+            "Wait until the device shows Activated",
+        ],
+    )
 
 
 # ---------- gates ----------

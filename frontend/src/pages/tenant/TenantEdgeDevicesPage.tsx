@@ -20,6 +20,7 @@ import { canTenantWrite } from '../../lib/permissions';
 import { TenantEdgeDevice } from '../../types/tenant';
 import { RegisterDeviceModal } from '../../components/tenant/devices/RegisterDeviceModal';
 import { EditDeviceModal } from '../../components/tenant/devices/EditDeviceModal';
+import { EdgeSetupWizard } from '../../components/tenant/devices/EdgeSetupWizard';
 import {
   RebootDeviceDialog,
   DecommissionDeviceDialog,
@@ -87,6 +88,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
   const pageSize = 10;
 
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+  const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<TenantEdgeDevice | null>(null);
   const [rebootTarget, setRebootTarget] = useState<TenantEdgeDevice | null>(null);
   const [decommissionTarget, setDecommissionTarget] = useState<TenantEdgeDevice | null>(null);
@@ -140,6 +142,14 @@ export const TenantEdgeDevicesPage: React.FC = () => {
           <div className="flex items-center gap-2.5 flex-wrap">
             <Button
               variant="primary"
+              onClick={() => setIsSetupOpen(true)}
+              className="text-xs h-9 bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              {t('Set up Edge Client')}
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => setIsRegisterOpen(true)}
               className="text-xs h-9 bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm"
             >
@@ -448,6 +458,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
       </div>
 
       {/* Modals & Dialogs */}
+      <EdgeSetupWizard isOpen={isSetupOpen} onClose={() => setIsSetupOpen(false)} />
       <RegisterDeviceModal isOpen={isRegisterOpen} onClose={() => setIsRegisterOpen(false)} />
       <EditDeviceModal device={editTarget} isOpen={!!editTarget} onClose={() => setEditTarget(null)} />
       <RebootDeviceDialog device={rebootTarget} isOpen={!!rebootTarget} onClose={() => setRebootTarget(null)} />
