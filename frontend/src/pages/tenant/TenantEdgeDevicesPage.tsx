@@ -18,9 +18,9 @@ import {
 import { Button, Input, Pagination } from '../../components/ui';
 import { canTenantWrite } from '../../lib/permissions';
 import { TenantEdgeDevice } from '../../types/tenant';
-import { RegisterDeviceModal } from '../../components/tenant/devices/RegisterDeviceModal';
 import { EditDeviceModal } from '../../components/tenant/devices/EditDeviceModal';
 import { EdgeSetupWizard } from '../../components/tenant/devices/EdgeSetupWizard';
+import { AddGateToDeviceModal } from '../../components/tenant/devices/AddGateToDeviceModal';
 import {
   RebootDeviceDialog,
   DecommissionDeviceDialog,
@@ -87,9 +87,9 @@ export const TenantEdgeDevicesPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
-  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<TenantEdgeDevice | null>(null);
+  const [addGateTarget, setAddGateTarget] = useState<TenantEdgeDevice | null>(null);
   const [rebootTarget, setRebootTarget] = useState<TenantEdgeDevice | null>(null);
   const [decommissionTarget, setDecommissionTarget] = useState<TenantEdgeDevice | null>(null);
   const [reactivateTarget, setReactivateTarget] = useState<TenantEdgeDevice | null>(null);
@@ -147,14 +147,6 @@ export const TenantEdgeDevicesPage: React.FC = () => {
             >
               <Plus className="w-4 h-4" />
               {t('Set up Edge Client')}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setIsRegisterOpen(true)}
-              className="text-xs h-9 bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              {t('Register Device')}
             </Button>
           </div>
         )}
@@ -388,6 +380,13 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                             {!isDecommissioned && (
                               <>
                                 <button
+                                  title={t('Add gate to Edge Client')}
+                                  onClick={() => setAddGateTarget(device)}
+                                  className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#3fb950] hover:bg-[#238636]/10 transition-colors cursor-pointer"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                </button>
+                                <button
                                   title={t('Generate activation code')}
                                   onClick={() => setActivationTarget(device)}
                                   className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#58a6ff] hover:bg-[#58a6ff]/10 transition-colors cursor-pointer"
@@ -459,7 +458,14 @@ export const TenantEdgeDevicesPage: React.FC = () => {
 
       {/* Modals & Dialogs */}
       <EdgeSetupWizard isOpen={isSetupOpen} onClose={() => setIsSetupOpen(false)} />
-      <RegisterDeviceModal isOpen={isRegisterOpen} onClose={() => setIsRegisterOpen(false)} />
+      {addGateTarget && tenantSites.find((site) => site.id === addGateTarget.siteId) && (
+        <AddGateToDeviceModal
+          isOpen
+          onClose={() => setAddGateTarget(null)}
+          site={tenantSites.find((site) => site.id === addGateTarget.siteId)!}
+          device={addGateTarget}
+        />
+      )}
       <EditDeviceModal device={editTarget} isOpen={!!editTarget} onClose={() => setEditTarget(null)} />
       <RebootDeviceDialog device={rebootTarget} isOpen={!!rebootTarget} onClose={() => setRebootTarget(null)} />
       <DecommissionDeviceDialog device={decommissionTarget} isOpen={!!decommissionTarget} onClose={() => setDecommissionTarget(null)} />
