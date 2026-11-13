@@ -3586,7 +3586,7 @@ dependencies = [
 
 [[package]]
 name = "parkvision-edge"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "argon2",
