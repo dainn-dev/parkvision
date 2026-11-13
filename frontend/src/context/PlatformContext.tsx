@@ -2253,7 +2253,12 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (!activeTenantId) return { success: false, message: 'No tenant selected' };
     try {
       const result = await tenantApi.setupEdge(activeTenantId, data);
-      await loadTenantData(activeTenantId);
+      try {
+        await loadTenantData(activeTenantId);
+      } catch {
+        // Setup already committed; a stale dashboard refresh must not make the
+        // user retry and create a second device/gate/code.
+      }
       return { success: true, data: result };
     } catch (e) {
       return { success: false, message: errText(e), code: errCode(e) };

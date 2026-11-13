@@ -133,8 +133,16 @@ async def setup_edge_client(
 ) -> EdgeSetupOut:
     """Create a site/device/gate/code in one tenant transaction."""
     if body.site_id is not None:
-        await _require_site(db, ctx.tenant_id, body.site_id)
-        site = await db.get(TenantSite, body.site_id)
+        site = (
+            await db.execute(
+                select(TenantSite).where(
+                    TenantSite.id == body.site_id,
+                    TenantSite.tenant_id == ctx.tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if site is None:
+            raise not_found("site", body.site_id)
     else:
         site_rows = (
             await db.execute(

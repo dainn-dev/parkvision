@@ -21,7 +21,7 @@ const RESULT = {
   device: { id: 'device-1', name: 'Main Edge' },
   gate: { id: 'gate-1', name: 'Main Entry' },
   activation: { code: 'ABCD-EFGH-JKLM', expiresAt: '2026-11-14T10:00:00Z', allowedIp: null },
-  nextSteps: ['Open ParkVision Edge on the gate PC', 'Enter this activation code', 'Wait until the device shows Activated'],
+  nextSteps: ['Open ParkVision Edge on the gate PC', 'Enter this activation code', 'Wait until the device shows Activated']
 };
 
 const ONE_SITE = [{ id: 'site-1', name: 'Main lot' }];

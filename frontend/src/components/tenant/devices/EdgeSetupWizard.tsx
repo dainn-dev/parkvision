@@ -28,6 +28,7 @@ export const EdgeSetupWizard: React.FC<EdgeSetupWizardProps> = ({ isOpen, onClos
   const [activation, setActivation] = useState<Awaited<ReturnType<typeof setupTenantEdge>>['data']>();
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const hasSeveralSites = tenantSites.length > 1;
 
   const close = () => {
@@ -40,6 +41,7 @@ export const EdgeSetupWizard: React.FC<EdgeSetupWizardProps> = ({ isOpen, onClos
     setError(null);
     setActivation(undefined);
     setCopied(false);
+    setCopyError(false);
     onClose();
   };
 
@@ -68,8 +70,19 @@ export const EdgeSetupWizard: React.FC<EdgeSetupWizardProps> = ({ isOpen, onClos
 
   const copyCode = async () => {
     if (!activation?.activation.code) return;
-    await navigator.clipboard?.writeText(activation.activation.code);
-    setCopied(true);
+    if (!navigator.clipboard) {
+      setCopied(false);
+      setCopyError(true);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(activation.activation.code);
+      setCopied(true);
+      setCopyError(false);
+    } catch {
+      setCopied(false);
+      setCopyError(true);
+    }
   };
 
   return (
@@ -104,14 +117,14 @@ export const EdgeSetupWizard: React.FC<EdgeSetupWizardProps> = ({ isOpen, onClos
             <div><h3 className="font-semibold">{t('Name your gatehouse')}</h3><p className="mt-1 text-xs text-muted-foreground">{t('Use names your team will recognize. Technical settings can be added later.')}</p></div>
             <Input label={t('Edge PC name')} value={deviceName} onChange={(event) => setDeviceName(event.target.value)} placeholder={t('e.g. Main gate computer')} required />
             <Input label={t('Gate name')} value={gateName} onChange={(event) => setGateName(event.target.value)} placeholder={t('e.g. Main entrance')} required />
-            <Select label={t('Gate direction')} value={gateDirection} onChange={(event) => setGateDirection(event.target.value)} options={[{ value: 'entry', label: t('Entry') }, { value: 'exit', label: t('Exit') }, { value: 'bidirectional', label: t('Entry and exit') }]} />
+            <Select label={t('Gate direction')} value={gateDirection} onChange={(event) => setGateDirection(event.target.value)} options={[{ value: 'entry', label: t('Entry') }, { value: 'exit', label: t('Exit') }]} />
           </div>
         )}
         {step === 3 && activation && (
           <div className="space-y-4">
             <div className="flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4"><ShieldCheck className="h-6 w-6 text-emerald-400" /><div><h3 className="font-semibold">{t('Ready to activate')}</h3><p className="text-xs text-muted-foreground">{activation.device.name} · {activation.gate.name}</p></div></div>
-            <div><p className="text-xs text-muted-foreground">{t('Enter this one-time code in ParkVision Edge on the gatehouse PC.')}</p><div className="mt-2 flex items-center gap-2"><code className="flex-1 rounded-lg bg-background px-4 py-3 text-center font-mono text-lg font-bold tracking-widest">{activation.activation.code}</code><Button variant="outline" onClick={() => void copyCode()}>{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</Button></div><p className="mt-2 text-[11px] text-muted-foreground">{t('This code expires at {{time}}.', { time: new Date(activation.activation.expiresAt).toLocaleString() })}</p></div>
-            <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">{activation.nextSteps.map((nextStep) => <li key={nextStep}>{nextStep}</li>)}</ol>
+            <div><p className="text-xs text-muted-foreground">{t('Enter this one-time code in ParkVision Edge on the gatehouse PC.')}</p><div className="mt-2 flex items-center gap-2"><code className="flex-1 rounded-lg bg-background px-4 py-3 text-center font-mono text-lg font-bold tracking-widest">{activation.activation.code}</code><Button variant="outline" aria-label={t('Copy activation code')} onClick={() => void copyCode()}>{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</Button></div>{copyError && <p className="mt-1 text-xs text-destructive">{t('Copy failed, select the code manually')}</p>}<p className="mt-2 text-[11px] text-muted-foreground">{t('This code expires at {{time}}.', { time: new Date(activation.activation.expiresAt).toLocaleString() })}</p></div>
+            <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">{activation.nextSteps.map((nextStep) => <li key={nextStep}>{t(nextStep)}</li>)}</ol>
           </div>
         )}
       </div>

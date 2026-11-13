@@ -1,5 +1,6 @@
 import ipaddress
 import uuid
+from typing import Literal
 
 from pydantic import Field, field_validator
 
@@ -11,8 +12,8 @@ class EdgeSetupIn(CamelModel):
     site_id: uuid.UUID | None = None
     device_name: str = Field(min_length=2, max_length=200)
     gate_name: str = Field(min_length=2, max_length=200)
-    gate_direction: str = Field(default="entry", min_length=1, max_length=30)
-    gate_type: str = Field(default="barrier", min_length=1, max_length=30)
+    gate_direction: Literal["entry", "exit"] = "entry"
+    gate_type: Literal["barrier"] = "barrier"
     allowed_ip: str | None = Field(default=None, max_length=64)
 
     @field_validator("allowed_ip")

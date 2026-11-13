@@ -1409,5 +1409,7 @@
   "Setup failed. Please try again.": "Thiết lập thất bại. Vui lòng thử lại.",
   "Open ParkVision Edge on the gate PC": "Mở ParkVision Edge trên máy tính tại cổng",
   "Enter this activation code": "Nhập mã kích hoạt này",
-  "Wait until the device shows Activated": "Chờ đến khi thiết bị hiển thị Đã kích hoạt"
+  "Wait until the device shows Activated": "Chờ đến khi thiết bị hiển thị Đã kích hoạt",
+  "Copy activation code": "Sao chép mã kích hoạt",
+  "Copy failed, select the code manually": "Sao chép thất bại, hãy chọn mã theo cách thủ công"
 }
