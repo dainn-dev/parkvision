@@ -45,6 +45,16 @@ describe("walk-in labels", () => {
     expect(recentTag({ decision: "deny", reason: "vehicle_expired" })).toEqual({ text: "HẾT HẠN", tone: "deny" });
     expect(recentTag({ decision: "deny", reason: "plate_not_registered" })).toEqual({ text: "TỪ CHỐI", tone: "deny" });
     expect(reasonText("vehicle_registered")).toBe("Xe đã đăng ký");
+    expect(reasonText("plate_not_registered")).toBe("Xe chưa đăng ký");
+    expect(reasonText("vehicle_blacklisted")).toBe("Xe trong danh sách đen");
+    expect(reasonText("vehicle_suspended")).toBe("Xe đang bị tạm ngưng");
+    expect(reasonText("vehicle_not_yet_valid")).toBe("Chưa đến ngày hiệu lực");
+    expect(reasonText("vehicle_expired")).toBe("Xe hết hạn đăng ký");
+    expect(reasonText("anti_passback")).toBe("Xe vừa qua cổng cùng chiều");
+    expect(reasonText("no_plate_detected")).toBe("Không đọc được biển số");
+    expect(reasonText("walk_in_fee_due")).toBe("Xe vãng lai — chờ thu phí");
+    expect(reasonText("walk_in_paid")).toBe("Xe vãng lai — đã thu phí");
+    expect(reasonText("walk_in_waived")).toBe("Xe vãng lai — miễn phí");
     expect(reasonText("rule:Khách VIP")).toBe("Theo quy tắc: Khách VIP");
     expect(reasonText("something_new")).toBe("something_new");
     expect(reasonText(null)).toBe("");
