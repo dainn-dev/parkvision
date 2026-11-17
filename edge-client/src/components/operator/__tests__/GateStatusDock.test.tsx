@@ -5,7 +5,7 @@ import GateStatusDock from '../GateStatusDock';
 const gate = (direction: 'entry' | 'exit', state: 'closed' | 'locked' = 'closed') => ({
   gateId: direction, direction, gateState: state, armAngleDeg: 0, motorTempC: 32,
   loopActive: false, upsBattery: 98, barrierLinkOk: true, lastPlate: '30A-123.45',
-  lastDecision: 'allow', lastReason: null,
+  lastDecision: 'allow', lastReason: null, lastAt: null, lastPlateImageKey: null,
 });
 
 describe('GateStatusDock', () => {

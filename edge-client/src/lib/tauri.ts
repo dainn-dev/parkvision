@@ -134,6 +134,10 @@ export interface GateStatus {
   pendingFee?: FeeQuote | null;
   lastAmountVnd?: number | null;
   lastMethod?: string | null;
+  /** Timestamp of the last event on this lane. */
+  lastAt: string | null;
+  /** Capture-photo key of the last event; resolve with `captureImage`. */
+  lastPlateImageKey: string | null;
 }
 
 // ---------- walk-in fee collection ----------
@@ -186,6 +190,7 @@ export interface AccessEvent {
   at: string;
   amountVnd?: number | null;
   method?: string | null;
+  plateImageKey?: string | null;
 }
 
 export interface LockStatus {
@@ -242,6 +247,9 @@ export const deviceIp = () => invoke<string | null>("device_ip");
 
 export const getStatus = () => invoke<EdgeStatus | null>("get_status");
 export const resync = () => invoke<string>("resync");
+/** Raw JPEG bytes of a capture (also serves walk-in `entryImageKey`). */
+export const captureImage = (key: string) =>
+  invoke<ArrayBuffer>("capture_image", { key });
 
 // gateId omitted → primary gate
 export const manualOpen = (gateId?: string) =>

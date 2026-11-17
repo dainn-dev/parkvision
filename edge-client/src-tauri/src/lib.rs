@@ -60,6 +60,9 @@ pub struct GateStatus {
     /// Amount (VND) and method of the last walk-in settlement shown on this lane.
     pub last_amount_vnd: Option<i64>,
     pub last_method: Option<String>,
+    /// Timestamp and capture-photo key of the last event on this lane.
+    pub last_at: Option<String>,
+    pub last_plate_image_key: Option<String>,
 }
 
 /// Device-level status + one `GateStatus` per bound gate — the operator UI
@@ -100,6 +103,12 @@ fn gate_status(g: &GateRuntime) -> GateStatus {
         last_method: last
             .as_ref()
             .and_then(|e| e["method"].as_str().map(String::from)),
+        last_at: last
+            .as_ref()
+            .and_then(|e| e["at"].as_str().map(String::from)),
+        last_plate_image_key: last
+            .as_ref()
+            .and_then(|e| e["plateImageKey"].as_str().map(String::from)),
     }
 }
 
@@ -358,6 +367,36 @@ fn site_payment_info(
     Ok(walkin::site_payment_info(&rt.store))
 }
 
+/// Resolve a capture key to a file inside `captures_dir`. `None` unless the
+/// key is a bare `.jpg` filename (no separators, no `..`).
+fn capture_path(captures_dir: &std::path::Path, key: &str) -> Option<std::path::PathBuf> {
+    if key.is_empty()
+        || !key.ends_with(".jpg")
+        || key.contains('/')
+        || key.contains('\\')
+        || key.contains("..")
+    {
+        return None;
+    }
+    Some(captures_dir.join(key))
+}
+
+fn read_capture(captures_dir: &std::path::Path, key: &str) -> Result<Vec<u8>, String> {
+    let path = capture_path(captures_dir, key).ok_or_else(|| "invalid capture key".to_string())?;
+    std::fs::read(path).map_err(|_| "capture not found".to_string())
+}
+
+/// Raw bytes of a recognition / walk-in capture photo for the operator UI.
+#[tauri::command]
+fn capture_image(key: String, app: AppHandle) -> Result<tauri::ipc::Response, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("captures");
+    read_capture(&dir, &key).map(tauri::ipc::Response::new)
+}
+
 #[tauri::command]
 async fn resync(rt: State<'_, RuntimeState>) -> Result<String, String> {
     let rt = {
@@ -399,6 +438,50 @@ fn reset_foreign_config(cfg_dir: &std::path::Path) {
     }
     if let Err(e) = lock::LockStore::new(cfg_dir.join("edge-lock.json")).set_password(None) {
         tracing::warn!("could not clear kiosk lock: {e:#}");
+    }
+}
+
+#[cfg(test)]
+mod capture_tests {
+    use super::*;
+
+    #[test]
+    fn capture_path_rejects_traversal() {
+        let dir = std::path::Path::new("caps");
+        assert_eq!(
+            capture_path(dir, "plate-a.jpg"),
+            Some(dir.join("plate-a.jpg"))
+        );
+        for bad in [
+            "",
+            "../edge-config.json",
+            "..\\edge-config.json",
+            "sub/plate.jpg",
+            "sub\\plate.jpg",
+            "a..b.jpg",
+            "plate.png",
+        ] {
+            assert_eq!(capture_path(dir, bad), None, "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn capture_image_reads_only_inside_captures_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("plate-a.jpg"), b"bytes").unwrap();
+        assert_eq!(read_capture(dir.path(), "plate-a.jpg").unwrap(), b"bytes");
+        assert_eq!(
+            read_capture(dir.path(), "../x.jpg"),
+            Err("invalid capture key".to_string())
+        );
+        assert_eq!(
+            read_capture(dir.path(), "a/b.jpg"),
+            Err("invalid capture key".to_string())
+        );
+        assert_eq!(
+            read_capture(dir.path(), "missing.jpg"),
+            Err("capture not found".to_string())
+        );
     }
 }
 
@@ -462,6 +545,7 @@ pub fn run() {
             settle_walk_in,
             walk_in_today,
             site_payment_info,
+            capture_image,
             resync,
             hal::commands::list_serial_ports,
             hal::commands::get_barrier_profiles,

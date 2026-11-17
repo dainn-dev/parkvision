@@ -372,6 +372,45 @@ mod tests {
         assert_eq!(last.1, "deny", "local event recorded as deny, not allow");
     }
 
+    #[tokio::test]
+    async fn ui_event_carries_plate_image_key() {
+        let (rig, tx) = rig();
+        seed_vehicle(&rig.store, "resident", "active");
+        // source lives outside the captures dir, as the sidecar's output does
+        let src_dir = tempfile::tempdir().unwrap();
+        let src = src_dir.path().join("plate-ev1.jpg");
+        std::fs::write(&src, b"jpg").unwrap();
+        let (ev_tx, mut ev_rx) = tokio::sync::broadcast::channel(8);
+        let hooks = PipelineHooks {
+            events: Some(ev_tx),
+            last_event: None,
+            pending_fee: None,
+            sync: None,
+        };
+        let mut with_img = reading("30E-892.41");
+        with_img.plate_image_path = Some(src);
+        tx.send(with_img).await.unwrap();
+        tx.send(reading("30E-892.41")).await.unwrap();
+        drop(tx);
+        run_pipeline(
+            Box::new(rig.src),
+            rig.cfg,
+            rig.store,
+            rig.pub_,
+            rig.fsm,
+            rig.captures.path().to_path_buf(),
+            hooks,
+        )
+        .await;
+
+        let first = ev_rx.recv().await.unwrap();
+        let key = first["plateImageKey"].as_str().expect("key present");
+        assert_eq!(key, "plate-ev1.jpg");
+        assert!(rig.captures.path().join(key).exists());
+        let second = ev_rx.recv().await.unwrap();
+        assert!(second["plateImageKey"].is_null());
+    }
+
     // ---------- walk-in fee branch ----------
 
     struct ExitRig {
