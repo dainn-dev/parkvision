@@ -434,6 +434,18 @@ Khóa kiosk lưu hash Argon2 có salt, không gửi mật khẩu lên server. Na
 
 Hikvision/Dahua adapter hiện dùng HTTP với digest, **không mã hóa toàn bộ đường truyền bằng TLS**. Tách mạng camera/relay, giới hạn ACL và quyền tài khoản. MQTT TLS/HTTPS API không tự bảo vệ đường HTTP relay. `tauri.conf.json` hiện đặt `csp: null`; không mô tả cấu hình webview này là đã harden production.
 
+### 9.1 Thu phí xe vãng lai (walk-in)
+
+Edge giữ toàn bộ lượt gửi: tạo session lúc vào (`walkin::admit`), tính phí lúc ra từ bảng giá đồng bộ về SQLite (kv `site_pricing`, `GET /edge/tenants/{t}/sites/{s}/pricing`), rồi chốt (`walkin::settle`). FSM được yêu cầu mở barrier **trước** khi đóng session; chốt hai lần chỉ mở một lần (`UPDATE … WHERE status='open'`).
+
+- **Frame telemetry:** `walk_in_entry`, `walk_in_exit` (qua outbox offline hiện có, kind `walkin`). Backend dùng `enteredAt`/`exitedAt` của frame, idempotent theo `sessionId`.
+- **Tín hiệu backend → edge** (topic lệnh của cổng, không phải barrier command, không ack): `pricing_updated` (đồng bộ lại bảng giá ngay) và `walk_in_paid` (chuyển khoản đã về; edge tự chốt khi đủ tiền, thiếu thì chỉ ghi `bankReceivedVnd`).
+- **Endpoint edge:** `GET …/sites/{s}/pricing`, `GET …/walk-ins/open?plate=` (tra session mở từ thiết bị khác, timeout 3 s, chỉ khi MQTT đang kết nối).
+- **Webhook:** `POST /api/v1/public/walk-ins/bank-webhook`, `X-Signature` = HMAC-SHA256 của body với `BANK_WEBHOOK_SECRET`; secret rỗng = từ chối hết. Adapter nhà cung cấp cụ thể chưa chọn.
+- **Báo cáo:** `GET /tenant/walk-ins`, `GET /tenant/walk-ins/summary`.
+- **Offline:** chốt tiền mặt/miễn phí vẫn chạy; frame vào hàng đợi (tối đa 10.000 dòng). Chuyển khoản tự động cần mạng. Chưa có bảng giá thì không báo 0 đ — không cho thu.
+- **Giới hạn xác minh:** chưa quét thử VietQR bằng app ngân hàng, chưa in thử phiếu/biên lai; test backend cần Postgres/Redis chưa được chạy; UI lane card chưa ghép (chờ redesign).
+
 ## 10. Checklist vận hành và xử lý lỗi
 
 ### Trước khi đưa vào sử dụng

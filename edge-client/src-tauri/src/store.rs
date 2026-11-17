@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
+use serde_json::Value;
 use tracing::warn;
 use uuid::Uuid;
 
@@ -59,6 +60,24 @@ CREATE TABLE IF NOT EXISTS kv (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS walk_in_sessions (
+    session_id       TEXT PRIMARY KEY,
+    plate_normalized TEXT NOT NULL,
+    plate_number     TEXT NOT NULL,
+    entry_gate_id    TEXT,
+    entered_at       TEXT NOT NULL,
+    entry_image_key  TEXT,
+    status           TEXT NOT NULL DEFAULT 'open',
+    exit_gate_id     TEXT,
+    exited_at        TEXT,
+    amount_vnd       INTEGER,
+    method           TEXT,
+    confirmed_by     TEXT,
+    waive_reason     TEXT,
+    bank_ref         TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_walk_in_plate_status
+    ON walk_in_sessions (plate_normalized, status);
 ";
 
 #[derive(Clone, Debug)]
@@ -90,6 +109,96 @@ fn parse_dt(s: &str) -> Option<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(s)
         .map(|d| d.with_timezone(&Utc))
         .ok()
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BankAccount {
+    pub bin: String,
+    pub account_number: String,
+    pub account_name: String,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredPricing {
+    pub pricing: crate::pricing::SitePricing,
+    pub timezone: String,
+    pub bank_account: Option<BankAccount>,
+    pub updated_at: String,
+}
+
+/// One walk-in visit on this device. `status` is `open` until settled, then
+/// `paid` or `waived`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WalkInRow {
+    pub session_id: Uuid,
+    pub plate_normalized: String,
+    pub plate_number: String,
+    pub entry_gate_id: Option<Uuid>,
+    pub entered_at: DateTime<Utc>,
+    pub entry_image_key: Option<String>,
+    pub status: String,
+    pub exit_gate_id: Option<Uuid>,
+    pub exited_at: Option<DateTime<Utc>>,
+    pub amount_vnd: Option<i64>,
+    pub method: Option<String>,
+    pub confirmed_by: Option<String>,
+    pub waive_reason: Option<String>,
+    pub bank_ref: Option<String>,
+}
+
+/// How a walk-in visit was settled (`method`: cash | bank_qr | waived,
+/// `confirmed_by`: manual | auto).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Settlement {
+    pub method: String,
+    pub confirmed_by: String,
+    pub waive_reason: Option<String>,
+    pub bank_ref: Option<String>,
+}
+
+/// Totals of settled walk-ins since a point in time.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WalkInSummary {
+    pub cash_count: u64,
+    pub cash_total_vnd: i64,
+    pub bank_qr_count: u64,
+    pub bank_qr_total_vnd: i64,
+    pub waived_count: u64,
+}
+
+/// Fixed-width UTC timestamp so TEXT comparison orders correctly.
+fn ts(dt: &DateTime<Utc>) -> String {
+    dt.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+}
+
+const WALK_IN_COLS: &str = "session_id, plate_normalized, plate_number, entry_gate_id, \
+    entered_at, entry_image_key, status, exit_gate_id, exited_at, amount_vnd, method, \
+    confirmed_by, waive_reason, bank_ref";
+
+fn walk_in_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<WalkInRow> {
+    let uuid = |i: usize| -> rusqlite::Result<Option<Uuid>> {
+        Ok(r.get::<_, Option<String>>(i)?
+            .and_then(|s| Uuid::parse_str(&s).ok()))
+    };
+    Ok(WalkInRow {
+        session_id: uuid(0)?.unwrap_or_else(Uuid::nil),
+        plate_normalized: r.get(1)?,
+        plate_number: r.get(2)?,
+        entry_gate_id: uuid(3)?,
+        entered_at: parse_dt(&r.get::<_, String>(4)?).unwrap_or_else(Utc::now),
+        entry_image_key: r.get(5)?,
+        status: r.get(6)?,
+        exit_gate_id: uuid(7)?,
+        exited_at: r.get::<_, Option<String>>(8)?.and_then(|s| parse_dt(&s)),
+        amount_vnd: r.get(9)?,
+        method: r.get(10)?,
+        confirmed_by: r.get(11)?,
+        waive_reason: r.get(12)?,
+        bank_ref: r.get(13)?,
+    })
 }
 
 pub struct Store {
@@ -223,6 +332,137 @@ impl Store {
             })
         })?;
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    pub fn put_site_pricing(&self, pricing: &StoredPricing) -> Result<()> {
+        let value = serde_json::to_string(pricing).context("serialize site pricing")?;
+        self.kv_set("site_pricing", &value)
+    }
+
+    pub fn site_pricing(&self) -> Result<Option<StoredPricing>> {
+        match self.kv_get("site_pricing")? {
+            Some(value) => Ok(Some(serde_json::from_str(&value).context("deserialize site pricing")?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Insert a walk-in session; an existing `session_id` is left untouched.
+    pub fn insert_walk_in(&self, w: &WalkInRow) -> Result<()> {
+        self.conn.lock().unwrap().execute(
+            "INSERT OR IGNORE INTO walk_in_sessions
+               (session_id, plate_normalized, plate_number, entry_gate_id, entered_at,
+                entry_image_key, status, exit_gate_id, exited_at, amount_vnd, method,
+                confirmed_by, waive_reason, bank_ref)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+            params![
+                w.session_id.to_string(),
+                w.plate_normalized,
+                w.plate_number,
+                w.entry_gate_id.map(|u| u.to_string()),
+                ts(&w.entered_at),
+                w.entry_image_key,
+                w.status,
+                w.exit_gate_id.map(|u| u.to_string()),
+                w.exited_at.as_ref().map(ts),
+                w.amount_vnd,
+                w.method,
+                w.confirmed_by,
+                w.waive_reason,
+                w.bank_ref,
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Newest open session for a normalized plate.
+    pub fn open_walk_in(&self, plate_normalized: &str) -> Result<Option<WalkInRow>> {
+        let conn = self.conn.lock().unwrap();
+        Ok(conn
+            .query_row(
+                &format!(
+                    "SELECT {WALK_IN_COLS} FROM walk_in_sessions
+                     WHERE plate_normalized = ?1 AND status = 'open'
+                     ORDER BY entered_at DESC LIMIT 1"
+                ),
+                params![plate_normalized],
+                walk_in_from_row,
+            )
+            .optional()?)
+    }
+
+    pub fn walk_in(&self, session_id: Uuid) -> Result<Option<WalkInRow>> {
+        let conn = self.conn.lock().unwrap();
+        Ok(conn
+            .query_row(
+                &format!("SELECT {WALK_IN_COLS} FROM walk_in_sessions WHERE session_id = ?1"),
+                params![session_id.to_string()],
+                walk_in_from_row,
+            )
+            .optional()?)
+    }
+
+    /// Close an open session in a single `UPDATE ... WHERE status='open'`.
+    /// Returns `false` (and changes nothing) when it was not open — the
+    /// first settlement always wins.
+    pub fn close_walk_in(
+        &self,
+        session_id: Uuid,
+        exit_gate_id: Uuid,
+        exited_at: DateTime<Utc>,
+        amount_vnd: i64,
+        s: &Settlement,
+    ) -> Result<bool> {
+        let status = if s.method == "waived" { "waived" } else { "paid" };
+        let n = self.conn.lock().unwrap().execute(
+            "UPDATE walk_in_sessions SET status = ?2, exit_gate_id = ?3, exited_at = ?4,
+                amount_vnd = ?5, method = ?6, confirmed_by = ?7, waive_reason = ?8, bank_ref = ?9
+             WHERE session_id = ?1 AND status = 'open'",
+            params![
+                session_id.to_string(),
+                status,
+                exit_gate_id.to_string(),
+                ts(&exited_at),
+                amount_vnd,
+                s.method,
+                s.confirmed_by,
+                s.waive_reason,
+                s.bank_ref,
+            ],
+        )?;
+        Ok(n == 1)
+    }
+
+    /// Totals of sessions settled at or after `since`.
+    pub fn walk_in_summary(&self, since: DateTime<Utc>) -> Result<WalkInSummary> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT method, COUNT(*), COALESCE(SUM(amount_vnd), 0) FROM walk_in_sessions
+             WHERE status != 'open' AND exited_at >= ?1 GROUP BY method",
+        )?;
+        let rows = stmt.query_map(params![ts(&since)], |r| {
+            Ok((
+                r.get::<_, Option<String>>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, i64>(2)?,
+            ))
+        })?;
+        let mut out = WalkInSummary::default();
+        for row in rows {
+            let (method, count, total) = row?;
+            match method.as_deref() {
+                Some("cash") => {
+                    out.cash_count = count as u64;
+                    out.cash_total_vnd = total;
+                }
+                Some("bank_qr") => {
+                    out.bank_qr_count = count as u64;
+                    out.bank_qr_total_vnd = total;
+                }
+                Some("waived") => out.waived_count = count as u64,
+                _ => {}
+            }
+        }
+        Ok(out)
     }
 
     pub fn kv_get(&self, key: &str) -> Result<Option<String>> {
@@ -566,6 +806,155 @@ mod tests {
             store.kv_get("whitelist_synced_at").unwrap().unwrap(),
             "2026-09-28T00:00:00Z"
         );
+    }
+
+    fn open_row(plate: &str) -> WalkInRow {
+        WalkInRow {
+            session_id: Uuid::new_v4(),
+            plate_normalized: plate.into(),
+            plate_number: plate.into(),
+            entry_gate_id: Some(Uuid::new_v4()),
+            entered_at: Utc::now() - chrono::Duration::hours(2),
+            entry_image_key: None,
+            status: "open".into(),
+            exit_gate_id: None,
+            exited_at: None,
+            amount_vnd: None,
+            method: None,
+            confirmed_by: None,
+            waive_reason: None,
+            bank_ref: None,
+        }
+    }
+
+    fn settle_as(method: &str) -> Settlement {
+        Settlement {
+            method: method.into(),
+            confirmed_by: "manual".into(),
+            waive_reason: if method == "waived" {
+                Some("Xe công vụ".into())
+            } else {
+                None
+            },
+            bank_ref: None,
+        }
+    }
+
+    #[test]
+    fn close_walk_in_is_once_only() {
+        let (store, _d) = temp_store();
+        let w = open_row("29H11122");
+        store.insert_walk_in(&w).unwrap();
+        // re-inserting an existing id is ignored
+        store
+            .insert_walk_in(&WalkInRow {
+                plate_number: "X".into(),
+                ..w.clone()
+            })
+            .unwrap();
+        assert_eq!(
+            store.walk_in(w.session_id).unwrap().unwrap().plate_number,
+            "29H11122"
+        );
+
+        let gate = Uuid::new_v4();
+        assert!(store
+            .close_walk_in(w.session_id, gate, Utc::now(), 30_000, &settle_as("cash"))
+            .unwrap());
+        assert!(!store
+            .close_walk_in(w.session_id, gate, Utc::now(), 99, &settle_as("bank_qr"))
+            .unwrap());
+        let got = store.walk_in(w.session_id).unwrap().unwrap();
+        assert_eq!(got.status, "paid");
+        assert_eq!(got.amount_vnd, Some(30_000));
+        assert_eq!(got.method.as_deref(), Some("cash"));
+        assert!(store.open_walk_in("29H11122").unwrap().is_none());
+    }
+
+    #[test]
+    fn open_walk_in_returns_newest_open() {
+        let (store, _d) = temp_store();
+        let old = open_row("A1");
+        let mut new = open_row("A1");
+        new.entered_at = Utc::now();
+        store.insert_walk_in(&old).unwrap();
+        store.insert_walk_in(&new).unwrap();
+        assert_eq!(
+            store.open_walk_in("A1").unwrap().unwrap().session_id,
+            new.session_id
+        );
+    }
+
+    #[test]
+    fn walk_in_summary_groups_by_method() {
+        let (store, _d) = temp_store();
+        let gate = Uuid::new_v4();
+        let since = Utc::now() - chrono::Duration::minutes(1);
+        for (plate, method, amount) in [
+            ("A", "cash", 20_000),
+            ("B", "cash", 15_000),
+            ("C", "bank_qr", 30_000),
+            ("D", "waived", 0),
+        ] {
+            let w = open_row(plate);
+            store.insert_walk_in(&w).unwrap();
+            store
+                .close_walk_in(w.session_id, gate, Utc::now(), amount, &settle_as(method))
+                .unwrap();
+        }
+        store.insert_walk_in(&open_row("E")).unwrap(); // still open: not counted
+        let old = open_row("F"); // settled before `since`: not counted
+        store.insert_walk_in(&old).unwrap();
+        store
+            .close_walk_in(
+                old.session_id,
+                gate,
+                since - chrono::Duration::hours(1),
+                5_000,
+                &settle_as("cash"),
+            )
+            .unwrap();
+
+        assert_eq!(
+            store.walk_in_summary(since).unwrap(),
+            WalkInSummary {
+                cash_count: 2,
+                cash_total_vnd: 35_000,
+                bank_qr_count: 1,
+                bank_qr_total_vnd: 30_000,
+                waived_count: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn site_pricing_round_trips_and_overwrites() {
+        let (store, _d) = temp_store();
+        assert!(store.site_pricing().unwrap().is_none());
+        let mut p = StoredPricing {
+            pricing: crate::pricing::SitePricing {
+                hourly_from: Some(10_000),
+                daily_from: None,
+                overnight_from: None,
+                grace_minutes: 0,
+                block_minutes: 60,
+                overnight_start_hour: 22,
+                overnight_end_hour: 6,
+            },
+            timezone: "Asia/Ho_Chi_Minh".into(),
+            bank_account: Some(BankAccount {
+                bin: "970436".into(),
+                account_number: "0123456789".into(),
+                account_name: "CONG TY ABC".into(),
+            }),
+            updated_at: "2026-11-16T00:00:00Z".into(),
+        };
+        store.put_site_pricing(&p).unwrap();
+        assert_eq!(store.site_pricing().unwrap().unwrap(), p);
+        p.pricing.hourly_from = Some(12_000);
+        p.bank_account = None;
+        store.put_site_pricing(&p).unwrap();
+        assert_eq!(store.site_pricing().unwrap().unwrap(), p);
     }
 
     #[test]

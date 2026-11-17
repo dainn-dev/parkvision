@@ -1,0 +1,147 @@
+[
+  {
+    "name": "within_grace",
+    "pricing": {
+      "hourlyFrom": 10000,
+      "graceMinutes": 15,
+      "blockMinutes": 60
+    },
+    "timezone": "UTC",
+    "enteredAt": "2026-01-01T10:00:00+00:00",
+    "exitedAt": "2026-01-01T10:15:00+00:00",
+    "expected": 0
+  },
+  {
+    "name": "one_minute_past_grace",
+    "pricing": {
+      "hourlyFrom": 10000,
+      "graceMinutes": 15,
+      "blockMinutes": 60
+    },
+    "timezone": "UTC",
+    "enteredAt": "2026-01-01T10:00:00+00:00",
+    "exitedAt": "2026-01-01T10:16:00+00:00",
+    "expected": 10000
+  },
+  {
+    "name": "exact_block_boundary",
+    "pricing": {
+      "hourlyFrom": 10000,
+      "blockMinutes": 60
+    },
+    "timezone": "UTC",
+    "enteredAt": "2026-01-01T10:00:00+00:00",
+    "exitedAt": "2026-01-01T11:00:00+00:00",
+    "expected": 10000
+  },
+  {
+    "name": "two_h_thirty_sixty_blocks",
+    "pricing": {
+      "hourlyFrom": 10000,
+      "blockMinutes": 60
+    },
+    "timezone": "UTC",
+    "enteredAt": "2026-01-01T10:00:00+00:00",
+    "exitedAt": "2026-01-01T12:30:00+00:00",
+    "expected": 30000
+  },
+  {
+    "name": "thirty_minute_blocks",
+    "pricing": {
+      "hourlyFrom": 10000,
+      "blockMinutes": 30
+    },
+    "timezone": "UTC",
+    "enteredAt": "2026-01-01T10:00:00+00:00",
+    "exitedAt": "2026-01-01T11:05:00+00:00",
+    "expected": 15000
+  },
+  {
+    "name": "daily_cap_reached",
+    "pricing": {
+      "hourlyFrom": 10000,
+      "dailyFrom": 50000,
+      "blockMinutes": 60
+    },
+    "timezone": "UTC",
+    "enteredAt": "2026-01-01T10:00:00+00:00",
+    "exitedAt": "2026-01-01T23:59:00+00:00",
+    "expected": 50000
+  },
+  {
+    "name": "two_24h_windows",
+    "pricing": {
+      "hourlyFrom": 1000,
+      "dailyFrom": 20000,
+      "blockMinutes": 60
+    },
+    "timezone": "UTC",
+    "enteredAt": "2026-01-01T10:00:00+00:00",
+    "exitedAt": "2026-01-03T10:00:00+00:00",
+    "expected": 40000
+  },
+  {
+    "name": "overnight_crossing_hcmc",
+    "pricing": {
+      "hourlyFrom": 10000,
+      "overnightFrom": 5000,
+      "overnightStartHour": 22,
+      "overnightEndHour": 6,
+      "blockMinutes": 60
+    },
+    "timezone": "Asia/Ho_Chi_Minh",
+    "enteredAt": "2026-01-01T21:00:00+00:00",
+    "exitedAt": "2026-01-02T07:00:00+00:00",
+    "expected": 105000
+  },
+  {
+    "name": "stay_entirely_inside_overnight",
+    "pricing": {
+      "hourlyFrom": 10000,
+      "overnightFrom": 5000,
+      "overnightStartHour": 22,
+      "overnightEndHour": 6,
+      "blockMinutes": 60
+    },
+    "timezone": "Asia/Ho_Chi_Minh",
+    "enteredAt": "2026-01-01T23:00:00+00:00",
+    "exitedAt": "2026-01-02T01:00:00+00:00",
+    "expected": 20000
+  },
+  {
+    "name": "overnight_start_equals_end_no_surcharge",
+    "pricing": {
+      "hourlyFrom": 10000,
+      "overnightFrom": 5000,
+      "overnightStartHour": 5,
+      "overnightEndHour": 5,
+      "blockMinutes": 60
+    },
+    "timezone": "Asia/Ho_Chi_Minh",
+    "enteredAt": "2026-01-01T21:00:00+00:00",
+    "exitedAt": "2026-01-02T07:00:00+00:00",
+    "expected": 100000
+  },
+  {
+    "name": "no_hourly_rate_not_estimable",
+    "pricing": {
+      "hourlyFrom": null,
+      "blockMinutes": 60
+    },
+    "timezone": "UTC",
+    "enteredAt": "2026-01-01T10:00:00+00:00",
+    "exitedAt": "2026-01-01T12:00:00+00:00",
+    "expected": null
+  },
+  {
+    "name": "exit_before_entry",
+    "pricing": {
+      "hourlyFrom": 10000,
+      "blockMinutes": 60
+    },
+    "timezone": "UTC",
+    "enteredAt": "2026-01-01T12:00:00+00:00",
+    "exitedAt": "2026-01-01T10:00:00+00:00",
+    "expected": 0
+  }
+]

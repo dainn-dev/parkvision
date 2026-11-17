@@ -22,6 +22,7 @@ from app.schemas.resources import (
     SitesGatesSiteOut,
 )
 from app.services.audit_service import write_audit
+from app.services.walk_in_service import enqueue_site_signal
 
 router = APIRouter(
     prefix="/tenants/{tenant_id}",
@@ -79,6 +80,7 @@ async def create_site(
         public_profile=body.public_profile.model_dump(by_alias=True)
         if body.public_profile
         else {},
+        bank_account=body.bank_account.model_dump(by_alias=True) if body.bank_account else None,
         contact_phone=body.contact_phone,
         manager_name=body.manager_name,
         timezone=body.timezone,
@@ -135,15 +137,27 @@ async def update_site(
     ).scalar_one_or_none()
     if row is None:
         raise not_found("site", site_id) from None
-    for k, v in body.model_dump(exclude_unset=True).items():
-        if v is not None:
+    sent = body.model_dump(exclude_unset=True)
+    for k, v in sent.items():
+        if k == "bank_account" and v is None:
+            row.bank_account = None  # explicit null clears the account
+        elif v is not None:
             if k == "public_profile":
                 v = (
                     body.public_profile.model_dump(by_alias=True)
                     if body.public_profile
                     else {}
                 )
+            elif k == "bank_account":
+                v = body.bank_account.model_dump(by_alias=True) if body.bank_account else None
             setattr(row, k, v)
+    if "public_profile" in sent or "bank_account" in sent:
+        await enqueue_site_signal(
+            db,
+            tenant_id=ctx.tenant_id,
+            site_id=site_id,
+            message={"type": "pricing_updated", "siteId": str(site_id)},
+        )
     await write_audit(
         db,
         tenant_id=ctx.tenant_id,

@@ -1,1 +1,15 @@
 @import "tailwindcss";
+
+/* Receipt printing: only #print-root is visible, on 80 mm paper. */
+#print-root { display: none; }
+.print-doc { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; width: 72mm; color: #000; }
+.print-doc h1 { font-size: 16px; font-weight: 800; text-align: center; margin: 0 0 4px; }
+.print-doc hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
+.print-big { font-size: 18px; font-weight: 700; }
+.print-qr { display: flex; justify-content: center; margin-top: 8px; }
+.print-code { text-align: center; font-weight: 700; letter-spacing: 0.05em; }
+@page { size: 80mm auto; margin: 4mm; }
+@media print {
+  body > *:not(#print-root) { display: none !important; }
+  #print-root { display: block !important; }
+}

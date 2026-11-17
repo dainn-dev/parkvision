@@ -184,6 +184,7 @@ class TenantSite(TimestampMixin, Base):
     # {listed, description, imageUrl, parkingType, facilities, pricing:
     #  {hourlyFrom, dailyFrom, overnightFrom, monthlyFrom}}
     public_profile: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    bank_account: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=None)
     overall_health: Mapped[str] = mapped_column(String(20), nullable=False, default="healthy")
     contact_phone: Mapped[str | None] = mapped_column(String(50))
     manager_name: Mapped[str | None] = mapped_column(String(120))
@@ -193,6 +194,36 @@ class TenantSite(TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "name", name="uq_site_name"),
         UniqueConstraint("tenant_id", "code", name="uq_tenant_site_code"),
+    )
+
+
+class WalkInSession(TimestampMixin, Base):
+    __tablename__ = "walk_in_sessions"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    site_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenant_sites.id", ondelete="CASCADE"), nullable=False)
+    plate_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    plate_normalized: Mapped[str] = mapped_column(String(20), nullable=False)
+    pay_code: Mapped[str] = mapped_column(String(12), nullable=False)
+    entry_gate_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("barrier_gates.id", ondelete="SET NULL"))
+    entered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    entry_plate_image_key: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(10), nullable=False, default="open")
+    exit_gate_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("barrier_gates.id", ondelete="SET NULL"))
+    exited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    amount_vnd: Mapped[int | None] = mapped_column(BigInteger)
+    expected_amount_vnd: Mapped[int | None] = mapped_column(BigInteger)
+    method: Mapped[str | None] = mapped_column(String(10))
+    confirmed_by: Mapped[str | None] = mapped_column(String(10))
+    waive_reason: Mapped[str | None] = mapped_column(Text)
+    bank_ref: Mapped[str | None] = mapped_column(String(80))
+    bank_amount_vnd: Mapped[int | None] = mapped_column(BigInteger)
+    bank_paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        Index("ix_walk_in_tenant_site_exit", "tenant_id", "site_id", "exited_at"),
+        Index("ix_walk_in_plate_status", "tenant_id", "plate_normalized", "status"),
     )
 
 

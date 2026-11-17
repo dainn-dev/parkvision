@@ -96,6 +96,7 @@ class Settings(BaseSettings):
     # Driver payments (Phase 3). provider='none' disables payment creation
     # with a 503 payments_not_configured; 'momo' requires the creds below.
     payment_provider: str = "none"
+    bank_webhook_secret: str = ""
     momo_partner_code: str = ""
     momo_access_key: str = ""
     momo_secret_key: str = ""

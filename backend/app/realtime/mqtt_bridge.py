@@ -42,6 +42,7 @@ from app.services.parking_service import (
     record_detection,
     resolve_zone,
 )
+from app.services.walk_in_service import apply_exit, session_payload, upsert_entry
 
 log = logging.getLogger("mqtt-bridge")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -190,6 +191,50 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
                     error=payload.get("error"),
                 )
         await publish_ws(tenant_id, {"type": "command_ack", "gateId": gate_id, **payload})
+        return
+
+    if kind == "walk_in_entry":
+        async with platform_session() as db:
+            row, is_new = await upsert_entry(
+                db, tenant_id=tid, site_id=uuid.UUID(site_id), gate_id=gid, payload=payload
+            )
+            if is_new:
+                await record_access_event(
+                    db,
+                    tenant_id=tid,
+                    site_id=uuid.UUID(site_id),
+                    gate_id=gid,
+                    lane_id=_uuid_or_none(payload.get("laneId")),
+                    plate_number=row.plate_number,
+                    direction="entry",
+                    source=EventSource.MANUAL,
+                    force_decision="allow",
+                    force_reason="walk_in_admitted",
+                    occurred_at=row.entered_at,
+                )
+        await publish_ws(tenant_id, {"type": "walk_in", "event": "entry", "session": session_payload(row)})
+        return
+
+    if kind == "walk_in_exit":
+        async with platform_session() as db:
+            row, applied = await apply_exit(
+                db, tenant_id=tid, site_id=uuid.UUID(site_id), gate_id=gid, payload=payload
+            )
+            if applied:
+                await record_access_event(
+                    db,
+                    tenant_id=tid,
+                    site_id=uuid.UUID(site_id),
+                    gate_id=gid,
+                    lane_id=_uuid_or_none(payload.get("laneId")),
+                    plate_number=row.plate_number,
+                    direction="exit",
+                    source=EventSource.MANUAL,
+                    force_decision="allow",
+                    force_reason="walk_in_waived" if row.status == "waived" else "walk_in_paid",
+                    occurred_at=row.exited_at,
+                )
+        await publish_ws(tenant_id, {"type": "walk_in", "event": "exit", "session": session_payload(row)})
         return
 
     async with platform_session() as db:

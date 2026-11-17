@@ -173,6 +173,20 @@ class SitePricing(CamelModel):
     overnight_end_hour: int = Field(6, ge=0, le=23)
 
 
+class SiteBankAccount(CamelModel):
+    """VietQR destination account stored on the site. `account_name` is
+    always stored upper-cased (VietQR requires an unaccented uppercase name)."""
+
+    bin: str = Field(pattern=r"^\d{6}$")
+    account_number: str = Field(pattern=r"^\d{6,19}$")
+    account_name: str = Field(min_length=1, max_length=50)
+
+    @field_validator("account_name")
+    @classmethod
+    def _upper(cls, v: str) -> str:
+        return v.upper()
+
+
 class SitePublicProfile(CamelModel):
     listed: bool = True
     description: str | None = None
@@ -198,6 +212,7 @@ class SiteIn(CamelModel):
     # Mobile-app listing profile (validated shape); stored as JSONB
     # (camelCase keys) on tenant_sites.public_profile.
     public_profile: SitePublicProfile | None = None
+    bank_account: SiteBankAccount | None = None
 
 
 class SiteOut(CamelModel):
@@ -212,12 +227,56 @@ class SiteOut(CamelModel):
     current_occupancy: int
     operating_hours: dict[str, Any]
     public_profile: dict[str, Any] = {}
+    bank_account: SiteBankAccount | None = None
     overall_health: str
     contact_phone: str | None
     manager_name: str | None
     timezone: str
     status: str
     created_at: datetime
+
+
+class EdgeSitePricingOut(CamelModel):
+    pricing: SitePricing
+    timezone: str
+    bank_account: SiteBankAccount | None
+    updated_at: datetime
+
+
+class EdgeWalkInOut(CamelModel):
+    session_id: uuid.UUID
+    plate_number: str
+    entered_at: datetime
+    entry_gate_id: uuid.UUID | None
+    pay_code: str
+
+
+class WalkInSessionOut(CamelModel):
+    id: uuid.UUID
+    site_id: uuid.UUID
+    plate_number: str
+    pay_code: str
+    status: str
+    entry_gate_id: uuid.UUID | None
+    entered_at: datetime
+    exit_gate_id: uuid.UUID | None
+    exited_at: datetime | None
+    amount_vnd: int | None
+    expected_amount_vnd: int | None
+    method: str | None
+    confirmed_by: str | None
+    waive_reason: str | None
+    amount_mismatch: bool = False
+
+
+class WalkInSummaryOut(CamelModel):
+    cash_count: int = 0
+    cash_total_vnd: int = 0
+    bank_qr_count: int = 0
+    bank_qr_total_vnd: int = 0
+    waived_count: int = 0
+    open_count: int = 0
+    mismatch_count: int = 0
 
 
 class LaneIn(CamelModel):

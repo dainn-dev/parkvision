@@ -26,7 +26,8 @@ import {
   UserPlus,
   ArrowLeftRight,
   MapPinned,
-  BadgeCheck
+  BadgeCheck,
+  Banknote
 } from 'lucide-react';
 import { PrimaryTab, PlatformSubTab, MonitoringSubTab, SecuritySubTab } from '../../types/platform';
 import { TenantNavTab } from '../../types/tenant';
@@ -275,6 +276,21 @@ export const PlatformSidebar: React.FC = () => {
                   <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
                   {t('Live')}
                 </span>
+              </button>
+
+              {/* Walk-in vehicles */}
+              <button
+                onClick={() => setTenantNavTab('walk-ins')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+                  tenantNavTab === 'walk-ins'
+                    ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
+                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Banknote className={`w-4 h-4 shrink-0 ${tenantNavTab === 'walk-ins' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+                  <span>{t('Walk-in vehicles')}</span>
+                </div>
               </button>
             </div>
 

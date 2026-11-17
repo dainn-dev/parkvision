@@ -231,6 +231,16 @@ MoMo-backed payment method return 503. `method=wallet` bypasses the gateway
 entirely (debit + mark-paid in one DB transaction). IPN verifies HMAC-SHA256
 before updating state. Refunds are full-amount only — no partial refund path.
 
+**Walk-in fee collection** (unregistered vehicles, `walk_in_sessions`): settlement
+is decided on the **edge** — it prices the stay from a locally synced tariff
+(`edge-client/src-tauri/src/pricing.rs`, pinned to `pricing_service.estimate_fee`
+by `backend/tests/fixtures/pricing_vectors.json`), opens the barrier, then reports
+`walk_in_entry` / `walk_in_exit` frames on the telemetry topic. The backend's
+`amount_vnd` is what the edge charged; `expected_amount_vnd` is its own recompute
+(mismatch is flagged, not rejected). The bank webhook (`/public/walk-ins/bank-webhook`)
+never closes a session — it only stores the transfer and signals `walk_in_paid`
+to the gates; the edge decides whether the amount is enough.
+
 ## Edge-client architecture notes
 
 Rust/Tauri app, one process, N gates, one MQTT connection, one SQLite file.

@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use tokio::sync::{broadcast, mpsc, watch};
+use tokio::sync::{broadcast, mpsc, watch, Notify};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
@@ -31,7 +31,8 @@ use crate::heartbeat::{firmware_version, HeartbeatTracker};
 use crate::incidents::IncidentReporter;
 use crate::mqtt::{MqttClient, Publisher};
 use crate::payloads::{command_topic, incident_topic, telemetry_topic, CommandPayload};
-use crate::pipeline::run_pipeline;
+use crate::pipeline::{run_pipeline, PipelineHooks};
+use crate::walkin::FeeQuote;
 use crate::store::Store;
 use crate::sync::{AuthError, SyncClient};
 use crate::telemetry::{heartbeat_loop, telemetry_loop, CycleCounters};
@@ -70,6 +71,11 @@ pub struct GateRuntime {
     pub state_rx: watch::Receiver<GateState>,
     /// Latest access event for this gate — feeds the status poll.
     pub last_event: Arc<Mutex<Option<serde_json::Value>>>,
+    /// Walk-in fee waiting to be collected at this lane (exit gates). Set by
+    /// the pipeline, cleared by the next reading or by settlement.
+    pub pending_fee: Arc<Mutex<Option<FeeQuote>>>,
+    /// UI sinks for this gate — walk-in settlement emits through these.
+    pub hooks: PipelineHooks,
 }
 
 /// All shared handles — the Tauri layer iterates `gates` for per-gate
@@ -252,6 +258,9 @@ impl EdgeRuntime {
         )));
         let mut gates: Vec<Arc<GateRuntime>> = Vec::new();
         let mut executors: Vec<(Uuid, Arc<CommandExecutor>)> = Vec::new();
+        let sync_client = Arc::new(SyncClient::new(cfg.clone(), store.clone()));
+        // Woken by an inbound `pricing_updated` signal → immediate tariff sync.
+        let pricing_notify = Arc::new(Notify::new());
 
         for binding in &cfg.gates {
             let ctx = Arc::new(cfg.gate_ctx(binding));
@@ -342,12 +351,16 @@ impl EdgeRuntime {
             }
 
             // ANPR pipeline for this gate's plate camera
+            let pending_fee = Arc::new(Mutex::new(None::<FeeQuote>));
+            let hooks = PipelineHooks {
+                events: Some(events_tx.clone()),
+                last_event: Some(last_event.clone()),
+                pending_fee: Some(pending_fee.clone()),
+                sync: Some(sync_client.clone()),
+            };
             {
                 let src = build_plate_source(&ctx, plate_rx);
-                let hooks = crate::pipeline::PipelineHooks {
-                    events: Some(events_tx.clone()),
-                    last_event: Some(last_event.clone()),
-                };
+                let hooks = hooks.clone();
                 let pctx = ctx.clone();
                 let pstore = store.clone();
                 let ppub = publisher.clone();
@@ -367,6 +380,8 @@ impl EdgeRuntime {
                 plate_tx,
                 state_rx,
                 last_event,
+                pending_fee,
+                hooks,
             }));
         }
 
@@ -389,8 +404,59 @@ impl EdgeRuntime {
             let tenant = cfg.tenant_id;
             let device_id = cfg.device_id;
             let tracker = heartbeat_tracker.clone();
+            let site_id = cfg.site_id;
+            let pricing_notify = pricing_notify.clone();
+            let walk_gates = gates.clone();
+            let walk_store = store.clone();
+            let walk_pub = publisher.clone();
             spawn(Box::pin(async move {
                 while let Some(body) = cmd_rx.recv().await {
+                    // Backend → edge signals that are not barrier commands:
+                    // no GateCommand row, no ack. Handled before any
+                    // `CommandPayload` parsing.
+                    match body.get("type").and_then(|v| v.as_str()) {
+                        Some("pricing_updated") => {
+                            let for_this_site = body
+                                .get("siteId")
+                                .and_then(|v| v.as_str())
+                                .and_then(|s| Uuid::parse_str(s).ok())
+                                == Some(site_id);
+                            if for_this_site {
+                                pricing_notify.notify_one();
+                            } else {
+                                warn!("pricing_updated for another site ignored");
+                            }
+                            continue;
+                        }
+                        Some("walk_in_paid") => {
+                            let session = body
+                                .get("sessionId")
+                                .and_then(|v| v.as_str())
+                                .and_then(|s| Uuid::parse_str(s).ok());
+                            let amount = body.get("amountVnd").and_then(|v| v.as_i64());
+                            let bank_ref = body
+                                .get("bankRef")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or_default()
+                                .to_string();
+                            match (session, amount) {
+                                (Some(session), Some(amount)) => {
+                                    crate::walkin::on_bank_paid_for(
+                                        &walk_gates,
+                                        &walk_store,
+                                        walk_pub.as_ref(),
+                                        session,
+                                        amount,
+                                        bank_ref,
+                                    )
+                                    .await;
+                                }
+                                _ => warn!("malformed walk_in_paid signal dropped"),
+                            }
+                            continue;
+                        }
+                        _ => {}
+                    }
                     if body.get("type").and_then(|v| v.as_str()) == Some("heartbeat_ack") {
                         match serde_json::from_value::<crate::payloads::HeartbeatAck>(body.clone())
                         {
@@ -433,14 +499,36 @@ impl EdgeRuntime {
         // forever. Reconciliation purges whitelist rows the backend's full
         // snapshot no longer returns.
         {
-            let client = SyncClient::new(cfg.clone(), store.clone());
+            let client = sync_client.clone();
+            let notify = pricing_notify.clone();
             let every = knots.sync_every;
             let publisher = publisher.clone();
             spawn(Box::pin(async move {
                 let mut interval = tokio::time::interval(every);
                 let mut needs_reconciliation = true;
+                let mut first = true;
                 loop {
-                    interval.tick().await;
+                    // The tariff signal wakes the loop for an immediate
+                    // tariff sync (REST only — nothing else is re-run).
+                    tokio::select! {
+                        _ = interval.tick() => {}
+                        _ = notify.notified() => {
+                            if sync_pricing_logged(&client, &revoked_tx).await {
+                                return;
+                            }
+                            continue;
+                        }
+                    }
+                    // Start-up tariff sync does not wait for MQTT: the REST
+                    // API may be reachable while the broker is not.
+                    let mut priced = false;
+                    if first {
+                        first = false;
+                        priced = true;
+                        if sync_pricing_logged(&client, &revoked_tx).await {
+                            return;
+                        }
+                    }
                     if !publisher.is_connected() {
                         needs_reconciliation = true;
                         continue;
@@ -490,6 +578,9 @@ impl EdgeRuntime {
                             }
                             warn!("rules sync failed: {e:#}");
                         }
+                    }
+                    if !priced && sync_pricing_logged(&client, &revoked_tx).await {
+                        return;
                     }
                 }
             }));
@@ -576,6 +667,24 @@ impl EdgeRuntime {
             handles: Mutex::new(handles),
         })
     }
+}
+
+/// Run one tariff sync, logging the outcome. Returns `true` when the
+/// credential was rejected (deprovision signalled) and syncing must stop.
+async fn sync_pricing_logged(client: &SyncClient, revoked_tx: &watch::Sender<bool>) -> bool {
+    match client.sync_pricing().await {
+        Ok(true) => info!("site tariff updated"),
+        Ok(false) => {}
+        Err(e) => {
+            if e.downcast_ref::<AuthError>().is_some() {
+                warn!("credential revoked — signaling deprovision");
+                let _ = revoked_tx.send(true);
+                return true;
+            }
+            warn!("tariff sync failed: {e:#}");
+        }
+    }
+    false
 }
 
 /// Decide whether the sidecar owns camera recognition for this gate. Kept
@@ -917,6 +1026,143 @@ mod tests {
                 .any(|(_, b, _)| b["type"] == "command_ack")
         })
         .await;
+        rt.stop().await;
+    }
+
+    // ---------- tariff signal + walk-in dispatch ----------
+
+    async fn started_against(
+        base_url: &str,
+    ) -> (
+        SharedRuntime,
+        Arc<MemPublisher>,
+        mpsc::Sender<serde_json::Value>,
+        tempfile::TempDir,
+    ) {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("edge.db")).unwrap();
+        let pub_ = Arc::new(MemPublisher::new());
+        let (cmd_tx, cmd_rx) = mpsc::channel(16);
+        let mut c = cfg();
+        c.api_base_url = base_url.to_string();
+        let rt = EdgeRuntime::start_with(
+            c,
+            store,
+            &hal_factory(),
+            dir.path().to_path_buf(),
+            pub_.clone(),
+            cmd_rx,
+            fast_knots(),
+        )
+        .await
+        .unwrap();
+        (rt, pub_, cmd_tx, dir)
+    }
+
+    async fn wait_hits(mock: &httpmock::Mock<'_>, at_least: usize) {
+        for _ in 0..200 {
+            if mock.hits_async().await >= at_least {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        panic!("pricing endpoint not hit {at_least} time(s) within 1s");
+    }
+
+    fn pricing_mock(server: &httpmock::MockServer) -> httpmock::Mock<'_> {
+        server.mock(|when, then| {
+            when.method(httpmock::Method::GET)
+                .path(format!("/edge/tenants/{TENANT}/sites/{SITE}/pricing"));
+            then.status(200).json_body(json!({
+                "pricing": {"hourlyFrom": 10000},
+                "timezone": "UTC",
+                "bankAccount": null,
+                "updatedAt": "2026-11-16T00:00:00Z"
+            }));
+        })
+    }
+
+    #[tokio::test]
+    async fn pricing_is_synced_at_startup() {
+        let server = httpmock::MockServer::start_async().await;
+        let mock = pricing_mock(&server);
+        let (rt, pub_, _cmd, _dir) = started_against(&server.base_url()).await;
+        // MQTT disconnected: the start-up tariff sync must not wait for it.
+        pub_.set_connected(false);
+        wait_hits(&mock, 1).await;
+        wait_for(|| rt.store.site_pricing().unwrap().is_some()).await;
+        rt.stop().await;
+    }
+
+    #[tokio::test]
+    async fn pricing_updated_signal_triggers_sync_without_touching_executors() {
+        let server = httpmock::MockServer::start_async().await;
+        let mock = pricing_mock(&server);
+        let (rt, pub_, cmd, _dir) = started_against(&server.base_url()).await;
+        wait_hits(&mock, 1).await; // start-up sync
+        cmd.send(json!({"type": "pricing_updated", "siteId": SITE}))
+            .await
+            .unwrap();
+        wait_hits(&mock, 2).await;
+        assert!(!pub_
+            .sent
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|(_, b, _)| b["type"] == "command_ack"));
+        rt.stop().await;
+    }
+
+    #[tokio::test]
+    async fn pricing_updated_for_another_site_is_ignored() {
+        let server = httpmock::MockServer::start_async().await;
+        let mock = pricing_mock(&server);
+        let (rt, _pub, cmd, _dir) = started_against(&server.base_url()).await;
+        wait_hits(&mock, 1).await;
+        cmd.send(json!({"type": "pricing_updated", "siteId": Uuid::new_v4()}))
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(mock.hits_async().await, 1);
+        rt.stop().await;
+    }
+
+    #[tokio::test]
+    async fn bank_paid_signal_settles_pending_fee_and_is_not_routed_to_command_executor() {
+        let (rt, pub_, cmd, _dir) = started().await;
+        rt.store
+            .put_site_pricing(&crate::walkin::testkit::tariff(Some(10_000)))
+            .unwrap();
+        let gate = rt.gate(&Uuid::parse_str(GATE_B).unwrap()).unwrap().clone();
+        let row = crate::walkin::testkit::walk_in_row("29H11122", 150);
+        rt.store.insert_walk_in(&row).unwrap();
+        let q = crate::walkin::quote(rt.store.site_pricing().unwrap().as_ref(), &row, chrono::Utc::now());
+        *gate.pending_fee.lock().unwrap() = Some(q.clone());
+
+        cmd.send(json!({
+            "type": "walk_in_paid",
+            "sessionId": q.session_id,
+            "amountVnd": q.amount_vnd.unwrap(),
+            "bankRef": "FT26321",
+            "paidAt": "2026-11-16T10:42:40Z"
+        }))
+        .await
+        .unwrap();
+        wait_for(|| {
+            pub_.sent
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|(_, b, _)| b["type"] == "walk_in_exit")
+        })
+        .await;
+        let sent = pub_.sent.lock().unwrap();
+        assert!(!sent.iter().any(|(_, b, _)| b["type"] == "command_ack"));
+        let exit = sent.iter().find(|(_, b, _)| b["type"] == "walk_in_exit").unwrap();
+        assert_eq!(exit.1["confirmedBy"], "auto");
+        assert!(exit.0.contains(GATE_B));
+        drop(sent);
+        assert!(gate.pending_fee.lock().unwrap().is_none());
         rt.stop().await;
     }
 

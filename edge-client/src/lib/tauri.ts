@@ -130,6 +130,43 @@ export interface GateStatus {
   lastPlate: string | null;
   lastDecision: string | null;
   lastReason: string | null;
+  /** Set while an exit-lane walk-in is waiting for the fee to be collected. */
+  pendingFee?: FeeQuote | null;
+  lastAmountVnd?: number | null;
+  lastMethod?: string | null;
+}
+
+// ---------- walk-in fee collection ----------
+
+export type WalkInMethod = "cash" | "bank_qr" | "waived";
+
+export interface FeeQuote {
+  sessionId: string;
+  plate: string;
+  enteredAt: string;
+  exitedAt: string;
+  durationMinutes: number;
+  /** null when no tariff / hourly rate is synced — never show as 0 đ. */
+  amountVnd: number | null;
+  entryGateId: string | null;
+  entryImageKey: string | null;
+  payCode: string;
+  bankReceivedVnd: number | null;
+}
+
+export interface WalkInSummary {
+  cashCount: number;
+  cashTotalVnd: number;
+  bankQrCount: number;
+  bankQrTotalVnd: number;
+  waivedCount: number;
+}
+
+export interface BankAccount {
+  bin: string;
+  accountNumber: string;
+  accountName?: string | null;
+  bankName?: string | null;
 }
 
 export interface EdgeStatus {
@@ -147,6 +184,8 @@ export interface AccessEvent {
   decision: "allow" | "deny";
   reason: string;
   at: string;
+  amountVnd?: number | null;
+  method?: string | null;
 }
 
 export interface LockStatus {
@@ -222,6 +261,27 @@ export const unlock = (password: string) =>
   invoke<boolean>("unlock", { password });
 export const lockNow = () => invoke<LockStatus>("lock_now");
 export const lockStatus = () => invoke<LockStatus>("lock_status");
+
+// ---------- walk-in commands ----------
+
+/// Resolves to the new session id.
+export const admitWalkIn = (gateId: string, plate: string) =>
+  invoke<string>("admit_walk_in", { gateId, plate });
+export const settleWalkIn = (
+  gateId: string,
+  sessionId: string,
+  method: WalkInMethod,
+  waiveReason?: string,
+) =>
+  invoke<void>("settle_walk_in", {
+    gateId,
+    sessionId,
+    method,
+    waiveReason: waiveReason ?? null,
+  });
+export const walkInToday = () => invoke<WalkInSummary>("walk_in_today");
+export const sitePaymentInfo = () =>
+  invoke<{ bankAccount: BankAccount | null; timezone: string } | null>("site_payment_info");
 
 // ---------- events ----------
 

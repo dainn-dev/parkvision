@@ -1,7 +1,9 @@
 """Fee-engine unit tests (no DB): grace, block rounding, daily cap,
 overnight windows, timezone handling."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
+
+import pytest
 
 from app.services.pricing_service import estimate_fee
 
@@ -112,3 +114,19 @@ def test_long_stay_mixed_rules():
     assert estimate_fee(p, T(10), T(12)) == 20000
     # 30h stay → cap 2×50k = 100k, +1 overnight crossing (spans 22→6)
     assert estimate_fee(p, T(10), T(16, day=2)) == 100000 + 30000
+
+
+def _load_vectors():
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).parent / "fixtures" / "pricing_vectors.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("case", _load_vectors(), ids=lambda c: c["name"])
+def test_pricing_vectors(case):
+    """Shared with the edge's Rust port (edge-client/src-tauri/src/pricing.rs)."""
+    entered = datetime.fromisoformat(case["enteredAt"])
+    exited = datetime.fromisoformat(case["exitedAt"])
+    assert estimate_fee(case["pricing"], entered, exited, case["timezone"]) == case["expected"]

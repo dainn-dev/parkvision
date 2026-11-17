@@ -23,6 +23,7 @@ from app.api.v1.tenant import (
     sites,
     users,
     vehicles,
+    walk_ins,
 )
 
 api_v1 = APIRouter()
@@ -56,6 +57,7 @@ api_v1.include_router(rules.router)
 api_v1.include_router(events.router)
 api_v1.include_router(memberships.router)
 api_v1.include_router(payments.router)
+api_v1.include_router(walk_ins.router)
 api_v1.include_router(audit.router)
 
 # WebSocket routes live outside /api/v1 prefix semantics but are mounted at app level.

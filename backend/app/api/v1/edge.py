@@ -28,18 +28,24 @@ from app.models import (
     EdgeDevice,
     RegisteredVehicle,
     TenantAccessRule,
+    TenantSite,
+    WalkInSession,
 )
 from app.schemas.common import MessageOut
 from app.schemas.resources import (
     ActivateIn,
     ActivationBundleOut,
     EdgeRuleEntry,
+    EdgeSitePricingOut,
     EdgeVehicleEntry,
+    EdgeWalkInOut,
     EdgeWhitelistOut,
     MqttAuthIn,
     MqttAuthOut,
     PresignIn,
     PresignOut,
+    SiteBankAccount,
+    SitePricing,
 )
 from app.services.activation_service import (
     build_activation_bundle,
@@ -257,6 +263,55 @@ async def edge_whitelist(
         items=[EdgeVehicleEntry.model_validate(r) for r in items],
         synced_at=synced_at,
         truncated=truncated,
+    )
+
+
+@router.get("/tenants/{tenant_id}/sites/{site_id}/pricing", response_model=EdgeSitePricingOut)
+async def edge_site_pricing(
+    tenant_id: uuid.UUID,
+    site_id: uuid.UUID,
+    cred: ApiCredential = Depends(edge_ctx),
+) -> EdgeSitePricingOut:
+    async with platform_session() as db:
+        site = (await db.execute(select(TenantSite).where(TenantSite.id == site_id, TenantSite.tenant_id == tenant_id))).scalar_one_or_none()
+    if site is None:
+        raise ApiError(status.HTTP_404_NOT_FOUND, "not_found", "site not found")
+    profile = site.public_profile or {}
+    return EdgeSitePricingOut(
+        pricing=SitePricing.model_validate(profile.get("pricing") or {}),
+        timezone=site.timezone,
+        bank_account=SiteBankAccount.model_validate(site.bank_account) if site.bank_account else None,
+        updated_at=site.updated_at,
+    )
+
+
+@router.get("/tenants/{tenant_id}/walk-ins/open", response_model=EdgeWalkInOut | None)
+async def edge_open_walk_in(
+    tenant_id: uuid.UUID,
+    plate: str = Query(..., min_length=1),
+    cred: ApiCredential = Depends(edge_ctx),
+) -> EdgeWalkInOut | None:
+    from app.services.event_service import normalize_plate
+
+    async with platform_session() as db:
+        row = (await db.execute(
+            select(WalkInSession)
+            .where(
+                WalkInSession.tenant_id == tenant_id,
+                WalkInSession.plate_normalized == normalize_plate(plate),
+                WalkInSession.status == "open",
+            )
+            .order_by(WalkInSession.entered_at.desc())
+            .limit(1)
+        )).scalar_one_or_none()
+    if row is None:
+        return None
+    return EdgeWalkInOut(
+        session_id=row.id,
+        plate_number=row.plate_number,
+        entered_at=row.entered_at,
+        entry_gate_id=row.entry_gate_id,
+        pay_code=row.pay_code,
     )
 
 

@@ -11,7 +11,8 @@ import {
   Globe,
   Compass,
   Save,
-  Check
+  Check,
+  Banknote
 } from 'lucide-react';
 import { Button } from '../ui';
 import {
@@ -74,7 +75,10 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
     graceMinutes: (location.publicProfile?.pricing?.graceMinutes ?? 0).toString(),
     blockMinutes: (location.publicProfile?.pricing?.blockMinutes ?? 60).toString(),
     overnightStartHour: (location.publicProfile?.pricing?.overnightStartHour ?? 22).toString(),
-    overnightEndHour: (location.publicProfile?.pricing?.overnightEndHour ?? 6).toString()
+    overnightEndHour: (location.publicProfile?.pricing?.overnightEndHour ?? 6).toString(),
+    bankBin: location.bankAccount?.bin ?? '',
+    bankAccountNumber: location.bankAccount?.accountNumber ?? '',
+    bankAccountName: location.bankAccount?.accountName ?? ''
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -116,7 +120,10 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
         graceMinutes: (location.publicProfile?.pricing?.graceMinutes ?? 0).toString(),
         blockMinutes: (location.publicProfile?.pricing?.blockMinutes ?? 60).toString(),
         overnightStartHour: (location.publicProfile?.pricing?.overnightStartHour ?? 22).toString(),
-        overnightEndHour: (location.publicProfile?.pricing?.overnightEndHour ?? 6).toString()
+        overnightEndHour: (location.publicProfile?.pricing?.overnightEndHour ?? 6).toString(),
+        bankBin: location.bankAccount?.bin ?? '',
+        bankAccountNumber: location.bankAccount?.accountNumber ?? '',
+        bankAccountName: location.bankAccount?.accountName ?? ''
       });
       setErrors({});
       setIsDirty(false);
@@ -176,6 +183,18 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
       errs.email = t('Please provide a valid email address.');
     }
 
+    const bankBin = formData.bankBin.trim();
+    const bankNumber = formData.bankAccountNumber.trim();
+    const bankName = formData.bankAccountName.trim();
+    const bankFilled = [bankBin, bankNumber, bankName].filter(Boolean).length;
+    if (bankFilled > 0 && bankFilled < 3) {
+      errs.bankAccount = t('Fill in all three fields or leave all three empty.');
+    } else if (bankFilled === 3) {
+      if (!/^\d{6}$/.test(bankBin)) errs.bankAccount = t('BIN must be exactly 6 digits.');
+      else if (!/^\d{6,19}$/.test(bankNumber)) errs.bankAccount = t('Account number must be 6 to 19 digits.');
+      else if (bankName.length > 50) errs.bankAccount = t('Account name cannot exceed 50 characters.');
+    }
+
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -208,11 +227,20 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
       pricing
     };
 
+    const bankAccount = formData.bankBin.trim()
+      ? {
+          bin: formData.bankBin.trim(),
+          accountNumber: formData.bankAccountNumber.trim(),
+          accountName: formData.bankAccountName.trim().toUpperCase()
+        }
+      : null;
+
     setIsSaving(true);
     setTimeout(() => {
       onSave({
         name: formData.name.trim(),
         publicProfile,
+        bankAccount,
         address: {
           line1: formData.line1.trim(),
           line2: formData.line2.trim(),
@@ -668,6 +696,31 @@ export const EditLocationSheet: React.FC<EditLocationSheetProps> = ({
             <p className="text-[10px] text-[#8b949e]">
               {t('Session fees in the driver app are estimates computed from these rules; the cashier confirms the final amount at exit.')}
             </p>
+          </div>
+          {/* Section 6: Bank account for walk-in transfers (VietQR) */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-white font-semibold border-b border-[#30363d] pb-2">
+              <Banknote className="w-4 h-4 text-[#3fb950]" />
+              <h3>{t('Bank transfer account')}</h3>
+            </div>
+            <p className="text-[10px] text-[#8b949e]">
+              {t('Walk-in drivers pay by scanning a VietQR code that pays into this account. Leave all three empty to disable bank transfer.')}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <label htmlFor="bank-bin" className="text-[11px] font-medium text-[#8b949e]">{t('Bank code (BIN)')}</label>
+                <input id="bank-bin" type="text" inputMode="numeric" maxLength={6} value={formData.bankBin} onChange={(e) => handleChange('bankBin', e.target.value)} placeholder="970436" className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden font-mono" />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="bank-number" className="text-[11px] font-medium text-[#8b949e]">{t('Account number')}</label>
+                <input id="bank-number" type="text" inputMode="numeric" maxLength={19} value={formData.bankAccountNumber} onChange={(e) => handleChange('bankAccountNumber', e.target.value)} placeholder="0123456789" className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden font-mono" />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="bank-name" className="text-[11px] font-medium text-[#8b949e]">{t('Account holder name')}</label>
+                <input id="bank-name" type="text" maxLength={50} value={formData.bankAccountName} onChange={(e) => handleChange('bankAccountName', e.target.value)} placeholder="NGUYEN VAN A" className="w-full bg-[#0d0e12] border border-[#30363d] focus:border-[#58a6ff] rounded-lg px-3 py-2 text-white text-xs placeholder-[#8b949e] focus:outline-hidden uppercase" />
+              </div>
+            </div>
+            {errors.bankAccount && <p className="text-[10px] text-[#f85149]">{errors.bankAccount}</p>}
           </div>
         </form>
 

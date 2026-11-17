@@ -12,7 +12,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::config::EdgeConfig;
-use crate::store::{RuleRow, Store, VehicleRow};
+use crate::store::{RuleRow, Store, StoredPricing, VehicleRow, WalkInRow};
 
 const PAGE_LIMIT: u32 = 500;
 
@@ -90,6 +90,15 @@ struct EdgeRuleEntry {
     conditions: serde_json::Value,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EdgeWalkIn {
+    session_id: Uuid,
+    plate_number: String,
+    entered_at: DateTime<Utc>,
+    entry_gate_id: Option<Uuid>,
+}
+
 pub struct SyncClient {
     http: reqwest::Client,
     cfg: Arc<EdgeConfig>,
@@ -119,6 +128,68 @@ impl SyncClient {
             self.cfg.api_base_url.trim_end_matches('/'),
             self.cfg.tenant_id
         )
+    }
+
+    fn pricing_url(&self) -> String {
+        format!(
+            "{}/edge/tenants/{}/sites/{}/pricing",
+            self.cfg.api_base_url.trim_end_matches('/'),
+            self.cfg.tenant_id,
+            self.cfg.site_id
+        )
+    }
+
+    pub async fn sync_pricing(&self) -> Result<bool> {
+        let resp = self
+            .http
+            .get(self.pricing_url())
+            .header("X-Api-Key", &self.cfg.api_key)
+            .send()
+            .await
+            .context("pricing request")?;
+        check_status(&resp, "pricing")?;
+        let next: StoredPricing = resp.json().await.context("pricing body decode")?;
+        let changed = self.store.site_pricing()?.as_ref() != Some(&next);
+        self.store.put_site_pricing(&next)?;
+        Ok(changed)
+    }
+
+    /// Ask the backend for the newest open walk-in session of `plate` (it may
+    /// have been admitted at a gate run by another device). 3 s timeout — this
+    /// runs on the pipeline task, never on the FSM tick.
+    pub async fn lookup_open_walk_in(&self, plate: &str) -> Result<Option<WalkInRow>> {
+        let url = format!(
+            "{}/edge/tenants/{}/walk-ins/open",
+            self.cfg.api_base_url.trim_end_matches('/'),
+            self.cfg.tenant_id
+        );
+        let resp = self
+            .http
+            .get(url)
+            .query(&[("plate", plate)])
+            .header("X-Api-Key", &self.cfg.api_key)
+            .timeout(Duration::from_secs(3))
+            .send()
+            .await
+            .context("walk-in lookup request")?;
+        check_status(&resp, "walk-in lookup")?;
+        let found: Option<EdgeWalkIn> = resp.json().await.context("walk-in lookup decode")?;
+        Ok(found.map(|w| WalkInRow {
+            session_id: w.session_id,
+            plate_normalized: crate::access::normalize_plate(&w.plate_number),
+            plate_number: w.plate_number,
+            entry_gate_id: w.entry_gate_id,
+            entered_at: w.entered_at,
+            entry_image_key: None,
+            status: "open".into(),
+            exit_gate_id: None,
+            exited_at: None,
+            amount_vnd: None,
+            method: None,
+            confirmed_by: None,
+            waive_reason: None,
+            bank_ref: None,
+        }))
     }
 
     /// Page through `GET /edge/tenants/{id}/whitelist` until `truncated` is
@@ -467,6 +538,104 @@ mod tests {
         assert_eq!(store.whitelist_count().unwrap(), 1);
         // Cursor is updated so next incremental sync resumes from here.
         assert!(store.kv_get("whitelist_synced_at").unwrap().is_some());
+    }
+
+    const SITE: &str = "22222222-2222-2222-2222-222222222222";
+
+    fn pricing_body(hourly: i64) -> serde_json::Value {
+        json!({
+            "pricing": {"hourlyFrom": hourly, "blockMinutes": 60, "extra": "ignored"},
+            "timezone": "Asia/Ho_Chi_Minh",
+            "bankAccount": {"bin": "970436", "accountNumber": "0123456789", "accountName": "CONG TY ABC"},
+            "updatedAt": "2026-11-16T00:00:00Z"
+        })
+    }
+
+    #[tokio::test]
+    async fn sync_pricing_stores_tariff_and_reports_change() {
+        let server = MockServer::start_async().await;
+        let path = format!("/edge/tenants/{TENANT}/sites/{SITE}/pricing");
+        let mock = server
+            .mock_async(|when, then| {
+                when.method(GET).path(&path).header("x-api-key", "edge-key-123");
+                then.status(200).json_body(pricing_body(10_000));
+            })
+            .await;
+        let (store, _d) = temp_store();
+        let client = SyncClient::new(cfg(&server.base_url()), store.clone());
+
+        assert!(client.sync_pricing().await.unwrap());
+        let stored = store.site_pricing().unwrap().unwrap();
+        assert_eq!(stored.pricing.hourly_from, Some(10_000));
+        assert_eq!(stored.timezone, "Asia/Ho_Chi_Minh");
+        assert_eq!(stored.bank_account.unwrap().account_number, "0123456789");
+
+        assert!(!client.sync_pricing().await.unwrap(), "identical tariff = no change");
+
+        mock.delete_async().await;
+        server
+            .mock_async(|when, then| {
+                when.method(GET).path(&path);
+                then.status(200).json_body(pricing_body(12_000));
+            })
+            .await;
+        assert!(client.sync_pricing().await.unwrap());
+        assert_eq!(
+            store.site_pricing().unwrap().unwrap().pricing.hourly_from,
+            Some(12_000)
+        );
+    }
+
+    #[tokio::test]
+    async fn sync_pricing_maps_401_to_auth_error() {
+        let server = MockServer::start_async().await;
+        server
+            .mock_async(|when, then| {
+                when.method(GET).path_contains("/pricing");
+                then.status(401).json_body(json!({"detail": "bad key"}));
+            })
+            .await;
+        let (store, _d) = temp_store();
+        let client = SyncClient::new(cfg(&server.base_url()), store.clone());
+        let err = client.sync_pricing().await.unwrap_err();
+        assert!(err.downcast_ref::<AuthError>().is_some());
+        assert!(store.site_pricing().unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn lookup_open_walk_in_returns_session_or_none() {
+        let server = MockServer::start_async().await;
+        let sid = Uuid::new_v4();
+        let found = server
+            .mock_async(|when, then| {
+                when.method(GET)
+                    .path(format!("/edge/tenants/{TENANT}/walk-ins/open"))
+                    .query_param("plate", "29H-111.22");
+                then.status(200).json_body(json!({
+                    "sessionId": sid,
+                    "plateNumber": "29H11122",
+                    "enteredAt": "2026-11-16T08:12:00Z",
+                    "entryGateId": GATE,
+                    "payCode": "PVABCDEF12"
+                }));
+            })
+            .await;
+        server
+            .mock_async(|when, then| {
+                when.method(GET)
+                    .path(format!("/edge/tenants/{TENANT}/walk-ins/open"))
+                    .query_param("plate", "NOPE");
+                then.status(200).body("null").header("content-type", "application/json");
+            })
+            .await;
+        let (store, _d) = temp_store();
+        let client = SyncClient::new(cfg(&server.base_url()), store);
+        let row = client.lookup_open_walk_in("29H-111.22").await.unwrap().unwrap();
+        assert_eq!(row.session_id, sid);
+        assert_eq!(row.plate_normalized, "29H11122");
+        assert_eq!(row.status, "open");
+        found.assert_async().await;
+        assert!(client.lookup_open_walk_in("NOPE").await.unwrap().is_none());
     }
 
     #[tokio::test]

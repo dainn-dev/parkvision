@@ -15,7 +15,10 @@ export type TelemetrySnapshotOut = S['TelemetrySnapshotOut'];
 export type PlatformSettingOut = S['PlatformSettingOut'];
 // SiteOut predates the driver listing profile in the generated schema —
 // intersect the field until the schema is regenerated.
-export type SiteOut = S['SiteOut'] & { publicProfile?: import('../../types/tenant').SitePublicProfile };
+export type SiteOut = S['SiteOut'] & {
+  publicProfile?: import('../../types/tenant').SitePublicProfile;
+  bankAccount?: import('../../types/tenant').SiteBankAccount | null;
+};
 export type LaneOut = S['LaneOut'];
 export type GateOut = S['GateOut'];
 export type DeviceOut = S['DeviceOut'];
@@ -50,6 +53,35 @@ export interface InfraCheck {
 export interface InfraHealth {
   status: string;
   checks: Record<string, InfraCheck>;
+}
+
+// Walk-in fee collection report — matches backend WalkInSessionOut / WalkInSummaryOut.
+export interface WalkInSessionOut {
+  id: string;
+  siteId: string;
+  plateNumber: string;
+  payCode: string;
+  status: 'open' | 'paid' | 'waived' | string;
+  entryGateId: string | null;
+  enteredAt: string;
+  exitGateId: string | null;
+  exitedAt: string | null;
+  amountVnd: number | null;
+  expectedAmountVnd: number | null;
+  method: 'cash' | 'bank_qr' | string | null;
+  confirmedBy: string | null;
+  waiveReason: string | null;
+  amountMismatch: boolean;
+}
+
+export interface WalkInSummaryOut {
+  cashCount: number;
+  cashTotalVnd: number;
+  bankQrCount: number;
+  bankQrTotalVnd: number;
+  waivedCount: number;
+  openCount: number;
+  mismatchCount: number;
 }
 
 export interface Page<T> {
@@ -438,6 +470,7 @@ export const tenantApi = {
     timezone: string;
     status: string;
     publicProfile: import('../../types/tenant').SitePublicProfile;
+    bankAccount: import('../../types/tenant').SiteBankAccount | null;
   }>) => api.patch<SiteOut>(T(t, `/sites/${id}`), body),
   deleteSite: (t: string, id: string) => api.del(T(t, `/sites/${id}`)),
 
@@ -564,6 +597,10 @@ export const tenantApi = {
 
   accessEvents: (t: string, p: { page?: number; limit?: number; siteId?: string; gateId?: string; plate?: string; decision?: string; fromTs?: string; toTs?: string } = {}) =>
     api.get<Page<AccessEventOut>>(T(t, `/access-events${qs(p)}`)),
+  walkIns: (t: string, p: { page?: number; limit?: number; siteId?: string; from?: string; to?: string; status?: string } = {}) =>
+    api.get<Page<WalkInSessionOut>>(T(t, `/walk-ins${qs(p)}`)),
+  walkInSummary: (t: string, p: { siteId?: string; from?: string; to?: string } = {}) =>
+    api.get<WalkInSummaryOut>(T(t, `/walk-ins/summary${qs(p)}`)),
   accessEvent: (t: string, id: string) => api.get<AccessEventOut>(T(t, `/access-events/${id}`)),
   createAccessEvent: (t: string, body: object) => api.post<AccessEventOut>(T(t, '/access-events'), body),
   presignEventImages: (t: string, body: object) => api.post<{ uploadUrl: string; key?: string }>(T(t, '/access-events/presign'), body),

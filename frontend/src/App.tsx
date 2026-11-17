@@ -38,6 +38,7 @@ import { AuditLogsPage } from './pages/audit/AuditLogsPage';
 import { TenantDashboardPage } from './pages/tenant/TenantDashboardPage';
 import { TenantLocationPage } from './pages/tenant/TenantLocationPage';
 import { TenantEventsPage } from './pages/tenant/TenantEventsPage';
+import { TenantWalkInsPage } from './pages/tenant/TenantWalkInsPage';
 import { TenantVehiclesPage } from './pages/tenant/TenantVehiclesPage';
 import { TenantEdgeDevicesPage } from './pages/tenant/TenantEdgeDevicesPage';
 import { TenantRulesPage } from './pages/tenant/TenantRulesPage';
@@ -282,6 +283,7 @@ const PlatformAppContent: React.FC = () => {
               )}
               {tenantNavTab === 'parking-map' && <TenantParkingMapPage />}
               {(tenantNavTab === 'access_events' || tenantNavTab === 'access-events') && <TenantEventsPage />}
+              {tenantNavTab === 'walk-ins' && <TenantWalkInsPage />}
               {tenantNavTab === 'vehicles' && <TenantVehiclesPage />}
               {tenantNavTab === 'memberships' && <TenantMembershipsPage />}
               {tenantNavTab === 'edge-devices' && <TenantEdgeDevicesPage />}

@@ -341,6 +341,7 @@ export const mapSite = (s: SiteOut, tenantId: string, tenantName = ''): TenantSi
       : undefined,
   city: s.city ?? undefined,
   publicProfile: (s as SiteOut & { publicProfile?: TenantSite['publicProfile'] }).publicProfile ?? undefined,
+  bankAccount: (s as SiteOut).bankAccount ?? null,
   createdAt: s.createdAt,
   description: '',
 });

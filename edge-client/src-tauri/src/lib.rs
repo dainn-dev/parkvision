@@ -13,11 +13,13 @@ pub mod lock;
 pub mod mqtt;
 pub mod payloads;
 pub mod pipeline;
+pub mod pricing;
 pub mod runtime;
 pub mod store;
 pub mod sync;
 pub mod telemetry;
 pub mod update;
+pub mod walkin;
 pub mod worker_ipc;
 
 use std::sync::{Arc, Mutex};
@@ -53,6 +55,11 @@ pub struct GateStatus {
     pub last_plate: Option<String>,
     pub last_decision: Option<String>,
     pub last_reason: Option<String>,
+    /// Walk-in fee waiting to be collected at this lane.
+    pub pending_fee: Option<walkin::FeeQuote>,
+    /// Amount (VND) and method of the last walk-in settlement shown on this lane.
+    pub last_amount_vnd: Option<i64>,
+    pub last_method: Option<String>,
 }
 
 /// Device-level status + one `GateStatus` per bound gate — the operator UI
@@ -88,6 +95,11 @@ fn gate_status(g: &GateRuntime) -> GateStatus {
         last_reason: last
             .as_ref()
             .and_then(|e| e["reason"].as_str().map(String::from)),
+        pending_fee: g.pending_fee.lock().unwrap().clone(),
+        last_amount_vnd: last.as_ref().and_then(|e| e["amountVnd"].as_i64()),
+        last_method: last
+            .as_ref()
+            .and_then(|e| e["method"].as_str().map(String::from)),
     }
 }
 
@@ -261,6 +273,91 @@ async fn manual_plate(
     .map_err(|e| e.to_string())
 }
 
+/// Clone the runtime handle out of the managed slot so no std mutex guard is
+/// held across an `.await`.
+fn runtime_handle(rt: &State<'_, RuntimeState>) -> Result<Arc<SharedRuntime>, String> {
+    let guard = rt.lock().map_err(|e| e.to_string())?;
+    guard
+        .as_ref()
+        .cloned()
+        .ok_or_else(|| "runtime not provisioned".to_string())
+}
+
+/// Admit an unregistered vehicle at an entry gate: opens the barrier and
+/// starts a walk-in session. Returns the session id.
+#[tauri::command]
+async fn admit_walk_in(
+    gate_id: Uuid,
+    plate: String,
+    rt: State<'_, RuntimeState>,
+) -> Result<Uuid, String> {
+    let rt = runtime_handle(&rt)?;
+    let gate = rt
+        .gate(&gate_id)
+        .ok_or_else(|| "unknown gate".to_string())?
+        .clone();
+    // Reuse the capture photo of the reading being admitted, if it is the
+    // same plate the guard confirmed.
+    let normalized = access::normalize_plate(&plate);
+    let image_key = gate
+        .last_event
+        .lock()
+        .unwrap()
+        .as_ref()
+        .filter(|e| e["plate"].as_str() == Some(normalized.as_str()))
+        .and_then(|e| e["plateImageKey"].as_str().map(String::from));
+    walkin::admit(&gate, &rt.store, rt.publisher.as_ref(), &plate, image_key).await
+}
+
+/// Settle the walk-in fee pending on a gate (always a manual confirmation).
+#[tauri::command]
+async fn settle_walk_in(
+    gate_id: Uuid,
+    session_id: Uuid,
+    method: String,
+    waive_reason: Option<String>,
+    rt: State<'_, RuntimeState>,
+) -> Result<(), String> {
+    let rt = runtime_handle(&rt)?;
+    let gate = rt
+        .gate(&gate_id)
+        .ok_or_else(|| "unknown gate".to_string())?
+        .clone();
+    let settlement = store::Settlement {
+        method,
+        confirmed_by: "manual".into(),
+        waive_reason: waive_reason.map(|r| r.trim().to_string()),
+        bank_ref: None,
+    };
+    walkin::settle(
+        &gate,
+        &rt.store,
+        rt.publisher.as_ref(),
+        &gate.hooks,
+        session_id,
+        settlement,
+    )
+    .await
+}
+
+/// Walk-in totals since local midnight, for the settings screen.
+#[tauri::command]
+fn walk_in_today(rt: State<'_, RuntimeState>) -> Result<store::WalkInSummary, String> {
+    let rt = runtime_handle(&rt)?;
+    rt.store
+        .walk_in_summary(walkin::local_midnight_utc())
+        .map_err(|e| e.to_string())
+}
+
+/// Receiving bank account + timezone, for building the payment QR.
+#[tauri::command]
+fn site_payment_info(
+    rt: State<'_, RuntimeState>,
+) -> Result<Option<walkin::SitePaymentInfo>, String> {
+    let rt = runtime_handle(&rt)?;
+    Ok(walkin::site_payment_info(&rt.store))
+}
+
 #[tauri::command]
 async fn resync(rt: State<'_, RuntimeState>) -> Result<String, String> {
     let rt = {
@@ -361,6 +458,10 @@ pub fn run() {
             manual_lock,
             manual_unlock,
             manual_plate,
+            admit_walk_in,
+            settle_walk_in,
+            walk_in_today,
+            site_payment_info,
             resync,
             hal::commands::list_serial_ports,
             hal::commands::get_barrier_profiles,

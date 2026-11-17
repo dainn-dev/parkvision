@@ -52,6 +52,14 @@ export interface TenantLocation {
   updatedAt: string;
   description?: string;
   publicProfile?: SitePublicProfile;
+  bankAccount?: SiteBankAccount | null;
+}
+
+/** VietQR destination account for walk-in bank transfers (tenant_sites.bank_account). */
+export interface SiteBankAccount {
+  bin: string;
+  accountNumber: string;
+  accountName: string;
 }
 
 /** Driver-app listing + fee rules persisted on tenant_sites.public_profile. */
@@ -116,6 +124,7 @@ export interface TenantSite {
   coordinates?: { lat: number; lng: number };
   city?: string;
   publicProfile?: SitePublicProfile;
+  bankAccount?: SiteBankAccount | null;
   createdAt: string;
   description: string;
   managerName?: string;
@@ -278,6 +287,7 @@ export type TenantNavigationTab =
   | 'monitoring'
   | 'access-events'
   | 'access_events'
+  | 'walk-ins'
   | 'team'
   | 'memberships'
   | 'reports'

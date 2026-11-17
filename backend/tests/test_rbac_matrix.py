@@ -65,6 +65,18 @@ async def test_admin_endpoint_by_role(client: AsyncClient, admin_engine, tenant,
     assert res.status_code == expected, res.text
 
 
+READ_ROUTES = ["/walk-ins", "/walk-ins/summary"]
+
+
+@pytest.mark.parametrize("path", READ_ROUTES)
+@pytest.mark.parametrize("role", ["owner", "admin", "operator", "viewer"])
+async def test_walk_in_report_routes_are_readable_by_every_role(client: AsyncClient, admin_engine, tenant, role, path):
+    email = await _add_user(admin_engine, tenant["tenant_id"], role)
+    await login(client, email, PASSWORD)
+    res = await client.get(f"{_base(tenant['tenant_id'])}{path}")
+    assert res.status_code == 200, res.text
+
+
 @pytest.mark.parametrize("role", ["owner", "admin", "operator", "viewer"])
 async def test_cross_tenant_write_forbidden_for_every_role(
     client: AsyncClient, admin_engine, tenant, other_tenant, role

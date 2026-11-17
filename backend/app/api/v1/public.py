@@ -3,13 +3,13 @@
 import re
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import AuthContext, optional_driver
 from app.core.enums import AccountStatus, TenantStatus, TenantUserRole
-from app.core.errors import bad_request, conflict, not_found
+from app.core.errors import bad_request, conflict, not_found, unauthorized
 from app.core.rate_limit import rate_limited
 from app.database import anonymous_session, platform_session
 from app.models import (
@@ -296,6 +296,23 @@ async def momo_ipn(payload: dict) -> dict:
     from app.services import payment_service
 
     return await payment_service.handle_momo_ipn(payload)
+
+
+@router.post(
+    "/public/walk-ins/bank-webhook",
+    dependencies=[Depends(rate_limited("public-walk-in-bank", 120, 60))],
+)
+async def walk_in_bank_webhook(request: Request) -> dict:
+    from app.services.payments.bank_notify import get_bank_adapter
+    from app.services.walk_in_service import confirm_bank_transfer
+
+    raw_body = await request.body()
+    transfer = get_bank_adapter().parse(request.headers, raw_body)
+    if transfer is None:
+        raise unauthorized("Invalid bank webhook signature")
+    async with platform_session() as db:
+        row = await confirm_bank_transfer(db, transfer)
+    return {"matched": row is not None}
 
 
 @router.get(

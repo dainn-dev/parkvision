@@ -15,10 +15,15 @@ use tracing::{info, warn};
 pub struct PipelineHooks {
     pub events: Option<tokio::sync::broadcast::Sender<serde_json::Value>>,
     pub last_event: Option<Arc<Mutex<Option<serde_json::Value>>>>,
+    /// This gate's pending walk-in fee (exit lanes). `None` in tests that
+    /// don't care about walk-ins.
+    pub pending_fee: Option<Arc<Mutex<Option<FeeQuote>>>>,
+    /// Backend lookup for walk-in sessions opened by another device.
+    pub sync: Option<Arc<SyncClient>>,
 }
 
 impl PipelineHooks {
-    fn notify(&self, event: serde_json::Value) {
+    pub(crate) fn notify(&self, event: serde_json::Value) {
         if let Some(last) = &self.last_event {
             *last.lock().unwrap() = Some(event.clone());
         }
@@ -35,6 +40,49 @@ use crate::fsm::GateFsm;
 use crate::mqtt::Publisher;
 use crate::payloads::{telemetry_topic, AnprFields, TelemetryFrame};
 use crate::store::Store;
+use crate::sync::SyncClient;
+use crate::walkin::{self, FeeQuote};
+
+/// How long the pipeline waits for the backend's walk-in lookup.
+const LOOKUP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// Open walk-in session for `plate`: local first; else, when online, ask the
+/// backend (the vehicle may have entered through another device) and keep
+/// what it finds. Runs on the pipeline task, never on the FSM tick.
+async fn find_walk_in(
+    store: &Store,
+    publisher: &Arc<dyn Publisher>,
+    hooks: &PipelineHooks,
+    plate: &str,
+    normalized: &str,
+) -> Option<crate::store::WalkInRow> {
+    match store.open_walk_in(normalized) {
+        Ok(Some(row)) => return Some(row),
+        Ok(None) => {}
+        Err(e) => warn!("walk-in local lookup failed: {e}"),
+    }
+    let sync = hooks.sync.as_ref()?;
+    if !publisher.is_connected() {
+        return None;
+    }
+    match tokio::time::timeout(LOOKUP_TIMEOUT, sync.lookup_open_walk_in(plate)).await {
+        Ok(Ok(Some(row))) => {
+            if let Err(e) = store.insert_walk_in(&row) {
+                warn!("could not keep looked-up walk-in session: {e}");
+            }
+            Some(row)
+        }
+        Ok(Ok(None)) => None,
+        Ok(Err(e)) => {
+            warn!("walk-in backend lookup failed: {e:#}");
+            None
+        }
+        Err(_) => {
+            warn!("walk-in backend lookup timed out");
+            None
+        }
+    }
+}
 
 /// Move a captured image into the captures dir and return its storage key.
 /// `plateImageKey`/`overviewImageKey` are opaque keys the backend later
@@ -80,6 +128,28 @@ pub async fn run_pipeline(
             outcome.decision, outcome.reason, cfg.lane_direction
         );
 
+        let plate_key = stash_image(reading.plate_image_path.as_ref(), &captures_dir);
+        let overview_key = stash_image(reading.overview_image_path.as_ref(), &captures_dir);
+
+        // An unregistered plate leaving an exit lane with an open walk-in
+        // session is a fee to collect, not a plain denial. Any other reading
+        // clears the lane's pending fee.
+        let mut fee_due: Option<FeeQuote> = None;
+        if cfg.lane_direction == "exit"
+            && outcome.decision == "deny"
+            && outcome.reason == "plate_not_registered"
+        {
+            if let Some(row) =
+                find_walk_in(&store, &publisher, &hooks, &reading.plate, &normalized).await
+            {
+                let pricing = store.site_pricing().ok().flatten();
+                fee_due = Some(walkin::quote(pricing.as_ref(), &row, chrono::Utc::now()));
+            }
+        }
+        if let Some(slot) = &hooks.pending_fee {
+            *slot.lock().unwrap() = fee_due.clone();
+        }
+
         if outcome.decision == "allow" {
             if let Err(r) = fsm.lock().unwrap().request_open() {
                 // locked/fault — the decision is still published so the
@@ -90,17 +160,22 @@ pub async fn run_pipeline(
         // Mirror backend access_events: every decision is recorded —
         // anti-passback inspects the latest event regardless of outcome.
         let _ = store.record_local_event(&normalized, &cfg.lane_direction, &outcome.decision);
-        hooks.notify(serde_json::json!({
+        let mut event = serde_json::json!({
             "plate": normalized,
             "gateId": cfg.gate_id,
             "direction": cfg.lane_direction,
             "decision": outcome.decision,
             "reason": outcome.reason,
+            "plateImageKey": plate_key,
             "at": chrono::Utc::now().to_rfc3339(),
-        }));
+        });
+        if let Some(fee) = &fee_due {
+            event["reason"] = "walk_in_fee_due".into();
+            event["sessionId"] = fee.session_id.to_string().into();
+            event["amountVnd"] = serde_json::json!(fee.amount_vnd);
+        }
+        hooks.notify(event);
 
-        let plate_key = stash_image(reading.plate_image_path.as_ref(), &captures_dir);
-        let overview_key = stash_image(reading.overview_image_path.as_ref(), &captures_dir);
         let frame = TelemetryFrame {
             gate_id: cfg.gate_id,
             state: Some(fsm.lock().unwrap().state()),
@@ -295,6 +370,116 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(last.1, "deny", "local event recorded as deny, not allow");
+    }
+
+    // ---------- walk-in fee branch ----------
+
+    struct ExitRig {
+        rig: Rig,
+        pending: Arc<Mutex<Option<FeeQuote>>>,
+        last: Arc<Mutex<Option<serde_json::Value>>>,
+        hooks: PipelineHooks,
+    }
+
+    fn exit_rig() -> (ExitRig, tokio::sync::mpsc::Sender<PlateReading>) {
+        let (mut rig, tx) = rig();
+        rig.cfg = Arc::new(GateCtx {
+            lane_direction: "exit".into(),
+            ..(*rig.cfg).clone()
+        });
+        let pending = Arc::new(Mutex::new(None));
+        let last = Arc::new(Mutex::new(None));
+        let hooks = PipelineHooks {
+            events: None,
+            last_event: Some(last.clone()),
+            pending_fee: Some(pending.clone()),
+            sync: None,
+        };
+        (ExitRig { rig, pending, last, hooks }, tx)
+    }
+
+    async fn run_exit(e: ExitRig) -> (Arc<Store>, Arc<Mutex<GateFsm>>) {
+        let (store, fsm) = (e.rig.store.clone(), e.rig.fsm.clone());
+        run_pipeline(
+            Box::new(e.rig.src),
+            e.rig.cfg,
+            e.rig.store,
+            e.rig.pub_,
+            e.rig.fsm,
+            e.rig.captures.path().to_path_buf(),
+            e.hooks,
+        )
+        .await;
+        (store, fsm)
+    }
+
+    fn admitted(store: &Store, plate: &str) -> crate::store::WalkInRow {
+        let row = crate::walkin::testkit::walk_in_row(plate, 150);
+        store.insert_walk_in(&row).unwrap();
+        store
+            .put_site_pricing(&crate::walkin::testkit::tariff(Some(10_000)))
+            .unwrap();
+        row
+    }
+
+    #[tokio::test]
+    async fn exit_of_admitted_plate_reports_fee_due() {
+        let (e, tx) = exit_rig();
+        let row = admitted(&e.rig.store, "29H11122");
+        tx.send(reading("29H-111.22")).await.unwrap();
+        drop(tx);
+        let (pending, last) = (e.pending.clone(), e.last.clone());
+        let (_store, fsm) = run_exit(e).await;
+
+        let fee = pending.lock().unwrap().clone().expect("fee pending");
+        assert_eq!(fee.session_id, row.session_id);
+        assert_eq!(fee.amount_vnd, Some(30_000));
+        let ev = last.lock().unwrap().clone().unwrap();
+        assert_eq!(ev["reason"], "walk_in_fee_due");
+        assert_eq!(ev["decision"], "deny");
+        assert!(matches!(fsm.lock().unwrap().state(), GateState::Closed));
+    }
+
+    #[tokio::test]
+    async fn exit_of_unknown_plate_stays_denied() {
+        let (e, tx) = exit_rig();
+        tx.send(reading("51A99999")).await.unwrap();
+        drop(tx);
+        let (pending, last) = (e.pending.clone(), e.last.clone());
+        run_exit(e).await;
+        assert!(pending.lock().unwrap().is_none());
+        let ev = last.lock().unwrap().clone().unwrap();
+        assert_eq!(ev["reason"], "plate_not_registered");
+        assert_eq!(ev["decision"], "deny");
+    }
+
+    #[tokio::test]
+    async fn next_reading_clears_pending_fee() {
+        let (e, tx) = exit_rig();
+        admitted(&e.rig.store, "29H11122");
+        tx.send(reading("29H11122")).await.unwrap();
+        tx.send(reading("51A99999")).await.unwrap();
+        drop(tx);
+        let pending = e.pending.clone();
+        run_exit(e).await;
+        assert!(pending.lock().unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn registered_plate_at_exit_is_unaffected() {
+        let (e, tx) = exit_rig();
+        admitted(&e.rig.store, "30E89241"); // also has an open session
+        seed_vehicle(&e.rig.store, "resident", "active");
+        tx.send(reading("30E89241")).await.unwrap();
+        drop(tx);
+        let (pending, last) = (e.pending.clone(), e.last.clone());
+        let (_store, fsm) = run_exit(e).await;
+        assert!(pending.lock().unwrap().is_none());
+        assert_eq!(last.lock().unwrap().clone().unwrap()["decision"], "allow");
+        assert!(matches!(
+            fsm.lock().unwrap().state(),
+            GateState::Opening | GateState::Open
+        ));
     }
 
     #[tokio::test]
