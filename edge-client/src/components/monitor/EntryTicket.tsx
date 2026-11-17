@@ -7,6 +7,7 @@ export interface EntryTicketProps {
   enteredAt: string;
   gateName: string;
   ticketCode: string;
+  timeZone?: string | null;
 }
 
 export function EntryTicket(p: EntryTicketProps) {
@@ -18,7 +19,7 @@ export function EntryTicket(p: EntryTicketProps) {
       <div>Biển số</div>
       <div className="print-big">{p.plate}</div>
       <div>Giờ vào</div>
-      <div>{formatDateTime(p.enteredAt)}</div>
+      <div>{formatDateTime(p.enteredAt, p.timeZone)}</div>
       <div>Cổng vào</div>
       <div>{p.gateName}</div>
       <div className="print-qr">

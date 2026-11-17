@@ -5,12 +5,14 @@ export function EntryPhotoOverlay({
   src,
   enteredAt,
   entryGateName,
+  timeZone,
 }: {
   src: string | null;
   enteredAt: string;
   entryGateName?: string | null;
+  timeZone?: string | null;
 }) {
-  const caption = `Lúc vào · ${formatHm(enteredAt)}${entryGateName ? ` · ${entryGateName}` : ""}`;
+  const caption = `Lúc vào · ${formatHm(enteredAt, timeZone)}${entryGateName ? ` · ${entryGateName}` : ""}`;
   return (
     <div
       className="absolute bottom-2 right-2 overflow-hidden rounded-lg bg-black/80 text-white"

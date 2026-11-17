@@ -24,4 +24,18 @@ describe("ExitReceipt", () => {
     expect(screen.getByText("Miễn phí")).toBeInTheDocument();
     expect(screen.getByText(/Khách của chủ bãi/)).toBeInTheDocument();
   });
+
+  it("prints times in the given time zone", () => {
+    render(
+      <ExitReceipt
+        {...base}
+        method="cash"
+        enteredAt="2026-11-16T01:12:00Z"
+        exitedAt="2026-11-16T03:42:00Z"
+        timeZone="Asia/Ho_Chi_Minh"
+      />,
+    );
+    expect(screen.getByText("08:12:00 16/11/2026")).toBeInTheDocument();
+    expect(screen.getByText("10:42:00 16/11/2026")).toBeInTheDocument();
+  });
 });

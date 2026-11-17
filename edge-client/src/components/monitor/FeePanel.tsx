@@ -16,9 +16,11 @@ export interface FeePanelProps {
   onSettle: (method: "cash" | "bank_qr") => void;
   onWaive: (reason: string) => void;
   busy: boolean;
+  /** IANA zone for the times shown; device-local when omitted. */
+  timeZone?: string | null;
 }
 
-export function FeePanel({ quote, bank, gateName, onSettle, onWaive, busy }: FeePanelProps) {
+export function FeePanel({ quote, bank, gateName, onSettle, onWaive, busy, timeZone }: FeePanelProps) {
   const [method, setMethod] = useState<"cash" | "bank_qr">("cash");
   const [waiving, setWaiving] = useState(false);
   const amount = quote.amountVnd;
@@ -58,8 +60,8 @@ export function FeePanel({ quote, bank, gateName, onSettle, onWaive, busy }: Fee
         </div>
       </div>
       <div className="mt-1 text-sm">
-        Vào <b>{formatHmOrDay(quote.enteredAt, quote.exitedAt)}</b> · Ra{" "}
-        <b>{formatHm(quote.exitedAt)}</b> · Gửi <b>{formatDuration(quote.durationMinutes)}</b>
+        Vào <b>{formatHmOrDay(quote.enteredAt, quote.exitedAt, timeZone)}</b> · Ra{" "}
+        <b>{formatHm(quote.exitedAt, timeZone)}</b> · Gửi <b>{formatDuration(quote.durationMinutes)}</b>
       </div>
 
       <div role="radiogroup" aria-label="Hình thức thanh toán" className="mt-2 flex gap-2">

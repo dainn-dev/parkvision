@@ -12,6 +12,7 @@ export interface ExitReceiptProps {
   method: string;
   receiptCode: string;
   waiveReason?: string;
+  timeZone?: string | null;
 }
 
 export const methodText = (m: string): string =>
@@ -26,9 +27,9 @@ export function ExitReceipt(p: ExitReceiptProps) {
       <div>Biển số</div>
       <div className="print-big">{p.plate}</div>
       <div>Giờ vào</div>
-      <div>{formatDateTime(p.enteredAt)}</div>
+      <div>{formatDateTime(p.enteredAt, p.timeZone)}</div>
       <div>Giờ ra</div>
-      <div>{formatDateTime(p.exitedAt)}</div>
+      <div>{formatDateTime(p.exitedAt, p.timeZone)}</div>
       <div>Thời gian gửi</div>
       <div>{formatDuration(p.durationMinutes)}</div>
       <div>Số tiền</div>
