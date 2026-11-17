@@ -1,6 +1,81 @@
-// Vietnamese display helpers. The redesign plan (Task 1) owns the full file
-// (gateLabels, barrierStateText, plateText); this holds the pieces needed by
-// walk-in fee collection and must be merged with it.
+// Vietnamese display helpers for the operator UI.
+
+import type { GateState } from "./tauri";
+
+export interface GateLabel {
+  name: string;
+  short: string;
+  badge: "VÀO" | "RA" | "CỔNG";
+}
+
+/** Derive display names locally, numbered per direction in input order. */
+export function gateLabels(
+  gates: { gateId: string; direction: string }[],
+): Record<string, GateLabel> {
+  const counts = { entry: 0, exit: 0, both: 0 };
+  const out: Record<string, GateLabel> = {};
+  for (const g of gates) {
+    if (g.direction === "entry") {
+      const n = ++counts.entry;
+      out[g.gateId] = { name: `Cổng vào ${n}`, short: `Vào ${n}`, badge: "VÀO" };
+    } else if (g.direction === "exit") {
+      const n = ++counts.exit;
+      out[g.gateId] = { name: `Cổng ra ${n}`, short: `Ra ${n}`, badge: "RA" };
+    } else {
+      const n = ++counts.both;
+      out[g.gateId] = { name: `Cổng ${n}`, short: `Cổng ${n}`, badge: "CỔNG" };
+    }
+  }
+  return out;
+}
+
+const BARRIER_STATES: Record<string, string> = {
+  closed: "đã đóng",
+  opening: "đang mở",
+  open: "đã mở",
+  closing: "đang đóng",
+  locked: "đã khóa",
+  fault: "lỗi",
+};
+
+export function barrierStateText(state: GateState): string {
+  return BARRIER_STATES[state] ?? state;
+}
+
+export function plateText(plate: string | null | undefined): string {
+  return plate ? plate : "Không đọc được";
+}
+
+/** Short code a driver can quote: "PV" + first 8 hex chars of the session id. */
+export function payCode(sessionId: string): string {
+  return "PV" + sessionId.replace(/-/g, "").slice(0, 8).toUpperCase();
+}
+
+export function methodText(m: string | null | undefined): string {
+  switch (m) {
+    case "cash":
+      return "Tiền mặt";
+    case "bank_qr":
+      return "Chuyển khoản";
+    case "waived":
+      return "Miễn phí";
+    default:
+      return "";
+  }
+}
+
+const WALK_IN_ERRORS: Record<string, string> = {
+  "already settled": "Phiên này đã được thu.",
+  "no fee pending": "Không còn khoản phí chờ thu.",
+  "amount unknown": "Chưa có bảng giá, chưa thể thu tiền.",
+  "reason required": "Cần nhập lý do miễn phí.",
+};
+
+/** Friendly text for known walk-in errors; otherwise the bare message (caller adds any prefix). */
+export function walkInErrorText(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return WALK_IN_ERRORS[msg] ?? msg;
+}
 
 export function formatVnd(n: number): string {
   return `${String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} đ`;

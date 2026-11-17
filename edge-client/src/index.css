@@ -1,4 +1,49 @@
 @import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
+@theme {
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+
+  /* Dark surfaces */
+  --color-ink-950: #0e1014;
+  --color-ink-900: #171a20;
+  --color-ink-850: #23272f;
+  --color-ink-800: #262a33;
+  --color-ink-700: #3a3f4a;
+  --color-ink-video: #050608;
+  --color-fg: #e8eaee;
+  --color-fg-muted: #9ba1ad;
+  --color-fg-dim: #6f7682;
+  --color-accent: #5b8cff;
+  --color-allow: #2156d9;
+  --color-allow-fg: #8fb0ff;
+  --color-deny: #c2410c;
+  --color-deny-fg: #ff9a6b;
+  --color-alert: #ff6b3d;
+  --color-offline-bg: #3a1c0b;
+  --color-offline-fg: #ffd9c2;
+  --color-plate: #f2f2ee;
+
+  /* Light surfaces */
+  --color-paper: #f4f5f7;
+  --color-card: #ffffff;
+  --color-line: #e2e4e9;
+  --color-line-soft: #eef0f3;
+  --color-field: #cdd0d8;
+  --color-text: #17181c;
+  --color-text-muted: #5b5f69;
+  --color-brand: #2156d9;
+  --color-brand-hover: #163e9e;
+  --color-brand-soft: #eaf0fd;
+  --color-brand-ink: #1a47b8;
+  --color-warn-ink: #a33a09;
+  --color-notice-bg: #fdf0e8;
+  --color-notice-fg: #7a2b07;
+}
+
+body { margin: 0; font-size: 14px; line-height: 20px; }
 
 /* Receipt printing: only #print-root is visible, on 80 mm paper. */
 #print-root { display: none; }

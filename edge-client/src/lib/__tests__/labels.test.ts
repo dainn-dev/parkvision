@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, formatVnd, reasonText, recentTag } from "../labels";
+import {
+  barrierStateText,
+  formatDuration,
+  formatVnd,
+  gateLabels,
+  methodText,
+  payCode,
+  plateText,
+  reasonText,
+  recentTag,
+  walkInErrorText,
+} from "../labels";
 
 describe("walk-in labels", () => {
   it("formats VND", () => {
@@ -37,5 +48,54 @@ describe("walk-in labels", () => {
     expect(reasonText("rule:Khách VIP")).toBe("Theo quy tắc: Khách VIP");
     expect(reasonText("something_new")).toBe("something_new");
     expect(reasonText(null)).toBe("");
+  });
+});
+
+describe("gate labels and helpers", () => {
+  it("numbers gates per direction", () => {
+    const l = gateLabels([
+      { gateId: "a", direction: "entry" },
+      { gateId: "b", direction: "exit" },
+      { gateId: "c", direction: "entry" },
+      { gateId: "d", direction: "both" },
+    ]);
+    expect(l.a).toEqual({ name: "Cổng vào 1", short: "Vào 1", badge: "VÀO" });
+    expect(l.b).toEqual({ name: "Cổng ra 1", short: "Ra 1", badge: "RA" });
+    expect(l.c.name).toBe("Cổng vào 2");
+    expect(l.d).toEqual({ name: "Cổng 1", short: "Cổng 1", badge: "CỔNG" });
+  });
+  it("barrier state text", () => {
+    expect(barrierStateText("closed")).toBe("đã đóng");
+    expect(barrierStateText("opening")).toBe("đang mở");
+    expect(barrierStateText("open")).toBe("đã mở");
+    expect(barrierStateText("closing")).toBe("đang đóng");
+    expect(barrierStateText("locked")).toBe("đã khóa");
+    expect(barrierStateText("fault")).toBe("lỗi");
+  });
+  it("plate text and fee tag", () => {
+    expect(plateText("")).toBe("Không đọc được");
+    expect(plateText(null)).toBe("Không đọc được");
+    expect(plateText("51A12345")).toBe("51A12345");
+    expect(recentTag({ decision: "allow", reason: "walk_in_paid", amountVnd: 15000 })).toEqual({
+      text: "THU 15.000 đ",
+      tone: "fee",
+    });
+  });
+  it("payCode", () => {
+    expect(payCode("0a1b2c3d-0000-0000-0000-000000000000")).toBe("PV0A1B2C3D");
+  });
+  it("methodText", () => {
+    expect(methodText("cash")).toBe("Tiền mặt");
+    expect(methodText("bank_qr")).toBe("Chuyển khoản");
+    expect(methodText("waived")).toBe("Miễn phí");
+    expect(methodText(null)).toBe("");
+  });
+  it("walkInErrorText", () => {
+    expect(walkInErrorText("already settled")).toBe("Phiên này đã được thu.");
+    expect(walkInErrorText("no fee pending")).toBe("Không còn khoản phí chờ thu.");
+    expect(walkInErrorText("amount unknown")).toBe("Chưa có bảng giá, chưa thể thu tiền.");
+    expect(walkInErrorText("reason required")).toBe("Cần nhập lý do miễn phí.");
+    expect(walkInErrorText(new Error("boom"))).toBe("boom");
+    expect(walkInErrorText("gate locked")).toBe("gate locked");
   });
 });
