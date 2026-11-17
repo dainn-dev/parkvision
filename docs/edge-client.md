@@ -69,11 +69,14 @@ Các đường dẫn trong phần này tương đối với [`edge-client/`](../
 
 ### Frontend
 
-- `src/App.tsx`: chọn màn hình loading/setup/locked/operator; về setup khi nhận `edge://deprovisioned`.
+- `src/App.tsx`: chọn màn hình loading/activation/locked/monitor/settings; về activation (kèm thông báo thu hồi) khi nhận `edge://deprovisioned` từ bất kỳ màn hình nào. `monitor` và `settings` nằm trong một `Workspace` chỉ gọi `useEdgeData()` một lần và giữ toast, nên chuyển qua lại không mất sự kiện hay khung camera.
 - `src/lib/tauri.ts`: kiểu TypeScript và wrapper native commands/events; đối chiếu schema relay với Rust tại đây.
-- `src/screens/SetupScreen.tsx`: URL API, mã dùng một lần, phát hiện public IP và mật khẩu kiosk tùy chọn.
-- `src/screens/OperatorScreen.tsx`: danh sách gate, trạng thái MQTT/whitelist/outbox, resync và tối đa 100 sự kiện UI gần nhất trong RAM; poll status bổ sung mỗi 2 giây.
-- `src/components/GatePanel.tsx`: preview camera, trạng thái gate/link, biển số gần nhất, nhập biển số và nút thao tác theo `gateId`.
+- `src/screens/ActivationScreen.tsx`: kích hoạt hai bước (mã dùng một lần, phát hiện public IP, mật khẩu kiosk tùy chọn), sau đó chọn vào Giám sát hoặc Cài đặt. Hiện thông báo khi thiết bị vừa bị thu hồi.
+- `src/screens/LockScreen.tsx`: nhập mật khẩu để mở khóa giao diện.
+- `src/screens/MonitorScreen.tsx`: Giám sát ra vào. Mỗi cổng là một làn có camera, trạng thái barrier (từ `GateStatus.gateState`), biển số gần nhất, nhập biển số và "Mở thủ công"; làn ra có bảng thu phí xe vãng lai (mục 9.1); dải sự kiện gần nhất và ngăn kéo sự kiện (tối đa 100 sự kiện trong RAM). Ảnh chụp nhận diện (thumbnail) được đọc qua native command `capture_image`, chỉ trong thư mục captures.
+- `src/screens/SettingsScreen.tsx`: Cài đặt toàn trang. Thẻ thiết bị (`components/settings/DeviceCard.tsx`) chứa IP thiết bị, mật khẩu khóa kiosk, khóa ngay, nút cập nhật ứng dụng (`UpdateButton`); "Làm mới từ server" nằm ở đầu trang Cài đặt; thẻ từng cổng (`GateSettingsCard.tsx`) chứa kiểm tra relay và mở form barrier; tổng thu vãng lai hôm nay.
+- Tên cổng được suy ra cục bộ từ `direction` và thứ tự (`Cổng vào 1`, `Cổng ra 1`, ...) bằng `gateLabels` trong `src/lib/labels.ts`; backend chưa cấp tên cổng. Tên trạm lấy từ `siteName` của tariff, mặc định "Edge Gate". Badge IP góc màn hình đã bỏ.
+- `src/lib/useEdgeData.ts`: hook dùng chung cho status, config, sự kiện, khung camera, khóa và thông tin thanh toán; poll status bổ sung mỗi 2 giây.
 - `src/screens/BarrierSettingsScreen.tsx`: form backend/brand/outputs/inputs/override, probe/test/read-input; lưu bản config mới giữ các cổng khác. Khi form có inputs, đọc thử mỗi 1 giây.
 
 ## 3. Kích hoạt, lưu cấu hình và thu hồi
@@ -430,7 +433,7 @@ Giữ loop/safety/chống kẹp của board và nút dừng khẩn vật lý. Kh
 
 Cấu hình JSON, worker JSON và URL RTSP vẫn có thể chứa secret dạng rõ; `get_config` gửi config đầy đủ sang webview. Không coi redaction Debug là encryption-at-rest. Một số log/tooltip/nhánh RTSP còn có thể đưa URL ra; không log nguyên bundle/config, và làm sạch RTSP URL, API/MQTT/relay password trước khi chia sẻ log hoặc ảnh chụp màn hình.
 
-Khóa kiosk lưu hash Argon2 có salt, không gửi mật khẩu lên server. Native command kiểm độ dài tối thiểu bằng số byte Rust (`len() >= 4`). Khi có password, khởi động app mặc định khóa UI; sau setup, frontend hiện vào operator sau khi đặt password, nên không coi setup luôn lập tức hiển thị LockScreen. Không có kiểm `locked` chung trong các native command điều khiển: khóa màn hình không phải ranh giới bảo mật IPC/OS hay cơ chế dừng runtime.
+Khóa kiosk lưu hash Argon2 có salt, không gửi mật khẩu lên server. Native command kiểm độ dài tối thiểu bằng số byte Rust (`len() >= 4`). Khi có password, khởi động app mặc định khóa UI; sau kích hoạt, frontend vào thẳng Giám sát hoặc Cài đặt sau khi đặt password, nên không coi setup luôn lập tức hiển thị LockScreen. Không có kiểm `locked` chung trong các native command điều khiển: khóa màn hình không phải ranh giới bảo mật IPC/OS hay cơ chế dừng runtime.
 
 Hikvision/Dahua adapter hiện dùng HTTP với digest, **không mã hóa toàn bộ đường truyền bằng TLS**. Tách mạng camera/relay, giới hạn ACL và quyền tài khoản. MQTT TLS/HTTPS API không tự bảo vệ đường HTTP relay. `tauri.conf.json` hiện đặt `csp: null`; không mô tả cấu hình webview này là đã harden production.
 
@@ -476,7 +479,7 @@ Edge giữ toàn bộ lượt gửi: tạo session lúc vào (`walkin::admit`), 
 Nguồn chính có thể mở trực tiếp:
 
 - Build/dependency: [package.json](../edge-client/package.json), [Cargo.toml](../edge-client/src-tauri/Cargo.toml), [Tauri config](../edge-client/src-tauri/tauri.conf.json), [Vite config](../edge-client/vite.config.ts), [Dockerfile.dev](../edge-client/Dockerfile.dev), [script test](../edge-client/scripts/cargo-test.sh).
-- Provisioning: [config.rs](../edge-client/src-tauri/src/config.rs), [activation.rs](../edge-client/src-tauri/src/activation.rs), [SetupScreen](../edge-client/src/screens/SetupScreen.tsx).
+- Provisioning: [config.rs](../edge-client/src-tauri/src/config.rs), [activation.rs](../edge-client/src-tauri/src/activation.rs), [ActivationScreen](../edge-client/src/screens/ActivationScreen.tsx).
 - Runtime/FSM: [runtime.rs](../edge-client/src-tauri/src/runtime.rs), [fsm.rs](../edge-client/src-tauri/src/fsm.rs), [lib.rs](../edge-client/src-tauri/src/lib.rs).
 - Offline/quyền: [access.rs](../edge-client/src-tauri/src/access.rs), [pipeline.rs](../edge-client/src-tauri/src/pipeline.rs), [store.rs](../edge-client/src-tauri/src/store.rs), [sync.rs](../edge-client/src-tauri/src/sync.rs).
 - MQTT: [mqtt.rs](../edge-client/src-tauri/src/mqtt.rs), [payloads.rs](../edge-client/src-tauri/src/payloads.rs), [commands.rs](../edge-client/src-tauri/src/commands.rs), [telemetry.rs](../edge-client/src-tauri/src/telemetry.rs), [incidents.rs](../edge-client/src-tauri/src/incidents.rs).

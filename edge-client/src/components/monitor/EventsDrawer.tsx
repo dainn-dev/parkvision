@@ -4,7 +4,7 @@ import { plateText, reasonText, type GateLabel } from "../../lib/labels";
 import type { AccessEvent } from "../../lib/tauri";
 import { EventTag, laneShort } from "./RecentStrip";
 
-export function EventsList({
+function EventsList({
   events,
   labels,
   timeZone,

@@ -48,10 +48,10 @@ npm run dev
 
 1. Quản trị viên cấp mã kích hoạt dùng một lần và gán cổng/làn/camera cho thiết bị.
 2. Không cần nhập địa chỉ server: bản release gắn sẵn `https://api-parkvision.dainn.online/api/v1` (đổi lúc build bằng biến môi trường `PARKVISION_API_BASE_URL`, ví dụ `PARKVISION_API_BASE_URL=https://... npm run tauri build`). Bản dev (`npm run tauri dev`) dùng `http://localhost:8000/api/v1`, hoặc giá trị `PARKVISION_API_BASE_URL` lúc chạy. Nguồn: `server_api_base_url()` trong [`activation.rs`](src-tauri/src/activation.rs).
-3. Nếu mã bị ràng buộc IP, dùng **“IP server nhìn thấy thiết bị”** ở màn hình kích hoạt. IP góc dưới ứng dụng là IP local, không nhất thiết trùng IP backend nhìn thấy sau NAT/proxy.
+3. Nếu mã bị ràng buộc IP, dùng **“IP server nhìn thấy thiết bị”** ở màn hình kích hoạt. IP thiết bị hiển thị trong Cài đặt là IP local, không nhất thiết trùng IP backend nhìn thấy sau NAT/proxy.
 4. Nhập mã, tùy chọn mật khẩu khóa giao diện rồi kích hoạt. Ứng dụng nhận danh tính tenant/site/device, API key, MQTT và `gates[]`, lưu cấu hình, khởi chạy runtime.
 5. Chờ whitelist/rules đồng bộ; kiểm tra số lượng whitelist và thời điểm đồng bộ. Nhãn **Trực tuyến** chỉ phản ánh MQTT, không xác nhận REST hay relay hoạt động.
-6. Dùng biểu tượng bánh răng trên đúng cổng để cấu hình barrier. Sau khi lưu, runtime được khởi tạo lại để áp dụng; thao tác trong thời gian bảo trì an toàn.
+6. Vào Cài đặt, dùng thẻ của đúng cổng để cấu hình barrier. Sau khi lưu, runtime được khởi tạo lại để áp dụng; thao tác trong thời gian bảo trì an toàn.
 
 Mật khẩu kiosk chỉ khóa UI, khác với trạng thái FSM `locked` của cổng và khác với credential backend. Nó không dừng nhận diện hay lệnh từ xa. Các lệnh native hiện không kiểm tra khóa UI như một lớp phân quyền.
 
