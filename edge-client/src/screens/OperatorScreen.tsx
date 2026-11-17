@@ -13,7 +13,8 @@ import {
   type EdgeStatus,
   type LockStatus,
 } from "../lib/tauri";
-import EventFeed from "../components/EventFeed";
+import { EventsList } from "../components/monitor/EventsDrawer";
+import { gateLabels } from "../lib/labels";
 import CameraWorkspace from "../components/operator/CameraWorkspace";
 import GateStatusDock from "../components/operator/GateStatusDock";
 import QuickActions from "../components/operator/QuickActions";
@@ -146,7 +147,7 @@ export default function OperatorScreen({ onLocked }: { onLocked?: () => void }) 
         {primaryGate && <QuickActions gate={primaryGate} onAction={act} />}
         <button type="button" aria-label="Mở sự kiện ra vào" onClick={() => setIsEventsOpen(true)} className="min-h-11 rounded-lg border border-zinc-700 px-3 text-sm hover:bg-zinc-800">Sự kiện ra/vào ({events.length})</button>
       </div>
-      {isEventsOpen && <aside className="fixed inset-y-0 right-0 z-30 flex w-96 max-w-full flex-col border-l border-zinc-800 bg-zinc-950 p-4 shadow-2xl"><div className="flex items-center justify-between"><h2 className="text-sm font-semibold text-zinc-300">Sự kiện ra/vào</h2><button type="button" aria-label="Đóng sự kiện" onClick={() => setIsEventsOpen(false)} className="min-h-11 min-w-11 rounded-lg hover:bg-zinc-800">✕</button></div><div className="min-h-0 flex-1 overflow-y-auto pr-1"><EventFeed events={events} gates={s?.gates ?? []} /></div></aside>}
+      {isEventsOpen && <aside className="fixed inset-y-0 right-0 z-30 flex w-96 max-w-full flex-col border-l border-zinc-800 bg-zinc-950 p-4 shadow-2xl"><div className="flex items-center justify-between"><h2 className="text-sm font-semibold text-zinc-300">Sự kiện ra/vào</h2><button type="button" aria-label="Đóng sự kiện" onClick={() => setIsEventsOpen(false)} className="min-h-11 min-w-11 rounded-lg hover:bg-zinc-800">✕</button></div><div className="min-h-0 flex-1 overflow-y-auto pr-1"><EventsList events={events} labels={gateLabels(s?.gates ?? [])} /></div></aside>}
 
       {cfg && barrierGateId && (
         <SettingsModal
