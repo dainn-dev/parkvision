@@ -371,6 +371,7 @@ async def test_edge_pricing_returns_tariff_timezone_bank(client, tenant, site, e
     assert body["pricing"]["hourlyFrom"] == 10000
     assert body["timezone"]
     assert body["bankAccount"]["accountName"] == "ABC"
+    assert body["siteName"] == "Walk-in Site"
     assert body["updatedAt"]
 
 

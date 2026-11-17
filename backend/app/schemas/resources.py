@@ -240,6 +240,7 @@ class EdgeSitePricingOut(CamelModel):
     pricing: SitePricing
     timezone: str
     bank_account: SiteBankAccount | None
+    site_name: str
     updated_at: datetime
 
 

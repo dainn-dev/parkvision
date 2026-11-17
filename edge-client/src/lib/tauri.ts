@@ -288,8 +288,14 @@ export const settleWalkIn = (
     waiveReason: waiveReason ?? null,
   });
 export const walkInToday = () => invoke<WalkInSummary>("walk_in_today");
+export interface SitePaymentInfo {
+  bankAccount: BankAccount | null;
+  timezone: string;
+  siteName?: string | null;
+}
+
 export const sitePaymentInfo = () =>
-  invoke<{ bankAccount: BankAccount | null; timezone: string } | null>("site_payment_info");
+  invoke<SitePaymentInfo | null>("site_payment_info");
 
 // ---------- events ----------
 

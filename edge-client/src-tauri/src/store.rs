@@ -125,6 +125,9 @@ pub struct StoredPricing {
     pub pricing: crate::pricing::SitePricing,
     pub timezone: String,
     pub bank_account: Option<BankAccount>,
+    /// Absent in values stored by older builds.
+    #[serde(default)]
+    pub site_name: Option<String>,
     pub updated_at: String,
 }
 
@@ -928,6 +931,21 @@ mod tests {
     }
 
     #[test]
+    fn site_pricing_without_site_name_still_loads() {
+        let (store, _d) = temp_store();
+        // Value stored by an older build: no `siteName` key.
+        store
+            .kv_set(
+                "site_pricing",
+                r#"{"pricing":{"hourlyFrom":10000,"dailyFrom":null,"overnightFrom":null,"graceMinutes":0,"blockMinutes":60,"overnightStartHour":22,"overnightEndHour":6},"timezone":"UTC","bankAccount":null,"updatedAt":"2026-11-16T00:00:00Z"}"#,
+            )
+            .unwrap();
+        let p = store.site_pricing().unwrap().unwrap();
+        assert_eq!(p.site_name, None);
+        assert_eq!(p.timezone, "UTC");
+    }
+
+    #[test]
     fn site_pricing_round_trips_and_overwrites() {
         let (store, _d) = temp_store();
         assert!(store.site_pricing().unwrap().is_none());
@@ -947,6 +965,7 @@ mod tests {
                 account_number: "0123456789".into(),
                 account_name: "CONG TY ABC".into(),
             }),
+            site_name: Some("Bãi A".into()),
             updated_at: "2026-11-16T00:00:00Z".into(),
         };
         store.put_site_pricing(&p).unwrap();

@@ -63,6 +63,7 @@ pub struct FeeQuote {
 pub struct SitePaymentInfo {
     pub bank_account: Option<BankAccount>,
     pub timezone: String,
+    pub site_name: Option<String>,
 }
 
 pub fn site_payment_info(store: &Store) -> Option<SitePaymentInfo> {
@@ -73,6 +74,7 @@ pub fn site_payment_info(store: &Store) -> Option<SitePaymentInfo> {
         .map(|p| SitePaymentInfo {
             bank_account: p.bank_account,
             timezone: p.timezone,
+            site_name: p.site_name,
         })
 }
 
@@ -507,6 +509,7 @@ pub(crate) mod testkit {
             },
             timezone: "UTC".into(),
             bank_account: None,
+            site_name: None,
             updated_at: "2026-11-16T00:00:00Z".into(),
         }
     }
@@ -657,6 +660,21 @@ mod tests {
         assert_eq!(q.duration_minutes, 150);
         assert_eq!(q.pay_code, pay_code(&row.session_id));
         assert_eq!(q.bank_received_vnd, None);
+    }
+
+    #[test]
+    fn site_payment_info_carries_site_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("edge.db")).unwrap();
+        assert!(site_payment_info(&store).is_none());
+        let mut p = tariff(Some(10_000));
+        p.site_name = Some("Bãi xe Trung tâm".into());
+        store.put_site_pricing(&p).unwrap();
+        let info = site_payment_info(&store).unwrap();
+        assert_eq!(info.site_name.as_deref(), Some("Bãi xe Trung tâm"));
+        assert_eq!(info.timezone, "UTC");
+        let json = serde_json::to_value(&info).unwrap();
+        assert_eq!(json["siteName"], "Bãi xe Trung tâm");
     }
 
     #[tokio::test]

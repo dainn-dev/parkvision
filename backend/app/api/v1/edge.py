@@ -281,6 +281,7 @@ async def edge_site_pricing(
         pricing=SitePricing.model_validate(profile.get("pricing") or {}),
         timezone=site.timezone,
         bank_account=SiteBankAccount.model_validate(site.bank_account) if site.bank_account else None,
+        site_name=site.name,
         updated_at=site.updated_at,
     )
 
