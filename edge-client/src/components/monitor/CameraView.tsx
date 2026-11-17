@@ -65,7 +65,7 @@ export function CameraView({
                 type="button"
                 onClick={() => setPicked(c.cameraId)}
                 aria-pressed={on}
-                className={`rounded-md px-2 py-1 text-[11px] font-bold ${
+                className={`min-h-[44px] min-w-[44px] rounded-md px-3 text-[11px] font-bold ${
                   on ? "bg-fg text-ink-950" : "bg-black/60 text-white"
                 }`}
               >

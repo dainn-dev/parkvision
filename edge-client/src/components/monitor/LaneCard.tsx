@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Keyboard } from "lucide-react";
 import { formatHms } from "../../lib/dateFmt";
 import {
@@ -135,23 +135,21 @@ export function LaneCard({ gate, label, cameras, camLive, payment, gateName, onA
         setBusy(true);
         try {
           await settleWalkIn(id, q.sessionId, method, reason);
-          if (reason) waiveReasons.current[q.sessionId] = reason;
         } catch (e) {
           throw walkInErrorText(e);
         } finally {
           inFlight.current = false;
           setBusy(false);
         }
+        if (reason) waiveReasons.current[q.sessionId] = reason;
+        // Settled; the receipt prints once (the status-driven path skips this session).
+        printOnce(q, method, method === "waived" ? 0 : (q.amountVnd ?? 0));
       },
       method === "waived" ? "Đã miễn phí — mở barrier" : "Đã thu tiền — mở barrier",
     );
   };
 
-  const printReceipt = () => {
-    const q = remembered;
-    if (!q || !paidReason) return;
-    const waived = paidReason === "walk_in_waived";
-    const method = gate.lastMethod ?? (waived ? "waived" : "cash");
+  const printReceiptDoc = (q: FeeQuote, method: string, amountVnd: number) => {
     try {
       printExitReceipt({
         site,
@@ -159,7 +157,7 @@ export function LaneCard({ gate, label, cameras, camLive, payment, gateName, onA
         enteredAt: q.enteredAt,
         exitedAt: q.exitedAt,
         durationMinutes: q.durationMinutes,
-        amountVnd: method === "waived" ? 0 : (gate.lastAmountVnd ?? q.amountVnd ?? 0),
+        amountVnd,
         method,
         receiptCode: q.payCode,
         waiveReason: method === "waived" ? waiveReasons.current[q.sessionId] : undefined,
@@ -168,6 +166,34 @@ export function LaneCard({ gate, label, cameras, camLive, payment, gateName, onA
     } catch {
       printFailed();
     }
+  };
+
+  /** Automatic receipt: at most once per session, whichever path sees the settlement first. */
+  const printed = useRef<Set<string>>(new Set());
+  const printOnce = (q: FeeQuote, method: string, amountVnd: number) => {
+    if (printed.current.has(q.sessionId)) return;
+    printed.current.add(q.sessionId);
+    printReceiptDoc(q, method, amountVnd);
+  };
+
+  // Settlement seen through the status (e.g. a bank transfer confirmed without a click).
+  useEffect(() => {
+    if (!paidReason || !remembered) return;
+    const method = gate.lastMethod ?? (paidReason === "walk_in_waived" ? "waived" : "cash");
+    printOnce(
+      remembered,
+      method,
+      method === "waived" ? 0 : (gate.lastAmountVnd ?? remembered.amountVnd ?? 0),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paidReason, remembered?.sessionId]);
+
+  /** Manual reprint from the "In biên lai" button. */
+  const printReceipt = () => {
+    const q = remembered;
+    if (!q || !paidReason) return;
+    const method = gate.lastMethod ?? (paidReason === "walk_in_waived" ? "waived" : "cash");
+    printReceiptDoc(q, method, method === "waived" ? 0 : (gate.lastAmountVnd ?? q.amountVnd ?? 0));
   };
 
   const keyboardBtn = (
@@ -226,7 +252,13 @@ export function LaneCard({ gate, label, cameras, camLive, payment, gateName, onA
           {closeBtn}
           {keyboardBtn}
         </div>
-        {locked ? unlockBtn(textBtn) : null}
+        {locked ? (
+          unlockBtn(textBtn)
+        ) : (
+          <button type="button" disabled={fault} onClick={open} className={textBtn}>
+            Mở thủ công
+          </button>
+        )}
       </div>
     );
   } else {

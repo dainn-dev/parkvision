@@ -454,8 +454,9 @@ describe("LaneCard — fee panel, settlement, receipt", () => {
   it("In biên lai prints the exit receipt", async () => {
     const { rerender } = setup(pending());
     rerender(paid({ lastMethod: "cash" }));
+    expect(p.printExitReceipt).toHaveBeenCalledTimes(1); // automatic
     await userEvent.click(screen.getByRole("button", { name: "In biên lai" }));
-    expect(p.printExitReceipt).toHaveBeenCalledTimes(1);
+    expect(p.printExitReceipt).toHaveBeenCalledTimes(2); // reprint
     expect(p.printExitReceipt).toHaveBeenCalledWith(
       expect.objectContaining({
         plate: "51A12345",
@@ -520,13 +521,14 @@ describe("LaneCard — fee panel, settlement, receipt", () => {
   });
 
   it("a receipt print failure is surfaced and can be retried", async () => {
+    const { onAction, rerender } = setup(pending());
+    rerender(paid());
+    p.printExitReceipt.mockClear();
     p.printExitReceipt.mockImplementationOnce(() => {
       throw new Error("spooler");
     });
-    const { onAction, rerender } = setup(pending());
-    rerender(paid());
     await userEvent.click(screen.getByRole("button", { name: "In biên lai" }));
-    await expect(fnOf(onAction)()).rejects.toBe("Không in được — kiểm tra máy in.");
+    expect(await runRejected(onAction)).toBe("Không in được — kiểm tra máy in.");
     await userEvent.click(screen.getByRole("button", { name: "In biên lai" }));
     expect(p.printExitReceipt).toHaveBeenCalledTimes(2);
   });
@@ -547,6 +549,81 @@ describe("LaneCard — fee panel, settlement, receipt", () => {
     const y = at(15, 22, 5);
     setup(pending({ enteredAt: y, durationMinutes: 760 }));
     expect(screen.getByText(/^\d{2}\/\d{2} \d{2}:\d{2}$/)).toHaveTextContent("15/11 22:05");
+  });
+
+  it("cash settle prints the receipt exactly once, even after the paid state arrives", async () => {
+    const { onAction, rerender } = setup(pending());
+    await userEvent.click(settleBtn());
+    await run(onAction);
+    expect(p.printExitReceipt).toHaveBeenCalledTimes(1);
+    expect(p.printExitReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        plate: quote.plate,
+        method: "cash",
+        amountVnd: 25000,
+        receiptCode: "PV1A2B3C4D",
+      }),
+    );
+    rerender(paid({ lastMethod: "cash" }));
+    rerender(paid({ lastMethod: "cash" }));
+    expect(p.printExitReceipt).toHaveBeenCalledTimes(1);
+  });
+
+  it("bank transfer auto settlement prints once with the remembered quote", () => {
+    const { rerender } = setup(pending(), { payment: null });
+    expect(p.printExitReceipt).not.toHaveBeenCalled();
+    rerender(paid());
+    expect(p.printExitReceipt).toHaveBeenCalledTimes(1);
+    expect(p.printExitReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        site: "Edge Gate",
+        plate: quote.plate,
+        enteredAt: quote.enteredAt,
+        exitedAt: quote.exitedAt,
+        durationMinutes: 150,
+        amountVnd: 25000,
+        method: "bank_qr",
+        receiptCode: "PV1A2B3C4D",
+      }),
+    );
+    rerender(paid());
+    rerender(paid({ lastAt: at(16, 10, 43) }));
+    expect(p.printExitReceipt).toHaveBeenCalledTimes(1);
+  });
+
+  it("a print failure after settle still reports the settlement as successful", async () => {
+    p.printExitReceipt.mockImplementation(() => {
+      throw new Error("spooler");
+    });
+    const { onAction } = setup(pending());
+    await userEvent.click(settleBtn());
+    await act(async () => {
+      await expect(fnOf(onAction)()).resolves.toBeUndefined();
+    });
+    expect(m.settleWalkIn).toHaveBeenCalledTimes(1);
+    expect(onAction).toHaveBeenCalledTimes(2);
+    expect(await runRejected(onAction, 1)).toBe("Không in được — kiểm tra máy in.");
+  });
+
+  it("manual open is available in the paid state", async () => {
+    const { onAction } = setup(paid());
+    await userEvent.click(screen.getByRole("button", { name: "Mở thủ công" }));
+    expect(onAction.mock.calls[0][1]).toBe("Đã gửi lệnh mở");
+    await run(onAction);
+    expect(m.manualOpen).toHaveBeenCalledWith("g1");
+  });
+
+  it("camera chips meet the 44 px touch target", () => {
+    const cams: CameraBinding[] = [
+      { cameraId: "c1", purpose: "plate", streamUrl: "x" },
+      { cameraId: "c2", purpose: "overview", streamUrl: "y" },
+    ];
+    setup({}, { cameras: cams });
+    for (const name of ["CAM BIỂN SỐ", "CAM TOÀN CẢNH"]) {
+      const chip = screen.getByRole("button", { name });
+      expect(chip.className).toContain("min-h-[44px]");
+      expect(chip.className).toContain("min-w-[44px]");
+    }
   });
 
   it("entry photo overlay without a key or on another device", () => {
