@@ -14,8 +14,8 @@ import {
 } from "../lib/tauri";
 
 const input =
-  "w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm outline-none focus:border-sky-500";
-const label = "mb-1 block text-xs font-medium text-zinc-400";
+  "w-full rounded-lg border border-field bg-card px-3 py-1.5 text-sm text-text outline-none focus:border-brand";
+const label = "mb-1 block text-xs font-medium text-text-muted";
 
 const BACKEND_KINDS: { value: RelayBackendConfig["type"]; label: string }[] = [
   { value: "hikvision", label: "Camera Hikvision (alarm-out ISAPI)" },
@@ -70,10 +70,9 @@ interface Props {
   gate: GateBinding;
   onSaved: (cfg: EdgeConfig) => void;
   onClose: () => void;
-  embedded?: boolean;
 }
 
-export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose, embedded = false }: Props) {
+export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose }: Props) {
   const [enabled, setEnabled] = useState(gate.barrier != null);
   const [draft, setDraft] = useState<BarrierConfig>(() =>
     gate.barrier ? structuredClone(gate.barrier) : defaultBarrier(),
@@ -165,8 +164,8 @@ export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose, emb
           <span
             className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold ${
               inputs[(draft.inputs[key] ?? 1) - 1]
-                ? "bg-emerald-500/30 text-emerald-300"
-                : "bg-zinc-700 text-zinc-400"
+                ? "bg-brand-soft text-brand-ink"
+                : "bg-line-soft text-text-muted"
             }`}
           >
             {inputs[(draft.inputs[key] ?? 1) - 1] ? "ON" : "OFF"}
@@ -246,7 +245,7 @@ export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose, emb
         )}
       </div>
       {showStrobe && "strobe" in b && (
-        <label className="flex items-center gap-2 text-sm text-zinc-300">
+        <label className="flex items-center gap-2 text-sm text-text">
           <input
             type="checkbox"
             checked={b.strobe}
@@ -259,16 +258,16 @@ export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose, emb
   );
 
   return (
-    <div className={embedded ? "w-full" : "fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-6"}>
-      <div className={embedded ? "w-full" : "flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900"}>
-        {!embedded && <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-3">
+    <div role="dialog" aria-modal="true" aria-label="Cấu hình relay" className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-6">
+      <div className="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-line bg-card text-text">
+        <div className="flex items-center justify-between border-b border-line-soft px-5 py-3">
           <h2 className="font-bold">
             Cài đặt barrier — {gate.direction === "entry" ? "Cổng vào" : gate.direction === "exit" ? "Cổng ra" : gate.gateId}
           </h2>
-          <button type="button" aria-label="Đóng cài đặt barrier" onClick={onClose} className="min-h-11 min-w-11 rounded px-2 py-1 text-zinc-400 hover:bg-zinc-800">
+          <button type="button" aria-label="Đóng cài đặt barrier" onClick={onClose} className="min-h-11 min-w-11 rounded px-2 py-1 text-text-muted hover:bg-paper">
             ✕
           </button>
-        </div>}
+        </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
           {/* Mode toggle */}
@@ -279,8 +278,8 @@ export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose, emb
                 onClick={() => setEnabled(v)}
                 className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold ${
                   enabled === v
-                    ? "border-sky-500 bg-sky-500/10 text-sky-300"
-                    : "border-zinc-700 text-zinc-400 hover:bg-zinc-800"
+                    ? "border-brand bg-brand-soft text-brand-ink"
+                    : "border-field text-text-muted hover:bg-paper"
                 }`}
               >
                 {v ? "Relay thật" : "Mô phỏng (không phần cứng)"}
@@ -291,8 +290,8 @@ export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose, emb
           {enabled && (
             <>
               {/* Backend */}
-              <section className="space-y-3 rounded-lg border border-zinc-800 p-4">
-                <h3 className="text-xs font-bold uppercase tracking-wide text-zinc-500">
+              <section className="space-y-3 rounded-lg border border-line p-4">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-text-muted">
                   Phương thức điều khiển
                 </h3>
                 <select
@@ -408,8 +407,8 @@ export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose, emb
               </section>
 
               {/* Brand preset */}
-              <section className="space-y-3 rounded-lg border border-zinc-800 p-4">
-                <h3 className="text-xs font-bold uppercase tracking-wide text-zinc-500">
+              <section className="space-y-3 rounded-lg border border-line p-4">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-text-muted">
                   Hãng barrier
                 </h3>
                 <select
@@ -427,14 +426,14 @@ export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose, emb
                   ))}
                 </select>
                 {preset && (
-                  <div className="rounded-md bg-zinc-950 px-3 py-2 text-xs text-zinc-400">
+                  <div className="rounded-md bg-paper px-3 py-2 text-xs text-text-muted">
                     <div className="whitespace-pre-line font-mono">{preset.wiringHint}</div>
-                    <div className="mt-1 text-zinc-500">
+                    <div className="mt-1 text-text-muted">
                       Xung {preset.pulseMs} ms · hành trình {preset.travelSec}s
                       {preset.verified ? (
-                        <span className="ml-2 text-emerald-400">· đã kiểm chứng tại site</span>
+                        <span className="ml-2 text-brand-ink">· đã kiểm chứng tại site</span>
                       ) : (
-                        <span className="ml-2 text-amber-500">
+                        <span className="ml-2 text-warn-ink">
                           · preset mặc định — cần QA phần cứng thực tế
                         </span>
                       )}
@@ -480,8 +479,8 @@ export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose, emb
               </section>
 
               {/* Output map */}
-              <section className="space-y-3 rounded-lg border border-zinc-800 p-4">
-                <h3 className="text-xs font-bold uppercase tracking-wide text-zinc-500">
+              <section className="space-y-3 rounded-lg border border-line p-4">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-text-muted">
                   Đầu ra relay (kênh 1-based)
                 </h3>
                 <div className="grid grid-cols-4 gap-2">
@@ -493,8 +492,8 @@ export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose, emb
               </section>
 
               {/* Input map */}
-              <section className="space-y-3 rounded-lg border border-zinc-800 p-4">
-                <h3 className="text-xs font-bold uppercase tracking-wide text-zinc-500">
+              <section className="space-y-3 rounded-lg border border-line p-4">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-text-muted">
                   Đầu vào phản hồi (tuỳ chọn)
                 </h3>
                 <div className="grid grid-cols-3 gap-2">
@@ -502,21 +501,21 @@ export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose, emb
                   {inputField("closedLimit", "Limit đóng")}
                   {inputField("loop", "Vòng từ")}
                 </div>
-                <p className="text-[11px] text-zinc-500">
+                <p className="text-[11px] text-text-muted">
                   Để trống toàn bộ → ước lượng vị trí theo thời gian hành trình.
                 </p>
               </section>
 
               {/* Test */}
-              <section className="space-y-2 rounded-lg border border-zinc-800 p-4">
-                <h3 className="text-xs font-bold uppercase tracking-wide text-zinc-500">
+              <section className="space-y-2 rounded-lg border border-line p-4">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-text-muted">
                   Kiểm tra kết nối
                 </h3>
                 <div className="grid grid-cols-4 gap-2">
                   <button
                     onClick={() => run("probe", () => barrierProbe(draft), "Kết nối OK")}
                     disabled={busy != null}
-                    className="rounded-md bg-sky-600 py-2 text-sm font-semibold hover:bg-sky-500 disabled:opacity-40"
+                    className="rounded-md bg-brand py-2 text-sm font-semibold text-white hover:bg-[#163E9E] disabled:opacity-40"
                   >
                     {busy === "probe" ? "…" : "Kiểm tra"}
                   </button>
@@ -534,7 +533,7 @@ export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose, emb
                         run(`test-${key}`, () => barrierTestOutput(draft, out), `Đã phát xung ${key.toUpperCase()}`)
                       }
                       disabled={busy != null || out == null}
-                      className="rounded-md border border-zinc-600 py-2 text-sm font-semibold hover:bg-zinc-800 disabled:opacity-40"
+                      className="rounded-md border border-field py-2 text-sm font-semibold hover:bg-paper disabled:opacity-40"
                     >
                       {busy === `test-${key}` ? "…" : text}
                     </button>
@@ -548,8 +547,8 @@ export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose, emb
             <div
               className={`rounded-md border px-3 py-2 text-sm ${
                 msg.ok
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                  : "border-red-500/40 bg-red-500/10 text-red-400"
+                  ? "border-brand/30 bg-brand-soft text-brand-ink"
+                  : "border-warn-ink/30 bg-notice-bg text-warn-ink"
               }`}
             >
               {msg.text}
@@ -557,14 +556,14 @@ export default function BarrierSettingsScreen({ cfg, gate, onSaved, onClose, emb
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3">
-          <button onClick={onClose} className="rounded-md px-4 py-2 text-sm text-zinc-400 hover:bg-zinc-800">
+        <div className="flex justify-end gap-2 border-t border-line-soft px-5 py-3">
+          <button onClick={onClose} className="rounded-md px-4 py-2 text-sm text-text-muted hover:bg-paper">
             Huỷ
           </button>
           <button
             onClick={save}
             disabled={busy != null}
-            className="rounded-md bg-emerald-600 px-5 py-2 text-sm font-semibold hover:bg-emerald-500 disabled:opacity-40"
+            className="rounded-md bg-brand px-5 py-2 text-sm font-semibold text-white hover:bg-[#163E9E] disabled:opacity-40"
           >
             {busy === "save" ? "Đang lưu…" : "Lưu"}
           </button>

@@ -11,7 +11,7 @@ type Phase = "idle" | "checking" | "installing";
 
 type Props = { notify: (message: string) => void };
 
-/** Header control: check for a newer build, then install it on request. */
+/** Settings control: check for a newer build, then install it on request. */
 export default function UpdateButton({ notify }: Props) {
   const [info, setInfo] = useState<UpdateInfo | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -62,7 +62,7 @@ export default function UpdateButton({ notify }: Props) {
     const pct =
       progress?.total ? Math.min(100, Math.round((progress.downloaded / progress.total) * 100)) : null;
     return (
-      <span className="text-xs text-sky-400">
+      <span className="text-sm text-brand-ink">
         {pct === null ? "Đang tải bản cập nhật…" : `Đang tải bản cập nhật… ${pct}%`}
       </span>
     );
@@ -73,7 +73,7 @@ export default function UpdateButton({ notify }: Props) {
       <button
         onClick={install}
         title={info.notes ?? undefined}
-        className="rounded-md bg-sky-600 px-2 py-1 text-xs font-semibold hover:bg-sky-500"
+        className="min-h-11 rounded-lg bg-brand px-3 text-sm font-semibold text-white hover:bg-[#163E9E]"
       >
         Cập nhật {info.availableVersion}
       </button>
@@ -84,7 +84,7 @@ export default function UpdateButton({ notify }: Props) {
     <button
       onClick={check}
       disabled={phase === "checking"}
-      className="rounded-md border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800 disabled:opacity-50"
+      className="min-h-11 rounded-lg border border-field px-3 text-sm font-semibold hover:bg-paper disabled:opacity-50"
     >
       {phase === "checking" ? "Đang kiểm tra…" : "Kiểm tra cập nhật"}
     </button>

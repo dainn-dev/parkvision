@@ -39,7 +39,7 @@ export default function SettingsModal({ cfg, gate, mqttConnected, lastSyncAt, on
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {section === 'device' && <DeviceSettings mqttConnected={mqttConnected} lastSyncAt={lastSyncAt} onResync={onResync} onLock={onLock} notify={notify} />}
           {section === 'camera' && <CameraSettings cameras={gate.cameras} />}
-          {section === 'barrier' && <BarrierSettingsScreen embedded cfg={cfg} gate={gate} onSaved={onSaved} onClose={onClose} />}
+          {section === 'barrier' && <BarrierSettingsScreen cfg={cfg} gate={gate} onSaved={onSaved} onClose={onClose} />}
         </div>
       </div>
     </div>
