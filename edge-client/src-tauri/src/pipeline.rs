@@ -84,6 +84,13 @@ async fn find_walk_in(
     }
 }
 
+fn same_file(a: &std::path::Path, b: &std::path::Path) -> bool {
+    match (std::fs::canonicalize(a), std::fs::canonicalize(b)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    }
+}
+
 /// Move a captured image into the captures dir and return its storage key.
 /// `plateImageKey`/`overviewImageKey` are opaque keys the backend later
 /// resolves to image URLs — S3 presign upload is a later phase; for now the
@@ -92,6 +99,11 @@ fn stash_image(src: Option<&PathBuf>, captures_dir: &std::path::Path) -> Option<
     let src = src?;
     let name = src.file_name()?.to_str()?.to_string();
     let dest = captures_dir.join(&name);
+    // The camera worker already saves into the captures dir; copying a file
+    // onto itself fails on Windows (os error 32), so keep it as is.
+    if same_file(src, &dest) {
+        return Some(name);
+    }
     match std::fs::copy(src, &dest) {
         Ok(_) => Some(name),
         Err(e) => {
@@ -376,7 +388,7 @@ mod tests {
     async fn ui_event_carries_plate_image_key() {
         let (rig, tx) = rig();
         seed_vehicle(&rig.store, "resident", "active");
-        // source lives outside the captures dir, as the sidecar's output does
+        // source lives outside the captures dir: exercises the copy path
         let src_dir = tempfile::tempdir().unwrap();
         let src = src_dir.path().join("plate-ev1.jpg");
         std::fs::write(&src, b"jpg").unwrap();
@@ -409,6 +421,16 @@ mod tests {
         assert!(rig.captures.path().join(key).exists());
         let second = ev_rx.recv().await.unwrap();
         assert!(second["plateImageKey"].is_null());
+    }
+
+    #[test]
+    fn stash_image_keeps_file_already_in_captures_dir() {
+        let caps = tempfile::tempdir().unwrap();
+        let src = caps.path().join("plate-in.jpg");
+        std::fs::write(&src, b"orig").unwrap();
+        let key = stash_image(Some(&src), caps.path());
+        assert_eq!(key.as_deref(), Some("plate-in.jpg"));
+        assert_eq!(std::fs::read(&src).unwrap(), b"orig");
     }
 
     // ---------- walk-in fee branch ----------

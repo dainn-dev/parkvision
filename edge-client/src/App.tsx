@@ -38,16 +38,24 @@ function Workspace({
 
   return (
     <>
-      {screen === "monitor" ? (
+      {/* Stays mounted while Settings is open so each lane keeps its remembered
+          quote and printed-sessions set (a bank transfer can settle meanwhile). */}
+      <div
+        data-testid="monitor-host"
+        hidden={screen !== "monitor"}
+        aria-hidden={screen !== "monitor"}
+        style={screen !== "monitor" ? { display: "none" } : undefined}
+      >
         <MonitorScreen data={data} onOpenSettings={() => setScreen("settings")} notify={notify} />
-      ) : (
+      </div>
+      {screen === "settings" ? (
         <SettingsScreen
           data={data}
           onBack={() => setScreen("monitor")}
           onLocked={() => setScreen("locked")}
           notify={notify}
         />
-      )}
+      ) : null}
       {toast && <Toast message={toast} />}
     </>
   );
@@ -56,22 +64,25 @@ function Workspace({
 export default function App() {
   const [screen, setScreen] = useState<Screen>("loading");
   const [revoked, setRevoked] = useState(false);
+  // Set once a deprovision arrives, so a slower initial check cannot undo it.
+  const deprovisioned = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const cfg = await getConfig().catch(() => null);
-      if (cancelled) return;
+      if (cancelled || deprovisioned.current) return;
       if (!cfg) {
         setScreen("activation");
         return;
       }
       const lock = await lockStatus().catch(() => ({ enabled: false, locked: false }));
-      if (cancelled) return;
+      if (cancelled || deprovisioned.current) return;
       setScreen(lock.locked ? "locked" : "monitor");
     })();
     // Tenant admin revoked the credential — runtime wiped config.
     const un = onDeprovisioned(() => {
+      deprovisioned.current = true;
       setRevoked(true);
       setScreen("activation");
     });

@@ -293,13 +293,13 @@ fn runtime_handle(rt: &State<'_, RuntimeState>) -> Result<Arc<SharedRuntime>, St
 }
 
 /// Admit an unregistered vehicle at an entry gate: opens the barrier and
-/// starts a walk-in session. Returns the session id.
+/// starts a walk-in session. Returns the session id and entry time.
 #[tauri::command]
 async fn admit_walk_in(
     gate_id: Uuid,
     plate: String,
     rt: State<'_, RuntimeState>,
-) -> Result<Uuid, String> {
+) -> Result<walkin::AdmitResult, String> {
     let rt = runtime_handle(&rt)?;
     let gate = rt
         .gate(&gate_id)
@@ -370,7 +370,14 @@ fn site_payment_info(
 /// Resolve a capture key to a file inside `captures_dir`. `None` unless the
 /// key is a bare `.jpg` filename (no separators, no `..`).
 fn capture_path(captures_dir: &std::path::Path, key: &str) -> Option<std::path::PathBuf> {
+    let mut parts = std::path::Path::new(key).components();
+    let single_normal = matches!(
+        (parts.next(), parts.next()),
+        (Some(std::path::Component::Normal(_)), None)
+    );
     if key.is_empty()
+        || !single_normal
+        || key.contains(':')
         || !key.ends_with(".jpg")
         || key.contains('/')
         || key.contains('\\')
@@ -460,6 +467,10 @@ mod capture_tests {
             "sub\\plate.jpg",
             "a..b.jpg",
             "plate.png",
+            "C:x.jpg",
+            "a.jpg:s.jpg",
+            "C:\\x.jpg",
+            "/abs.jpg",
         ] {
             assert_eq!(capture_path(dir, bad), None, "{bad:?}");
         }

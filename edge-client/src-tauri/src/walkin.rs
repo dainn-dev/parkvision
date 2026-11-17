@@ -109,6 +109,23 @@ async fn emit_frame(gate: &GateRuntime, store: &Store, publisher: &dyn Publisher
     }
 }
 
+/// Outcome of an admission: the session and its (first) entry time.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdmitResult {
+    pub session_id: Uuid,
+    pub entered_at: String,
+}
+
+impl AdmitResult {
+    fn from_row(row: &WalkInRow) -> Self {
+        Self {
+            session_id: row.session_id,
+            entered_at: rfc3339(&row.entered_at),
+        }
+    }
+}
+
 /// Admit a walk-in at an entry gate: ask the FSM to open, create the
 /// session, report the entry. A refused open (locked/fault) creates nothing.
 /// If the plate already has an open session it is reused and its first entry
@@ -119,7 +136,7 @@ pub async fn admit(
     publisher: &dyn Publisher,
     plate: &str,
     image_key: Option<String>,
-) -> Result<Uuid, String> {
+) -> Result<AdmitResult, String> {
     if gate.ctx.lane_direction != "entry" {
         return Err("not an entry gate".into());
     }
@@ -139,7 +156,7 @@ pub async fn admit(
         .map_err(|r| r.as_str().to_string())?;
 
     if let Some(row) = existing {
-        return Ok(row.session_id);
+        return Ok(AdmitResult::from_row(&row));
     }
 
     let row = WalkInRow {
@@ -172,7 +189,7 @@ pub async fn admit(
         "deviceId": gate.ctx.device_id,
     });
     emit_frame(gate, store, publisher, frame).await;
-    Ok(row.session_id)
+    Ok(AdmitResult::from_row(&row))
 }
 
 /// Fee for `row` if it leaves at `now`, from the synced tariff.
@@ -581,7 +598,8 @@ mod tests {
         let rig = rig("entry");
         let id = admit(&rig.gate, &rig.store, rig.pub_.as_ref(), "29H-111.22", Some("p.jpg".into()))
             .await
-            .unwrap();
+            .unwrap()
+            .session_id;
         let row = rig.store.open_walk_in("29H11122").unwrap().unwrap();
         assert_eq!(row.session_id, id);
         assert_eq!(row.entry_image_key.as_deref(), Some("p.jpg"));
@@ -616,13 +634,15 @@ mod tests {
         let first = admit(&rig.gate, &rig.store, rig.pub_.as_ref(), "29H11122", None)
             .await
             .unwrap();
-        let entered = rig.store.walk_in(first).unwrap().unwrap().entered_at;
+        let entered = rig.store.walk_in(first.session_id).unwrap().unwrap().entered_at;
+        assert_eq!(first.entered_at, rfc3339(&entered));
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
         let second = admit(&rig.gate, &rig.store, rig.pub_.as_ref(), "29h-111.22", None)
             .await
             .unwrap();
-        assert_eq!(first, second);
-        assert_eq!(rig.store.walk_in(first).unwrap().unwrap().entered_at, entered);
+        assert_eq!(first.session_id, second.session_id);
+        assert_eq!(first.entered_at, second.entered_at);
+        assert_eq!(rig.store.walk_in(first.session_id).unwrap().unwrap().entered_at, entered);
         assert_eq!(frames_of(&rig, "walk_in_entry").len(), 1);
     }
 

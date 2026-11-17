@@ -272,9 +272,14 @@ export const lockStatus = () => invoke<LockStatus>("lock_status");
 
 // ---------- walk-in commands ----------
 
-/// Resolves to the new session id.
+export interface AdmitResult {
+  sessionId: string;
+  /** The session's stored entry time (RFC 3339 UTC); the first one if re-admitted. */
+  enteredAt: string;
+}
+
 export const admitWalkIn = (gateId: string, plate: string) =>
-  invoke<string>("admit_walk_in", { gateId, plate });
+  invoke<AdmitResult>("admit_walk_in", { gateId, plate });
 export const settleWalkIn = (
   gateId: string,
   sessionId: string,

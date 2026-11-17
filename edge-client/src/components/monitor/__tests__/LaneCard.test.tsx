@@ -41,6 +41,8 @@ const quote: FeeQuote = {
   bankReceivedVnd: null,
 };
 
+const ENTERED_AT = "2026-11-16T01:02:03.000Z";
+
 const entryLabel: GateLabel = { name: "Cổng vào 1", short: "Vào 1", badge: "VÀO" };
 const exitLabel: GateLabel = { name: "Cổng ra 1", short: "Ra 1", badge: "RA" };
 const cam: CameraBinding = { cameraId: "c1", purpose: "plate", streamUrl: "rtsp://x" };
@@ -120,7 +122,7 @@ const runRejected = async (onAction: ReturnType<typeof vi.fn>, n = 0) => {
 beforeEach(() => {
   vi.resetAllMocks();
   m.captureImage.mockResolvedValue(new ArrayBuffer(0));
-  m.admitWalkIn.mockResolvedValue("new-session-id-0000");
+  m.admitWalkIn.mockResolvedValue({ sessionId: "new-session-id-0000", enteredAt: ENTERED_AT });
   m.settleWalkIn.mockResolvedValue(undefined);
   URL.createObjectURL = vi.fn(() => "blob:x");
   URL.revokeObjectURL = vi.fn();
@@ -302,8 +304,18 @@ describe("LaneCard — walk-in admission", () => {
         plate: "51A12345",
         gateName: "Cổng vào 1",
         ticketCode: payCode("new-session-id-0000"),
+        enteredAt: ENTERED_AT,
       }),
     );
+  });
+
+  it("after admission the button is gone for that reading; a new reading offers it again", async () => {
+    const { onAction, rerender } = setup(unregistered);
+    await userEvent.click(screen.getByRole("button", { name: "Cho xe vãng lai vào" }));
+    await run(onAction);
+    expect(screen.queryByRole("button", { name: "Cho xe vãng lai vào" })).toBeNull();
+    rerender({ ...unregistered, lastAt: at(16, 10, 50) });
+    expect(screen.getByRole("button", { name: "Cho xe vãng lai vào" })).toBeInTheDocument();
   });
 
   it("print failure after admission does not undo it", async () => {
@@ -312,7 +324,7 @@ describe("LaneCard — walk-in admission", () => {
     });
     const { onAction } = setup(unregistered);
     await userEvent.click(screen.getByRole("button", { name: "Cho xe vãng lai vào" }));
-    await expect(fnOf(onAction)()).resolves.toBe("new-session-id-0000");
+    await expect(fnOf(onAction)()).resolves.toEqual({ sessionId: "new-session-id-0000", enteredAt: ENTERED_AT });
     expect(onAction).toHaveBeenCalledTimes(2);
     await expect(fnOf(onAction, 1)()).rejects.toBe("Không in được — kiểm tra máy in.");
   });
@@ -504,6 +516,28 @@ describe("LaneCard — fee panel, settlement, receipt", () => {
     expect(btn).toBeDisabled();
     expect(btn).toHaveAttribute("title", "Không có dữ liệu biên lai");
     expect(p.printExitReceipt).not.toHaveBeenCalled();
+  });
+
+  it("waive reason reaches the automatic receipt when the status arrives before settleWalkIn resolves", async () => {
+    let finish: () => void = () => {};
+    m.settleWalkIn.mockReturnValue(new Promise<void>((r) => (finish = r)));
+    const { onAction, rerender } = setup(pending());
+    await userEvent.click(screen.getByRole("button", { name: "Miễn phí" }));
+    await userEvent.type(screen.getByLabelText("Lý do miễn phí"), "khách VIP");
+    await userEvent.click(screen.getByRole("button", { name: "Xác nhận miễn phí" }));
+    let done: Promise<unknown> = Promise.resolve();
+    act(() => {
+      done = fnOf(onAction)();
+    });
+    rerender(paid({ lastReason: "walk_in_waived", lastMethod: "waived", lastAmountVnd: 0 }));
+    await act(async () => {
+      finish();
+      await done;
+    });
+    expect(p.printExitReceipt).toHaveBeenCalledTimes(1);
+    expect(p.printExitReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "waived", waiveReason: "khách VIP" }),
+    );
   });
 
   it("a waived visit's receipt carries the reason and no amount", async () => {

@@ -61,7 +61,11 @@ export default function MonitorScreen({ data, onOpenSettings, notify }: MonitorS
         style={
           crowded
             ? { gridTemplateColumns: "repeat(auto-fit, minmax(480px, 1fr))", gridAutoRows: "minmax(520px, auto)" }
-            : { gridTemplateColumns: `repeat(${Math.max(gates.length, 1)}, minmax(0, 1fr))` }
+            : {
+                gridTemplateColumns: `repeat(${Math.max(gates.length, 1)}, minmax(0, 1fr))`,
+                // One bounded row: each card scrolls inside instead of growing past the recent strip.
+                gridTemplateRows: "minmax(0, 1fr)",
+              }
         }
       >
         {gates.length === 0 ? (

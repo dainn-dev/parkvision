@@ -122,6 +122,31 @@ describe("App", () => {
     expect(screen.queryByText("activation revoked=true")).toBeNull();
   });
 
+  it("a late initial check does not override a deprovision that already happened", async () => {
+    let resolveCfg: (v: never) => void = () => {};
+    m.getConfig.mockReturnValue(new Promise((r) => (resolveCfg = r as never)) as never);
+    render(<App />);
+    await waitFor(() => expect(m.onDeprovisioned).toHaveBeenCalled());
+    act(() => deprovisioned());
+    expect(await screen.findByText("activation revoked=true")).toBeInTheDocument();
+    await act(async () => {
+      resolveCfg({} as never);
+    });
+    expect(screen.getByText("activation revoked=true")).toBeInTheDocument();
+    expect(screen.queryByText(/monitor screen/)).toBeNull();
+  });
+
+  it("monitoring stays mounted but hidden while settings is shown", async () => {
+    m.getConfig.mockResolvedValue({} as never);
+    render(<App />);
+    await userEvent.click(await screen.findByText("to-settings"));
+    const monitor = screen.getByText(/monitor screen/).closest("[data-testid='monitor-host']");
+    expect(monitor).toHaveAttribute("hidden");
+    expect(monitor).toHaveAttribute("aria-hidden", "true");
+    await userEvent.click(screen.getByText("to-monitor"));
+    expect(monitor).not.toHaveAttribute("hidden");
+  });
+
   it("monitoring and settings share one data hook", async () => {
     m.getConfig.mockResolvedValue({} as never);
     render(<App />);

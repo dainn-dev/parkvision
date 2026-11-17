@@ -125,6 +125,19 @@ describe("MonitorScreen", () => {
     expect(screen.getByTestId("lanes-grid").className).toContain("overflow-y-auto");
   });
 
+  it("1-2 gates get a single bounded row so cards scroll inside; 3 gates scroll the grid", () => {
+    const one = setup(dataOf({ gates: [gate("g1", "entry")] }));
+    expect(screen.getByTestId("lanes-grid").style.gridTemplateRows).toBe("minmax(0, 1fr)");
+    one.unmount();
+    const two = setup();
+    expect(screen.getByTestId("lanes-grid").style.gridTemplateRows).toBe("minmax(0, 1fr)");
+    two.unmount();
+    setup(dataOf({ gates: [gate("g1", "entry"), gate("g2", "exit"), gate("g3", "exit")] }));
+    const grid = screen.getByTestId("lanes-grid");
+    expect(grid.style.gridTemplateRows).toBe("");
+    expect(grid.className).toContain("overflow-y-auto");
+  });
+
   it("offline shows the banner, pill text and pending count", () => {
     const off = setup(dataOf({ mqtt: false, outbox: 4 }));
     const banner = screen.getByRole("status");

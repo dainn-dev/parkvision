@@ -17,6 +17,7 @@ import {
   manualPlate,
   manualUnlock,
   settleWalkIn,
+  type AdmitResult,
   type CameraBinding,
   type FeeQuote,
   type GateStatus,
@@ -56,6 +57,8 @@ export function LaneCard({ gate, label, cameras, camLive, payment, gateName, onA
   const titleId = useId();
   const [plateDialog, setPlateDialog] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Reading (gate lastAt + plate) that was already admitted as a walk-in.
+  const [admittedKey, setAdmittedKey] = useState<string | null>(null);
   const inFlight = useRef(false);
 
   const id = gate.gateId;
@@ -83,8 +86,13 @@ export function LaneCard({ gate, label, cameras, camLive, payment, gateName, onA
   const fault = gate.gateState === "fault";
   const blocked = locked || fault;
   const denied = gate.lastDecision === "deny";
+  const readingKey = `${gate.lastAt ?? ""}|${gate.lastPlate ?? ""}`;
   const canAdmit =
-    isEntry && !pending && denied && gate.lastReason === "plate_not_registered";
+    isEntry &&
+    !pending &&
+    denied &&
+    gate.lastReason === "plate_not_registered" &&
+    admittedKey !== readingKey;
 
   const entryPhoto = useCaptureUrl(!isEntry ? quote?.entryImageKey : null);
 
@@ -97,29 +105,31 @@ export function LaneCard({ gate, label, cameras, camLive, payment, gateName, onA
   const admit = () => {
     if (inFlight.current) return;
     const plate = gate.lastPlate ?? "";
+    const key = readingKey;
     onAction(async () => {
       inFlight.current = true;
       try {
-        let sessionId: string;
+        let admitted: AdmitResult;
         try {
-          sessionId = await admitWalkIn(id, plate);
+          admitted = await admitWalkIn(id, plate);
         } catch (e) {
           throw walkInErrorText(e);
         }
+        setAdmittedKey(key);
         // Admission is done; a printer problem must never undo it.
         try {
           printEntryTicket({
             site,
             plate,
-            enteredAt: new Date().toISOString(),
+            enteredAt: admitted.enteredAt,
             gateName: label.name,
-            ticketCode: payCode(sessionId),
+            ticketCode: payCode(admitted.sessionId),
             timeZone: tz,
           });
         } catch {
           printFailed();
         }
-        return sessionId;
+        return admitted;
       } finally {
         inFlight.current = false;
       }
@@ -133,15 +143,18 @@ export function LaneCard({ gate, label, cameras, camLive, payment, gateName, onA
       async () => {
         inFlight.current = true;
         setBusy(true);
+        // The edge publishes the paid status before this command returns, so the
+        // status-driven receipt must already find the reason.
+        if (reason) waiveReasons.current[q.sessionId] = reason;
         try {
           await settleWalkIn(id, q.sessionId, method, reason);
         } catch (e) {
+          delete waiveReasons.current[q.sessionId];
           throw walkInErrorText(e);
         } finally {
           inFlight.current = false;
           setBusy(false);
         }
-        if (reason) waiveReasons.current[q.sessionId] = reason;
         // Settled; the receipt prints once (the status-driven path skips this session).
         printOnce(q, method, method === "waived" ? 0 : (q.amountVnd ?? 0));
       },
