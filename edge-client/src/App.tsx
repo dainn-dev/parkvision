@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { deviceIp, getConfig, lockStatus, onDeprovisioned } from "./lib/tauri";
-import SetupScreen from "./screens/SetupScreen";
+import ActivationScreen from "./screens/ActivationScreen";
 import LockScreen from "./screens/LockScreen";
 import OperatorScreen from "./screens/OperatorScreen";
 
@@ -39,7 +39,7 @@ export default function App() {
         Đang tải…
       </main>
     ) : screen === "setup" ? (
-      <SetupScreen onDone={() => setScreen("operator")} />
+      <ActivationScreen revoked={false} onDone={() => setScreen("operator")} />
     ) : screen === "locked" ? (
       <LockScreen onUnlocked={() => setScreen("operator")} />
     ) : (

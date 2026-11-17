@@ -1,8 +1,6 @@
 import { useState } from "react";
+import { Logo } from "../components/ui/Logo";
 import { unlock } from "../lib/tauri";
-
-const input =
-  "w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-emerald-500";
 
 export default function LockScreen({ onUnlocked }: { onUnlocked: () => void }) {
   const [password, setPassword] = useState("");
@@ -28,36 +26,44 @@ export default function LockScreen({ onUnlocked }: { onUnlocked: () => void }) {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950 p-6 text-zinc-100">
-      <form
-        onSubmit={submit}
-        className="w-full max-w-xs space-y-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-6"
-      >
-        <div>
-          <h1 className="text-xl font-bold">ParkVision Edge</h1>
-          <p className="mt-1 text-sm text-zinc-400">Màn hình đang khoá. Nhập mật khẩu để tiếp tục.</p>
+    <main className="flex min-h-screen items-center justify-center bg-ink-950 p-6 text-fg">
+      <div className="flex w-full flex-col items-center gap-6">
+        <div className="flex items-center gap-3 text-accent">
+          <Logo size={32} />
+          <span className="text-[18px] font-bold text-white">Edge Gate</span>
         </div>
 
-        <input
-          autoFocus
-          type="password"
-          required
-          className={input}
-          placeholder="Mật khẩu"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-
-        {err && <div className="text-sm text-red-400">{err}</div>}
-
-        <button
-          type="submit"
-          disabled={busy}
-          className="w-full rounded-md bg-emerald-600 py-2.5 font-semibold hover:bg-emerald-500 disabled:opacity-50"
+        <form
+          onSubmit={submit}
+          className="w-full max-w-[360px] space-y-4 rounded-[16px] bg-card p-8 text-text"
         >
-          Mở khoá
-        </button>
-      </form>
+          <div>
+            <h1 className="text-[22px] font-bold">Màn hình đang khóa</h1>
+            <p className="mt-1 text-[14px] text-text-muted">Nhập mật khẩu để tiếp tục.</p>
+          </div>
+
+          <input
+            autoFocus
+            type="password"
+            required
+            aria-label="Mật khẩu"
+            className="min-h-[52px] w-full rounded-lg border border-field bg-white px-3 outline-none focus:border-brand"
+            placeholder="Mật khẩu"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+
+          {err && <div className="text-[13px] text-warn-ink">{err}</div>}
+
+          <button
+            type="submit"
+            disabled={busy}
+            className="min-h-[52px] w-full rounded-lg bg-brand font-semibold text-white hover:bg-[#163E9E] disabled:opacity-50"
+          >
+            Mở khóa
+          </button>
+        </form>
+      </div>
     </main>
   );
 }
