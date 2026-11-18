@@ -21,6 +21,7 @@ import {
 import { Button, Badge } from '../ui';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
+import { canManagePlatformOps } from '../../lib/permissions';
 
 export const PlatformHeader: React.FC<{
   onOpenQuickActionModal: () => void;
@@ -213,16 +214,18 @@ export const PlatformHeader: React.FC<{
           </Button>
         )}
 
-        {/* Quick Action Button */}
-        <Button
-          variant="primary"
-          size="sm"
-          icon={Plus}
-          onClick={onOpenQuickActionModal}
-          className="shadow-sm"
-        >
-          {t('Quick Action')}
-        </Button>
+        {/* Quick Action Button — opens Create Tenant (super_admin/ops only) */}
+        {canManagePlatformOps(currentUser?.rawRole ?? '') && (
+          <Button
+            variant="primary"
+            size="sm"
+            icon={Plus}
+            onClick={onOpenQuickActionModal}
+            className="shadow-sm"
+          >
+            {t('Quick Action')}
+          </Button>
+        )}
 
         {/* Notifications Drawer Toggle */}
         <div className="relative">

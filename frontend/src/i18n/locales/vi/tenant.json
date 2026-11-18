@@ -1448,5 +1448,21 @@
   "Fill in all three fields or leave all three empty.": "Nhập đủ cả ba trường hoặc để trống cả ba.",
   "BIN must be exactly 6 digits.": "Mã ngân hàng (BIN) phải gồm đúng 6 chữ số.",
   "Account number must be 6 to 19 digits.": "Số tài khoản phải gồm 6 đến 19 chữ số.",
-  "Account name cannot exceed 50 characters.": "Tên tài khoản không được quá 50 ký tự."
+  "Account name cannot exceed 50 characters.": "Tên tài khoản không được quá 50 ký tự.",
+  "Needs attention": "Cần xử lý",
+  "Paid – activation failed: {{reason}}": "Đã thanh toán – kích hoạt thất bại: {{reason}}",
+  "Late payment – needs refund": "Thanh toán trễ – cần hoàn tiền",
+  "Amount mismatch – needs refund": "Sai số tiền – cần hoàn tiền",
+  "Refunded externally": "Đã hoàn tiền bên ngoài",
+  "Mark refunded externally": "Đánh dấu đã hoàn tiền bên ngoài",
+  "Mark refunded": "Đánh dấu đã hoàn tiền",
+  "Note (required)": "Ghi chú (bắt buộc)",
+  "e.g. Bank transfer ref. 123456 on 18/11": "VD: Mã chuyển khoản 123456 ngày 18/11",
+  "Use this only when the money was already returned outside ParkVision (bank transfer, cash). No refund is sent to MoMo or the wallet; the payment is set to refunded.": "Chỉ dùng khi tiền đã được hoàn bên ngoài ParkVision (chuyển khoản, tiền mặt). Không gửi yêu cầu hoàn tiền tới MoMo hay ví; giao dịch sẽ chuyển sang trạng thái đã hoàn tiền.",
+  "Enter a note of 3–300 characters (e.g. bank transfer reference).": "Nhập ghi chú từ 3–300 ký tự (VD: mã chuyển khoản).",
+  "Payment marked as refunded": "Đã đánh dấu hoàn tiền",
+  "{{amount}} recorded as refunded outside the system": "{{amount}} được ghi nhận là đã hoàn tiền ngoài hệ thống",
+  "Could not mark payment as refunded": "Không thể đánh dấu hoàn tiền",
+  "This plan is paid and no payment has been received. Enter a reason to activate it anyway (e.g. paid in cash at the office).": "Gói này có phí và chưa nhận được thanh toán. Nhập lý do để vẫn kích hoạt (VD: đã trả tiền mặt tại văn phòng).",
+  "Reason (required)": "Lý do (bắt buộc)"
 }

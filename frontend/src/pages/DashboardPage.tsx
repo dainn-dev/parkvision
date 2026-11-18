@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { StatCard, Card, CardHeader, CardContent, Badge, Button } from '../components/ui';
 import { useTranslation } from 'react-i18next';
+import { canManagePlatformOps } from '../lib/permissions';
 import {
   AreaChart,
   Area,
@@ -37,6 +38,7 @@ export const DashboardPage: React.FC<{
   onOpenCreateTenantModal: () => void;
 }> = ({ onOpenCreateTenantModal }) => {
   const {
+    currentUser,
     tenants,
     admins,
     services,
@@ -51,6 +53,7 @@ export const DashboardPage: React.FC<{
     userType
   } = usePlatform();
   const { t } = useTranslation('platform');
+  const canCreateTenant = canManagePlatformOps(currentUser.rawRole);
 
   // Server-aggregated platform metrics + throughput (Phase 2)
   const [metrics, setMetrics] = useState<components['schemas']['MetricsOverviewOut'] | null>(null);
@@ -118,14 +121,16 @@ export const DashboardPage: React.FC<{
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <Button
-            variant="primary"
-            icon={Plus}
-            onClick={onOpenCreateTenantModal}
-            className="shadow-sm"
-          >
-            {t('Provision Tenant')}
-          </Button>
+          {canCreateTenant && (
+            <Button
+              variant="primary"
+              icon={Plus}
+              onClick={onOpenCreateTenantModal}
+              className="shadow-sm"
+            >
+              {t('Provision Tenant')}
+            </Button>
+          )}
           <Button
             variant="secondary"
             icon={ShieldAlert}

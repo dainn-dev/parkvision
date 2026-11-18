@@ -28,6 +28,15 @@ export class ApiError extends Error {
   }
 }
 
+/** Error code the platform API returns (403) when a platform admin without MFA
+ * calls a protected endpoint in a deployment that enforces MFA enrollment. */
+export const MFA_ENROLLMENT_REQUIRED_CODE = 'mfa_enrollment_required';
+
+/** Window event fired whenever any request fails with
+ * `mfa_enrollment_required`; the platform shell listens for it and opens the
+ * MFA enrollment flow. */
+export const MFA_ENROLLMENT_REQUIRED_EVENT = 'pv:mfa-enrollment-required';
+
 const readCookie = (name: string): string | null => {
   const m = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
   return m ? decodeURIComponent(m[1]) : null;
@@ -98,6 +107,9 @@ async function request<T>(method: string, path: string, body?: unknown, opts?: {
 
   if (!res.ok) {
     const err = json?.error ?? { code: `http_${res.status}`, message: res.statusText };
+    if (err?.code === MFA_ENROLLMENT_REQUIRED_CODE && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(MFA_ENROLLMENT_REQUIRED_EVENT, { detail: { path, message: err.message } }));
+    }
     throw new ApiError(res.status, { ...err, requestId: json?.requestId });
   }
 

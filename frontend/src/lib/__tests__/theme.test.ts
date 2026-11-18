@@ -6,12 +6,15 @@
  * state-init / effect logic duplicated from PlatformContext.
  */
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { JSDOM } from 'jsdom';
 import { afterEach, describe, expect, it } from 'vitest';
 
 /** Extract the first inline <script> from index.html (the pre-paint boot). */
 function loadBootScript(): string {
-  const html = readFileSync(new URL('../../../index.html', import.meta.url), 'utf8');
+  // Under the jsdom environment import.meta.url is not a file: URL, so
+  // resolve from the project root vitest runs in (frontend/).
+  const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
   const match = html.match(/<script>([\s\S]*?)<\/script>/);
   if (!match?.[1]) throw new Error('Boot script not found in index.html');
   return match[1];

@@ -3,13 +3,14 @@ import { Modal, Input, Select, Switch, Button, Badge } from '../../components/ui
 import { Building2, UserCheck, ShieldCheck, Check } from 'lucide-react';
 import { usePlatform } from '../../context/PlatformContext';
 import { useTranslation } from 'react-i18next';
+import { canManagePlatformOps } from '../../lib/permissions';
 
 export const CreateTenantModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
 }> = ({ isOpen, onClose }) => {
   const { t } = useTranslation('platform');
-  const { createTenant } = usePlatform();
+  const { createTenant, currentUser } = usePlatform();
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Step 1 State: Organization
@@ -107,6 +108,9 @@ export const CreateTenantModal: React.FC<{
     setErrors({});
     onClose();
   };
+
+  // POST /platform/tenants is super_admin/ops only; never render for support.
+  if (!canManagePlatformOps(currentUser.rawRole)) return null;
 
   return (
     <Modal

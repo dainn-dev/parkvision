@@ -26,11 +26,14 @@ import {
   StatCard
 } from '../../components/ui';
 import { useTranslation } from 'react-i18next';
+import { canManagePlatformOps } from '../../lib/permissions';
 
 export const TenantsListPage: React.FC<{
   onOpenCreateModal: () => void;
 }> = ({ onOpenCreateModal }) => {
-  const { tenants, setTenantStatus, setSelectedTenantId } = usePlatform();
+  const { tenants, setTenantStatus, setSelectedTenantId, currentUser } = usePlatform();
+  // Create tenant / lifecycle changes are super_admin or ops only — hidden for support.
+  const canManage = canManagePlatformOps(currentUser.rawRole);
   const { t } = useTranslation('platform');
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -112,14 +115,16 @@ export const TenantsListPage: React.FC<{
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          icon={Plus}
-          onClick={onOpenCreateModal}
-          className="shadow-md shadow-indigo-600/30"
-        >
-          {t('Provision Tenant')}
-        </Button>
+        {canManage && (
+          <Button
+            variant="primary"
+            icon={Plus}
+            onClick={onOpenCreateModal}
+            className="shadow-md shadow-indigo-600/30"
+          >
+            {t('Provision Tenant')}
+          </Button>
+        )}
       </div>
 
       {/* Quick Summary Cards */}
@@ -282,7 +287,7 @@ export const TenantsListPage: React.FC<{
                           title={t('View Tenant Detail')}
                         />
 
-                        {tenant.status === 'ACTIVE' && (
+                        {canManage && tenant.status === 'ACTIVE' && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -293,7 +298,7 @@ export const TenantsListPage: React.FC<{
                           </Button>
                         )}
 
-                        {tenant.status === 'SUSPENDED' && (
+                        {canManage && tenant.status === 'SUSPENDED' && (
                           <Button
                             variant="outline"
                             size="sm"

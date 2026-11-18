@@ -1,5 +1,5 @@
 import { api } from './client';
-export { ApiError, api } from './client';
+export { ApiError, api, MFA_ENROLLMENT_REQUIRED_CODE, MFA_ENROLLMENT_REQUIRED_EVENT } from './client';
 import type { components } from './schema';
 
 type S = components['schemas'];
@@ -287,6 +287,16 @@ export interface TenantPaymentOut {
   paidAt: string | null;
   refundedAt: string | null;
   createdAt: string;
+  /** Paid, but auto-activating the membership failed (reason text). */
+  activationError?: string | null;
+  /** Paid after the session/membership no longer needed it — needs a refund. */
+  latePayment?: boolean;
+  /** Gateway reported a different amount than charged — not marked paid. */
+  amountMismatch?: boolean;
+  /** Operator recorded a refund made outside the gateway/wallet. */
+  refundedExternally?: boolean;
+  /** Server-side mirror of the `?attention=true` filter. */
+  needsAttention?: boolean;
 }
 
 const qs = (params: Record<string, string | number | boolean | undefined | null>) => {
@@ -640,17 +650,24 @@ export const tenantApi = {
 
   memberships: (t: string, p: { page?: number; limit?: number; status?: string; siteId?: string } = {}) =>
     api.get<Page<TenantMembershipOut>>(T(t, `/memberships${qs({ page: p.page, limit: p.limit, status: p.status, site_id: p.siteId })}`)),
+  // `note` is the activation reason the server requires (422
+  // `activation_reason_required`) for a paid plan with no paid payment;
+  // `adminNote` is the legacy field — send both with the same text.
   activateMembership: (t: string, id: string, adminNote?: string) =>
-    api.post<TenantMembershipOut>(T(t, `/memberships/${id}/activate`), { adminNote }),
+    api.post<TenantMembershipOut>(T(t, `/memberships/${id}/activate`), { adminNote, note: adminNote }),
   rejectMembership: (t: string, id: string, adminNote?: string) =>
     api.post<TenantMembershipOut>(T(t, `/memberships/${id}/reject`), { adminNote }),
   revokeMembership: (t: string, id: string, adminNote?: string) =>
     api.post<TenantMembershipOut>(T(t, `/memberships/${id}/revoke`), { adminNote }),
 
-  payments: (t: string, p: { page?: number; limit?: number; status?: string; kind?: string; siteId?: string } = {}) =>
-    api.get<Page<TenantPaymentOut>>(T(t, `/payments${qs({ page: p.page, limit: p.limit, status: p.status, kind: p.kind, site_id: p.siteId })}`)),
+  payments: (t: string, p: { page?: number; limit?: number; status?: string; kind?: string; siteId?: string; attention?: boolean } = {}) =>
+    api.get<Page<TenantPaymentOut>>(
+      T(t, `/payments${qs({ page: p.page, limit: p.limit, status: p.status, kind: p.kind, site_id: p.siteId, attention: p.attention ? true : undefined })}`)
+    ),
   refundPayment: (t: string, id: string) =>
     api.post<TenantPaymentOut>(T(t, `/payments/${id}/refund`), {}),
+  markPaymentRefundedExternally: (t: string, id: string, note: string) =>
+    api.post<TenantPaymentOut>(T(t, `/payments/${id}/mark-refunded-externally`), { note }),
 };
 
 // ---------- WebSocket ----------

@@ -89,11 +89,9 @@
   "MFA Enforced": "Đã Bật MFA",
   "Multi-factor authentication is now active on your account.": "Xác thực đa yếu tố đã được kích hoạt trên tài khoản của bạn.",
   "Multi-Factor Setup": "Thiết Lập Đa Yếu Tố",
-  "MFA Security Challenge": "Thử Thách Bảo Mật MFA",
   "Reset MFA for {{name}}": "Đặt Lại MFA Cho {{name}}",
   "Administrator": "Quản trị viên",
   "Protect your platform account with 2-factor authentication": "Bảo vệ tài khoản nền tảng bằng xác thực 2 yếu tố",
-  "Enter your 6-digit TOTP code from your authenticator app": "Nhập mã TOTP 6 số từ ứng dụng xác thực",
   "Generate a new authenticator binding URL for this account": "Tạo URL liên kết authenticator mới cho tài khoản này",
   "Method": "Phương thức",
   "Scan QR": "Quét QR",
@@ -141,5 +139,7 @@
   "MFA Secret Reset": "Đã Đặt Lại MFA Secret",
   "MFA credentials revoked for {{name}}. User must re-enroll.": "Đã thu hồi MFA credentials của {{name}}. Người dùng phải đăng ký lại.",
   "MFA Secret Revoked": "MFA Secret Đã Bị Thu Hồi",
-  "Revoke & Reset Secret": "Thu Hồi & Đặt Lại Secret"
+  "Revoke & Reset Secret": "Thu Hồi & Đặt Lại Secret",
+  "MFA enrollment required": "Bắt buộc đăng ký MFA",
+  "Your account must have multi-factor authentication before using the platform console. Set up an authenticator app to continue.": "Tài khoản của bạn phải bật xác thực đa yếu tố trước khi sử dụng bảng điều khiển nền tảng. Hãy thiết lập ứng dụng xác thực để tiếp tục."
 }

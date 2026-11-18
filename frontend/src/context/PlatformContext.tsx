@@ -48,6 +48,7 @@ import {
   TenantEdgeDeviceInput,
 } from '../types/tenant';
 import {
+  MFA_ENROLLMENT_REQUIRED_EVENT,
   authApi,
   platformApi,
   tenantApi,
@@ -159,11 +160,11 @@ interface PlatformContextType {
   toggleTheme: () => void;
 
   isMfaModalOpen: boolean;
-  mfaModalMode: 'enroll' | 'challenge' | 'reset_admin' | 'disable';
+  mfaModalMode: 'enroll' | 'reset_admin' | 'disable';
   mfaTargetAdminName?: string;
   mfaTargetAdminId?: string;
   isMfaVerified: boolean;
-  openMfaModal: (mode?: 'enroll' | 'challenge' | 'reset_admin' | 'disable', targetAdminName?: string, targetAdminId?: string) => void;
+  openMfaModal: (mode?: 'enroll' | 'reset_admin' | 'disable', targetAdminName?: string, targetAdminId?: string) => void;
   closeMfaModal: () => void;
 
   primaryTab: PrimaryTab;
@@ -512,11 +513,11 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   // ---------- MFA modal ----------
   const [isMfaModalOpen, setIsMfaModalOpen] = useState(false);
-  const [mfaModalMode, setMfaModalMode] = useState<'enroll' | 'challenge' | 'reset_admin' | 'disable'>('enroll');
+  const [mfaModalMode, setMfaModalMode] = useState<'enroll' | 'reset_admin' | 'disable'>('enroll');
   const [mfaTargetAdminName, setMfaTargetAdminName] = useState<string | undefined>(undefined);
   const [mfaTargetAdminId, setMfaTargetAdminId] = useState<string | undefined>(undefined);
   const [isMfaVerified, setIsMfaVerified] = useState(false);
-  const openMfaModal = (mode: 'enroll' | 'challenge' | 'reset_admin' | 'disable' = 'enroll', targetAdminName?: string, targetAdminId?: string) => {
+  const openMfaModal = (mode: 'enroll' | 'reset_admin' | 'disable' = 'enroll', targetAdminName?: string, targetAdminId?: string) => {
     setMfaModalMode(mode);
     setMfaTargetAdminName(targetAdminName);
     setMfaTargetAdminId(targetAdminId);
@@ -555,6 +556,26 @@ export const PlatformProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const toastErr = (title: string) => (e: unknown) =>
     addToast({ type: 'error', title, description: errText(e) });
+
+  // Platform API returns 403 `mfa_enrollment_required` when MFA is enforced
+  // and this admin has none enrolled: route straight into enrollment. Many
+  // requests can fail at once (dashboard load), so collapse to one prompt.
+  const lastMfaPromptAt = useRef(0);
+  useEffect(() => {
+    const onMfaRequired = () => {
+      const now = Date.now();
+      if (now - lastMfaPromptAt.current < 5000) return;
+      lastMfaPromptAt.current = now;
+      addToast({
+        type: 'warning',
+        title: i18n.t('MFA enrollment required', { ns: 'security' }),
+        description: i18n.t('Your account must have multi-factor authentication before using the platform console. Set up an authenticator app to continue.', { ns: 'security' }),
+      });
+      openMfaModal('enroll');
+    };
+    window.addEventListener(MFA_ENROLLMENT_REQUIRED_EVENT, onMfaRequired);
+    return () => window.removeEventListener(MFA_ENROLLMENT_REQUIRED_EVENT, onMfaRequired);
+  }, []);
 
   // ---------- Collections ----------
   const [tenants, setTenants] = useState<Tenant[]>([]);

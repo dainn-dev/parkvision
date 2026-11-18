@@ -11,7 +11,14 @@ import {
   XCircle
 } from 'lucide-react';
 import { Badge, Button, Input, Modal, Pagination, Select } from '../../components/ui';
-import { canTenantWrite } from '../../lib/permissions';
+import { canRefundTenantPayments, canTenantWrite } from '../../lib/permissions';
+import {
+  EXTERNAL_REFUND_NOTE_MAX,
+  isActivationReasonRequired,
+  isValidExternalRefundNote,
+  paymentFlags,
+  canMarkRefundedExternally
+} from '../../lib/payments';
 import {
   MembershipPlanIn,
   MembershipPlanOut,
@@ -49,10 +56,11 @@ export const TenantMembershipsPage: React.FC = () => {
   const { t } = useTranslation('tenant');
   const { activeTenantId, tenantSites, addToast, currentUser } = usePlatform();
 
-  // Plan CRUD, membership activate/reject/revoke, and payment refund are all
-  // WRITE_ROLES (owner/admin/operator) — mirrors tenant/memberships.py and
-  // tenant/payments.py's `require_roles(*WRITE_ROLES)`.
+  // Plan CRUD and membership activate/reject/revoke are WRITE_ROLES
+  // (owner/admin/operator) — mirrors tenant/memberships.py.
   const canManage = canTenantWrite(currentUser.rawRole);
+  // Refund and mark-refunded-externally are owner/admin only (operator gets 403).
+  const canRefund = canRefundTenantPayments(currentUser.rawRole);
 
   const [tab, setTab] = useState<Tab>('requests');
 
@@ -66,6 +74,9 @@ export const TenantMembershipsPage: React.FC = () => {
   const [action, setAction] = useState<{ kind: ActionKind; row: TenantMembershipOut } | null>(null);
   const [actionNote, setActionNote] = useState('');
   const [acting, setActing] = useState(false);
+  // Set once the server answers 422 `activation_reason_required`: a paid plan
+  // with no paid payment can only be activated with a written reason.
+  const [reasonRequired, setReasonRequired] = useState(false);
 
   // ---------- plans state ----------
   const [planSiteId, setPlanSiteId] = useState('');
@@ -86,10 +97,15 @@ export const TenantMembershipsPage: React.FC = () => {
   const [payTotal, setPayTotal] = useState(0);
   const [payPage, setPayPage] = useState(1);
   const [payStatus, setPayStatus] = useState('');
+  const [payAttention, setPayAttention] = useState(false);
   const [paySiteId, setPaySiteId] = useState('');
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [refundRow, setRefundRow] = useState<TenantPaymentOut | null>(null);
   const [refunding, setRefunding] = useState(false);
+  const [externalRefundRow, setExternalRefundRow] = useState<TenantPaymentOut | null>(null);
+  const [externalRefundNote, setExternalRefundNote] = useState('');
+  const [externalRefundError, setExternalRefundError] = useState('');
+  const [markingExternal, setMarkingExternal] = useState(false);
 
   const pendingCount = useMemo(
     () => memberships.filter((m) => m.status === 'pending').length,
@@ -146,7 +162,8 @@ export const TenantMembershipsPage: React.FC = () => {
         page: payPage,
         limit: 20,
         status: payStatus || undefined,
-        siteId: paySiteId || undefined
+        siteId: paySiteId || undefined,
+        attention: payAttention || undefined
       });
       setPayments(res.data);
       setPayTotal(res.meta.total);
@@ -155,7 +172,7 @@ export const TenantMembershipsPage: React.FC = () => {
     } finally {
       setLoadingPayments(false);
     }
-  }, [activeTenantId, payPage, payStatus, paySiteId, addToast, t]);
+  }, [activeTenantId, payPage, payStatus, paySiteId, payAttention, addToast, t]);
 
   useEffect(() => {
     if (tab === 'payments') void loadPayments();
@@ -183,8 +200,44 @@ export const TenantMembershipsPage: React.FC = () => {
     }
   };
 
+  const openExternalRefund = (p: TenantPaymentOut) => {
+    setExternalRefundRow(p);
+    setExternalRefundNote('');
+    setExternalRefundError('');
+  };
+
+  const runMarkRefundedExternally = async () => {
+    if (!externalRefundRow || !activeTenantId) return;
+    if (!isValidExternalRefundNote(externalRefundNote)) {
+      setExternalRefundError(t('Enter a note of 3–300 characters (e.g. bank transfer reference).'));
+      return;
+    }
+    setMarkingExternal(true);
+    try {
+      await tenantApi.markPaymentRefundedExternally(activeTenantId, externalRefundRow.id, externalRefundNote.trim());
+      addToast({
+        type: 'success',
+        title: t('Payment marked as refunded'),
+        description: t('{{amount}} recorded as refunded outside the system', { amount: fmtVnd(externalRefundRow.amountVnd) })
+      });
+      setExternalRefundRow(null);
+      await loadPayments();
+    } catch (e) {
+      addToast({ type: 'error', title: t('Could not mark payment as refunded'), description: e instanceof Error ? e.message : undefined });
+    } finally {
+      setMarkingExternal(false);
+    }
+  };
+
+  const openAction = (kind: ActionKind, row: TenantMembershipOut) => {
+    setAction({ kind, row });
+    setActionNote('');
+    setReasonRequired(false);
+  };
+
   const runAction = async () => {
     if (!action || !activeTenantId) return;
+    if (action.kind === 'activate' && reasonRequired && !actionNote.trim()) return;
     setActing(true);
     try {
       const fn = {
@@ -192,7 +245,7 @@ export const TenantMembershipsPage: React.FC = () => {
         reject: tenantApi.rejectMembership,
         revoke: tenantApi.revokeMembership
       }[action.kind];
-      await fn(activeTenantId, action.row.id, actionNote || undefined);
+      await fn(activeTenantId, action.row.id, actionNote.trim() || undefined);
       addToast({
         type: 'success',
         title: t('Membership {{action}}', { action: t(action.kind) }),
@@ -202,6 +255,11 @@ export const TenantMembershipsPage: React.FC = () => {
       setActionNote('');
       await loadMemberships();
     } catch (e) {
+      if (action.kind === 'activate' && isActivationReasonRequired(e)) {
+        // Keep the dialog open and ask for the reason; the user then resends.
+        setReasonRequired(true);
+        return;
+      }
       addToast({ type: 'error', title: t('Action failed'), description: e instanceof Error ? e.message : undefined });
     } finally {
       setActing(false);
@@ -398,7 +456,7 @@ export const TenantMembershipsPage: React.FC = () => {
                                 <div className="flex items-center justify-end gap-1.5">
                                   <Button
                                     size="sm"
-                                    onClick={() => { setAction({ kind: 'activate', row: m }); setActionNote(''); }}
+                                    onClick={() => openAction('activate', m)}
                                     className="text-[11px] h-7 bg-[#238636] hover:bg-[#2ea043] text-white"
                                   >
                                     <ShieldCheck className="w-3.5 h-3.5" />
@@ -407,7 +465,7 @@ export const TenantMembershipsPage: React.FC = () => {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => { setAction({ kind: 'reject', row: m }); setActionNote(''); }}
+                                    onClick={() => openAction('reject', m)}
                                     className="text-[11px] h-7 border-[#30363d] text-[#f85149]"
                                   >
                                     <XCircle className="w-3.5 h-3.5" />
@@ -419,7 +477,7 @@ export const TenantMembershipsPage: React.FC = () => {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => { setAction({ kind: 'revoke', row: m }); setActionNote(''); }}
+                                  onClick={() => openAction('revoke', m)}
                                   className="text-[11px] h-7 border-[#30363d] text-[#f85149]"
                                 >
                                   <XCircle className="w-3.5 h-3.5" />
@@ -556,6 +614,18 @@ export const TenantMembershipsPage: React.FC = () => {
                 <option key={s} value={s}>{t(s)}</option>
               ))}
             </select>
+            <button
+              type="button"
+              aria-pressed={payAttention}
+              onClick={() => { setPayAttention((v) => !v); setPayPage(1); }}
+              className={`rounded-lg px-2.5 py-2 text-xs font-semibold border transition-colors ${
+                payAttention
+                  ? 'bg-[#d29922]/15 border-[#d29922]/60 text-[#d29922]'
+                  : 'bg-[#0d0e12] border-[#30363d] text-[#c9d1d9] hover:border-[#484f58]'
+              }`}
+            >
+              {t('Needs attention')}
+            </button>
             <select
               value={paySiteId}
               onChange={(e) => { setPaySiteId(e.target.value); setPayPage(1); }}
@@ -623,20 +693,47 @@ export const TenantMembershipsPage: React.FC = () => {
                         <td className="py-3.5 px-4 text-[#8b949e] uppercase text-[10px] font-bold">{p.method}</td>
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           <Badge variant={PAYMENT_STATUS_VARIANT[p.status] ?? 'slate'}>{t(p.status)}</Badge>
+                          {paymentFlags(p).map((f) => (
+                            <div key={f.kind} className="mt-1">
+                              {f.kind === 'activation_failed' ? (
+                                <span title={f.detail}>
+                                  <Badge variant="red">{t('Paid – activation failed: {{reason}}', { reason: f.detail })}</Badge>
+                                </span>
+                              ) : f.kind === 'late_payment' ? (
+                                <Badge variant="amber">{t('Late payment – needs refund')}</Badge>
+                              ) : f.kind === 'amount_mismatch' ? (
+                                <Badge variant="amber">{t('Amount mismatch – needs refund')}</Badge>
+                              ) : (
+                                <Badge variant="slate">{t('Refunded externally')}</Badge>
+                              )}
+                            </div>
+                          ))}
                         </td>
                         <td className="py-3.5 px-4 text-[#8b949e] whitespace-nowrap">{fmtDate(p.paidAt ?? p.createdAt)}</td>
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          {canManage && p.status === 'paid' && p.kind !== 'topup' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setRefundRow(p)}
-                              className="text-[11px] h-7 border-[#30363d] text-[#f85149]"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                              {t('Refund')}
-                            </Button>
-                          )}
+                          <div className="inline-flex items-center gap-1.5">
+                            {canRefund && p.status === 'paid' && p.kind !== 'topup' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setRefundRow(p)}
+                                className="text-[11px] h-7 border-[#30363d] text-[#f85149]"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                                {t('Refund')}
+                              </Button>
+                            )}
+                            {canRefund && canMarkRefundedExternally(p) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openExternalRefund(p)}
+                                className="text-[11px] h-7 border-[#30363d] text-[#c9d1d9]"
+                              >
+                                {t('Mark refunded externally')}
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -674,6 +771,7 @@ export const TenantMembershipsPage: React.FC = () => {
               variant={action?.kind === 'activate' ? 'success' : 'danger'}
               onClick={() => void runAction()}
               isLoading={acting}
+              disabled={action?.kind === 'activate' && reasonRequired && !actionNote.trim()}
             >
               {action ? t(action.kind) : ''}
             </Button>
@@ -693,11 +791,56 @@ export const TenantMembershipsPage: React.FC = () => {
               {t('Revoking suspends gate access for this plate immediately.')}
             </p>
           )}
+          {action?.kind === 'activate' && reasonRequired && (
+            <p role="alert" className="p-2.5 rounded-lg bg-[#d29922]/10 border border-[#d29922]/40 text-[#d29922]">
+              {t('This plan is paid and no payment has been received. Enter a reason to activate it anyway (e.g. paid in cash at the office).')}
+            </p>
+          )}
           <Input
-            label={t('Admin note (optional)')}
+            label={action?.kind === 'activate' && reasonRequired ? t('Reason (required)') : t('Admin note (optional)')}
             value={actionNote}
             onChange={(e) => setActionNote(e.target.value)}
             placeholder={t('e.g. Paid at office, receipt #123')}
+            maxLength={300}
+            className="bg-[#0d0e12] border-[#30363d]"
+          />
+        </div>
+      </Modal>
+
+      {/* Mark refunded externally modal */}
+      <Modal
+        isOpen={externalRefundRow !== null}
+        onClose={() => setExternalRefundRow(null)}
+        title={t('Mark refunded externally')}
+        subtitle={externalRefundRow ? `${externalRefundRow.driverName} — ${fmtVnd(externalRefundRow.amountVnd)} · ${t(externalRefundRow.kind)}` : undefined}
+        maxWidth="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setExternalRefundRow(null)} className="border-[#30363d] text-[#c9d1d9]">
+              {t('Cancel')}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => void runMarkRefundedExternally()}
+              isLoading={markingExternal}
+              disabled={!isValidExternalRefundNote(externalRefundNote)}
+            >
+              {t('Mark refunded')}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-xs text-[#8b949e]">
+          <p>
+            {t('Use this only when the money was already returned outside ParkVision (bank transfer, cash). No refund is sent to MoMo or the wallet; the payment is set to refunded.')}
+          </p>
+          <Input
+            label={t('Note (required)')}
+            value={externalRefundNote}
+            onChange={(e) => { setExternalRefundNote(e.target.value); setExternalRefundError(''); }}
+            placeholder={t('e.g. Bank transfer ref. 123456 on 18/11')}
+            maxLength={EXTERNAL_REFUND_NOTE_MAX}
+            error={externalRefundError || undefined}
             className="bg-[#0d0e12] border-[#30363d]"
           />
         </div>

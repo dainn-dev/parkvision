@@ -30,6 +30,7 @@ import {
 } from '../../components/ui';
 import { BarrierMapVisualization } from '../../components/monitoring/BarrierMapVisualization';
 import { useTranslation } from 'react-i18next';
+import { canManagePlatformOps } from '../../lib/permissions';
 
 export const MonitoringPage: React.FC = () => {
   const { t } = useTranslation('monitoring');
@@ -47,8 +48,11 @@ export const MonitoringPage: React.FC = () => {
     setMonitoringSubTab,
     userType,
     tenantSites,
-    addToast
+    addToast,
+    currentUser
   } = usePlatform();
+  // Edge reboot is super_admin/ops only (platform.py) — hidden for support.
+  const canRebootEdge = userType === 'platform_admin' && canManagePlatformOps(currentUser.rawRole);
 
   const rebootEdge = (deviceId: string) => {
     platformApi
@@ -228,7 +232,7 @@ export const MonitoringPage: React.FC = () => {
                       {e.lastHeartbeat ? new Date(e.lastHeartbeat).toLocaleString() : t('Never')}
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      {userType === 'platform_admin' && (
+                      {canRebootEdge && (
                         <Button variant="outline" size="sm" onClick={() => rebootEdge(e.id)}>
                           <RefreshCw className="w-3.5 h-3.5 mr-1" />
                           {t('Reboot')}

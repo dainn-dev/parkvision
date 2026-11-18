@@ -32,13 +32,15 @@ import {
   Modal
 } from '../../components/ui';
 import { useTranslation } from 'react-i18next';
+import { canManagePlatformOps } from '../../lib/permissions';
 
 export const TenantDetailPage: React.FC<{
   tenantId: string;
   onBack: () => void;
 }> = ({ tenantId, onBack }) => {
   const { t } = useTranslation('platform');
-  const { tenants, admins, setTenantStatus, tenantAuditLogs: allTenantAuditLogs, impersonateTenant } = usePlatform();
+  const { tenants, admins, setTenantStatus, tenantAuditLogs: allTenantAuditLogs, impersonateTenant, currentUser } = usePlatform();
+  const canManage = canManagePlatformOps(currentUser.rawRole);
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'usage' | 'activity'>('overview');
 
@@ -139,53 +141,56 @@ export const TenantDetailPage: React.FC<{
           </div>
 
           {/* Quick Lifecycle Action Buttons */}
-          <div className="flex items-center gap-3 shrink-0">
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={UserCog}
-              loading={isImpersonating}
-              onClick={async () => {
-                setIsImpersonating(true);
-                try {
-                  await impersonateTenant(tenant.id);
-                } finally {
-                  setIsImpersonating(false);
-                }
-              }}
-            >
-              {t('Impersonate')}
-            </Button>
-            {tenant.status === 'ACTIVE' ? (
+          {/* Impersonate and lifecycle changes are super_admin/ops only (platform.py) — hidden for support. */}
+          {canManage && (
+            <div className="flex items-center gap-3 shrink-0">
               <Button
-                variant="danger"
+                variant="secondary"
                 size="sm"
-                icon={Ban}
-                onClick={() => {
-                  setTargetStatus('SUSPENDED');
-                  setStatusReason('');
-                  setStatusReasonError('');
-                  setIsStatusModalOpen(true);
+                icon={UserCog}
+                loading={isImpersonating}
+                onClick={async () => {
+                  setIsImpersonating(true);
+                  try {
+                    await impersonateTenant(tenant.id);
+                  } finally {
+                    setIsImpersonating(false);
+                  }
                 }}
               >
-                {t('Suspend Tenant')}
+                {t('Impersonate')}
               </Button>
-            ) : (
-              <Button
-                variant="success"
-                size="sm"
-                icon={CheckCircle}
-                onClick={() => {
-                  setTargetStatus('ACTIVE');
-                  setStatusReason('');
-                  setStatusReasonError('');
-                  setIsStatusModalOpen(true);
-                }}
-              >
-                {t('Activate Tenant')}
-              </Button>
-            )}
-          </div>
+              {tenant.status === 'ACTIVE' ? (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={Ban}
+                  onClick={() => {
+                    setTargetStatus('SUSPENDED');
+                    setStatusReason('');
+                    setStatusReasonError('');
+                    setIsStatusModalOpen(true);
+                  }}
+                >
+                  {t('Suspend Tenant')}
+                </Button>
+              ) : (
+                <Button
+                  variant="success"
+                  size="sm"
+                  icon={CheckCircle}
+                  onClick={() => {
+                    setTargetStatus('ACTIVE');
+                    setStatusReason('');
+                    setStatusReasonError('');
+                    setIsStatusModalOpen(true);
+                  }}
+                >
+                  {t('Activate Tenant')}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </Card>
 

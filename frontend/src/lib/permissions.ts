@@ -26,6 +26,10 @@ export const canManageTenantUsers = (role: TenantRawRole): boolean => TENANT_ADM
 
 export const canExportTenantAudit = (role: TenantRawRole): boolean => TENANT_ADMIN_ROLES.has(role);
 
+/** Refund a driver payment, or record that it was refunded outside the
+ * system (`mark-refunded-externally`). Owner/admin only — operators get 403. */
+export const canRefundTenantPayments = (role: TenantRawRole): boolean => TENANT_ADMIN_ROLES.has(role);
+
 // Mirrors the per-route `require_platform_admin((...))` role tuples in
 // app/api/v1/platform.py.
 const PLATFORM_SUPER_ONLY: ReadonlySet<string> = new Set(['super_admin']);

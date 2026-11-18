@@ -28,7 +28,7 @@ import { useTranslation } from 'react-i18next';
 export interface MfaFlowModalProps {
   isOpen: boolean;
   onClose: () => void;
-  mode?: 'enroll' | 'challenge' | 'reset_admin' | 'disable';
+  mode?: 'enroll' | 'reset_admin' | 'disable';
   targetAdminName?: string;
   targetAdminId?: string;
   onSuccess?: () => void;
@@ -48,7 +48,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
   const { t } = useTranslation('security');
 
   // Step flow state: 1: Method, 2: Setup/QR, 3: Verify OTP, 4: Recovery Codes, 5: Complete
-  const [step, setStep] = useState<number>(mode === 'challenge' ? 3 : 1);
+  const [step, setStep] = useState<number>(1);
   const [selectedMethod, setSelectedMethod] = useState<MfaMethod>('totp');
 
   // OTP input state (6 digits)
@@ -106,7 +106,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
   // Reset modal state on open
   useEffect(() => {
     if (isOpen) {
-      setStep(mode === 'challenge' ? 3 : 1);
+      setStep(1);
       setOtpDigits(['', '', '', '', '', '']);
       setVerificationError(null);
       setIsVerifying(false);
@@ -174,32 +174,25 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
     setVerificationError(null);
 
     // Enroll mode verifies against the real backend: a correct first code
-    // enables MFA and returns the one-time recovery codes.
-    if (mode === 'enroll') {
-      try {
-        const res = await authApi.mfaEnable(fullCode);
-        setRecoveryCodes(res.backupCodes);
-        addToast({
-          type: 'success',
-          title: t('MFA Verification Successful'),
-          description: t('TOTP Authenticator successfully configured!')
-        });
-        pushAuditLog('SECURITY', 'MFA_ENROLLED', 'USER', 'mfa-session', t('TOTP Authentication Verified'));
-        setStep(4);
-      } catch (e) {
-        setVerificationError(
-          e instanceof ApiError ? e.message : t('Invalid passkey code or expired TOTP window. Please check your device time.')
-        );
-      } finally {
-        setIsVerifying(false);
-      }
-      return;
+    // enables MFA and returns the one-time recovery codes. The OTP step is only
+    // reachable in enroll mode (there is no backend step-up endpoint).
+    try {
+      const res = await authApi.mfaEnable(fullCode);
+      setRecoveryCodes(res.backupCodes);
+      addToast({
+        type: 'success',
+        title: t('MFA Verification Successful'),
+        description: t('TOTP Authenticator successfully configured!')
+      });
+      pushAuditLog('SECURITY', 'MFA_ENROLLED', 'USER', 'mfa-session', t('TOTP Authentication Verified'));
+      setStep(4);
+    } catch (e) {
+      setVerificationError(
+        e instanceof ApiError ? e.message : t('Invalid passkey code or expired TOTP window. Please check your device time.')
+      );
+    } finally {
+      setIsVerifying(false);
     }
-
-    // 'challenge' has no backend step-up endpoint. Never report success for
-    // a code the server did not verify.
-    setIsVerifying(false);
-    setVerificationError(t('Step-up verification is not available for active sessions.'));
   };
 
   // Disable MFA — strong re-auth (password + current OTP); the backend revokes
@@ -305,8 +298,6 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
                 <h3 className="font-bold text-white text-base">
                   {mode === 'enroll'
                     ? t('Multi-Factor Setup')
-                    : mode === 'challenge'
-                    ? t('MFA Security Challenge')
                     : mode === 'disable'
                     ? t('Disable Multi-Factor Authentication')
                     : t('Reset MFA for {{name}}', { name: targetAdminName || t('Administrator') })}
@@ -316,8 +307,6 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
               <p className="text-xs text-[#8b949e]">
                 {mode === 'enroll'
                   ? t('Protect your platform account with 2-factor authentication')
-                  : mode === 'challenge'
-                  ? t('Enter your 6-digit TOTP code from your authenticator app')
                   : mode === 'disable'
                   ? t('Confirm with your password and a current authenticator code. All sessions will be revoked.')
                   : t('Generate a new authenticator binding URL for this account')}
@@ -505,7 +494,7 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
           )}
 
           {/* STEP 3: OTP Code Verification Challenge */}
-          {(step === 3 || mode === 'challenge') && (
+          {mode === 'enroll' && step === 3 && (
             <div className="space-y-5 text-xs text-[#c9d1d9]">
               <div className="text-center space-y-1">
                 <p className="font-semibold text-white text-sm">{t('Enter 6-Digit Authenticator Passcode')}</p>
@@ -565,15 +554,9 @@ export const MfaFlowModal: React.FC<MfaFlowModalProps> = ({
 
               {/* Actions */}
               <div className="flex items-center justify-between pt-3 border-t border-[#30363d]">
-                {mode === 'enroll' ? (
-                  <Button variant="ghost" onClick={() => setStep(2)}>
-                    {t('Back')}
-                  </Button>
-                ) : (
-                  <Button variant="ghost" onClick={onClose}>
-                    {t('Cancel')}
-                  </Button>
-                )}
+                <Button variant="ghost" onClick={() => setStep(2)}>
+                  {t('Back')}
+                </Button>
 
                 <Button
                   variant="primary"
