@@ -171,10 +171,18 @@ def get_bank_adapter() -> BankNotifyAdapter:
     return SharedSecretAdapter()
 
 
-async def enqueue_site_signal(db: AsyncSession, *, tenant_id: uuid.UUID, site_id: uuid.UUID, message: dict) -> int:
+async def enqueue_site_signal(
+    db: AsyncSession, *, tenant_id: uuid.UUID, site_id: uuid.UUID, message: dict
+) -> int:
     gates = (
-        await db.execute(select(BarrierGate).where(BarrierGate.tenant_id == tenant_id, BarrierGate.site_id == site_id))
-    ).scalars().all()
+        (
+            await db.execute(
+                select(BarrierGate).where(BarrierGate.tenant_id == tenant_id, BarrierGate.site_id == site_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
     redis = get_redis()
     for gate in gates:
         await redis.lpush(

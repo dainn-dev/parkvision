@@ -114,9 +114,7 @@ class MomoGateway:
         # resultCode 0 = accepted; anything else is a provider-side reject
         # (the payment row is marked failed by the caller).
         if int(data.get("resultCode", -1)) != 0:
-            raise MomoRejected(
-                int(data.get("resultCode", -1)), str(data.get("message", "MoMo rejected"))
-            )
+            raise MomoRejected(int(data.get("resultCode", -1)), str(data.get("message", "MoMo rejected")))
         return GatewayPaymentInit(pay_url=data.get("payUrl"))
 
     def verify_signature(self, payload: dict[str, Any]) -> bool:

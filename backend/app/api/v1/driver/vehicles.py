@@ -9,9 +9,7 @@ from app.schemas.common import MessageOut
 from app.schemas.driver import DriverVehicleIn, DriverVehicleOut
 from app.services import driver_service
 
-router = APIRouter(
-    prefix="/driver/vehicles", tags=["driver"], dependencies=[Depends(require_driver)]
-)
+router = APIRouter(prefix="/driver/vehicles", tags=["driver"], dependencies=[Depends(require_driver)])
 
 
 @router.get("", response_model=list[DriverVehicleOut])
@@ -21,9 +19,7 @@ async def list_vehicles(auth: AuthContext = Depends(require_driver)) -> list[Dri
 
 
 @router.post("", response_model=DriverVehicleOut, status_code=201)
-async def add_vehicle(
-    body: DriverVehicleIn, auth: AuthContext = Depends(require_driver)
-) -> DriverVehicleOut:
+async def add_vehicle(body: DriverVehicleIn, auth: AuthContext = Depends(require_driver)) -> DriverVehicleOut:
     v = await driver_service.add_vehicle(
         auth.user_id,
         plate_number=body.plate_number,
@@ -52,8 +48,6 @@ async def update_vehicle(
 
 
 @router.delete("/{vehicle_id}", response_model=MessageOut)
-async def delete_vehicle(
-    vehicle_id: uuid.UUID, auth: AuthContext = Depends(require_driver)
-) -> MessageOut:
+async def delete_vehicle(vehicle_id: uuid.UUID, auth: AuthContext = Depends(require_driver)) -> MessageOut:
     await driver_service.delete_vehicle(auth.user_id, vehicle_id)
     return MessageOut(message="Vehicle removed")

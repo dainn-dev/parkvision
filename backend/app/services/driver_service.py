@@ -114,9 +114,7 @@ async def login(email: str, password: str, ip: str | None, user_agent: str | Non
             ip=ip,
             user_agent=user_agent,
         )
-        return auth_service._bundle(
-            sess, user.id, str(ActorType.DRIVER), None, None, False
-        )
+        return auth_service._bundle(sess, user.id, str(ActorType.DRIVER), None, None, False)
 
 
 async def get_me(driver_id: uuid.UUID) -> DriverUser:
@@ -127,9 +125,7 @@ async def get_me(driver_id: uuid.UUID) -> DriverUser:
         return user
 
 
-async def update_me(
-    driver_id: uuid.UUID, *, full_name=None, phone=None, avatar_url=None
-) -> DriverUser:
+async def update_me(driver_id: uuid.UUID, *, full_name=None, phone=None, avatar_url=None) -> DriverUser:
     async with platform_session() as db:
         user = (await db.execute(select(DriverUser).where(DriverUser.id == driver_id))).scalar_one_or_none()
         if user is None:
@@ -148,9 +144,11 @@ async def update_me(
 
 
 async def _clear_other_primaries(db, driver_id: uuid.UUID, keep_id: uuid.UUID | None) -> None:
-    q = update(DriverVehicle).where(
-        DriverVehicle.driver_id == driver_id, DriverVehicle.is_primary.is_(True)
-    ).values(is_primary=False)
+    q = (
+        update(DriverVehicle)
+        .where(DriverVehicle.driver_id == driver_id, DriverVehicle.is_primary.is_(True))
+        .values(is_primary=False)
+    )
     if keep_id is not None:
         q = q.where(DriverVehicle.id != keep_id)
     await db.execute(q)
@@ -188,9 +186,7 @@ async def add_vehicle(
         if taken is not None:
             raise conflict("Plate already registered by another account")
         has_any = (
-            await db.execute(
-                select(DriverVehicle.id).where(DriverVehicle.driver_id == driver_id).limit(1)
-            )
+            await db.execute(select(DriverVehicle.id).where(DriverVehicle.driver_id == driver_id).limit(1))
         ).scalar_one_or_none()
         v = DriverVehicle(
             driver_id=driver_id,
@@ -214,7 +210,9 @@ async def update_vehicle(
     driver_id: uuid.UUID, vehicle_id: uuid.UUID, *, plate_number: str, label, vehicle_type, is_primary: bool
 ) -> DriverVehicle:
     async with platform_session() as db:
-        v = (await db.execute(select(DriverVehicle).where(DriverVehicle.id == vehicle_id))).scalar_one_or_none()
+        v = (
+            await db.execute(select(DriverVehicle).where(DriverVehicle.id == vehicle_id))
+        ).scalar_one_or_none()
         if v is None or v.driver_id != driver_id:
             raise not_found("vehicle", vehicle_id) from None
         normalized = normalize_plate(plate_number)
@@ -247,7 +245,9 @@ async def update_vehicle(
 
 async def delete_vehicle(driver_id: uuid.UUID, vehicle_id: uuid.UUID) -> None:
     async with platform_session() as db:
-        v = (await db.execute(select(DriverVehicle).where(DriverVehicle.id == vehicle_id))).scalar_one_or_none()
+        v = (
+            await db.execute(select(DriverVehicle).where(DriverVehicle.id == vehicle_id))
+        ).scalar_one_or_none()
         if v is None or v.driver_id != driver_id:
             raise not_found("vehicle", vehicle_id) from None
         was_primary = v.is_primary
@@ -289,9 +289,7 @@ async def create_share(
         if share_date < date.today():
             raise conflict("Share date must be today or later")
         recipient = (
-            await db.execute(
-                select(DriverUser).where(DriverUser.email == shared_with_email.lower())
-            )
+            await db.execute(select(DriverUser).where(DriverUser.email == shared_with_email.lower()))
         ).scalar_one_or_none()
         if recipient is None:
             raise not_found("driver", shared_with_email) from None
@@ -336,9 +334,7 @@ async def list_shares(driver_id: uuid.UUID, vehicle_id: uuid.UUID) -> list[dict]
         ]
 
 
-async def delete_share(
-    driver_id: uuid.UUID, vehicle_id: uuid.UUID, share_id: uuid.UUID
-) -> None:
+async def delete_share(driver_id: uuid.UUID, vehicle_id: uuid.UUID, share_id: uuid.UUID) -> None:
     async with platform_session() as db:
         vehicle = (
             await db.execute(
@@ -388,9 +384,7 @@ async def list_shared_with_me(driver_id: uuid.UUID) -> list[dict]:
         ]
 
 
-async def plates_for_driver(
-    driver_id: uuid.UUID, *, for_date: date | None = None
-) -> set[str]:
+async def plates_for_driver(driver_id: uuid.UUID, *, for_date: date | None = None) -> set[str]:
     """Return normalized plates the driver owns plus those shared for *for_date*.
 
     When *for_date* is ``None`` (the default), today is used **and** the day
@@ -399,25 +393,33 @@ async def plates_for_driver(
     """
     async with platform_session() as db:
         owned = (
-            await db.execute(
-                select(DriverVehicle.plate_normalized).where(DriverVehicle.driver_id == driver_id)
+            (
+                await db.execute(
+                    select(DriverVehicle.plate_normalized).where(DriverVehicle.driver_id == driver_id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         if for_date is not None:
             share_dates = [for_date]
         else:
             today = date.today()
             share_dates = [today, today - timedelta(days=1)]
         shared = (
-            await db.execute(
-                select(DriverVehicle.plate_normalized)
-                .join(DriverVehicleShare, DriverVehicleShare.vehicle_id == DriverVehicle.id)
-                .where(
-                    DriverVehicleShare.shared_with_id == driver_id,
-                    DriverVehicleShare.share_date.in_(share_dates),
+            (
+                await db.execute(
+                    select(DriverVehicle.plate_normalized)
+                    .join(DriverVehicleShare, DriverVehicleShare.vehicle_id == DriverVehicle.id)
+                    .where(
+                        DriverVehicleShare.shared_with_id == driver_id,
+                        DriverVehicleShare.share_date.in_(share_dates),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         return set(owned) | set(shared)
 
 
@@ -426,10 +428,10 @@ async def plates_for_driver(
 
 async def list_favorite_site_ids(db, driver_id: uuid.UUID) -> set[uuid.UUID]:
     rows = (
-        await db.execute(
-            select(DriverFavorite.site_id).where(DriverFavorite.driver_id == driver_id)
-        )
-    ).scalars().all()
+        (await db.execute(select(DriverFavorite.site_id).where(DriverFavorite.driver_id == driver_id)))
+        .scalars()
+        .all()
+    )
     return set(rows)
 
 

@@ -38,9 +38,15 @@ async def test_cookie_login_sets_distinct_httponly_cookies_and_omits_tokens(clie
     assert settings.csrf_cookie_name not in cookies
 
     set_cookie_headers = response.headers.get_list("set-cookie")
-    assert any(settings.driver_access_cookie_name in item and "HttpOnly" in item for item in set_cookie_headers)
-    assert any(settings.driver_refresh_cookie_name in item and "HttpOnly" in item for item in set_cookie_headers)
-    assert any(settings.driver_csrf_cookie_name in item and "HttpOnly" not in item for item in set_cookie_headers)
+    assert any(
+        settings.driver_access_cookie_name in item and "HttpOnly" in item for item in set_cookie_headers
+    )
+    assert any(
+        settings.driver_refresh_cookie_name in item and "HttpOnly" in item for item in set_cookie_headers
+    )
+    assert any(
+        settings.driver_csrf_cookie_name in item and "HttpOnly" not in item for item in set_cookie_headers
+    )
 
 
 @pytest.mark.asyncio

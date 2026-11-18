@@ -92,9 +92,7 @@ async def build_activation_bundle(
             port=settings.mqtt_public_port or settings.mqtt_port,
             tls=settings.mqtt_tls if settings.mqtt_public_tls is None else settings.mqtt_public_tls,
             transport=settings.mqtt_public_transport,
-            ws_path=(
-                settings.mqtt_public_ws_path if settings.mqtt_public_transport == "websocket" else None
-            ),
+            ws_path=(settings.mqtt_public_ws_path if settings.mqtt_public_transport == "websocket" else None),
             username=device.mqtt_client_id or f"edge-{device.id}",
             password=token,
         ),

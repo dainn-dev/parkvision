@@ -70,7 +70,9 @@ READ_ROUTES = ["/walk-ins", "/walk-ins/summary"]
 
 @pytest.mark.parametrize("path", READ_ROUTES)
 @pytest.mark.parametrize("role", ["owner", "admin", "operator", "viewer"])
-async def test_walk_in_report_routes_are_readable_by_every_role(client: AsyncClient, admin_engine, tenant, role, path):
+async def test_walk_in_report_routes_are_readable_by_every_role(
+    client: AsyncClient, admin_engine, tenant, role, path
+):
     email = await _add_user(admin_engine, tenant["tenant_id"], role)
     await login(client, email, PASSWORD)
     res = await client.get(f"{_base(tenant['tenant_id'])}{path}")
@@ -117,9 +119,7 @@ async def test_admin_cannot_demote_or_disable_owner(client: AsyncClient, admin_e
     url = f"{_base(tenant['tenant_id'])}/users/{owner_id}"
     assert (await client.patch(url, json={"role": "viewer"}, headers=csrf(client))).status_code == 403
     assert (await client.delete(url, headers=csrf(client))).status_code == 403
-    assert (
-        await client.post(f"{url}/password-reset", headers=csrf(client))
-    ).status_code == 403
+    assert (await client.post(f"{url}/password-reset", headers=csrf(client))).status_code == 403
 
 
 async def test_invalid_role_rejected(client: AsyncClient, tenant):

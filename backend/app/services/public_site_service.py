@@ -87,24 +87,21 @@ async def _plan_prices(db, site_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
             .group_by(SiteMembershipPlan.site_id)
         )
     ).all()
-    return {site_id: price for site_id, price in rows}
+    return dict(rows)
 
 
 async def _base_rows(db):
     return (
-        (
-            await db.execute(
-                select(TenantSite, Tenant)
-                .join(Tenant, Tenant.id == TenantSite.tenant_id)
-                .where(
-                    Tenant.status == "active",
-                    TenantSite.status == "active",
-                    _listed_condition(),
-                )
+        await db.execute(
+            select(TenantSite, Tenant)
+            .join(Tenant, Tenant.id == TenantSite.tenant_id)
+            .where(
+                Tenant.status == "active",
+                TenantSite.status == "active",
+                _listed_condition(),
             )
         )
-        .all()
-    )
+    ).all()
 
 
 async def list_sites(
@@ -123,9 +120,7 @@ async def list_sites(
     for site, tenant in rows:
         if q:
             needle = q.strip().lower()
-            hay = " ".join(
-                x for x in (site.name, site.address, site.city, tenant.name) if x
-            ).lower()
+            hay = " ".join(x for x in (site.name, site.address, site.city, tenant.name) if x).lower()
             if needle not in hay:
                 continue
         dist = None
@@ -137,34 +132,23 @@ async def list_sites(
                 continue
         kept.append((site, tenant, dist))
     prices = await _plan_prices(db, [s.id for s, _, _ in kept])
-    out = [
-        _site_out(site, tenant, favorite_ids, dist, prices.get(site.id))
-        for site, tenant, dist in kept
-    ]
+    out = [_site_out(site, tenant, favorite_ids, dist, prices.get(site.id)) for site, tenant, dist in kept]
     out.sort(key=(lambda s: (s.distance_meters or 0)) if geo else (lambda s: s.name))
     return out[:limit]
 
 
-async def sites_by_ids(
-    db, ids: list[uuid.UUID], favorite_ids: set[uuid.UUID]
-) -> list[PublicSiteOut]:
+async def sites_by_ids(db, ids: list[uuid.UUID], favorite_ids: set[uuid.UUID]) -> list[PublicSiteOut]:
     if not ids:
         return []
     rows = (
-        (
-            await db.execute(
-                select(TenantSite, Tenant)
-                .join(Tenant, Tenant.id == TenantSite.tenant_id)
-                .where(TenantSite.id.in_(ids))
-            )
+        await db.execute(
+            select(TenantSite, Tenant)
+            .join(Tenant, Tenant.id == TenantSite.tenant_id)
+            .where(TenantSite.id.in_(ids))
         )
-        .all()
-    )
+    ).all()
     prices = await _plan_prices(db, [s.id for s, _ in rows])
-    return [
-        _site_out(site, tenant, favorite_ids, None, prices.get(site.id))
-        for site, tenant in rows
-    ]
+    return [_site_out(site, tenant, favorite_ids, None, prices.get(site.id)) for site, tenant in rows]
 
 
 async def get_site(db, site_id: uuid.UUID) -> tuple[Tenant, TenantSite]:

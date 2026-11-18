@@ -137,7 +137,6 @@ class FeatureFlagOut(CamelModel):
     updated_by_email: EmailStr | None = None
 
 
-
 class FeatureFlagIn(CamelModel):
     description: str | None = None
     enabled: bool
@@ -771,6 +770,7 @@ class PublicLocateOut(CamelModel):
 # ---------- tenant users ----------
 TenantRoleName = Literal["owner", "admin", "operator", "viewer"]
 
+
 class UserInviteIn(CamelModel):
     email: EmailStr
     full_name: str = Field(min_length=2, max_length=200)
@@ -1169,8 +1169,6 @@ class TelemetrySnapshotOut(CamelModel):
     gates: list[SnapshotGate]
     devices: list[SnapshotDevice]
     cameras: list[PlatformFleetCameraOut] = Field(default_factory=list)
-
-
 
 
 class EdgeRebootOut(CamelModel):

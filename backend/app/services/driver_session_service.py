@@ -60,21 +60,16 @@ async def _allowed_events(db: AsyncSession, plates: set[str]) -> list[AccessEven
     return kept
 
 
-async def _site_index(
-    db: AsyncSession, site_ids: set[uuid.UUID]
-) -> dict[uuid.UUID, tuple[TenantSite, str]]:
+async def _site_index(db: AsyncSession, site_ids: set[uuid.UUID]) -> dict[uuid.UUID, tuple[TenantSite, str]]:
     if not site_ids:
         return {}
     rows = (
-        (
-            await db.execute(
-                select(TenantSite, Tenant.slug)
-                .join(Tenant, Tenant.id == TenantSite.tenant_id)
-                .where(TenantSite.id.in_(site_ids))
-            )
+        await db.execute(
+            select(TenantSite, Tenant.slug)
+            .join(Tenant, Tenant.id == TenantSite.tenant_id)
+            .where(TenantSite.id.in_(site_ids))
         )
-        .all()
-    )
+    ).all()
     return {site.id: (site, slug) for site, slug in rows}
 
 
@@ -136,9 +131,7 @@ async def active_sessions(db: AsyncSession, plates: set[str]) -> list[DriverSess
     for ev in parked:
         site, slug = sites[ev.site_id]
         level_name = zone_name = None
-        presence = await locate_presence(
-            db, tenant_id=ev.tenant_id, plate_number=ev.plate_number or ""
-        )
+        presence = await locate_presence(db, tenant_id=ev.tenant_id, plate_number=ev.plate_number or "")
         if presence is not None:
             if presence.level_id:
                 level_name = await db.scalar(
@@ -148,9 +141,7 @@ async def active_sessions(db: AsyncSession, plates: set[str]) -> list[DriverSess
                 zone_name = await db.scalar(
                     select(ParkingZone.name).where(ParkingZone.id == presence.zone_id)
                 )
-        out.append(
-            _to_out(ev, site, slug, exited_at=None, level_name=level_name, zone_name=zone_name)
-        )
+        out.append(_to_out(ev, site, slug, exited_at=None, level_name=level_name, zone_name=zone_name))
     return out
 
 

@@ -100,7 +100,9 @@ async def test_command_idempotency_and_outbox(client: AsyncClient, tenant, gate)
     try:
         socket.create_connection((_settings.mqtt_host, _settings.mqtt_port), timeout=1).close()
     except OSError:
-        pytest.skip("MQTT broker unreachable: outbox->EMQX delivery needs the compose stack (EMQX + mqtt-bridge)")
+        pytest.skip(
+            "MQTT broker unreachable: outbox->EMQX delivery needs the compose stack (EMQX + mqtt-bridge)"
+        )
 
     delivered = asyncio.Event()
 

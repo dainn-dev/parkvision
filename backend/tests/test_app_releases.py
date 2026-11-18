@@ -88,7 +88,9 @@ async def test_edge_update_offers_only_published_newer_signed_builds(client, adm
     await login(client, email, password)
     body = b"MZ fake installer " + uuid.uuid4().bytes
 
-    rel = await _upload(client, channel=EDGE, version="0.2.0", body=body, signature="c2lnbmF0dXJl", notes="Fixes")
+    rel = await _upload(
+        client, channel=EDGE, version="0.2.0", body=body, signature="c2lnbmF0dXJl", notes="Fixes"
+    )
     assert rel["sha256"] == hashlib.sha256(body).hexdigest()
     assert rel["isPublished"] is False
 
@@ -193,11 +195,15 @@ async def test_release_management_is_platform_admin_only(client, admin_engine, t
 
 
 @pytest.mark.asyncio
-async def test_latest_lists_only_published_highest_version_per_channel(client, admin_engine, bucket, no_releases):
+async def test_latest_lists_only_published_highest_version_per_channel(
+    client, admin_engine, bucket, no_releases
+):
     email, password = await _platform_admin(admin_engine)
     await login(client, email, password)
     for version in ("0.9.0", "0.10.0"):
-        row = await _upload(client, channel=EDGE, version=version, body=b"MZ " + uuid.uuid4().bytes, signature="sig")
+        row = await _upload(
+            client, channel=EDGE, version=version, body=b"MZ " + uuid.uuid4().bytes, signature="sig"
+        )
         await _publish(client, row["id"])
     await _upload(client, channel=EDGE, version="0.11.0", body=b"MZ " + uuid.uuid4().bytes, signature="sig")
     client.cookies.clear()
@@ -210,7 +216,13 @@ async def test_latest_lists_only_published_highest_version_per_channel(client, a
     assert releases[0]["version"] == "0.10.0"
     assert releases[0]["channel"] == EDGE
     assert set(releases[0]) == {
-        "channel", "version", "versionCode", "notes", "sizeBytes", "sha256", "publishedAt",
+        "channel",
+        "version",
+        "versionCode",
+        "notes",
+        "sizeBytes",
+        "sha256",
+        "publishedAt",
     }
     assert res.headers["cache-control"] == "public, max-age=60"
     assert "signature" not in res.text
@@ -241,7 +253,9 @@ async def test_download_redirects_to_fresh_presigned_url(client, admin_engine, b
 
 
 @pytest.mark.asyncio
-async def test_download_404_for_unknown_unpublished_or_pathlike_channel(client, admin_engine, bucket, no_releases):
+async def test_download_404_for_unknown_unpublished_or_pathlike_channel(
+    client, admin_engine, bucket, no_releases
+):
     email, password = await _platform_admin(admin_engine)
     await login(client, email, password)
     await _upload(client, channel="android", version="2.0.0", body=b"PK apk", versionCode=2)

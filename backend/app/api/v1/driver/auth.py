@@ -201,7 +201,9 @@ async def revoke_session(session_id: uuid.UUID, auth: AuthContext = Depends(requ
     return MessageOut(message="Session revoked")
 
 
-@router.post("/ws-ticket", response_model=WsTicketOut, dependencies=[Depends(rate_limited("ws_ticket", 10, 60))])
+@router.post(
+    "/ws-ticket", response_model=WsTicketOut, dependencies=[Depends(rate_limited("ws_ticket", 10, 60))]
+)
 async def ws_ticket(auth: AuthContext = Depends(require_driver)) -> WsTicketOut:
     """Issue a short-lived, single-use ticket for WebSocket auth.
 

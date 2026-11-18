@@ -96,10 +96,7 @@ def upgrade() -> None:
     )
 
     op.execute("ALTER TABLE driver_payments ENABLE ROW LEVEL SECURITY")
-    op.execute(
-        f"CREATE POLICY tenant_isolation ON driver_payments "
-        f"USING ({_RLS}) WITH CHECK ({_RLS})"
-    )
+    op.execute(f"CREATE POLICY tenant_isolation ON driver_payments " f"USING ({_RLS}) WITH CHECK ({_RLS})")
 
 
 def downgrade() -> None:

@@ -113,9 +113,13 @@ async def test_backfill_adds_a_site_only_to_tenants_that_have_none(admin_engine,
     tid = tenant["tenant_id"]
     async with admin_engine.begin() as conn:
         await conn.execute(text(migration.BACKFILL_SQL))
-        first = (await conn.execute(text("SELECT id, name FROM tenant_sites WHERE tenant_id = :t"), {"t": tid})).all()
+        first = (
+            await conn.execute(text("SELECT id, name FROM tenant_sites WHERE tenant_id = :t"), {"t": tid})
+        ).all()
         await conn.execute(text(migration.BACKFILL_SQL))
-        second = (await conn.execute(text("SELECT id, name FROM tenant_sites WHERE tenant_id = :t"), {"t": tid})).all()
+        second = (
+            await conn.execute(text("SELECT id, name FROM tenant_sites WHERE tenant_id = :t"), {"t": tid})
+        ).all()
 
     assert len(first) == 1
     assert [tuple(r) for r in second] == [tuple(r) for r in first]

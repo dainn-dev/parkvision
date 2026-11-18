@@ -143,9 +143,7 @@ async def list_plans(db, tenant_id: uuid.UUID, site_id: uuid.UUID) -> list[SiteM
     )
 
 
-async def update_plan(
-    db, tenant_id: uuid.UUID, plan_id: uuid.UUID, changes: dict
-) -> SiteMembershipPlan:
+async def update_plan(db, tenant_id: uuid.UUID, plan_id: uuid.UUID, changes: dict) -> SiteMembershipPlan:
     p = (
         await db.execute(
             select(SiteMembershipPlan).where(
@@ -181,24 +179,19 @@ async def list_memberships(
         cond.append(DriverMembership.status == status)
     if site_id:
         cond.append(DriverMembership.site_id == site_id)
-    total = (
-        await db.execute(select(func.count()).select_from(DriverMembership).where(*cond))
-    ).scalar_one()
+    total = (await db.execute(select(func.count()).select_from(DriverMembership).where(*cond))).scalar_one()
     rows = (
-        (
-            await db.execute(
-                select(DriverMembership, DriverUser, SiteMembershipPlan, TenantSite)
-                .join(DriverUser, DriverUser.id == DriverMembership.driver_id)
-                .join(SiteMembershipPlan, SiteMembershipPlan.id == DriverMembership.plan_id)
-                .join(TenantSite, TenantSite.id == DriverMembership.site_id)
-                .where(*cond)
-                .order_by(DriverMembership.created_at.desc())
-                .offset((page - 1) * limit)
-                .limit(limit)
-            )
+        await db.execute(
+            select(DriverMembership, DriverUser, SiteMembershipPlan, TenantSite)
+            .join(DriverUser, DriverUser.id == DriverMembership.driver_id)
+            .join(SiteMembershipPlan, SiteMembershipPlan.id == DriverMembership.plan_id)
+            .join(TenantSite, TenantSite.id == DriverMembership.site_id)
+            .where(*cond)
+            .order_by(DriverMembership.created_at.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
         )
-        .all()
-    )
+    ).all()
     return [
         {
             "id": m.id,
@@ -242,21 +235,15 @@ async def _suspend_whitelist(db, m: DriverMembership) -> None:
         )
 
 
-async def _activate_membership_row(
-    db, m: DriverMembership, admin_note: str | None
-) -> DriverMembership:
+async def _activate_membership_row(db, m: DriverMembership, admin_note: str | None) -> DriverMembership:
     """Shared activation body: provisions/reuses the tenant whitelist
     `RegisteredVehicle` (tag='member', membership window) and marks the
     membership active. Used by both the tenant endpoint (tenant_session)
     and the driver payment path (platform_session)."""
     plan = (
-        await db.execute(
-            select(SiteMembershipPlan).where(SiteMembershipPlan.id == m.plan_id)
-        )
+        await db.execute(select(SiteMembershipPlan).where(SiteMembershipPlan.id == m.plan_id))
     ).scalar_one_or_none()
-    driver = (
-        await db.execute(select(DriverUser).where(DriverUser.id == m.driver_id))
-    ).scalar_one_or_none()
+    driver = (await db.execute(select(DriverUser).where(DriverUser.id == m.driver_id))).scalar_one_or_none()
 
     now = datetime.now(timezone.utc)
     ends = now + timedelta(days=plan.duration_days if plan else 30)
@@ -376,9 +363,7 @@ async def request_membership(
 ) -> DriverMembership:
     async with platform_session() as db:
         plan = (
-            await db.execute(
-                select(SiteMembershipPlan).where(SiteMembershipPlan.id == plan_id)
-            )
+            await db.execute(select(SiteMembershipPlan).where(SiteMembershipPlan.id == plan_id))
         ).scalar_one_or_none()
         if plan is None or plan.status != "active":
             raise not_found("membership_plan", plan_id) from None
@@ -420,7 +405,9 @@ async def request_membership(
             )
         ).scalar_one_or_none()
         if dup is not None:
-            raise conflict("An active or pending membership already exists for this vehicle at this site") from None
+            raise conflict(
+                "An active or pending membership already exists for this vehicle at this site"
+            ) from None
 
         m = DriverMembership(
             driver_id=driver_id,
@@ -441,18 +428,15 @@ async def list_my_memberships(driver_id: uuid.UUID) -> list[dict]:
     async with platform_session() as db:
         await _expire_stale(db)
         rows = (
-            (
-                await db.execute(
-                    select(DriverMembership, SiteMembershipPlan, TenantSite, Tenant)
-                    .join(SiteMembershipPlan, SiteMembershipPlan.id == DriverMembership.plan_id)
-                    .join(TenantSite, TenantSite.id == DriverMembership.site_id)
-                    .join(Tenant, Tenant.id == DriverMembership.tenant_id)
-                    .where(DriverMembership.driver_id == driver_id)
-                    .order_by(DriverMembership.created_at.desc())
-                )
+            await db.execute(
+                select(DriverMembership, SiteMembershipPlan, TenantSite, Tenant)
+                .join(SiteMembershipPlan, SiteMembershipPlan.id == DriverMembership.plan_id)
+                .join(TenantSite, TenantSite.id == DriverMembership.site_id)
+                .join(Tenant, Tenant.id == DriverMembership.tenant_id)
+                .where(DriverMembership.driver_id == driver_id)
+                .order_by(DriverMembership.created_at.desc())
             )
-            .all()
-        )
+        ).all()
     return [
         {
             "id": m.id,

@@ -112,10 +112,7 @@ def upgrade() -> None:
 
     for table in ("site_membership_plans", "driver_memberships"):
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
-        op.execute(
-            f"CREATE POLICY tenant_isolation ON {table} "
-            f"USING ({_RLS}) WITH CHECK ({_RLS})"
-        )
+        op.execute(f"CREATE POLICY tenant_isolation ON {table} " f"USING ({_RLS}) WITH CHECK ({_RLS})")
 
 
 def downgrade() -> None:

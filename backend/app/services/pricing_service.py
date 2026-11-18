@@ -78,7 +78,7 @@ def estimate_fee(
         profile = dict(pricing)
         block_key = "blockMinutes" if "blockMinutes" in profile else "block_minutes"
         block_minutes = profile.get(block_key)
-        if isinstance(block_minutes, (int, float)) and block_minutes <= 0:
+        if isinstance(block_minutes, int | float) and block_minutes <= 0:
             profile[block_key] = 60
         rules = SitePricing.model_validate(profile)
     if rules.hourly_from is None:

@@ -318,7 +318,13 @@ async def login(email: str, password: str, ip: str | None, user_agent: str | Non
 
         if user is None or not verify_password(password, user.password_hash):
             await _fail_login(
-                db, user=user, user_type=user_type, tenant_id=tenant_id, email=email, ip=ip, user_agent=user_agent
+                db,
+                user=user,
+                user_type=user_type,
+                tenant_id=tenant_id,
+                email=email,
+                ip=ip,
+                user_agent=user_agent,
             )
             raise invalid_credentials() from None
 
@@ -326,7 +332,13 @@ async def login(email: str, password: str, ip: str | None, user_agent: str | Non
             # e.g. invited-but-not-activated — same error as a bad password so
             # the response never reveals account state.
             await _fail_login(
-                db, user=user, user_type=user_type, tenant_id=tenant_id, email=email, ip=ip, user_agent=user_agent
+                db,
+                user=user,
+                user_type=user_type,
+                tenant_id=tenant_id,
+                email=email,
+                ip=ip,
+                user_agent=user_agent,
             )
             raise invalid_credentials() from None
 
@@ -627,7 +639,9 @@ async def refresh_session(raw_refresh_token: str) -> TokenBundle:
             sess.last_seen_at = now
             sess.refresh_token_plain = raw_refresh_token
             await db.flush()
-            return _bundle(sess, user.id, sess.user_type, sess.tenant_id, getattr(user, "role", None), sess.mfa_verified)
+            return _bundle(
+                sess, user.id, sess.user_type, sess.tenant_id, getattr(user, "role", None), sess.mfa_verified
+            )
 
         new_plain = new_refresh_token()
         sess.prev_refresh_token_hash = sess.refresh_token_hash
@@ -647,7 +661,9 @@ async def refresh_session(raw_refresh_token: str) -> TokenBundle:
             resource_id=str(sess.id),
         )
         await db.flush()
-        return _bundle(sess, user.id, sess.user_type, sess.tenant_id, getattr(user, "role", None), sess.mfa_verified)
+        return _bundle(
+            sess, user.id, sess.user_type, sess.tenant_id, getattr(user, "role", None), sess.mfa_verified
+        )
 
 
 async def flag_family_compromised(session_id: uuid.UUID) -> None:

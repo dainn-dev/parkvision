@@ -367,7 +367,9 @@ async def test_sweep_scoped_to_tenant_leaves_other_tenant_untouched(tenant, leve
     async with Session() as db:
         p, _ = await _detect(db, level_zone, level_zone["zone_a"], plate="29A-444.44")
         await db.execute(
-            update(VehiclePresence).where(VehiclePresence.id == p.id).values(last_seen_at=now - timedelta(hours=2))
+            update(VehiclePresence)
+            .where(VehiclePresence.id == p.id)
+            .values(last_seen_at=now - timedelta(hours=2))
         )
         await db.commit()
 
@@ -499,11 +501,13 @@ async def test_handle_detection_parks_and_publishes(tenant, level_zone, monitor_
 
 @pytest.mark.asyncio
 async def test_handle_detection_relocate_and_left(tenant, level_zone, monitor_cam, monkeypatch, admin_engine):
-    from app.models import VehiclePresence
-    from app.realtime import mqtt_bridge
+    from datetime import datetime, timedelta, timezone
+
     from sqlalchemy import update as sa_update
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-    from datetime import datetime, timedelta, timezone
+
+    from app.models import VehiclePresence
+    from app.realtime import mqtt_bridge
 
     Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
     plate = "30A-777.77"

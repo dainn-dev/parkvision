@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.services import payment_service
 from app.services.payments.gateways import GatewayPaymentInit
 from tests.conftest import csrf, driver, login
-from tests.test_driver_api import access_event, listed_site
+from tests.test_driver_api import access_event, listed_site  # noqa: F401 (pytest fixture)
 from tests.test_memberships_api import add_vehicle, make_plan, request_membership
 
 
@@ -79,9 +79,7 @@ async def _order_id(admin_engine, payment_id: str) -> str:
         from app.models import DriverPayment
 
         p = (
-            await db.execute(
-                select(DriverPayment).where(DriverPayment.id == uuid.UUID(payment_id))
-            )
+            await db.execute(select(DriverPayment).where(DriverPayment.id == uuid.UUID(payment_id)))
         ).scalar_one()
         return p.provider_order_id
 
@@ -166,9 +164,7 @@ async def test_cancel_then_recreate(client, tenant, listed_site, gateway):
             json={"kind": "membership", "membershipId": m["id"]},
         )
     ).json()
-    r = await client.post(
-        f"/api/v1/driver/payments/{pay['id']}/cancel", headers=d["headers"]
-    )
+    r = await client.post(f"/api/v1/driver/payments/{pay['id']}/cancel", headers=d["headers"])
     assert r.status_code == 200 and r.json()["status"] == "cancelled"
     r = await client.post(
         "/api/v1/driver/payments",
@@ -227,9 +223,7 @@ async def test_ipn_bad_signature_400(client, gateway):
 
 
 @pytest.mark.asyncio
-async def test_ipn_paid_activates_membership(
-    client, tenant, listed_site, gateway, admin_engine
-):
+async def test_ipn_paid_activates_membership(client, tenant, listed_site, gateway, admin_engine):
     p = await make_plan(client, tenant, listed_site["id"])
     client.cookies.clear()
     d = await driver(client)
@@ -264,13 +258,13 @@ async def test_ipn_paid_activates_membership(
     first_paid_at = got["paidAt"]
     r = await client.post("/api/v1/public/payments/momo/ipn", json=ipn)
     assert r.status_code == 200
-    got_after_replay = (
-        await client.get(f"/api/v1/driver/payments/{pay['id']}", headers=d["headers"])
-    ).json()
+    got_after_replay = (await client.get(f"/api/v1/driver/payments/{pay['id']}", headers=d["headers"])).json()
     assert got_after_replay["status"] == "paid"
     assert got_after_replay["paidAt"] == first_paid_at
     from sqlalchemy import func, select
+
     from app.models import RegisteredVehicle
+
     Session = async_sessionmaker(admin_engine, class_=AsyncSession)
     async with Session() as db:
         whitelist_count = (
@@ -309,9 +303,7 @@ async def test_ipn_failed_marks_payment_failed(client, tenant, listed_site, gate
 
 
 @pytest.mark.asyncio
-async def test_get_payment_pulls_gateway_status(
-    client, tenant, listed_site, gateway, admin_engine
-):
+async def test_get_payment_pulls_gateway_status(client, tenant, listed_site, gateway, admin_engine):
     """Sandbox without public IPN: GET polls the gateway's /query."""
     p = await make_plan(client, tenant, listed_site["id"])
     client.cookies.clear()
@@ -350,21 +342,15 @@ async def _set_pricing(admin_engine, site_id, pricing):
 
 
 @pytest.mark.asyncio
-async def test_session_payment_amounts_from_pricing_rules(
-    client, tenant, listed_site, gateway, admin_engine
-):
+async def test_session_payment_amounts_from_pricing_rules(client, tenant, listed_site, gateway, admin_engine):
     await _set_pricing(admin_engine, listed_site["id"], {"hourlyFrom": 10000})
     client.cookies.clear()
     d = await driver(client)
     plate = "51P-300.01"
-    await client.post(
-        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate}
-    )
+    await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate})
     # completed session: 3h @10k → 30 000
     t0 = datetime.now(timezone.utc) - timedelta(hours=4)
-    entry = await access_event(
-        admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry", at=t0
-    )
+    entry = await access_event(admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry", at=t0)
     await access_event(
         admin_engine,
         tenant["tenant_id"],
@@ -392,12 +378,8 @@ async def test_session_payment_no_pricing_422(client, tenant, listed_site, gatew
     client.cookies.clear()
     d = await driver(client)
     plate = "51P-300.02"
-    await client.post(
-        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate}
-    )
-    entry = await access_event(
-        admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry"
-    )
+    await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate})
+    entry = await access_event(admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry")
     r = await client.post(
         "/api/v1/driver/payments",
         headers=d["headers"],
@@ -407,19 +389,13 @@ async def test_session_payment_no_pricing_422(client, tenant, listed_site, gatew
 
 
 @pytest.mark.asyncio
-async def test_session_payment_foreign_plate_404(
-    client, tenant, listed_site, gateway, admin_engine
-):
+async def test_session_payment_foreign_plate_404(client, tenant, listed_site, gateway, admin_engine):
     await _set_pricing(admin_engine, listed_site["id"], {"hourlyFrom": 10000})
     client.cookies.clear()
     d = await driver(client)
-    await client.post(
-        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": "51P-300.03"}
-    )
+    await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": "51P-300.03"})
     # entry for a plate the driver does NOT own
-    entry = await access_event(
-        admin_engine, tenant["tenant_id"], listed_site["id"], "77X-777.77", "entry"
-    )
+    entry = await access_event(admin_engine, tenant["tenant_id"], listed_site["id"], "77X-777.77", "entry")
     r = await client.post(
         "/api/v1/driver/payments",
         headers=d["headers"],
@@ -429,21 +405,15 @@ async def test_session_payment_foreign_plate_404(
 
 
 @pytest.mark.asyncio
-async def test_paid_exit_grants_single_exit(
-    client, tenant, listed_site, gateway, admin_engine
-):
+async def test_paid_exit_grants_single_exit(client, tenant, listed_site, gateway, admin_engine):
     """Parked session paid → next exit decision is allow/paid_exit (once),
     subsequent exits deny again."""
     await _set_pricing(admin_engine, listed_site["id"], {"hourlyFrom": 10000})
     client.cookies.clear()
     d = await driver(client)
     plate = "51P-400.01"
-    await client.post(
-        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate}
-    )
-    entry = await access_event(
-        admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry"
-    )
+    await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate})
+    entry = await access_event(admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry")
     pay = (
         await client.post(
             "/api/v1/driver/payments",
@@ -495,20 +465,14 @@ async def test_paid_exit_grants_single_exit(
 
 
 @pytest.mark.asyncio
-async def test_blacklisted_plate_paid_exit_still_denied(
-    client, tenant, listed_site, gateway, admin_engine
-):
+async def test_blacklisted_plate_paid_exit_still_denied(client, tenant, listed_site, gateway, admin_engine):
     """Paid exit never overrides a blacklist tag."""
     await _set_pricing(admin_engine, listed_site["id"], {"hourlyFrom": 10000})
     client.cookies.clear()
     d = await driver(client)
     plate = "51P-500.01"
-    await client.post(
-        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate}
-    )
-    entry = await access_event(
-        admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry"
-    )
+    await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate})
+    entry = await access_event(admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry")
     pay = (
         await client.post(
             "/api/v1/driver/payments",
@@ -547,9 +511,7 @@ async def test_blacklisted_plate_paid_exit_still_denied(
 
 
 @pytest.mark.asyncio
-async def test_shared_driver_can_pay_session(
-    client, tenant, listed_site, gateway, admin_engine
-):
+async def test_shared_driver_can_pay_session(client, tenant, listed_site, gateway, admin_engine):
     """SCENARIO-PLT-001: a driver with a date-share for today can create
     a session payment for a plate they do not own."""
     from datetime import date
@@ -580,9 +542,7 @@ async def test_shared_driver_can_pay_session(
     now = datetime.now(timezone.utc)
     start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     t0 = max(now - timedelta(hours=3), start_of_today + timedelta(minutes=1))
-    entry = await access_event(
-        admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry", at=t0
-    )
+    entry = await access_event(admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry", at=t0)
     await access_event(
         admin_engine,
         tenant["tenant_id"],
@@ -602,9 +562,7 @@ async def test_shared_driver_can_pay_session(
 
 
 @pytest.mark.asyncio
-async def test_share_wrong_date_blocks_session_payment(
-    client, tenant, listed_site, gateway, admin_engine
-):
+async def test_share_wrong_date_blocks_session_payment(client, tenant, listed_site, gateway, admin_engine):
     """SCENARIO-PLT-003: a share for tomorrow does not grant payment
     access to today's sessions — date boundary enforced."""
     from datetime import date
@@ -632,9 +590,7 @@ async def test_share_wrong_date_blocks_session_payment(
     assert r.status_code == 201
 
     t0 = datetime.now(timezone.utc) - timedelta(hours=2)
-    entry = await access_event(
-        admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry", at=t0
-    )
+    entry = await access_event(admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry", at=t0)
     await access_event(
         admin_engine,
         tenant["tenant_id"],
@@ -656,9 +612,7 @@ async def test_share_wrong_date_blocks_session_payment(
 
 
 @pytest.mark.asyncio
-async def test_payment_expires_after_ttl(
-    client, tenant, listed_site, gateway, admin_engine
-):
+async def test_payment_expires_after_ttl(client, tenant, listed_site, gateway, admin_engine):
     """PAY-TC-009: Payment expires_at reached without being paid — status
     transitions to 'expired' on the next read (lazy sweep)."""
     p = await make_plan(client, tenant, listed_site["id"])
@@ -691,9 +645,7 @@ async def test_payment_expires_after_ttl(
         await db.commit()
 
     # Next read triggers _expire_stale → status='expired'
-    got = (
-        await client.get(f"/api/v1/driver/payments/{pay['id']}", headers=d["headers"])
-    ).json()
+    got = (await client.get(f"/api/v1/driver/payments/{pay['id']}", headers=d["headers"])).json()
     assert got["status"] == "expired"
 
     # A new payment can now be created for the same membership (terminal state)
@@ -765,13 +717,17 @@ async def test_paid_but_activation_fails_is_flagged_consistently(
             await db.execute(select(DriverMembership).where(DriverMembership.id == uuid.UUID(m["id"])))
         ).scalar_one()
         members = (
-            await db.execute(
-                select(RegisteredVehicle).where(
-                    RegisteredVehicle.tenant_id == tenant["tenant_id"],
-                    RegisteredVehicle.tag == "member",
+            (
+                await db.execute(
+                    select(RegisteredVehicle).where(
+                        RegisteredVehicle.tenant_id == tenant["tenant_id"],
+                        RegisteredVehicle.tag == "member",
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
     assert payment.status == "paid" and payment.paid_at is not None
     assert "blacklisted" in payment.raw_payload["activation_error"]
@@ -782,12 +738,11 @@ async def test_paid_but_activation_fails_is_flagged_consistently(
 
 
 @pytest.mark.asyncio
-async def test_paid_for_non_pending_membership_is_flagged(
-    client, tenant, listed_site, gateway, admin_engine
-):
+async def test_paid_for_non_pending_membership_is_flagged(client, tenant, listed_site, gateway, admin_engine):
     """A membership cancelled while its payment was in flight must not be
     silently swallowed when the IPN arrives: the payment is flagged."""
-    from sqlalchemy import select, update as sa_update
+    from sqlalchemy import select
+    from sqlalchemy import update as sa_update
 
     from app.models import DriverMembership, DriverPayment
 
@@ -849,9 +804,7 @@ async def test_concurrent_session_payments_create_single_row(
     plate = "51P-900.03"
     await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate})
     t0 = datetime.now(timezone.utc) - timedelta(hours=2)
-    entry = await access_event(
-        admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry", at=t0
-    )
+    entry = await access_event(admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry", at=t0)
 
     body = {"kind": "session", "sessionId": str(entry.id)}
     rs = await asyncio.gather(
@@ -902,9 +855,7 @@ async def test_cancel_waits_for_row_lock_and_cannot_overwrite_paid(
     Session = async_sessionmaker(admin_engine, class_=AsyncSession)
     async with Session() as db:
         row = (
-            await db.execute(
-                select(DriverPayment).where(DriverPayment.id == pid).with_for_update()
-            )
+            await db.execute(select(DriverPayment).where(DriverPayment.id == pid).with_for_update())
         ).scalar_one()
         driver_id = row.driver_id
         row.status = "paid"  # what a concurrent IPN would be doing
@@ -918,7 +869,5 @@ async def test_cancel_waits_for_row_lock_and_cannot_overwrite_paid(
     with pytest.raises(ApiError):
         await asyncio.wait_for(task, timeout=5)
     async with Session() as db:
-        status = (
-            await db.execute(select(DriverPayment.status).where(DriverPayment.id == pid))
-        ).scalar_one()
+        status = (await db.execute(select(DriverPayment.status).where(DriverPayment.id == pid))).scalar_one()
     assert status == "paid"

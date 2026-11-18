@@ -6,12 +6,9 @@ from app.api.deps import AuthContext, require_driver
 from app.database import platform_session
 from app.schemas.common import Page, paginate
 from app.schemas.driver import DriverSessionOut
-from app.services import driver_service
-from app.services import driver_session_service
+from app.services import driver_service, driver_session_service
 
-router = APIRouter(
-    prefix="/driver/sessions", tags=["driver"], dependencies=[Depends(require_driver)]
-)
+router = APIRouter(prefix="/driver/sessions", tags=["driver"], dependencies=[Depends(require_driver)])
 
 
 async def _plates(driver_id) -> set[str]:
@@ -31,7 +28,5 @@ async def list_history(
     limit: int = Query(20, ge=1, le=100),
 ) -> Page[DriverSessionOut]:
     async with platform_session() as db:
-        items, total = await driver_session_service.history(
-            db, await _plates(auth.user_id), page, limit
-        )
+        items, total = await driver_session_service.history(db, await _plates(auth.user_id), page, limit)
     return paginate(items, total, page, limit)

@@ -8,8 +8,8 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import AccessDecision, EventDirection, VehicleStatus, VehicleTag
 from app.config import settings as app_settings
+from app.core.enums import AccessDecision, EventDirection, VehicleStatus, VehicleTag
 from app.models import AccessEvent, DriverPayment, RegisteredVehicle, Tenant, TenantAccessRule, TenantSite
 
 
@@ -93,9 +93,7 @@ async def _paid_exit(
         await db.execute(select(Tenant.settings).where(Tenant.id == tenant_id))
     ).scalar_one_or_none() or {}
     try:
-        grace = int(
-            settings_row.get("paid_exit_grace_minutes") or app_settings.paid_exit_grace_minutes
-        )
+        grace = int(settings_row.get("paid_exit_grace_minutes") or app_settings.paid_exit_grace_minutes)
     except (TypeError, ValueError):
         grace = app_settings.paid_exit_grace_minutes
     cond = [

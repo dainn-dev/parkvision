@@ -8,9 +8,7 @@ from app.api.deps import AuthContext, require_driver
 from app.schemas.driver import DriverMembershipIn, DriverMembershipOut
 from app.services import membership_service
 
-router = APIRouter(
-    prefix="/driver/memberships", tags=["driver"], dependencies=[Depends(require_driver)]
-)
+router = APIRouter(prefix="/driver/memberships", tags=["driver"], dependencies=[Depends(require_driver)])
 
 
 @router.get("", response_model=list[DriverMembershipOut])
@@ -23,9 +21,7 @@ async def list_memberships(auth: AuthContext = Depends(require_driver)) -> list[
 async def request_membership(
     body: DriverMembershipIn, auth: AuthContext = Depends(require_driver)
 ) -> DriverMembershipOut:
-    m = await membership_service.request_membership(
-        auth.user_id, body.plan_id, body.vehicle_id
-    )
+    m = await membership_service.request_membership(auth.user_id, body.plan_id, body.vehicle_id)
     rows = await membership_service.list_my_memberships(auth.user_id)
     return DriverMembershipOut(**next(r for r in rows if r["id"] == m.id))
 

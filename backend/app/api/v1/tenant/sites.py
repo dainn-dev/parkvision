@@ -77,9 +77,7 @@ async def create_site(
         longitude=body.longitude,
         capacity=body.capacity or 0,
         operating_hours=body.operating_hours,
-        public_profile=body.public_profile.model_dump(by_alias=True)
-        if body.public_profile
-        else {},
+        public_profile=body.public_profile.model_dump(by_alias=True) if body.public_profile else {},
         bank_account=body.bank_account.model_dump(by_alias=True) if body.bank_account else None,
         contact_phone=body.contact_phone,
         manager_name=body.manager_name,
@@ -143,11 +141,7 @@ async def update_site(
             row.bank_account = None  # explicit null clears the account
         elif v is not None:
             if k == "public_profile":
-                v = (
-                    body.public_profile.model_dump(by_alias=True)
-                    if body.public_profile
-                    else {}
-                )
+                v = body.public_profile.model_dump(by_alias=True) if body.public_profile else {}
             elif k == "bank_account":
                 v = body.bank_account.model_dump(by_alias=True) if body.bank_account else None
             setattr(row, k, v)

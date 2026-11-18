@@ -201,16 +201,24 @@ class WalkInSession(TimestampMixin, Base):
     __tablename__ = "walk_in_sessions"
 
     id: Mapped[uuid.UUID] = uuid_pk()
-    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
-    site_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenant_sites.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    site_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenant_sites.id", ondelete="CASCADE"), nullable=False
+    )
     plate_number: Mapped[str] = mapped_column(String(20), nullable=False)
     plate_normalized: Mapped[str] = mapped_column(String(20), nullable=False)
     pay_code: Mapped[str] = mapped_column(String(12), nullable=False)
-    entry_gate_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("barrier_gates.id", ondelete="SET NULL"))
+    entry_gate_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("barrier_gates.id", ondelete="SET NULL")
+    )
     entered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     entry_plate_image_key: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(10), nullable=False, default="open")
-    exit_gate_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("barrier_gates.id", ondelete="SET NULL"))
+    exit_gate_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("barrier_gates.id", ondelete="SET NULL")
+    )
     exited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     amount_vnd: Mapped[int | None] = mapped_column(BigInteger)
     expected_amount_vnd: Mapped[int | None] = mapped_column(BigInteger)
@@ -661,9 +669,7 @@ class DriverVehicleShare(TimestampMixin, Base):
     share_date: Mapped[date] = mapped_column(nullable=False)
 
     __table_args__ = (
-        UniqueConstraint(
-            "vehicle_id", "shared_with_id", "share_date", name="uq_vehicle_share"
-        ),
+        UniqueConstraint("vehicle_id", "shared_with_id", "share_date", name="uq_vehicle_share"),
         Index("ix_vehicle_shares_recipient", "shared_with_id", "share_date"),
     )
 
@@ -817,8 +823,10 @@ class DriverWallet(TimestampMixin, Base):
 
     id: Mapped[uuid.UUID] = uuid_pk()
     driver_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("driver_users.id", ondelete="CASCADE"),
-        nullable=False, unique=True,
+        UUID(as_uuid=True),
+        ForeignKey("driver_users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
     )
     balance_vnd: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
 

@@ -71,9 +71,7 @@ async def update_plan(
     db: AsyncSession = Depends(get_tenant_db),
     _: None = Depends(require_roles(*WRITE_ROLES)),
 ) -> MembershipPlanOut:
-    p = await membership_service.update_plan(
-        db, ctx.tenant_id, plan_id, body.model_dump(exclude_unset=True)
-    )
+    p = await membership_service.update_plan(db, ctx.tenant_id, plan_id, body.model_dump(exclude_unset=True))
     await write_audit(
         db,
         tenant_id=ctx.tenant_id,
@@ -115,9 +113,7 @@ async def activate_membership(
     db: AsyncSession = Depends(get_tenant_db),
     _: None = Depends(require_roles(*WRITE_ROLES)),
 ) -> TenantMembershipOut:
-    m = await membership_service.activate_membership(
-        db, ctx.tenant_id, membership_id, body.admin_note
-    )
+    m = await membership_service.activate_membership(db, ctx.tenant_id, membership_id, body.admin_note)
     await write_audit(
         db,
         tenant_id=ctx.tenant_id,
@@ -141,9 +137,7 @@ async def reject_membership(
     db: AsyncSession = Depends(get_tenant_db),
     _: None = Depends(require_roles(*WRITE_ROLES)),
 ) -> TenantMembershipOut:
-    m = await membership_service.reject_membership(
-        db, ctx.tenant_id, membership_id, body.admin_note
-    )
+    m = await membership_service.reject_membership(db, ctx.tenant_id, membership_id, body.admin_note)
     await write_audit(
         db,
         tenant_id=ctx.tenant_id,
@@ -167,9 +161,7 @@ async def revoke_membership(
     db: AsyncSession = Depends(get_tenant_db),
     _: None = Depends(require_roles(*WRITE_ROLES)),
 ) -> TenantMembershipOut:
-    m = await membership_service.revoke_membership(
-        db, ctx.tenant_id, membership_id, body.admin_note
-    )
+    m = await membership_service.revoke_membership(db, ctx.tenant_id, membership_id, body.admin_note)
     await write_audit(
         db,
         tenant_id=ctx.tenant_id,
@@ -191,17 +183,14 @@ async def _membership_out(db, tenant_id: uuid.UUID, m) -> TenantMembershipOut:
     from app.models import DriverMembership, DriverUser, SiteMembershipPlan, TenantSite
 
     row = (
-        (
-            await db.execute(
-                select(DriverMembership, DriverUser, SiteMembershipPlan, TenantSite)
-                .join(DriverUser, DriverUser.id == DriverMembership.driver_id)
-                .join(SiteMembershipPlan, SiteMembershipPlan.id == DriverMembership.plan_id)
-                .join(TenantSite, TenantSite.id == DriverMembership.site_id)
-                .where(DriverMembership.id == m.id, DriverMembership.tenant_id == tenant_id)
-            )
+        await db.execute(
+            select(DriverMembership, DriverUser, SiteMembershipPlan, TenantSite)
+            .join(DriverUser, DriverUser.id == DriverMembership.driver_id)
+            .join(SiteMembershipPlan, SiteMembershipPlan.id == DriverMembership.plan_id)
+            .join(TenantSite, TenantSite.id == DriverMembership.site_id)
+            .where(DriverMembership.id == m.id, DriverMembership.tenant_id == tenant_id)
         )
-        .one()
-    )
+    ).one()
     mm, d, p, s = row
     return TenantMembershipOut(
         id=mm.id,

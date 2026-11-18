@@ -83,8 +83,10 @@ async def walk_in_summary(
     closed_cond.append(WalkInSession.status != "open")
     open_cond = _filters(ctx, site_id, None, None, "open")
     rows = (
-        await db.execute(select(WalkInSession).where(or_(and_(*closed_cond), and_(*open_cond))))
-    ).scalars().all()
+        (await db.execute(select(WalkInSession).where(or_(and_(*closed_cond), and_(*open_cond)))))
+        .scalars()
+        .all()
+    )
 
     summary = {
         "cash_count": 0,
@@ -107,7 +109,12 @@ async def walk_in_summary(
         elif r.method == "bank_qr":
             summary["bank_qr_count"] += 1
             summary["bank_qr_total_vnd"] += r.amount_vnd or 0
-        if r.status == "paid" and r.amount_vnd is not None and r.expected_amount_vnd is not None and r.amount_vnd != r.expected_amount_vnd:
+        if (
+            r.status == "paid"
+            and r.amount_vnd is not None
+            and r.expected_amount_vnd is not None
+            and r.amount_vnd != r.expected_amount_vnd
+        ):
             summary["mismatch_count"] += 1
 
     return WalkInSummaryOut(**summary)

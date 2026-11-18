@@ -39,9 +39,7 @@ def upgrade() -> None:
 
     # 2. Swap constraint: per-driver → global
     op.drop_constraint("uq_driver_vehicle_plate", "driver_vehicles", type_="unique")
-    op.create_unique_constraint(
-        "uq_driver_vehicle_plate_global", "driver_vehicles", ["plate_normalized"]
-    )
+    op.create_unique_constraint("uq_driver_vehicle_plate_global", "driver_vehicles", ["plate_normalized"])
 
     # 3. Vehicle shares table
     op.create_table(
@@ -72,9 +70,7 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=False,
         ),
-        sa.UniqueConstraint(
-            "vehicle_id", "shared_with_id", "share_date", name="uq_vehicle_share"
-        ),
+        sa.UniqueConstraint("vehicle_id", "shared_with_id", "share_date", name="uq_vehicle_share"),
     )
     op.create_index(
         "ix_vehicle_shares_recipient",

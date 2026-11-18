@@ -8,12 +8,11 @@ calls to driver (bearer) calls on the shared client."""
 import uuid as _uuid
 
 import pytest
-import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from tests.conftest import csrf, driver, login
-from tests.test_driver_api import listed_site
+from tests.test_driver_api import listed_site  # noqa: F401 (pytest fixture)
 
 
 @pytest.mark.asyncio
@@ -51,9 +50,7 @@ async def make_plan(client, tenant, site_id, name="Monthly Resident", price=1500
 
 async def add_vehicle(client, d, plate=None):
     plate = plate or f"51M-{_uuid.uuid4().hex[:8].upper()}"
-    res = await client.post(
-        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate}
-    )
+    res = await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate})
     assert res.status_code == 201, res.text
     return res.json()
 
@@ -329,9 +326,7 @@ async def test_driver_cancel_pending_and_active(client, tenant, listed_site, adm
 
     v1 = await add_vehicle(client, d, "51M-333.44")
     m1 = await request_membership(client, d, p["id"], v1["id"])
-    r = await client.post(
-        f"/api/v1/driver/memberships/{m1['id']}/cancel", headers=d["headers"]
-    )
+    r = await client.post(f"/api/v1/driver/memberships/{m1['id']}/cancel", headers=d["headers"])
     assert r.status_code == 200 and r.json()["status"] == "cancelled"
 
     v2 = await add_vehicle(client, d, "51M-444.55")
@@ -344,9 +339,7 @@ async def test_driver_cancel_pending_and_active(client, tenant, listed_site, adm
         headers=csrf(client),
     )
     client.cookies.clear()  # switch back to driver bearer
-    r = await client.post(
-        f"/api/v1/driver/memberships/{m2['id']}/cancel", headers=d["headers"]
-    )
+    r = await client.post(f"/api/v1/driver/memberships/{m2['id']}/cancel", headers=d["headers"])
     assert r.status_code == 200 and r.json()["status"] == "cancelled"
 
     decision, reason, _ = await decide(client, admin_engine, tenant["tenant_id"], "51M-444.55")
@@ -372,10 +365,7 @@ async def test_expired_membership_swept_and_denied(client, tenant, listed_site, 
     Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
     async with Session() as db:
         await db.execute(
-            text(
-                "UPDATE driver_memberships SET ends_at = now() - interval '1 day' "
-                "WHERE id = :mid"
-            ),
+            text("UPDATE driver_memberships SET ends_at = now() - interval '1 day' " "WHERE id = :mid"),
             {"mid": m["id"]},
         )
         await db.commit()

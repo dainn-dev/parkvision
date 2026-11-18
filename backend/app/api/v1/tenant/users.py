@@ -88,10 +88,12 @@ async def list_users(
 
 _OWNER = str(TenantUserRole.OWNER)
 
+
 def _require_owner_for_owner_change(ctx: TenantCtx, *roles: str | None) -> None:
     """Only an owner may grant, change or remove the owner role (no admin -> owner escalation)."""
     if _OWNER in roles and ctx.auth.role != _OWNER:
         raise forbidden("Only an owner can manage owner accounts") from None
+
 
 async def _require_other_active_owner(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
     """A tenant must always keep at least one active owner."""
@@ -109,6 +111,7 @@ async def _require_other_active_owner(db: AsyncSession, tenant_id: uuid.UUID, us
     ).scalar_one()
     if others == 0:
         raise conflict("A tenant must keep at least one active owner") from None
+
 
 @router.post("/users", response_model=UserOut, status_code=201)
 async def invite_user(

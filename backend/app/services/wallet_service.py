@@ -32,17 +32,11 @@ async def get_or_create_wallet(db, driver_id: uuid.UUID) -> DriverWallet:
         .on_conflict_do_nothing(index_elements=[DriverWallet.driver_id])
     )
     return (
-        await db.execute(
-            select(DriverWallet)
-            .where(DriverWallet.driver_id == driver_id)
-            .with_for_update()
-        )
+        await db.execute(select(DriverWallet).where(DriverWallet.driver_id == driver_id).with_for_update())
     ).scalar_one()
 
 
-async def _apply(
-    db, wallet: DriverWallet, delta: int, kind: str, payment_id, note: str
-) -> WalletTransaction:
+async def _apply(db, wallet: DriverWallet, delta: int, kind: str, payment_id, note: str) -> WalletTransaction:
     new_balance = wallet.balance_vnd + delta
     if new_balance < 0:
         raise conflict("Insufficient wallet balance") from None
@@ -84,9 +78,7 @@ def _txn_out(t: WalletTransaction) -> dict:
 
 async def wallet_out(db, driver_id: uuid.UUID, txn_limit: int = 20) -> dict:
     w = (
-        await db.execute(
-            select(DriverWallet).where(DriverWallet.driver_id == driver_id)
-        )
+        await db.execute(select(DriverWallet).where(DriverWallet.driver_id == driver_id))
     ).scalar_one_or_none()
     if w is None:
         return {"balance_vnd": 0, "transactions": []}
@@ -107,9 +99,7 @@ async def wallet_out(db, driver_id: uuid.UUID, txn_limit: int = 20) -> dict:
 
 async def get_wallet_for_driver(db, driver_id: uuid.UUID) -> DriverWallet:
     w = (
-        await db.execute(
-            select(DriverWallet).where(DriverWallet.driver_id == driver_id)
-        )
+        await db.execute(select(DriverWallet).where(DriverWallet.driver_id == driver_id))
     ).scalar_one_or_none()
     if w is None:
         raise not_found("wallet")

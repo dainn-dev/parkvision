@@ -211,15 +211,19 @@ async def list_plate_history(
     db: AsyncSession = Depends(get_tenant_db),
 ) -> list[PlateHistoryOut]:
     rows = (
-        await db.execute(
-            select(VehiclePlateHistory)
-            .where(
-                VehiclePlateHistory.vehicle_id == vehicle_id,
-                VehiclePlateHistory.tenant_id == ctx.tenant_id,
+        (
+            await db.execute(
+                select(VehiclePlateHistory)
+                .where(
+                    VehiclePlateHistory.vehicle_id == vehicle_id,
+                    VehiclePlateHistory.tenant_id == ctx.tenant_id,
+                )
+                .order_by(VehiclePlateHistory.replaced_at.desc())
             )
-            .order_by(VehiclePlateHistory.replaced_at.desc())
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return [PlateHistoryOut.model_validate(r) for r in rows]
 
 

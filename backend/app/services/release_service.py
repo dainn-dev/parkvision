@@ -95,10 +95,14 @@ def store_release_file(channel: str, version: str, filename: str, stream: Binary
 
 async def latest_published(db: AsyncSession, channel: str) -> AppRelease | None:
     rows = (
-        await db.execute(
-            select(AppRelease).where(AppRelease.channel == channel, AppRelease.is_published.is_(True))
+        (
+            await db.execute(
+                select(AppRelease).where(AppRelease.channel == channel, AppRelease.is_published.is_(True))
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     if not rows:
         return None
     return max(rows, key=lambda r: parse_version(r.version))

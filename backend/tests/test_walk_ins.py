@@ -32,7 +32,9 @@ async def _outbox() -> list[dict]:
 async def site(client: AsyncClient, tenant):
     await login(client, tenant["email"], tenant["password"])
     tid = tenant["tenant_id"]
-    res = await client.post(f"/api/v1/tenants/{tid}/sites", json={"name": "Walk-in Site"}, headers=csrf(client))
+    res = await client.post(
+        f"/api/v1/tenants/{tid}/sites", json={"name": "Walk-in Site"}, headers=csrf(client)
+    )
     assert res.status_code == 201, res.text
     site_id = res.json()["id"]
     res = await client.patch(
@@ -123,7 +125,9 @@ async def _row(session_id):
     from app.models import WalkInSession
 
     async with platform_session() as db:
-        return (await db.execute(select(WalkInSession).where(WalkInSession.id == session_id))).scalar_one_or_none()
+        return (
+            await db.execute(select(WalkInSession).where(WalkInSession.id == session_id))
+        ).scalar_one_or_none()
 
 
 async def _events(tenant):
@@ -211,7 +215,9 @@ async def test_site_bank_account_round_trip(client: AsyncClient, site, tenant):
 
     # explicit null clears the account
     res = await client.patch(
-        f"/api/v1/tenants/{tid}/sites/{site}", json={"name": "Bank Site", "bankAccount": None}, headers=csrf(client)
+        f"/api/v1/tenants/{tid}/sites/{site}",
+        json={"name": "Bank Site", "bankAccount": None},
+        headers=csrf(client),
     )
     assert res.status_code == 200, res.text
     assert (await client.get(f"/api/v1/tenants/{tid}/sites/{site}")).json()["bankAccount"] is None
@@ -221,7 +227,10 @@ async def test_site_bank_account_round_trip(client: AsyncClient, site, tenant):
 async def test_site_bank_account_rejects_bad_bin_api(client: AsyncClient, site, tenant):
     res = await client.patch(
         f"/api/v1/tenants/{tenant['tenant_id']}/sites/{site}",
-        json={"name": "Bad Bin", "bankAccount": {"bin": "97A", "accountNumber": "0123456789", "accountName": "ABC"}},
+        json={
+            "name": "Bad Bin",
+            "bankAccount": {"bin": "97A", "accountNumber": "0123456789", "accountName": "ABC"},
+        },
         headers=csrf(client),
     )
     assert res.status_code == 422
@@ -375,7 +384,9 @@ async def test_walk_in_frame_does_not_touch_gate_state(client, tenant, site, gat
 
     async def snapshot():
         async with platform_session() as db:
-            g = (await db.execute(select(BarrierGate).where(BarrierGate.id == uuid.UUID(gates[0])))).scalar_one()
+            g = (
+                await db.execute(select(BarrierGate).where(BarrierGate.id == uuid.UUID(gates[0])))
+            ).scalar_one()
             n = (await db.execute(select(func.count()).select_from(GateTelemetryLog))).scalar_one()
             return g.status, n
 
@@ -402,7 +413,9 @@ async def test_edge_pricing_returns_tariff_timezone_bank(client, tenant, site, e
         headers=csrf(client),
     )
     assert res.status_code == 200, res.text
-    res = await client.get(f"/api/v1/edge/tenants/{tid}/sites/{site}/pricing", headers={"X-Api-Key": edge_key})
+    res = await client.get(
+        f"/api/v1/edge/tenants/{tid}/sites/{site}/pricing", headers={"X-Api-Key": edge_key}
+    )
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["pricing"]["hourlyFrom"] == 10000
@@ -415,12 +428,14 @@ async def test_edge_pricing_returns_tariff_timezone_bank(client, tenant, site, e
 @pytest.mark.asyncio
 async def test_edge_pricing_rejects_other_tenants_key(client, tenant, other_tenant, site, edge_key):
     res = await client.get(
-        f"/api/v1/edge/tenants/{other_tenant['tenant_id']}/sites/{site}/pricing", headers={"X-Api-Key": edge_key}
+        f"/api/v1/edge/tenants/{other_tenant['tenant_id']}/sites/{site}/pricing",
+        headers={"X-Api-Key": edge_key},
     )
     assert res.status_code in (403, 404)
     # own-tenant key, but a site that is not in the tenant
     res = await client.get(
-        f"/api/v1/edge/tenants/{tenant['tenant_id']}/sites/{uuid.uuid4()}/pricing", headers={"X-Api-Key": edge_key}
+        f"/api/v1/edge/tenants/{tenant['tenant_id']}/sites/{uuid.uuid4()}/pricing",
+        headers={"X-Api-Key": edge_key},
     )
     assert res.status_code == 404
 
@@ -433,12 +448,16 @@ async def test_edge_open_walk_in_normalizes_plate(client, tenant, site, gates, e
     entered = datetime.now(timezone.utc) - timedelta(hours=4)
     await _send(tenant, site, gates[1], _exit(closed_id, entered, plate="30A-999.99"))
     h = {"X-Api-Key": edge_key}
-    res = await client.get(f"/api/v1/edge/tenants/{tid}/walk-ins/open", params={"plate": "29h11122"}, headers=h)
+    res = await client.get(
+        f"/api/v1/edge/tenants/{tid}/walk-ins/open", params={"plate": "29h11122"}, headers=h
+    )
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["sessionId"] == str(open_id)
     assert body["payCode"].startswith("PV")
-    res = await client.get(f"/api/v1/edge/tenants/{tid}/walk-ins/open", params={"plate": "30A99999"}, headers=h)
+    res = await client.get(
+        f"/api/v1/edge/tenants/{tid}/walk-ins/open", params={"plate": "30A99999"}, headers=h
+    )
     assert res.status_code == 200 and res.json() is None
 
 
@@ -531,7 +550,9 @@ async def test_bank_webhook_matches_open_session_and_signals_edge(
 
 
 @pytest.mark.asyncio
-async def test_bank_webhook_replay_does_not_signal_twice(client, tenant, site, gates, open_session, bank_secret):
+async def test_bank_webhook_replay_does_not_signal_twice(
+    client, tenant, site, gates, open_session, bank_secret
+):
     body = _webhook_body(site, _code(open_session))
     assert (await _post_webhook(client, body)).json() == {"matched": True}
     assert (await _post_webhook(client, body)).json() == {"matched": True}
@@ -547,7 +568,9 @@ async def test_bank_webhook_bad_signature_is_401(client, tenant, site, gates, op
 
 
 @pytest.mark.asyncio
-async def test_bank_webhook_empty_secret_rejects_everything(client, tenant, site, gates, open_session, monkeypatch):
+async def test_bank_webhook_empty_secret_rejects_everything(
+    client, tenant, site, gates, open_session, monkeypatch
+):
     from app.config import settings
 
     monkeypatch.setattr(settings, "bank_webhook_secret", "")
@@ -572,7 +595,9 @@ async def test_bank_webhook_ignores_closed_session(client, tenant, site, gates, 
 
 
 @pytest.mark.asyncio
-async def test_bank_webhook_short_amount_is_still_forwarded(client, tenant, site, gates, open_session, bank_secret):
+async def test_bank_webhook_short_amount_is_still_forwarded(
+    client, tenant, site, gates, open_session, bank_secret
+):
     res = await _post_webhook(client, _webhook_body(site, _code(open_session), amount=5000))
     assert res.json() == {"matched": True}
     row = await _row(open_session)
@@ -622,7 +647,9 @@ async def test_summary_counts_by_method(client, tenant, site):
 @pytest.mark.asyncio
 async def test_summary_respects_date_range_and_site(client, tenant, site):
     tid = tenant["tenant_id"]
-    other = await client.post(f"/api/v1/tenants/{tid}/sites", json={"name": "Second Site"}, headers=csrf(client))
+    other = await client.post(
+        f"/api/v1/tenants/{tid}/sites", json={"name": "Second Site"}, headers=csrf(client)
+    )
     other_id = other.json()["id"]
     now = datetime.now(timezone.utc)
     old = now - timedelta(days=10)
@@ -631,14 +658,27 @@ async def test_summary_respects_date_range_and_site(client, tenant, site):
         site,
         [
             {"status": "paid", "method": "cash", "amount": 20000, "exited": now},
-            {"status": "paid", "method": "cash", "amount": 11000, "exited": old, "entered": old - timedelta(hours=2)},
+            {
+                "status": "paid",
+                "method": "cash",
+                "amount": 11000,
+                "exited": old,
+                "entered": old - timedelta(hours=2),
+            },
             {"status": "open"},
         ],
     )
-    await _insert_rows(tenant, other_id, [{"status": "paid", "method": "cash", "amount": 7000, "exited": now}])
+    await _insert_rows(
+        tenant, other_id, [{"status": "paid", "method": "cash", "amount": 7000, "exited": now}]
+    )
     base = f"/api/v1/tenants/{tid}/walk-ins/summary"
     res = await client.get(
-        base, params={"siteId": site, "from": _iso(now - timedelta(days=1)), "to": _iso(now + timedelta(minutes=1))}
+        base,
+        params={
+            "siteId": site,
+            "from": _iso(now - timedelta(days=1)),
+            "to": _iso(now + timedelta(minutes=1)),
+        },
     )
     body = res.json()
     assert (body["cashCount"], body["cashTotalVnd"], body["openCount"]) == (1, 20000, 1)
@@ -653,8 +693,22 @@ async def test_list_flags_amount_mismatch(client, tenant, site):
         tenant,
         site,
         [
-            {"status": "paid", "method": "cash", "amount": 20000, "expected": 30000, "exited": now, "plate": "MISMATCH1"},
-            {"status": "paid", "method": "cash", "amount": 30000, "expected": 30000, "exited": now, "plate": "MATCHED01"},
+            {
+                "status": "paid",
+                "method": "cash",
+                "amount": 20000,
+                "expected": 30000,
+                "exited": now,
+                "plate": "MISMATCH1",
+            },
+            {
+                "status": "paid",
+                "method": "cash",
+                "amount": 30000,
+                "expected": 30000,
+                "exited": now,
+                "plate": "MATCHED01",
+            },
         ],
     )
     res = await client.get(f"/api/v1/tenants/{tenant['tenant_id']}/walk-ins")
@@ -669,7 +723,9 @@ async def test_list_flags_amount_mismatch(client, tenant, site):
 @pytest.mark.asyncio
 async def test_walk_in_report_is_tenant_scoped(client, tenant, other_tenant, site):
     await _insert_rows(
-        tenant, site, [{"status": "paid", "method": "cash", "amount": 20000, "exited": datetime.now(timezone.utc)}]
+        tenant,
+        site,
+        [{"status": "paid", "method": "cash", "amount": 20000, "exited": datetime.now(timezone.utc)}],
     )
     await login(client, other_tenant["email"], other_tenant["password"])
     oid = other_tenant["tenant_id"]

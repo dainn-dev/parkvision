@@ -61,9 +61,9 @@ from app.schemas.resources import (
     SnapshotGate,
     TelemetrySnapshotOut,
     TenantAdministratorOut,
-    TenantStatisticsOut,
     TenantCreateIn,
     TenantOut,
+    TenantStatisticsOut,
     TenantStatusIn,
     TenantStatusOut,
     TenantUpdateIn,
@@ -162,14 +162,20 @@ async def _tenant_outs(db, rows: list[Tenant]) -> list[TenantOut]:
     device_counts = await grouped_counts(EdgeDevice)
 
     admin_rows = (
-        await db.execute(
-            select(TenantUser).where(
-                TenantUser.tenant_id.in_(tenant_ids),
-                TenantUser.role.in_(("owner", "admin")),
-                TenantUser.status == "active",
-            ).order_by(TenantUser.created_at.asc())
+        (
+            await db.execute(
+                select(TenantUser)
+                .where(
+                    TenantUser.tenant_id.in_(tenant_ids),
+                    TenantUser.role.in_(("owner", "admin")),
+                    TenantUser.status == "active",
+                )
+                .order_by(TenantUser.created_at.asc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     admins: dict[uuid.UUID, TenantUser] = {}
     for user in admin_rows:
         current = admins.get(user.tenant_id)
@@ -691,7 +697,9 @@ async def list_all_sessions(
         if user_ids:
             for uid, email, full_name in (
                 await db.execute(
-                    select(TenantUser.id, TenantUser.email, TenantUser.full_name).where(TenantUser.id.in_(user_ids))
+                    select(TenantUser.id, TenantUser.email, TenantUser.full_name).where(
+                        TenantUser.id.in_(user_ids)
+                    )
                 )
             ).all():
                 identities[uid] = (email, full_name)

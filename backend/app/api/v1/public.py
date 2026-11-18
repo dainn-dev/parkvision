@@ -152,19 +152,15 @@ async def _tenant_by_slug(db, slug: str) -> Tenant:
     return tenant
 
 
-async def _levels_with_occupancy(db, tenant_id: uuid.UUID, site_id: uuid.UUID | None = None) -> list[PublicMapLevelOut]:
+async def _levels_with_occupancy(
+    db, tenant_id: uuid.UUID, site_id: uuid.UUID | None = None
+) -> list[PublicMapLevelOut]:
     """Levels + zones + occupancy only — no presence/plate data. Optionally
     site-scoped for the mobile site-detail view."""
-    q = select(ParkingLevel).where(
-        ParkingLevel.tenant_id == tenant_id, ParkingLevel.status == "active"
-    )
+    q = select(ParkingLevel).where(ParkingLevel.tenant_id == tenant_id, ParkingLevel.status == "active")
     if site_id is not None:
         q = q.where(ParkingLevel.site_id == site_id)
-    levels = (
-        (await db.execute(q.order_by(ParkingLevel.sort_order, ParkingLevel.created_at)))
-        .scalars()
-        .all()
-    )
+    levels = (await db.execute(q.order_by(ParkingLevel.sort_order, ParkingLevel.created_at))).scalars().all()
     if not levels:
         return []
     level_ids = [lv.id for lv in levels]
@@ -247,9 +243,7 @@ async def public_sites(
     driver: AuthContext | None = Depends(optional_driver),
 ) -> list[PublicSiteOut]:
     async with platform_session() as db:
-        fav_ids = (
-            await driver_service.list_favorite_site_ids(db, driver.user_id) if driver else set()
-        )
+        fav_ids = await driver_service.list_favorite_site_ids(db, driver.user_id) if driver else set()
         return await public_site_service.list_sites(
             db, lat=lat, lng=lng, radius_km=radiusKm, q=q, favorite_ids=fav_ids
         )
@@ -265,9 +259,7 @@ async def public_site_detail(
 ) -> PublicSiteDetailOut:
     async with platform_session() as db:
         tenant, site = await public_site_service.get_site(db, site_id)
-        fav_ids = (
-            await driver_service.list_favorite_site_ids(db, driver.user_id) if driver else set()
-        )
+        fav_ids = await driver_service.list_favorite_site_ids(db, driver.user_id) if driver else set()
         base = (await public_site_service.sites_by_ids(db, [site.id], fav_ids))[0]
         levels = await _levels_with_occupancy(db, tenant.id, site.id)
         return PublicSiteDetailOut(**base.model_dump(), levels=levels)

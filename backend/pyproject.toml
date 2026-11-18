@@ -47,6 +47,11 @@ target-version = "py310"
 select = ["E", "F", "I", "B", "UP", "ASYNC", "C4", "SIM"]
 ignore = ["B008", "E501"]
 
+[tool.ruff.lint.per-file-ignores]
+# pytest fixtures are imported across test modules and then requested as
+# parameters (F811); some test modules import per section (E402).
+"tests/**" = ["F811", "E402"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"

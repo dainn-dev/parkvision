@@ -34,16 +34,33 @@ def upgrade() -> None:
     op.create_table(
         "walk_in_sessions",
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
-        sa.Column("tenant_id", UUID(as_uuid=True), sa.ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("site_id", UUID(as_uuid=True), sa.ForeignKey("tenant_sites.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "tenant_id", UUID(as_uuid=True), sa.ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+        ),
+        sa.Column(
+            "site_id",
+            UUID(as_uuid=True),
+            sa.ForeignKey("tenant_sites.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("plate_number", sa.String(20), nullable=False),
         sa.Column("plate_normalized", sa.String(20), nullable=False),
         sa.Column("pay_code", sa.String(12), nullable=False),
-        sa.Column("entry_gate_id", UUID(as_uuid=True), sa.ForeignKey("barrier_gates.id", ondelete="SET NULL"), nullable=True),
+        sa.Column(
+            "entry_gate_id",
+            UUID(as_uuid=True),
+            sa.ForeignKey("barrier_gates.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
         sa.Column("entered_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("entry_plate_image_key", sa.Text, nullable=True),
         sa.Column("status", sa.String(10), nullable=False, server_default="open"),
-        sa.Column("exit_gate_id", UUID(as_uuid=True), sa.ForeignKey("barrier_gates.id", ondelete="SET NULL"), nullable=True),
+        sa.Column(
+            "exit_gate_id",
+            UUID(as_uuid=True),
+            sa.ForeignKey("barrier_gates.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
         sa.Column("exited_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("amount_vnd", sa.BigInteger(), nullable=True),
         sa.Column("expected_amount_vnd", sa.BigInteger(), nullable=True),
@@ -61,9 +78,7 @@ def upgrade() -> None:
             "confirmed_by IS NULL OR confirmed_by IN ('manual','auto')", name="ck_walk_in_confirmed_by"
         ),
     )
-    op.create_index(
-        "ix_walk_in_tenant_site_exit", "walk_in_sessions", ["tenant_id", "site_id", "exited_at"]
-    )
+    op.create_index("ix_walk_in_tenant_site_exit", "walk_in_sessions", ["tenant_id", "site_id", "exited_at"])
     op.create_index(
         "ix_walk_in_plate_status", "walk_in_sessions", ["tenant_id", "plate_normalized", "status"]
     )
@@ -76,9 +91,7 @@ def upgrade() -> None:
     )
 
     op.execute("ALTER TABLE walk_in_sessions ENABLE ROW LEVEL SECURITY")
-    op.execute(
-        f"CREATE POLICY tenant_isolation ON walk_in_sessions USING ({_RLS}) WITH CHECK ({_RLS})"
-    )
+    op.execute(f"CREATE POLICY tenant_isolation ON walk_in_sessions USING ({_RLS}) WITH CHECK ({_RLS})")
 
 
 def downgrade() -> None:

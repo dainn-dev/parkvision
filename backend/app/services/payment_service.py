@@ -118,12 +118,8 @@ def _payment_out(p: DriverPayment, site_name: str | None) -> dict:
 async def _site_names(db, site_ids: set[uuid.UUID]) -> dict[uuid.UUID, str]:
     if not site_ids:
         return {}
-    rows = (
-        await db.execute(
-            select(TenantSite.id, TenantSite.name).where(TenantSite.id.in_(site_ids))
-        )
-    ).all()
-    return {i: n for i, n in rows}
+    rows = (await db.execute(select(TenantSite.id, TenantSite.name).where(TenantSite.id.in_(site_ids)))).all()
+    return dict(rows)
 
 
 # ---------- session resolution ----------
@@ -172,9 +168,7 @@ async def _resolve_session(
 
         from app.models import DriverVehicleShare
 
-        site_timezone = await db.scalar(
-            select(TenantSite.timezone).where(TenantSite.id == entry.site_id)
-        )
+        site_timezone = await db.scalar(select(TenantSite.timezone).where(TenantSite.id == entry.site_id))
         event_date = entry.occurred_at.astimezone(ZoneInfo(site_timezone or "UTC")).date()
         share = (
             await db.execute(
@@ -238,14 +232,8 @@ async def create_payment(
         # A topup only makes sense through a real funding rail.
         if method != "momo":
             raise bad_request("Top-ups must be paid through the payment gateway")
-        if (
-            topup_amount_vnd is None
-            or topup_amount_vnd < TOPUP_MIN_VND
-            or topup_amount_vnd > TOPUP_MAX_VND
-        ):
-            raise bad_request(
-                f"amountVnd must be between {TOPUP_MIN_VND} and {TOPUP_MAX_VND} for top-ups"
-            )
+        if topup_amount_vnd is None or topup_amount_vnd < TOPUP_MIN_VND or topup_amount_vnd > TOPUP_MAX_VND:
+            raise bad_request(f"amountVnd must be between {TOPUP_MIN_VND} and {TOPUP_MAX_VND} for top-ups")
     if kind != "topup" and topup_amount_vnd is not None:
         raise bad_request("amountVnd is only accepted for kind='topup'")
     if method == "wallet" and kind == "topup":
@@ -405,11 +393,7 @@ async def create_payment(
             status="created",
             provider_order_id="",  # filled after flush (needs p.id)
             provider_request_id="",
-            expires_at=(
-                now + timedelta(minutes=settings.payment_ttl_minutes)
-                if method == "momo"
-                else None
-            ),
+            expires_at=(now + timedelta(minutes=settings.payment_ttl_minutes) if method == "momo" else None),
         )
         db.add(p)
         await db.flush()
@@ -417,16 +401,12 @@ async def create_payment(
         p.provider_request_id = f"pv-{uuid.uuid4().hex[:16]}"
 
         if site is None and site_id is not None:
-            site = (
-                await db.execute(select(TenantSite).where(TenantSite.id == site_id))
-            ).scalar_one_or_none()
+            site = (await db.execute(select(TenantSite).where(TenantSite.id == site_id))).scalar_one_or_none()
 
         if method == "wallet":
             # Atomic: debit + side effects in one transaction — an
             # insufficient balance rolls the payment row back with it.
-            await wallet_service.debit(
-                db, driver_id, amount, "spend_debit", p.id, info
-            )
+            await wallet_service.debit(db, driver_id, amount, "spend_debit", p.id, info)
             await _apply_paid(db, p, {"wallet": "settled"})
             await db.flush()
             return _payment_out(p, site.name if site else None)
@@ -480,9 +460,7 @@ def _activation_failure_note(reason: str) -> str:
     return f"payment received; activation failed: {reason}"[:_ADMIN_NOTE_MAX]
 
 
-def _flag_activation_failure(
-    p: DriverPayment, m: DriverMembership | None, reason: str
-) -> None:
+def _flag_activation_failure(p: DriverPayment, m: DriverMembership | None, reason: str) -> None:
     """Record a paid-but-not-activated outcome on the payment (raw_payload
     `activation_error`) and, when present, on the membership's admin_note."""
     p.raw_payload = {**(p.raw_payload or {}), "activation_error": reason}
@@ -504,9 +482,7 @@ async def _apply_paid(db, p: DriverPayment, payload: dict | None) -> None:
         from app.services import membership_service
 
         m = (
-            await db.execute(
-                select(DriverMembership).where(DriverMembership.id == p.membership_id)
-            )
+            await db.execute(select(DriverMembership).where(DriverMembership.id == p.membership_id))
         ).scalar_one_or_none()
         if m is None:
             _flag_activation_failure(p, None, "membership no longer exists")
@@ -514,9 +490,7 @@ async def _apply_paid(db, p: DriverPayment, payload: dict | None) -> None:
             _flag_activation_failure(p, m, f"membership is {m.status}, not pending")
         else:
             try:
-                await membership_service._activate_membership_row(
-                    db, m, f"auto: paid via {p.method}"
-                )
+                await membership_service._activate_membership_row(db, m, f"auto: paid via {p.method}")
             except ApiError as exc:
                 # Money received but activation failed (e.g. blacklisted
                 # plate). Keep the payment 'paid' (the charge is real), leave
@@ -525,9 +499,7 @@ async def _apply_paid(db, p: DriverPayment, payload: dict | None) -> None:
                 # refund is a product decision and is intentionally not done.
                 _flag_activation_failure(p, m, exc.message)
     elif p.kind == "topup":
-        await wallet_service.credit(
-            db, p.driver_id, p.amount_vnd, "topup_credit", p.id, "Wallet top-up"
-        )
+        await wallet_service.credit(db, p.driver_id, p.amount_vnd, "topup_credit", p.id, "Wallet top-up")
     await db.flush()
 
 
@@ -537,9 +509,7 @@ async def _refresh_from_gateway(db, p: DriverPayment) -> None:
     gw = get_gateway()
     if gw is None:
         return
-    status = await gw.query_status(
-        order_id=p.provider_order_id, request_id=p.provider_request_id
-    )
+    status = await gw.query_status(order_id=p.provider_order_id, request_id=p.provider_request_id)
     if status == "paid":
         await _apply_paid(db, p, {"query": "paid"})
     elif status == "failed":
@@ -552,9 +522,7 @@ async def get_payment(driver_id: uuid.UUID, payment_id: uuid.UUID) -> dict:
         p = (
             await db.execute(
                 select(DriverPayment)
-                .where(
-                    DriverPayment.id == payment_id, DriverPayment.driver_id == driver_id
-                )
+                .where(DriverPayment.id == payment_id, DriverPayment.driver_id == driver_id)
                 # Same lock as IPN/refund: a pull-refresh must not race an IPN
                 # into applying side effects twice (LOGIC-BE-010).
                 .with_for_update()
@@ -563,9 +531,7 @@ async def get_payment(driver_id: uuid.UUID, payment_id: uuid.UUID) -> dict:
         if p is None:
             raise not_found("payment", payment_id) from None
         await _refresh_from_gateway(db, p)
-        name = (
-            await db.scalar(select(TenantSite.name).where(TenantSite.id == p.site_id))
-        )
+        name = await db.scalar(select(TenantSite.name).where(TenantSite.id == p.site_id))
         return _payment_out(p, name)
 
 
@@ -575,9 +541,7 @@ async def cancel_payment(driver_id: uuid.UUID, payment_id: uuid.UUID) -> dict:
         p = (
             await db.execute(
                 select(DriverPayment)
-                .where(
-                    DriverPayment.id == payment_id, DriverPayment.driver_id == driver_id
-                )
+                .where(DriverPayment.id == payment_id, DriverPayment.driver_id == driver_id)
                 # Serialise with IPN: never overwrite 'paid' with 'cancelled'.
                 .with_for_update()
             )
@@ -666,19 +630,10 @@ async def list_tenant_payments(
         q = q.where(DriverPayment.kind == kind)
     if site_id:
         q = q.where(DriverPayment.site_id == site_id)
-    total = (
-        await db.scalar(select(func.count()).select_from(q.subquery()))
-    ) or 0
+    total = (await db.scalar(select(func.count()).select_from(q.subquery()))) or 0
     rows = (
-        (
-            await db.execute(
-                q.order_by(DriverPayment.created_at.desc())
-                .offset((page - 1) * limit)
-                .limit(limit)
-            )
-        )
-        .all()
-    )
+        await db.execute(q.order_by(DriverPayment.created_at.desc()).offset((page - 1) * limit).limit(limit))
+    ).all()
     items = [
         {
             "id": p.id,
@@ -743,9 +698,7 @@ async def refund_payment(db, tenant_id: uuid.UUID, payment_id: uuid.UUID) -> dic
     else:
         gw = _gateway_or_503()
         if not p.provider_trans_id:
-            raise conflict(
-                "Provider transaction id is unknown — refund via the MoMo console"
-            ) from None
+            raise conflict("Provider transaction id is unknown — refund via the MoMo console") from None
         try:
             await gw.refund(
                 order_id=p.provider_order_id,
@@ -764,9 +717,7 @@ async def refund_payment(db, tenant_id: uuid.UUID, payment_id: uuid.UUID) -> dic
         from app.services import membership_service
 
         m = (
-            await db.execute(
-                select(DriverMembership).where(DriverMembership.id == p.membership_id)
-            )
+            await db.execute(select(DriverMembership).where(DriverMembership.id == p.membership_id))
         ).scalar_one_or_none()
         if m is not None:
             if m.status == "active":
@@ -778,16 +729,13 @@ async def refund_payment(db, tenant_id: uuid.UUID, payment_id: uuid.UUID) -> dic
             m.admin_note = f"{m.admin_note}; {note}" if m.admin_note else note
     await db.flush()
     row = (
-        (
-            await db.execute(
-                select(DriverPayment, DriverUser, TenantSite)
-                .join(DriverUser, DriverUser.id == DriverPayment.driver_id)
-                .outerjoin(TenantSite, TenantSite.id == DriverPayment.site_id)
-                .where(DriverPayment.id == p.id)
-            )
+        await db.execute(
+            select(DriverPayment, DriverUser, TenantSite)
+            .join(DriverUser, DriverUser.id == DriverPayment.driver_id)
+            .outerjoin(TenantSite, TenantSite.id == DriverPayment.site_id)
+            .where(DriverPayment.id == p.id)
         )
-        .one()
-    )
+    ).one()
     p2, d, s = row
     return {
         **_payment_out(p2, s.name if s else None),
@@ -805,11 +753,7 @@ async def platform_refund_topup(db, payment_id: uuid.UUID) -> dict:
     spent below the top-up amount.
     """
     p = (
-        await db.execute(
-            select(DriverPayment)
-            .where(DriverPayment.id == payment_id)
-            .with_for_update()
-        )
+        await db.execute(select(DriverPayment).where(DriverPayment.id == payment_id).with_for_update())
     ).scalar_one_or_none()
     if p is None:
         raise not_found("payment", payment_id) from None
@@ -820,9 +764,7 @@ async def platform_refund_topup(db, payment_id: uuid.UUID) -> dict:
     if p.method != "momo":
         raise conflict("Only gateway-funded top-ups can be refunded") from None
     if not p.provider_trans_id:
-        raise conflict(
-            "Provider transaction id is unknown — refund via the MoMo console"
-        ) from None
+        raise conflict("Provider transaction id is unknown — refund via the MoMo console") from None
 
     # Lock wallet and verify full balance remains before touching the gateway.
     wallet = await wallet_service.get_or_create_wallet(db, p.driver_id)
@@ -842,7 +784,11 @@ async def platform_refund_topup(db, payment_id: uuid.UUID) -> dict:
         raise conflict(f"Refund rejected by provider: {exc}") from None
 
     await wallet_service.debit(
-        db, p.driver_id, p.amount_vnd, "refund_debit", p.id,
+        db,
+        p.driver_id,
+        p.amount_vnd,
+        "refund_debit",
+        p.id,
         "Top-up refund by platform admin",
     )
     p.status = "refunded"

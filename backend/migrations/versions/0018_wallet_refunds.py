@@ -28,13 +28,9 @@ depends_on: Sequence[str] | None = None
 
 def upgrade() -> None:
     with op.batch_alter_table("driver_payments") as batch:
-        batch.add_column(
-            sa.Column("method", sa.String(16), nullable=False, server_default="momo")
-        )
+        batch.add_column(sa.Column("method", sa.String(16), nullable=False, server_default="momo"))
         batch.add_column(sa.Column("refunded_at", sa.DateTime(timezone=True), nullable=True))
-        batch.create_check_constraint(
-            "ck_driver_payment_method", "method IN ('momo','wallet')"
-        )
+        batch.create_check_constraint("ck_driver_payment_method", "method IN ('momo','wallet')")
         # kind='topup' payments fund the wallet and have no tenant/site.
         batch.alter_column("tenant_id", existing_type=UUID(as_uuid=True), nullable=True)
         batch.alter_column("site_id", existing_type=UUID(as_uuid=True), nullable=True)
@@ -80,9 +76,7 @@ def upgrade() -> None:
         sa.Column("note", sa.String(255), nullable=False, server_default=""),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
-    op.create_index(
-        "ix_wallet_transactions_wallet", "wallet_transactions", ["wallet_id", "created_at"]
-    )
+    op.create_index("ix_wallet_transactions_wallet", "wallet_transactions", ["wallet_id", "created_at"])
 
 
 def downgrade() -> None:

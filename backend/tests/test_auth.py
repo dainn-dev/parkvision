@@ -303,6 +303,7 @@ async def test_access_token_amr_claim(client: AsyncClient, admin_engine, tenant)
     )
     assert claims["amr"] == ["pwd", "otp"]
 
+
 @pytest.mark.asyncio
 async def test_driver_account_locks_after_repeated_failures(client: AsyncClient):
     from tests.conftest import driver

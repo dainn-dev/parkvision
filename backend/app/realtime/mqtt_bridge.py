@@ -100,9 +100,7 @@ async def enqueue_heartbeat_ack(
     )
 
 
-async def handle_heartbeat(
-    tenant_id: str, site_id: str, gate_id: str, payload: dict, now: datetime
-) -> None:
+async def handle_heartbeat(tenant_id: str, site_id: str, gate_id: str, payload: dict, now: datetime) -> None:
     device_id = _uuid_or_none(payload.get("deviceId"))
     if device_id is None:
         log.warning("heartbeat with invalid device id on gate %s", gate_id)
@@ -199,7 +197,9 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
                 db, tenant_id=tid, site_id=uuid.UUID(site_id), gate_id=gid, payload=payload
             )
             if row is None:
-                log.warning("walk_in_entry %s dropped: session owned by another tenant/site", payload.get("sessionId"))
+                log.warning(
+                    "walk_in_entry %s dropped: session owned by another tenant/site", payload.get("sessionId")
+                )
                 return
             if is_new:
                 await record_access_event(
@@ -224,7 +224,9 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
                 db, tenant_id=tid, site_id=uuid.UUID(site_id), gate_id=gid, payload=payload
             )
             if row is None:
-                log.warning("walk_in_exit %s dropped: session owned by another tenant/site", payload.get("sessionId"))
+                log.warning(
+                    "walk_in_exit %s dropped: session owned by another tenant/site", payload.get("sessionId")
+                )
                 return
             if applied:
                 await record_access_event(

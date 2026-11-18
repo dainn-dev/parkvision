@@ -35,8 +35,9 @@ MFA_TOTP_SECRET = "JBSWY3DPEHPK3PXP"
 MFA_BACKUP_CODES = ["AAAA1111", "BBBB2222", "CCCC3333", "DDDD4444"]
 
 
-async def upsert_tenant_user(db: AsyncSession, tenant_id, email: str, password: str,
-                             full_name: str, role: str, mfa: bool = False) -> TenantUser:
+async def upsert_tenant_user(
+    db: AsyncSession, tenant_id, email: str, password: str, full_name: str, role: str, mfa: bool = False
+) -> TenantUser:
     user = (await db.execute(select(TenantUser).where(TenantUser.email == email))).scalar_one_or_none()
     if user is not None:
         print(f"exists : tenant user {email} (role={user.role})")
@@ -75,12 +76,13 @@ async def upsert_driver(db: AsyncSession, email: str, full_name: str) -> DriverU
     return driver
 
 
-async def upsert_vehicle(db: AsyncSession, driver_id, plate: str, label: str,
-                         vehicle_type: str = "car", primary: bool = False) -> DriverVehicle:
+async def upsert_vehicle(
+    db: AsyncSession, driver_id, plate: str, label: str, vehicle_type: str = "car", primary: bool = False
+) -> DriverVehicle:
     norm = normalize_plate(plate)
-    vehicle = (await db.execute(
-        select(DriverVehicle).where(DriverVehicle.plate_normalized == norm)
-    )).scalar_one_or_none()
+    vehicle = (
+        await db.execute(select(DriverVehicle).where(DriverVehicle.plate_normalized == norm))
+    ).scalar_one_or_none()
     if vehicle is not None:
         print(f"exists : vehicle {plate} (owner={vehicle.driver_id})")
         return vehicle
@@ -106,10 +108,12 @@ async def main() -> None:
         if tenant is None:
             raise SystemExit("demo tenant missing — run `python -m scripts.seed` first")
 
-        await upsert_tenant_user(db, tenant.id, "viewer@demo.example.com", "DemoViewer!123",
-                                 "QA Viewer", role="viewer")
-        await upsert_tenant_user(db, tenant.id, "mfa-admin@demo.example.com", "DemoMfa!123",
-                                 "QA MFA Admin", role="admin", mfa=True)
+        await upsert_tenant_user(
+            db, tenant.id, "viewer@demo.example.com", "DemoViewer!123", "QA Viewer", role="viewer"
+        )
+        await upsert_tenant_user(
+            db, tenant.id, "mfa-admin@demo.example.com", "DemoMfa!123", "QA MFA Admin", role="admin", mfa=True
+        )
 
         driver1 = await upsert_driver(db, "driver1@demo.example.com", "QA Driver One")
         driver2 = await upsert_driver(db, "driver2@demo.example.com", "QA Driver Two")
@@ -119,13 +123,15 @@ async def main() -> None:
         await upsert_vehicle(db, driver2.id, "29A-123.45", "QA second car")
 
         today = dt.date.today()
-        share = (await db.execute(
-            select(DriverVehicleShare).where(
-                DriverVehicleShare.vehicle_id == v1.id,
-                DriverVehicleShare.shared_with_id == driver2.id,
-                DriverVehicleShare.share_date == today,
+        share = (
+            await db.execute(
+                select(DriverVehicleShare).where(
+                    DriverVehicleShare.vehicle_id == v1.id,
+                    DriverVehicleShare.shared_with_id == driver2.id,
+                    DriverVehicleShare.share_date == today,
+                )
             )
-        )).scalar_one_or_none()
+        ).scalar_one_or_none()
         if share is None:
             db.add(DriverVehicleShare(vehicle_id=v1.id, shared_with_id=driver2.id, share_date=today))
             print(f"created: share of {v1.plate_number} to driver2 for {today}")

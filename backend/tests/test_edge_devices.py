@@ -157,9 +157,7 @@ async def test_register_without_site_fails_clearly_when_tenant_has_several_sites
     client: AsyncClient, tenant, site
 ):
     tid = tenant["tenant_id"]
-    second = await client.post(
-        f"/api/v1/tenants/{tid}/sites", json={"name": "Lot B"}, headers=csrf(client)
-    )
+    second = await client.post(f"/api/v1/tenants/{tid}/sites", json={"name": "Lot B"}, headers=csrf(client))
     assert second.status_code == 201, second.text
     res = await client.post(
         f"/api/v1/tenants/{tid}/devices", json={"name": "Edge GW-Ambiguous"}, headers=csrf(client)
@@ -307,19 +305,24 @@ async def test_heartbeat_persists_metrics_latency_firmware_and_timestamp(
 
     gate = await client.post(
         f"/api/v1/tenants/{tenant['tenant_id']}/gates",
-        json={"name": "Telemetry Gate", "siteId": site, "edgeDeviceId": device['id']},
+        json={"name": "Telemetry Gate", "siteId": site, "edgeDeviceId": device["id"]},
         headers=csrf(client),
     )
     assert gate.status_code == 201, gate.text
     payload = {
-        "type": "heartbeat", "deviceId": device["id"], "heartbeatId": str(uuid.uuid4()),
-        "firmwareVersion": "1.4.2", "cpuUsagePct": 42, "ramUsagePct": 53,
-        "storageUsagePct": 37, "latencyMs": 18,
+        "type": "heartbeat",
+        "deviceId": device["id"],
+        "heartbeatId": str(uuid.uuid4()),
+        "firmwareVersion": "1.4.2",
+        "cpuUsagePct": 42,
+        "ramUsagePct": 53,
+        "storageUsagePct": 37,
+        "latencyMs": 18,
     }
     await mqtt_bridge.handle_telemetry(str(tenant["tenant_id"]), site, gate.json()["id"], payload)
 
     async with platform_session() as db:
-        row = (await db.execute(select(EdgeDevice).where(EdgeDevice.id == uuid.UUID(device["id"]))))
+        row = await db.execute(select(EdgeDevice).where(EdgeDevice.id == uuid.UUID(device["id"])))
         row = row.scalar_one()
     assert row.status == "online"
     assert float(row.cpu_usage_pct) == 42
@@ -341,7 +344,7 @@ async def test_legacy_heartbeat_preserves_existing_latency_and_firmware(
     from app.realtime import mqtt_bridge
 
     async with platform_session() as db:
-        row = (await db.execute(select(EdgeDevice).where(EdgeDevice.id == uuid.UUID(device["id"]))))
+        row = await db.execute(select(EdgeDevice).where(EdgeDevice.id == uuid.UUID(device["id"])))
         row = row.scalar_one()
         row.latency_ms = 21
         row.firmware_version = "1.0.0"
@@ -349,16 +352,18 @@ async def test_legacy_heartbeat_preserves_existing_latency_and_firmware(
 
     gate = await client.post(
         f"/api/v1/tenants/{tenant['tenant_id']}/gates",
-        json={"name": "Legacy Gate", "siteId": site, "edgeDeviceId": device['id']},
+        json={"name": "Legacy Gate", "siteId": site, "edgeDeviceId": device["id"]},
         headers=csrf(client),
     )
     await mqtt_bridge.handle_telemetry(
-        str(tenant["tenant_id"]), site, gate.json()["id"],
+        str(tenant["tenant_id"]),
+        site,
+        gate.json()["id"],
         {"type": "heartbeat", "deviceId": device["id"], "cpuUsagePct": 44},
     )
 
     async with platform_session() as db:
-        row = (await db.execute(select(EdgeDevice).where(EdgeDevice.id == uuid.UUID(device["id"]))))
+        row = await db.execute(select(EdgeDevice).where(EdgeDevice.id == uuid.UUID(device["id"])))
         row = row.scalar_one()
     assert row.cpu_usage_pct == 44
     assert row.latency_ms == 21
@@ -375,17 +380,25 @@ async def test_invalid_heartbeat_metrics_are_not_persisted(client: AsyncClient, 
 
     gate = await client.post(
         f"/api/v1/tenants/{tenant['tenant_id']}/gates",
-        json={"name": "Invalid Gate", "siteId": site, "edgeDeviceId": device['id']},
+        json={"name": "Invalid Gate", "siteId": site, "edgeDeviceId": device["id"]},
         headers=csrf(client),
     )
     await mqtt_bridge.handle_telemetry(
-        str(tenant["tenant_id"]), site, gate.json()["id"],
-        {"type": "heartbeat", "deviceId": device["id"], "cpuUsagePct": -1,
-         "ramUsagePct": 101, "storageUsagePct": "not-a-number", "latencyMs": -5},
+        str(tenant["tenant_id"]),
+        site,
+        gate.json()["id"],
+        {
+            "type": "heartbeat",
+            "deviceId": device["id"],
+            "cpuUsagePct": -1,
+            "ramUsagePct": 101,
+            "storageUsagePct": "not-a-number",
+            "latencyMs": -5,
+        },
     )
 
     async with platform_session() as db:
-        row = (await db.execute(select(EdgeDevice).where(EdgeDevice.id == uuid.UUID(device["id"]))))
+        row = await db.execute(select(EdgeDevice).where(EdgeDevice.id == uuid.UUID(device["id"])))
         row = row.scalar_one()
     assert float(row.cpu_usage_pct) == 0
     assert float(row.ram_usage_pct) == 0
@@ -413,14 +426,23 @@ async def test_heartbeat_publishes_correlated_ack_and_ws_delta(
     monkeypatch.setattr(mqtt_bridge, "enqueue_heartbeat_ack", capture_ack)
     gate = await client.post(
         f"/api/v1/tenants/{tenant['tenant_id']}/gates",
-        json={"name": "ACK Gate", "siteId": site, "edgeDeviceId": device['id']},
+        json={"name": "ACK Gate", "siteId": site, "edgeDeviceId": device["id"]},
         headers=csrf(client),
     )
     heartbeat_id = str(uuid.uuid4())
     await mqtt_bridge.handle_telemetry(
-        str(tenant["tenant_id"]), site, gate.json()["id"],
-        {"type": "heartbeat", "deviceId": device["id"], "heartbeatId": heartbeat_id,
-         "cpuUsagePct": 42, "ramUsagePct": 53, "storageUsagePct": 37, "latencyMs": 18},
+        str(tenant["tenant_id"]),
+        site,
+        gate.json()["id"],
+        {
+            "type": "heartbeat",
+            "deviceId": device["id"],
+            "heartbeatId": heartbeat_id,
+            "cpuUsagePct": 42,
+            "ramUsagePct": 53,
+            "storageUsagePct": 37,
+            "latencyMs": 18,
+        },
     )
 
     assert queued == [(str(tenant["tenant_id"]), site, gate.json()["id"], device["id"], heartbeat_id)]

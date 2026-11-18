@@ -47,6 +47,7 @@ def test_site_profile_defaults():
 # ---------- Task 3: driver auth ----------
 
 import uuid as _uuid
+
 from tests.conftest import driver, login
 
 
@@ -78,9 +79,7 @@ async def test_driver_refresh_rotates_and_reuse_revokes(client):
         assert r2.status_code == 401
     finally:
         svc.REUSE_GRACE_SECONDS = 60
-    r3 = await client.post(
-        "/api/v1/driver/auth/refresh", json={"refreshToken": r1.json()["refreshToken"]}
-    )
+    r3 = await client.post("/api/v1/driver/auth/refresh", json={"refreshToken": r1.json()["refreshToken"]})
     assert r3.status_code == 401  # whole family revoked
 
 
@@ -97,9 +96,7 @@ async def test_driver_cannot_call_tenant_api(client, tenant):
 
 async def test_driver_login_wrong_password(client):
     d = await driver(client)
-    r = await client.post(
-        "/api/v1/driver/auth/login", json={"email": d["email"], "password": "WrongPass99"}
-    )
+    r = await client.post("/api/v1/driver/auth/login", json={"email": d["email"], "password": "WrongPass99"})
     assert r.status_code == 401
 
 
@@ -182,16 +179,12 @@ async def test_vehicle_crud_and_primary(client):
     ).json()
     lst = (await client.get("/api/v1/driver/vehicles", headers=d["headers"])).json()
     assert [v["isPrimary"] for v in lst] == [True, False] and lst[0]["id"] == v2["id"]
-    dup = await client.post(
-        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": "51a12345"}
-    )
+    dup = await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": "51a12345"})
     assert dup.status_code == 409
     assert (
         await client.delete(f"/api/v1/driver/vehicles/{v2['id']}", headers=d["headers"])
     ).status_code == 200
-    assert (await client.get("/api/v1/driver/vehicles", headers=d["headers"])).json()[0][
-        "isPrimary"
-    ] is True
+    assert (await client.get("/api/v1/driver/vehicles", headers=d["headers"])).json()[0]["isPrimary"] is True
 
 
 async def test_second_driver_cannot_register_same_plate(client):
@@ -257,9 +250,7 @@ async def test_same_driver_can_update_own_plate(client):
 async def test_vehicle_not_owned_404(client):
     a, b = await driver(client), await driver(client)
     v = (
-        await client.post(
-            "/api/v1/driver/vehicles", headers=a["headers"], json={"plateNumber": "30A-000.02"}
-        )
+        await client.post("/api/v1/driver/vehicles", headers=a["headers"], json={"plateNumber": "30A-000.02"})
     ).json()
     assert (
         await client.delete(f"/api/v1/driver/vehicles/{v['id']}", headers=b["headers"])
@@ -275,10 +266,13 @@ async def test_share_vehicle_roundtrip(client):
     """Owner shares vehicle with another driver for today; recipient
     appears in shares list; owner can revoke."""
     owner, recipient = await driver(client), await driver(client)
-    v = (await client.post(
-        "/api/v1/driver/vehicles", headers=owner["headers"],
-        json={"plateNumber": "51G-100.00"},
-    )).json()
+    v = (
+        await client.post(
+            "/api/v1/driver/vehicles",
+            headers=owner["headers"],
+            json={"plateNumber": "51G-100.00"},
+        )
+    ).json()
     today = _date.today().isoformat()
     resp = await client.post(
         f"/api/v1/driver/vehicles/{v['id']}/shares",
@@ -289,34 +283,48 @@ async def test_share_vehicle_roundtrip(client):
     share = resp.json()
     assert share["shareDate"] == today
 
-    lst = (await client.get(
-        f"/api/v1/driver/vehicles/{v['id']}/shares", headers=owner["headers"],
-    )).json()
+    lst = (
+        await client.get(
+            f"/api/v1/driver/vehicles/{v['id']}/shares",
+            headers=owner["headers"],
+        )
+    ).json()
     assert len(lst) == 1
 
-    shared = (await client.get(
-        "/api/v1/driver/shared-vehicles", headers=recipient["headers"],
-    )).json()
+    shared = (
+        await client.get(
+            "/api/v1/driver/shared-vehicles",
+            headers=recipient["headers"],
+        )
+    ).json()
     assert len(shared) == 1
     assert shared[0]["plateNumber"] == "51G-100.00"
 
-    assert (await client.delete(
-        f"/api/v1/driver/vehicles/{v['id']}/shares/{share['id']}",
-        headers=owner["headers"],
-    )).status_code == 200
+    assert (
+        await client.delete(
+            f"/api/v1/driver/vehicles/{v['id']}/shares/{share['id']}",
+            headers=owner["headers"],
+        )
+    ).status_code == 200
 
-    shared_after = (await client.get(
-        "/api/v1/driver/shared-vehicles", headers=recipient["headers"],
-    )).json()
+    shared_after = (
+        await client.get(
+            "/api/v1/driver/shared-vehicles",
+            headers=recipient["headers"],
+        )
+    ).json()
     assert shared_after == []
 
 
 async def test_share_past_date_rejected(client):
     owner, recipient = await driver(client), await driver(client)
-    v = (await client.post(
-        "/api/v1/driver/vehicles", headers=owner["headers"],
-        json={"plateNumber": "51G-200.00"},
-    )).json()
+    v = (
+        await client.post(
+            "/api/v1/driver/vehicles",
+            headers=owner["headers"],
+            json={"plateNumber": "51G-200.00"},
+        )
+    ).json()
     resp = await client.post(
         f"/api/v1/driver/vehicles/{v['id']}/shares",
         headers=owner["headers"],
@@ -328,10 +336,13 @@ async def test_share_past_date_rejected(client):
 async def test_non_owner_cannot_share(client):
     owner, stranger = await driver(client), await driver(client)
     recipient = await driver(client)
-    v = (await client.post(
-        "/api/v1/driver/vehicles", headers=owner["headers"],
-        json={"plateNumber": "51G-300.00"},
-    )).json()
+    v = (
+        await client.post(
+            "/api/v1/driver/vehicles",
+            headers=owner["headers"],
+            json={"plateNumber": "51G-300.00"},
+        )
+    ).json()
     resp = await client.post(
         f"/api/v1/driver/vehicles/{v['id']}/shares",
         headers=stranger["headers"],
@@ -342,10 +353,13 @@ async def test_non_owner_cannot_share(client):
 
 async def test_share_cascade_on_vehicle_delete(client):
     owner, recipient = await driver(client), await driver(client)
-    v = (await client.post(
-        "/api/v1/driver/vehicles", headers=owner["headers"],
-        json={"plateNumber": "51G-400.00"},
-    )).json()
+    v = (
+        await client.post(
+            "/api/v1/driver/vehicles",
+            headers=owner["headers"],
+            json={"plateNumber": "51G-400.00"},
+        )
+    ).json()
     today = _date.today().isoformat()
     await client.post(
         f"/api/v1/driver/vehicles/{v['id']}/shares",
@@ -353,9 +367,12 @@ async def test_share_cascade_on_vehicle_delete(client):
         json={"sharedWithEmail": recipient["email"], "shareDate": today},
     )
     await client.delete(f"/api/v1/driver/vehicles/{v['id']}", headers=owner["headers"])
-    shared = (await client.get(
-        "/api/v1/driver/shared-vehicles", headers=recipient["headers"],
-    )).json()
+    shared = (
+        await client.get(
+            "/api/v1/driver/shared-vehicles",
+            headers=recipient["headers"],
+        )
+    ).json()
     assert shared == []
 
 
@@ -382,9 +399,7 @@ async def level_zone_for_site(listed_site, admin_engine):
 
     Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
     async with Session() as db:
-        lv = ParkingLevel(
-            tenant_id=listed_site["tenant_id"], site_id=listed_site["id"], name="B1", code="B1"
-        )
+        lv = ParkingLevel(tenant_id=listed_site["tenant_id"], site_id=listed_site["id"], name="B1", code="B1")
         db.add(lv)
         await db.flush()
         db.add(
@@ -421,9 +436,7 @@ async def test_public_sites_without_coords_returns_all_listed(client, listed_sit
 async def test_public_sites_radius_filters_and_sorts(client, listed_site):
     # DB is session-scoped: earlier tests' listed sites may also be returned,
     # so assert membership + invariants rather than exact equality.
-    r = await client.get(
-        "/api/v1/public/sites", params={"lat": 10.7324, "lng": 106.7210, "radiusKm": 2}
-    )
+    r = await client.get("/api/v1/public/sites", params={"lat": 10.7324, "lng": 106.7210, "radiusKm": 2})
     assert r.status_code == 200
     body = r.json()
     ids = [s["id"] for s in body]
@@ -438,8 +451,9 @@ async def test_public_sites_radius_filters_and_sorts(client, listed_site):
 
 
 async def test_public_sites_hides_unlisted_and_inactive_tenant(client, listed_site, admin_engine):
-    from app.models import Tenant, TenantSite
     from sqlalchemy import update as sa_update
+
+    from app.models import Tenant, TenantSite
 
     Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -478,8 +492,9 @@ async def test_public_site_detail_has_levels(client, listed_site, level_zone_for
 
 
 async def test_public_site_detail_unlisted_404(client, listed_site, admin_engine):
-    from app.models import TenantSite
     from sqlalchemy import update as sa_update
+
+    from app.models import TenantSite
 
     Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
     async with Session() as db:
@@ -538,15 +553,9 @@ async def test_active_session_after_entry(client, listed_site, admin_engine):
     d = await driver(client)
     suffix = _uuid.uuid4().hex[:5].upper()
     plate = f"51A-{suffix}"
-    await client.post(
-        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate}
-    )
-    await access_event(
-        admin_engine, listed_site["tenant_id"], listed_site["id"], plate, "entry"
-    )
-    r = (
-        await client.get("/api/v1/driver/sessions/active", headers=d["headers"])
-    ).json()
+    await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate})
+    await access_event(admin_engine, listed_site["tenant_id"], listed_site["id"], plate, "entry")
+    r = (await client.get("/api/v1/driver/sessions/active", headers=d["headers"])).json()
     assert len(r) == 1
     assert r[0]["status"] == "PARKED"
     assert r[0]["siteId"] == str(listed_site["id"])
@@ -558,9 +567,7 @@ async def test_no_active_session_after_exit_and_history_has_pair(client, listed_
     # unique plate — access events persist across tests in a session and
     # session derivation keys on the normalized plate, not the driver
     d = await driver(client)
-    await client.post(
-        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": "51B-456.78"}
-    )
+    await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": "51B-456.78"})
     t0 = datetime.now(timezone.utc) - timedelta(hours=2)
     await access_event(
         admin_engine, listed_site["tenant_id"], listed_site["id"], "51B-456.78", "entry", at=t0
@@ -573,12 +580,8 @@ async def test_no_active_session_after_exit_and_history_has_pair(client, listed_
         "exit",
         at=t0 + timedelta(hours=1),
     )
-    assert (
-        await client.get("/api/v1/driver/sessions/active", headers=d["headers"])
-    ).json() == []
-    h = (
-        await client.get("/api/v1/driver/sessions/history", headers=d["headers"])
-    ).json()
+    assert (await client.get("/api/v1/driver/sessions/active", headers=d["headers"])).json() == []
+    h = (await client.get("/api/v1/driver/sessions/history", headers=d["headers"])).json()
     assert h["meta"]["total"] == 1
     assert h["data"][0]["status"] == "COMPLETED"
     assert h["data"][0]["durationSeconds"] == 3600
@@ -587,24 +590,18 @@ async def test_no_active_session_after_exit_and_history_has_pair(client, listed_
 @pytest.mark.asyncio
 async def test_denied_entry_is_not_a_session(client, listed_site, admin_engine):
     d = await driver(client)
-    await client.post(
-        "/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": "51A-999.99"}
-    )
+    await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": "51A-999.99"})
     await access_event(
         admin_engine, listed_site["tenant_id"], listed_site["id"], "51A99999", "entry", decision="deny"
     )
-    assert (
-        await client.get("/api/v1/driver/sessions/active", headers=d["headers"])
-    ).json() == []
+    assert (await client.get("/api/v1/driver/sessions/active", headers=d["headers"])).json() == []
 
 
 @pytest.mark.asyncio
 async def test_sessions_only_for_own_plates(client, listed_site, admin_engine):
     d = await driver(client)  # no vehicles
     await access_event(admin_engine, listed_site["tenant_id"], listed_site["id"], "51A12345", "entry")
-    assert (
-        await client.get("/api/v1/driver/sessions/active", headers=d["headers"])
-    ).json() == []
+    assert (await client.get("/api/v1/driver/sessions/active", headers=d["headers"])).json() == []
 
 
 # ---------- Session visibility for shared plates (GAP-BE-002) ----------
@@ -614,22 +611,21 @@ async def test_sessions_only_for_own_plates(client, listed_site, admin_engine):
 async def test_shared_driver_sees_session(client, listed_site, admin_engine):
     """Recipient of a share for today sees owner's active session."""
     owner, recipient = await driver(client), await driver(client)
-    v = (await client.post(
-        "/api/v1/driver/vehicles", headers=owner["headers"],
-        json={"plateNumber": "51G-500.00"},
-    )).json()
+    v = (
+        await client.post(
+            "/api/v1/driver/vehicles",
+            headers=owner["headers"],
+            json={"plateNumber": "51G-500.00"},
+        )
+    ).json()
     today = _date.today().isoformat()
     await client.post(
         f"/api/v1/driver/vehicles/{v['id']}/shares",
         headers=owner["headers"],
         json={"sharedWithEmail": recipient["email"], "shareDate": today},
     )
-    await access_event(
-        admin_engine, listed_site["tenant_id"], listed_site["id"], "51G50000", "entry"
-    )
-    sessions = (
-        await client.get("/api/v1/driver/sessions/active", headers=recipient["headers"])
-    ).json()
+    await access_event(admin_engine, listed_site["tenant_id"], listed_site["id"], "51G50000", "entry")
+    sessions = (await client.get("/api/v1/driver/sessions/active", headers=recipient["headers"])).json()
     assert len(sessions) == 1
     assert sessions[0]["plateNumber"] == "51G50000"
 
@@ -639,15 +635,12 @@ async def test_unshared_driver_cannot_see_session(client, listed_site, admin_eng
     """Driver without a share for today cannot see the session."""
     owner, stranger = await driver(client), await driver(client)
     await client.post(
-        "/api/v1/driver/vehicles", headers=owner["headers"],
+        "/api/v1/driver/vehicles",
+        headers=owner["headers"],
         json={"plateNumber": "51G-600.00"},
     )
-    await access_event(
-        admin_engine, listed_site["tenant_id"], listed_site["id"], "51G60000", "entry"
-    )
-    sessions = (
-        await client.get("/api/v1/driver/sessions/active", headers=stranger["headers"])
-    ).json()
+    await access_event(admin_engine, listed_site["tenant_id"], listed_site["id"], "51G60000", "entry")
+    sessions = (await client.get("/api/v1/driver/sessions/active", headers=stranger["headers"])).json()
     assert sessions == []
 
 
@@ -690,9 +683,7 @@ def _plate_gateway(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_shared_driver_denied_session_day_after_share_date(
-    client, listed_site, admin_engine
-):
+async def test_shared_driver_denied_session_day_after_share_date(client, listed_site, admin_engine):
     """PLT-TC-005: A share for yesterday no longer grants session visibility.
 
     We create a share for today, verify visibility, then backdate the share
@@ -717,13 +708,9 @@ async def test_shared_driver_denied_session_day_after_share_date(
     assert share_resp.status_code == 201
     share_id = share_resp.json()["id"]
 
-    await access_event(
-        admin_engine, listed_site["tenant_id"], listed_site["id"], "52B00500", "entry"
-    )
+    await access_event(admin_engine, listed_site["tenant_id"], listed_site["id"], "52B00500", "entry")
     # Confirm visible on share_date
-    sessions = (
-        await client.get("/api/v1/driver/sessions/active", headers=recipient["headers"])
-    ).json()
+    sessions = (await client.get("/api/v1/driver/sessions/active", headers=recipient["headers"])).json()
     assert any(s["plateNumber"] == "52B00500" for s in sessions)
 
     # Backdate the share to two days ago — beyond the overnight visibility
@@ -738,9 +725,7 @@ async def test_shared_driver_denied_session_day_after_share_date(
         )
         await db.commit()
 
-    sessions_after = (
-        await client.get("/api/v1/driver/sessions/active", headers=recipient["headers"])
-    ).json()
+    sessions_after = (await client.get("/api/v1/driver/sessions/active", headers=recipient["headers"])).json()
     assert not any(s["plateNumber"] == "52B00500" for s in sessions_after)
 
 
@@ -847,7 +832,6 @@ def test_migration_dedup_sql_keeps_earliest_created_at():
     This is a static analysis of the migration source code — verifying the
     SQL is correct without requiring a database with pre-migration data.
     """
-    import importlib.util
     import os
 
     migration_path = os.path.join(
@@ -888,14 +872,10 @@ async def test_non_owner_cannot_read_session_or_create_payment(
         headers=owner["headers"],
         json={"plateNumber": plate},
     )
-    entry = await access_event(
-        admin_engine, listed_site["tenant_id"], listed_site["id"], plate, "entry"
-    )
+    entry = await access_event(admin_engine, listed_site["tenant_id"], listed_site["id"], plate, "entry")
 
     # Stranger cannot see owner's session
-    sessions = (
-        await client.get("/api/v1/driver/sessions/active", headers=stranger["headers"])
-    ).json()
+    sessions = (await client.get("/api/v1/driver/sessions/active", headers=stranger["headers"])).json()
     assert not any(s["plateNumber"] == "52B00900" for s in sessions)
 
     # Stranger cannot create payment for owner's session
@@ -973,11 +953,9 @@ async def test_shared_entitlement_consistent_across_rest_payment_ws(
 
     After backdating the share (simulating expiry), all three are denied.
     """
-    from app.models import DriverVehicleShare
-    from app.services.driver_service import plates_for_driver
-
     # Set up pricing so session payments work
-    from app.models import TenantSite
+    from app.models import DriverVehicleShare, TenantSite
+    from app.services.driver_service import plates_for_driver
 
     Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
     async with Session() as db:
@@ -1018,17 +996,11 @@ async def test_shared_entitlement_consistent_across_rest_payment_ws(
     # --- With valid share ---
 
     # 1. REST: shared driver sees session
-    sessions = (
-        await client.get(
-            "/api/v1/driver/sessions/active", headers=shared_driver["headers"]
-        )
-    ).json()
+    sessions = (await client.get("/api/v1/driver/sessions/active", headers=shared_driver["headers"])).json()
     assert any(s["plateNumber"] == plate for s in sessions)
 
     # 2. WS: plate in plates_for_driver
-    me = (
-        await client.get("/api/v1/driver/auth/me", headers=shared_driver["headers"])
-    ).json()
+    me = (await client.get("/api/v1/driver/auth/me", headers=shared_driver["headers"])).json()
     shared_driver_id = _uuid.UUID(me["id"])
     plates = await plates_for_driver(shared_driver_id)
     assert "52B01000" in plates
@@ -1053,9 +1025,7 @@ async def test_shared_entitlement_consistent_across_rest_payment_ws(
 
     # 1. REST: session no longer visible
     sessions_after = (
-        await client.get(
-            "/api/v1/driver/sessions/active", headers=shared_driver["headers"]
-        )
+        await client.get("/api/v1/driver/sessions/active", headers=shared_driver["headers"])
     ).json()
     assert not any(s["plateNumber"] == "52B01000" for s in sessions_after)
 

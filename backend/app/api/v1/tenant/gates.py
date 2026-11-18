@@ -90,9 +90,7 @@ async def _require_site(db: AsyncSession, tenant_id: uuid.UUID, site_id: uuid.UU
         raise not_found("site", site_id)
 
 
-async def _resolve_site_id(
-    db: AsyncSession, tenant_id: uuid.UUID, site_id: uuid.UUID | None
-) -> uuid.UUID:
+async def _resolve_site_id(db: AsyncSession, tenant_id: uuid.UUID, site_id: uuid.UUID | None) -> uuid.UUID:
     """The site a new device belongs to.
 
     A tenant is one site, so callers normally omit `site_id` and get that site.
@@ -145,10 +143,10 @@ async def setup_edge_client(
             raise not_found("site", body.site_id)
     else:
         site_rows = (
-            await db.execute(
-                select(TenantSite).where(TenantSite.tenant_id == ctx.tenant_id).limit(2)
-            )
-        ).scalars().all()
+            (await db.execute(select(TenantSite).where(TenantSite.tenant_id == ctx.tenant_id).limit(2)))
+            .scalars()
+            .all()
+        )
         if len(site_rows) > 1:
             raise ApiError(status.HTTP_400_BAD_REQUEST, "site_required", "Specify siteId for this tenant")
         if site_rows:
@@ -449,20 +447,23 @@ async def _stale_token_device_ids(db: AsyncSession, tenant_id: uuid.UUID) -> set
     """Device IDs offline >30 days with active (unrevoked) API credentials."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=30)
     rows = (
-        await db.execute(
-            select(EdgeDevice.id)
-            .join(
-                ApiCredential,
-                (ApiCredential.edge_device_id == EdgeDevice.id)
-                & (ApiCredential.revoked_at.is_(None)),
-            )
-            .where(
-                EdgeDevice.tenant_id == tenant_id,
-                EdgeDevice.status == "offline",
-                EdgeDevice.last_heartbeat_at < cutoff,
+        (
+            await db.execute(
+                select(EdgeDevice.id)
+                .join(
+                    ApiCredential,
+                    (ApiCredential.edge_device_id == EdgeDevice.id) & (ApiCredential.revoked_at.is_(None)),
+                )
+                .where(
+                    EdgeDevice.tenant_id == tenant_id,
+                    EdgeDevice.status == "offline",
+                    EdgeDevice.last_heartbeat_at < cutoff,
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return set(rows)
 
 
