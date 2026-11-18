@@ -1,0 +1,59 @@
+name: edge-client-ci
+
+on:
+  push:
+    paths:
+      - "edge-client/**"
+      # cargo tests pin edge behaviour to these shared fixtures
+      - "tests/fixtures/**"
+      - "backend/tests/fixtures/pricing_vectors.json"
+      - ".github/workflows/edge-client-ci.yml"
+  pull_request:
+    paths:
+      - "edge-client/**"
+      - "tests/fixtures/**"
+      - "backend/tests/fixtures/pricing_vectors.json"
+      - ".github/workflows/edge-client-ci.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev \
+            libjavascriptcoregtk-4.1-dev libsoup-3.0-dev \
+            libayatana-appindicator3-dev librsvg2-dev libudev-dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: edge-client/package-lock.json
+
+      - name: Install dependencies
+        working-directory: edge-client
+        run: npm ci
+
+      - name: Typecheck (tsc --noEmit)
+        working-directory: edge-client
+        run: npm run lint
+
+      # tauri::generate_context! needs ../dist at compile time (gitignored)
+      - name: Build frontend
+        working-directory: edge-client
+        run: npm run build
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: edge-client/src-tauri
+
+      - name: cargo test
+        working-directory: edge-client/src-tauri
+        run: cargo test

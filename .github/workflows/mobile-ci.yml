@@ -1,0 +1,35 @@
+name: mobile-ci
+
+on:
+  push:
+    paths: ["mobile/**", ".github/workflows/mobile-ci.yml"]
+  pull_request:
+    paths: ["mobile/**", ".github/workflows/mobile-ci.yml"]
+
+jobs:
+  lint-test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Typecheck (tsc --noEmit)
+        working-directory: mobile
+        run: npm run lint
+
+      - name: Unit tests (vitest)
+        working-directory: mobile
+        run: npm test
+
+      - name: Build (vite)
+        working-directory: mobile
+        run: npm run build
