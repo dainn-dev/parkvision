@@ -44,7 +44,7 @@ Backend có hook EMQX **`POST /api/v1/edge/mqtt-auth`**:
 - Nhánh có password xác thực API credential qua `authenticate_api_key`: kiểm tra key, trạng thái active, thu hồi/hết hạn và yêu cầu credential gắn edge device.
 - Username phải bằng `device.mqtt_client_id`, hoặc `edge-<device UUID>` khi chưa đặt client ID.
 - Nhánh authorization không có password tìm device từ username và credential active/chưa bị thu hồi.
-- Nếu request hook có `topic`, hook chỉ cho qua prefix **`tenants/<credential.tenant_id>/`**. Đây là kiểm tra tenant prefix, không phải ACL riêng từng site/camera hay kiểm tra quyền sở hữu camera của device. Hook hiện không tách chính sách theo `action` publish/subscribe và không áp kiểm tra scope `edge:ingest` như route presign REST.
+- Nếu request hook có `topic`, hook chỉ cho qua prefix **`tenants/<tenant>/sites/<device.site_id>/`** của chính device (ACL theo site, `edge.py::mqtt_auth`); device đã decommission bị từ chối. Hook không tách chính sách theo `action` publish/subscribe và không áp kiểm tra scope `edge:ingest` như route presign REST.
 
 Phải cấu hình EMQX thực sự gọi hook authn/authz để áp chính sách này. Không suy ra broker đang triển khai đã bật hook chỉ vì backend có endpoint; cũng không suy ra `handle_detection()` là endpoint công khai không có lớp xác thực. Auth broker, kiểm tra handler, quyền REST và quyền WS là các lớp khác nhau.
 

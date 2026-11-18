@@ -60,13 +60,15 @@ Key boundaries — don't blur these when making changes:
    contracts** (`docs/mqtt-camera-detection.md` vs. the gate telemetry topic
    in `docs/edge-client.md`). The Python worker does not publish the
    monitor-camera contract.
-7. **Known gap (GAP-PAY-002, wider than "offline"):** the edge decides access
-   only from its local whitelist/rules (`access.rs::decide_access`) and has
-   no payment input; the backend's `paid_exit` only re-decides the *recorded*
-   event and nothing sends an open command. So a paid session never opens an
-   edge-controlled barrier, online or offline — staff must `manual_open` (or
-   send a gate command while the edge is connected). Product decision pending
-   (`docs/backend.md` §17).
+7. **Paid exit at edge gates (GAP-PAY-002/003):** when a session payment
+   becomes `paid`, the backend pushes a `paid_exit_grant` (sessionId,
+   paymentId, plate, `expiresAt`) to every gate of the site over the command
+   topic; the edge stores it in SQLite (`exit_grant.rs`) and `decide_access`
+   allows that plate's exit **once** before expiry, never over a blacklist.
+   Exit telemetry carries `edgeDecision`/`edgeReason`/`paidExitPaymentId`, and
+   the backend judges grace by the edge event time. Still a gap: if the edge is
+   offline **when the driver pays**, the grant never arrives — staff must
+   `manual_open`.
 
 ## Verification commands
 
@@ -99,7 +101,7 @@ cd frontend && npm run lint   # tsc --noEmit, no ESLint config
 cd frontend && npm run build
 cd frontend && npm test   # vitest
 ```
-Known baseline: `src/lib/__tests__/theme.test.ts` fails 6 tests on Windows ("The URL must be of scheme file", from `new URL(..., import.meta.url)` under jsdom); pre-existing and unrelated.
+`src/lib/__tests__/theme.test.ts` reads `index.html` via `process.cwd()` (vitest runs from `frontend/`); `import.meta.url` is not a `file:` URL under jsdom.
 
 **Public site routes** (react-router, `frontend/`): `/`, `/download`, `/privacy`, `/terms`, `/sla`, `/login`, `/register`, `/activate`, `/reset-password`, `/find-my-car`; an unknown path renders the landing. The authenticated workspace is not routed: after sign-in the URL is replaced with `/` (`navigate('/', { replace: true })`) and the workspace renders there, except during a platform admin's landing preview, where the public routes stay navigable. `activate`, `reset-password` and `find-my-car` read `token`, `tenant` and `plate` from the router location.
 
@@ -283,8 +285,8 @@ lose their binding, but **existing gates keep their local `barrier` block**.
 401/403 during the periodic sync triggers deprovision (config wiped, runtime
 torn down); deprovision deletes `edge-config.json` and the kiosk lock
 (`edge-lock.json`), but does **not** delete `edge.db`, `captures/` or
-`camera-workers/` — re-activating for another tenant without a manual wipe
-carries the old tenant's data over (see `docs/edge-client.md` §3.4).
+`camera-workers/`. `edge.db` records `bound_tenant_id`; activating for a
+different tenant wipes tenant data first (`tenant_binding.rs`, `docs/edge-client.md` §3.4).
 
 **Offline behavior:** SQLite outbox caps at 10,000 rows (oldest dropped past
 that). The 60-second REST sync loop is gated on MQTT being connected — REST

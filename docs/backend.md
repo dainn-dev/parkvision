@@ -734,30 +734,41 @@ Không thấy stub trả thành công giả cho payment trong service: gateway k
 
 ## 17. Quyết định sản phẩm còn mở (Open product decisions)
 
+> **Đã chốt và triển khai (2026-11-18, nhánh `fix/qa-criticals`).** Các mục bên dưới giữ phần "Hiện tại" như ghi chép trước quyết định; hành vi hiện hành theo bảng này.
+>
+> | # | Quyết định | Triển khai |
+> |---|---|---|
+> | 1 | (a)+(d): không tự refund; hàng đợi "cần xử lý" cho operator; membership có payment `paid` không bị auto-cancel 7 ngày | Feed tenant có `activationError`, `latePayment`, `amountMismatch`, `refundAttemptError`, `needsAttention`, lọc `?attention=true`; `membership_service` bỏ qua membership đã trả tiền khi auto-cancel; kích hoạt tay chuyển `activation_error` → `activation_error_resolved` |
+> | 2 | (c) có cờ: IPN/query thành công tới payment `cancelled`/`expired`/`failed` không áp side effect, lưu `raw_payload.late_ipn`, vào hàng đợi; đóng bằng "đánh dấu đã hoàn ngoài hệ thống" | Cron reconcile query thêm payment hủy/hết hạn trong `PAYMENT_LATE_QUERY_WINDOW_MINUTES` (mặc định 120); `sessionId` chuẩn hóa `str(uuid.UUID(x))`; số tiền IPN/query khác `amount_vnd` → không `paid`, lưu `amount_mismatch` |
+> | 3 | (c) dạng push: khi payment session `paid`, backend gửi `paid_exit_grant` tới mọi cổng của site; edge lưu SQLite và tự cho xe ra **một lần** trước `expiresAt`, kể cả khi mất mạng sau lúc trả | `payment_service._apply_paid` → `enqueue_site_signal`; edge `exit_grant.rs`, `access.rs`. Frame telemetry mang `edgeDecision`/`edgeReason`/`paidExitPaymentId`; backend chấm grace theo giờ sự kiện ở edge và chấp nhận grant edge đã dùng. Chưa có: edge offline **tại thời điểm trả tiền** vẫn phải mở tay |
+> | 4 | (a) trả bổ sung: hết grace mà xe chưa ra → payment mới = phí (vào → bây giờ) − tổng đã trả; nếu ≤ 0 thì làm mới grace và gửi lại grant | `create_payment` (session) |
+> | 5 | (b): chủ xe chỉ thấy lượt vào sau thời điểm khai xe; người được share chỉ thấy lượt có ngày vào (giờ site) = `share_date` | `driver_service.plate_grants_for_driver`, `driver_session_service`; `_resolve_session` chặn trả tiền cho lượt trước khi khai xe |
+> | — | Grace phí (miễn phí `graceMinutes`, quá thì tính toàn bộ thời lượng) | Giữ nguyên (thông lệ; công thức gắn với `pricing.rs` + `pricing_vectors.json`) |
+
 Các mục dưới đây mô tả **hành vi code hiện tại** cùng các lựa chọn cụ thể; chưa lựa chọn nào được chốt. Khi chốt, cập nhật code, test và mục tương ứng ở trên.
 
-1. **[Decision needed] Tiền đã nhận nhưng membership không kích hoạt (GAP-PAY-001, §10.2).** Hiện tại: payment giữ `paid`, membership giữ `pending` có `admin_note`, không refund tự động, không thông báo, không SLA; sau 7 ngày membership bị auto-cancel. Lựa chọn:
+1. **[Đã quyết – xem bảng] Tiền đã nhận nhưng membership không kích hoạt (GAP-PAY-001, §10.2).** Hiện tại: payment giữ `paid`, membership giữ `pending` có `admin_note`, không refund tự động, không thông báo, không SLA; sau 7 ngày membership bị auto-cancel. Lựa chọn:
    - (a) Giữ xử lý thủ công, nhưng định nghĩa owner + SLA và thêm hàng đợi/bộ lọc cho operator (ví dụ hiện `activation_error` trong feed payment tenant).
    - (b) Tự refund toàn phần khi activate thất bại (MoMo `/refund` hoặc credit ví).
    - (c) Tự credit số tiền vào ví driver thay cho refund về nguồn.
    - (d) Loại membership có payment `paid` khỏi auto-cancel 7 ngày, hoặc refund khi auto-cancel.
    - Kèm theo: có thông báo driver hay không, và qua kênh nào.
-2. **[Decision needed] Payment trả sau khi đã cancel/expire và các race còn lại (GAP-PAY-002, §10.1–10.2).** Hiện tại: IPN tới payment terminal bị bỏ qua; cron reconcile không khóa row; tra cứu trùng dùng chuỗi `sessionId` thô. Lựa chọn:
+2. **[Đã quyết – xem bảng] Payment trả sau khi đã cancel/expire và các race còn lại (GAP-PAY-002, §10.1–10.2).** Hiện tại: IPN tới payment terminal bị bỏ qua; cron reconcile không khóa row; tra cứu trùng dùng chuỗi `sessionId` thô. Lựa chọn:
    - (a) Ghi nhận IPN thành công trên payment `cancelled`/`expired` như `paid` (khi reference chưa có payment paid khác), ngược lại đánh dấu cần refund.
    - (b) Gọi API hủy/đóng đơn của MoMo khi cancel/expire để chặn trả tiền muộn.
    - (c) Chỉ đối soát thủ công định kỳ với báo cáo MoMo (hành vi hiện tại, cần quy trình).
    - Đi kèm, không phải lựa chọn sản phẩm mà là sửa kỹ thuật cần xếp lịch: chuẩn hóa `sessionId` về UUID, cân nhắc partial unique index `paid` theo reference.
-3. **[Decision needed] Paid-exit tại cổng edge (GAP-PAY-003; CLAUDE.md: GAP-PAY-002, §10.3).** Hiện tại: payment session không bao giờ tự mở barrier do edge-client điều khiển, online hay offline; lối ra là `manual_open` tại kiosk hoặc command từ dashboard. Lựa chọn:
+3. **[Đã quyết – xem bảng] Paid-exit tại cổng edge (GAP-PAY-003; CLAUDE.md: GAP-PAY-002, §10.3).** Hiện tại: payment session không bao giờ tự mở barrier do edge-client điều khiển, online hay offline; lối ra là `manual_open` tại kiosk hoặc command từ dashboard. Lựa chọn:
    - (a) Tuyên bố paid-exit qua app là ngoài phạm vi cho cổng edge; chỉ dùng thu phí walk-in tại edge và mở thủ công.
    - (b) Backend phát command mở cổng khi exit được ghi `paid_exit` (chỉ khi online; cần xử lý HTTP 202 ≠ barrier đã mở).
    - (c) Đồng bộ grant paid-exit xuống SQLite edge (như whitelist) để `access.rs::decide_access` dùng được cả khi offline; cần quy tắc hết hạn và chống dùng lại khi đồng bộ trễ.
    - (d) Edge hỏi online backend trước khi deny exit (tương tự tra cứu walk-in), fallback mở thủ công khi offline.
    - Kèm theo: quy tắc bồi hoàn/khiếu nại khi khách đã trả tiền nhưng bị giữ tại cổng, và việc backend ghi `allow`/`paid_exit` trong khi barrier không mở.
-4. **[Decision needed] Hết grace paid-exit (§10.3).** Hiện tại: grace 15 phút tính từ `paid_at`; quá hạn thì bị deny và không trả thêm được cho cùng session. Lựa chọn:
+4. **[Đã quyết – xem bảng] Hết grace paid-exit (§10.3).** Hiện tại: grace 15 phút tính từ `paid_at`; quá hạn thì bị deny và không trả thêm được cho cùng session. Lựa chọn:
    - (a) Cho phép tạo payment bổ sung cho phần phí phát sinh sau thời điểm chốt.
    - (b) Tính grace từ thời điểm khác (ví dụ từ lần trả tiền gần nhất cộng thời gian di chuyển tối đa theo site) hoặc nới grace theo site.
    - (c) Giữ cliff, nhưng ghi rõ cho driver trên app và quy trình mở thủ công cho nhân viên.
-5. **[Decision needed] Sở hữu biển số và quyền riêng tư (GAP-AUTH-001, §5, §7.2).** Hiện tại: người khai đầu tiên sở hữu, không xác minh, không quy trình tranh chấp; chủ xe thấy cả lịch sử trước khi khai; người được share thấy toàn bộ lịch sử biển số trong ngày share/hôm sau; public locate lộ tầng/zone cho ai biết biển số. Lựa chọn:
+5. **[Đã quyết – xem bảng] Sở hữu biển số và quyền riêng tư (GAP-AUTH-001, §5, §7.2).** Hiện tại: người khai đầu tiên sở hữu, không xác minh, không quy trình tranh chấp; chủ xe thấy cả lịch sử trước khi khai; người được share thấy toàn bộ lịch sử biển số trong ngày share/hôm sau; public locate lộ tầng/zone cho ai biết biển số. Lựa chọn:
    - (a) Xác minh sở hữu trước khi lộ dữ liệu (ví dụ đối chiếu biển số với lần vào/ra có thanh toán, OTP qua tenant, hoặc giấy tờ do tenant duyệt).
    - (b) Chỉ trả phiên có entry sau thời điểm driver khai xe; chỉ trả phiên của đúng `share_date` cho người được share.
    - (c) Bỏ/thu hẹp ảnh entry ký sẵn và vị trí zone trong API driver cho tới khi biển số được xác minh.

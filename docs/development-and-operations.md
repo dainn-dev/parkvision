@@ -208,7 +208,7 @@ Kiểm tra `/ws` upgrade/proxy, đúng tenant/actor, token URL theo client và R
 - Sao lưu PostgreSQL/S3, role/secret và cấu hình edge; diễn tập restore trên môi trường cách ly theo [runbook](RUNBOOK_BACKUP_RESTORE.md).
 - Nghiệm thu relay, sensor, emergency procedure và mất mạng; phần mềm FSM không thay thế safety interlock vật lý.
 - Xác minh model, tài nguyên CPU/GPU, disk quota/queue/captures và điều kiện chiếu sáng/camera thật.
-- Payment: đạt tiêu chí P1–P11 ở [§8.2](#82-thanh-toán-tiêu-chí-đạt-trước-khi-dùng-tiền-thật) trên MoMo sandbox trước tiền thật, và có quyết định cho các mục `[Decision needed]` ở §8.3.
+- Payment: đạt tiêu chí P1–P11 ở [§8.2](#82-thanh-toán-tiêu-chí-đạt-trước-khi-dùng-tiền-thật) trên MoMo sandbox trước tiền thật, và có quyết định cho các mục `[Đã quyết – xem bảng]` ở §8.3.
 - Khi khách đã trả session payment (`paid_exit`), barrier **không tự mở** — kể cả khi edge online (§8.2 P11) — vì `decide_access` trên edge không biết về payment; khi edge mất mạng (GAP-PAY-002) càng không có đường nào khác. Lối thoát là lệnh mở cổng thủ công (`manual_open` trên kiosk hoặc lệnh cổng từ dashboard); cần đào tạo nhân viên vận hành quy trình này cho tới khi có quyết định D-PAY-3.
 - Bổ sung giám sát theo body readiness, bridge/worker/edge heartbeat, outbox/queue, disk, lỗi ảnh và command timeout.
 
@@ -293,14 +293,20 @@ Test liên quan: [`test_payments_api.py`](../backend/tests/test_payments_api.py)
 
 ### 8.3. Quyết định sản phẩm còn mở
 
+> **Đã chốt (2026-11-18, nhánh `fix/qa-criticals`):**
+> - **D-MQTT-2 → (b) theo site:** device chỉ dùng topic `tenants/{t}/sites/{device.site_id}/…`; device decommission bị từ chối (`edge.py::mqtt_auth`).
+> - **D-MQTT-3 → (a):** TLS kết thúc ở reverse proxy, chỉ `wss://…/mqtt`, đóng 1883 khỏi Internet. Đây là cấu hình triển khai, **chưa** áp trong compose của repo.
+> - **D-MQTT-4 → (b):** revoke token / decommission / xóa device gọi `DELETE /api/v5/clients/{clientid}` của EMQX (`app/services/emqx_admin.py`), cần `EMQX_API_URL`/`EMQX_API_KEY`/`EMQX_API_SECRET`; không cấu hình thì bỏ qua.
+> - **D-PAY-1 → (c)**, **D-PAY-2 → (a)**, **D-PAY-3 → (b)** (push grant xuống edge), **D-PAY-4 → (a)**, **D-PAY-5 → (b)**: xem `backend.md` §17. PG5: lỗi mạng khi gọi `/refund` → 502 `refund_provider_error`, lưu `raw_payload.refund_attempt_error`.
+
 - ~~D-MQTT-1 (G1)~~ — đã sửa trong mã, không còn là quyết định mở.
-- `[Decision needed]` **D-MQTT-2 — độ hạt ACL (G2):** (a) giữ prefix tenant, chấp nhận mọi device trong tenant tin nhau; (b) theo device: chỉ `tenants/{t}/sites/{s}/gates/{g}/…` của gate gắn với device, publish `telemetry`/`incident`, subscribe `command`; (c) như (b) cộng `cameras/{c}/detection` của camera gắn với device.
-- `[Decision needed]` **D-MQTT-3 — transport:** (a) TLS một chiều kết thúc ở reverse proxy, chỉ `wss://…/mqtt`, đóng 1883 khỏi Internet; (b) listener TLS 8883 trên EMQX với cert server; (c) mTLS cert riêng mỗi device (cần PKI và hỗ trợ client cert trong edge — hiện chưa có).
-- `[Decision needed]` **D-MQTT-4 — revoke (G3):** (a) chấp nhận phiên còn mở tới khi authz deny; (b) API gọi REST EMQX kick client khi revoke/decommission.
-- `[Decision needed]` **D-PAY-1 — tiền về muộn (PG1):** (a) chấp nhận IPN thành công cho payment `expired`/`cancelled` và áp dụng side effect; (b) lưu payload + tự refund; (c) lưu payload + cờ đối soát để refund tay.
-- `[Decision needed]` **D-PAY-2 — đối chiếu amount (PG2):** (a) từ chối/gắn cờ khi `amount` của IPN/query khác `amount_vnd`; (b) tin chữ ký MoMo, không kiểm.
-- `[Decision needed]` **D-PAY-3 — paid-exit tới barrier (P11, PG6):** (a) backend phát lệnh `open` tới cổng ra khi ghi `paid_exit`; (b) đồng bộ payment grant xuống SQLite edge (cũng giảm GAP-PAY-002); (c) giữ quy trình nhân viên mở tay và ghi vào SOP.
-- `[Decision needed]` **D-PAY-4 — refund payment không có `transId` (PG3):** (a) lưu `transId` từ response `/query`; (b) giữ quy trình refund trên console.
-- `[Decision needed]` **D-PAY-5 — activate lỗi sau khi thu tiền (PG4):** (a) tự refund; (b) nhân viên xử lý theo cờ trong thời hạn cam kết.
+- `[Đã quyết – xem bảng]` **D-MQTT-2 — độ hạt ACL (G2):** (a) giữ prefix tenant, chấp nhận mọi device trong tenant tin nhau; (b) theo device: chỉ `tenants/{t}/sites/{s}/gates/{g}/…` của gate gắn với device, publish `telemetry`/`incident`, subscribe `command`; (c) như (b) cộng `cameras/{c}/detection` của camera gắn với device.
+- `[Đã quyết – xem bảng]` **D-MQTT-3 — transport:** (a) TLS một chiều kết thúc ở reverse proxy, chỉ `wss://…/mqtt`, đóng 1883 khỏi Internet; (b) listener TLS 8883 trên EMQX với cert server; (c) mTLS cert riêng mỗi device (cần PKI và hỗ trợ client cert trong edge — hiện chưa có).
+- `[Đã quyết – xem bảng]` **D-MQTT-4 — revoke (G3):** (a) chấp nhận phiên còn mở tới khi authz deny; (b) API gọi REST EMQX kick client khi revoke/decommission.
+- `[Đã quyết – xem bảng]` **D-PAY-1 — tiền về muộn (PG1):** (a) chấp nhận IPN thành công cho payment `expired`/`cancelled` và áp dụng side effect; (b) lưu payload + tự refund; (c) lưu payload + cờ đối soát để refund tay.
+- `[Đã quyết – xem bảng]` **D-PAY-2 — đối chiếu amount (PG2):** (a) từ chối/gắn cờ khi `amount` của IPN/query khác `amount_vnd`; (b) tin chữ ký MoMo, không kiểm.
+- `[Đã quyết – xem bảng]` **D-PAY-3 — paid-exit tới barrier (P11, PG6):** (a) backend phát lệnh `open` tới cổng ra khi ghi `paid_exit`; (b) đồng bộ payment grant xuống SQLite edge (cũng giảm GAP-PAY-002); (c) giữ quy trình nhân viên mở tay và ghi vào SOP.
+- `[Đã quyết – xem bảng]` **D-PAY-4 — refund payment không có `transId` (PG3):** (a) lưu `transId` từ response `/query`; (b) giữ quy trình refund trên console.
+- `[Đã quyết – xem bảng]` **D-PAY-5 — activate lỗi sau khi thu tiền (PG4):** (a) tự refund; (b) nhân viên xử lý theo cờ trong thời hạn cam kết.
 
 Tài liệu không khẳng định hệ thống đã production-ready hoặc đã được security audit. Các giới hạn cụ thể được ghi tại từng tài liệu thành phần.

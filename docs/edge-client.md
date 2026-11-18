@@ -152,9 +152,14 @@ Deprovision (`activation.rs` `deprovision_inner`) xóa `edge-config.json` (gồm
 
 **Quyết định sản phẩm còn mở:**
 
-- `[Decision needed]` **D-EDG-1 — ai xóa dữ liệu khi deprovision:** (a) giữ như hiện tại, xóa bằng quy trình vận hành ở trên (phụ thuộc người làm); (b) deprovision trong app xóa luôn `edge.db`, `captures/`, `camera-workers/` (mất outbox chưa gửi và dữ liệu điều tra sự cố); (c) deprovision giữ dữ liệu, nhưng app lưu `tenant_id` vào `edge.db` và **từ chối boot / tự xóa** khi activation trả tenant khác.
-- `[Decision needed]` **D-EDG-2 — outbox chưa gửi khi bị revoke:** (a) bỏ; (b) giữ và chỉ gửi cho đúng tenant cũ (cần credential cũ, hiện đã bị revoke); (c) xuất file cho tenant cũ rồi xóa.
-- `[Decision needed]` **D-EDG-3 — retention local:** thời gian giữ `captures/`, `local_events`, `walk_in_sessions` trên máy (hiện không có chính sách retention trong runtime) và có cần mã hóa at-rest hay không.
+> **Đã chốt và triển khai (2026-11-18, nhánh `fix/qa-criticals`):**
+> - **D-EDG-1 → (c):** `edge.db` lưu `bound_tenant_id`. Kích hoạt cho tenant khác (hoặc tenant không rõ mà DB có dữ liệu) thì xóa whitelist, rules, `local_events`, outbox, walk-in, exit grants, `processed_commands`, kv (trừ `schema_version`) và nội dung `captures/`, `camera-workers/` trước khi boot. Cùng tenant thì giữ (`tenant_binding.rs`). Khi boot bình thường, dữ liệu chưa ghi tenant được nhận về tenant hiện tại (để không mất outbox sau nâng cấp).
+> - **D-EDG-2 → (a):** outbox của tenant cũ bị xóa cùng dữ liệu.
+> - **D-EDG-3:** `retentionDays` (mặc định 30) cho `local_events`, walk-in đã đóng, grant hết hạn và file `captures/`; chạy mỗi giờ ngoài vòng tick; outbox không bị cắt theo tuổi. **Không** mã hóa at-rest.
+
+- `[Đã quyết – xem bảng]` **D-EDG-1 — ai xóa dữ liệu khi deprovision:** (a) giữ như hiện tại, xóa bằng quy trình vận hành ở trên (phụ thuộc người làm); (b) deprovision trong app xóa luôn `edge.db`, `captures/`, `camera-workers/` (mất outbox chưa gửi và dữ liệu điều tra sự cố); (c) deprovision giữ dữ liệu, nhưng app lưu `tenant_id` vào `edge.db` và **từ chối boot / tự xóa** khi activation trả tenant khác.
+- `[Đã quyết – xem bảng]` **D-EDG-2 — outbox chưa gửi khi bị revoke:** (a) bỏ; (b) giữ và chỉ gửi cho đúng tenant cũ (cần credential cũ, hiện đã bị revoke); (c) xuất file cho tenant cũ rồi xóa.
+- `[Đã quyết – xem bảng]` **D-EDG-3 — retention local:** thời gian giữ `captures/`, `local_events`, `walk_in_sessions` trên máy (hiện không có chính sách retention trong runtime) và có cần mã hóa at-rest hay không.
 
 ## 4. Config v3
 
