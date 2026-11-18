@@ -45,6 +45,8 @@ pub struct Knots {
     pub sync_every: Duration,
     pub flush_every: Duration,
     pub tick_every: Duration,
+    /// Local retention pass (D-EDG-3).
+    pub retention_every: Duration,
 }
 
 impl Default for Knots {
@@ -55,6 +57,7 @@ impl Default for Knots {
             sync_every: Duration::from_secs(60),
             flush_every: Duration::from_secs(1),
             tick_every: Duration::from_millis(50),
+            retention_every: Duration::from_secs(3600),
         }
     }
 }
@@ -455,6 +458,13 @@ impl EdgeRuntime {
                             }
                             continue;
                         }
+                        Some("paid_exit_grant") => {
+                            // Every gate topic carries the same grant; the
+                            // store dedups by paymentId. Short SQLite write
+                            // on the dispatcher task, never the FSM tick.
+                            crate::exit_grant::on_signal(&walk_store, &body, chrono::Utc::now());
+                            continue;
+                        }
                         _ => {}
                     }
                     if body.get("type").and_then(|v| v.as_str()) == Some("heartbeat_ack") {
@@ -628,6 +638,27 @@ impl EdgeRuntime {
                             }
                         }
                     }
+                }
+            }));
+        }
+
+        // local retention — hourly (first pass at start-up), SQLite deletes
+        // and file removal on the blocking pool, away from the FSM tick.
+        {
+            let store = store.clone();
+            let caps = captures_dir.clone();
+            let days = cfg.retention_days();
+            let every = knots.retention_every;
+            spawn(Box::pin(async move {
+                let mut interval = tokio::time::interval(every);
+                loop {
+                    interval.tick().await;
+                    let store = store.clone();
+                    let caps = caps.clone();
+                    let _ = tokio::task::spawn_blocking(move || {
+                        crate::retention::run_once(&store, &caps, days, chrono::Utc::now())
+                    })
+                    .await;
                 }
             }));
         }
@@ -813,6 +844,7 @@ mod tests {
                     barrier: None,
                 },
             ],
+            retention_days: None,
         }
     }
 
@@ -823,6 +855,7 @@ mod tests {
             sync_every: Duration::from_secs(3600),
             flush_every: Duration::from_millis(10),
             tick_every: Duration::from_millis(5),
+            retention_every: Duration::from_secs(3600),
         }
     }
 
@@ -1163,6 +1196,56 @@ mod tests {
         assert!(exit.0.contains(GATE_B));
         drop(sent);
         assert!(gate.pending_fee.lock().unwrap().is_none());
+        rt.stop().await;
+    }
+
+    #[tokio::test]
+    async fn paid_exit_grant_signal_is_stored_once_and_not_acked() {
+        let (rt, pub_, cmd, _dir) = started().await;
+        let pid = Uuid::new_v4();
+        let body = json!({
+            "type": "paid_exit_grant",
+            "sessionId": Uuid::new_v4(),
+            "paymentId": pid,
+            "plateNumber": "51A-999.99",
+            "plateNormalized": "51A99999",
+            "paidAt": chrono::Utc::now().to_rfc3339(),
+            "expiresAt": (chrono::Utc::now() + chrono::Duration::minutes(15)).to_rfc3339(),
+        });
+        // one copy per gate command topic
+        cmd.send(body.clone()).await.unwrap();
+        cmd.send(body).await.unwrap();
+        wait_for(|| rt.store.find_exit_grant("51A99999", chrono::Utc::now()).unwrap() == Some(pid))
+            .await;
+        tokio::time::sleep(Duration::from_millis(30)).await;
+        assert!(!pub_
+            .sent
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|(_, b, _)| b["type"] == "command_ack"));
+
+        // exit gate B opens once on the grant
+        let gb = rt.gate(&Uuid::parse_str(GATE_B).unwrap()).unwrap().clone();
+        gb.plate_tx
+            .send(PlateReading {
+                plate: "51A99999".into(),
+                confidence: 0.9,
+                plate_image_path: None,
+                overview_image_path: None,
+            })
+            .await
+            .unwrap();
+        wait_for(|| {
+            gb.last_event
+                .lock()
+                .unwrap()
+                .as_ref()
+                .map(|e| e["reason"] == "paid_exit")
+                .unwrap_or(false)
+        })
+        .await;
+        assert_eq!(rt.store.find_exit_grant("51A99999", chrono::Utc::now()).unwrap(), None);
         rt.stop().await;
     }
 

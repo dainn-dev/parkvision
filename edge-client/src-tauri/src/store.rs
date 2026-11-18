@@ -78,7 +78,60 @@ CREATE TABLE IF NOT EXISTS walk_in_sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_walk_in_plate_status
     ON walk_in_sessions (plate_normalized, status);
+-- Paid-exit grants pushed by the backend (`paid_exit_grant` signal) so an
+-- exit lane can honour a driver's online payment while offline. One row per
+-- payment; `used_at` set once the barrier was opened for it.
+CREATE TABLE IF NOT EXISTS exit_grants (
+    payment_id       TEXT PRIMARY KEY,
+    session_id       TEXT,
+    plate_number     TEXT NOT NULL,
+    plate_normalized TEXT NOT NULL,
+    plate_local      TEXT NOT NULL,
+    paid_at          TEXT,
+    expires_at       TEXT NOT NULL,
+    used_at          TEXT,
+    received_at      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_exit_grants_plate ON exit_grants (plate_normalized);
+CREATE INDEX IF NOT EXISTS idx_exit_grants_plate_local ON exit_grants (plate_local);
 ";
+
+/// `kv` key holding the tenant whose data this `edge.db` contains.
+pub const BOUND_TENANT_KEY: &str = "bound_tenant_id";
+
+/// Tables holding tenant-owned data — wiped when the device is re-activated
+/// for a different tenant. `kv` is handled separately.
+const TENANT_TABLES: &[&str] = &[
+    "whitelist",
+    "rules",
+    "local_events",
+    "pending_events",
+    "walk_in_sessions",
+    "exit_grants",
+    "processed_commands",
+];
+
+/// `kv` keys that describe the database itself, not a tenant — kept on wipe.
+const KV_KEEP_ON_WIPE: &[&str] = &["schema_version"];
+
+/// A backend-issued paid-exit grant (one per payment).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExitGrant {
+    pub payment_id: Uuid,
+    pub session_id: Option<Uuid>,
+    pub plate_number: String,
+    pub plate_normalized: String,
+    pub paid_at: Option<DateTime<Utc>>,
+    pub expires_at: DateTime<Utc>,
+}
+
+/// Rows removed by one retention pass.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RetentionPruned {
+    pub local_events: u64,
+    pub walk_ins: u64,
+    pub exit_grants: u64,
+}
 
 #[derive(Clone, Debug)]
 pub struct VehicleRow {
@@ -628,6 +681,145 @@ impl Store {
             Err(e) => Err(e.into()),
         }
     }
+
+    // ---------- paid-exit grants ----------
+
+    /// Store a grant. Returns `false` (no-op) for a `payment_id` already
+    /// held — every gate's command topic carries the same signal — or for a
+    /// grant that has already expired. Expired grants are pruned first.
+    pub fn insert_exit_grant(&self, g: &ExitGrant, now: DateTime<Utc>) -> Result<bool> {
+        if g.expires_at <= now {
+            return Ok(false);
+        }
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "DELETE FROM exit_grants WHERE expires_at <= ?1",
+            params![ts(&now)],
+        )?;
+        let n = conn.execute(
+            "INSERT OR IGNORE INTO exit_grants
+               (payment_id, session_id, plate_number, plate_normalized, plate_local,
+                paid_at, expires_at, used_at, received_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL, ?8)",
+            params![
+                g.payment_id.to_string(),
+                g.session_id.map(|u| u.to_string()),
+                g.plate_number,
+                g.plate_normalized,
+                crate::access::normalize_plate(&g.plate_number),
+                g.paid_at.as_ref().map(ts),
+                ts(&g.expires_at),
+                ts(&now),
+            ],
+        )?;
+        Ok(n == 1)
+    }
+
+    /// Oldest unused, unexpired grant matching a normalized plate (against
+    /// either the backend's `plateNormalized` or the edge's own
+    /// normalization of `plateNumber`).
+    pub fn find_exit_grant(&self, plate_normalized: &str, now: DateTime<Utc>) -> Result<Option<Uuid>> {
+        let conn = self.conn.lock().unwrap();
+        let id: Option<String> = conn
+            .query_row(
+                "SELECT payment_id FROM exit_grants
+                 WHERE (plate_normalized = ?1 OR plate_local = ?1)
+                   AND used_at IS NULL AND expires_at > ?2
+                 ORDER BY expires_at ASC LIMIT 1",
+                params![plate_normalized, ts(&now)],
+                |r| r.get(0),
+            )
+            .optional()?;
+        Ok(id.and_then(|s| Uuid::parse_str(&s).ok()))
+    }
+
+    /// Atomically claim a grant (single `UPDATE ... WHERE used_at IS NULL`).
+    /// `false` when it was already used or has expired — two exit lanes can
+    /// never both open on one payment.
+    pub fn consume_exit_grant(&self, payment_id: Uuid, now: DateTime<Utc>) -> Result<bool> {
+        let n = self.conn.lock().unwrap().execute(
+            "UPDATE exit_grants SET used_at = ?2
+             WHERE payment_id = ?1 AND used_at IS NULL AND expires_at > ?2",
+            params![payment_id.to_string(), ts(&now)],
+        )?;
+        Ok(n == 1)
+    }
+
+    // ---------- tenant binding ----------
+
+    /// Tenant this database's data belongs to, if recorded.
+    pub fn bound_tenant(&self) -> Result<Option<Uuid>> {
+        Ok(self
+            .kv_get(BOUND_TENANT_KEY)?
+            .and_then(|s| Uuid::parse_str(&s).ok()))
+    }
+
+    pub fn set_bound_tenant(&self, tenant: Uuid) -> Result<()> {
+        self.kv_set(BOUND_TENANT_KEY, &tenant.to_string())
+    }
+
+    /// Total rows across the tenant-owned tables.
+    pub fn tenant_data_rows(&self) -> Result<u64> {
+        let conn = self.conn.lock().unwrap();
+        let mut total = 0u64;
+        for t in TENANT_TABLES {
+            total += conn.query_row(&format!("SELECT COUNT(*) FROM {t}"), [], |r| {
+                r.get::<_, i64>(0)
+            })? as u64;
+        }
+        Ok(total)
+    }
+
+    /// Delete every tenant-owned row (and all `kv` state except
+    /// database-level keys) in one transaction. Returns rows deleted per
+    /// table, `kv` included.
+    pub fn wipe_tenant_data(&self) -> Result<Vec<(&'static str, u64)>> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        let mut out = Vec::new();
+        for t in TENANT_TABLES {
+            let n = tx.execute(&format!("DELETE FROM {t}"), [])? as u64;
+            out.push((*t, n));
+        }
+        let keep = KV_KEEP_ON_WIPE
+            .iter()
+            .map(|k| format!("'{k}'"))
+            .collect::<Vec<_>>()
+            .join(",");
+        let n = tx.execute(&format!("DELETE FROM kv WHERE key NOT IN ({keep})"), [])? as u64;
+        out.push(("kv", n));
+        tx.commit()?;
+        Ok(out)
+    }
+
+    // ---------- retention ----------
+
+    /// Drop local history older than `cutoff`: access events, settled
+    /// walk-in sessions (open ones are kept whatever their age) and expired
+    /// exit grants. The outbox (`pending_events`) is never pruned by age.
+    pub fn prune_older_than(&self, cutoff: DateTime<Utc>, now: DateTime<Utc>) -> Result<RetentionPruned> {
+        let conn = self.conn.lock().unwrap();
+        // `occurred_at` is RFC 3339 with variable precision (or SQLite's
+        // `datetime('now')` form) — compare as julian days, not text.
+        let local_events = conn.execute(
+            "DELETE FROM local_events WHERE julianday(occurred_at) < julianday(?1)",
+            params![ts(&cutoff)],
+        )? as u64;
+        let walk_ins = conn.execute(
+            "DELETE FROM walk_in_sessions
+             WHERE status != 'open' AND COALESCE(exited_at, entered_at) < ?1",
+            params![ts(&cutoff)],
+        )? as u64;
+        let exit_grants = conn.execute(
+            "DELETE FROM exit_grants WHERE expires_at <= ?1",
+            params![ts(&now)],
+        )? as u64;
+        Ok(RetentionPruned {
+            local_events,
+            walk_ins,
+            exit_grants,
+        })
+    }
 }
 
 /// Retention for dedup rows; must comfortably exceed `MAX_COMMAND_AGE_SECS`.
@@ -1004,6 +1196,123 @@ mod tests {
         p.bank_account = None;
         store.put_site_pricing(&p).unwrap();
         assert_eq!(store.site_pricing().unwrap().unwrap(), p);
+    }
+
+    fn grant(plate: &str, expires_at: DateTime<Utc>) -> ExitGrant {
+        ExitGrant {
+            payment_id: Uuid::new_v4(),
+            session_id: None,
+            plate_number: plate.into(),
+            plate_normalized: crate::access::normalize_plate(plate),
+            paid_at: None,
+            expires_at,
+        }
+    }
+
+    #[test]
+    fn exit_grant_is_consumed_once() {
+        let (store, _d) = temp_store();
+        let now = Utc::now();
+        let g = grant("51A99999", now + chrono::Duration::minutes(15));
+        assert!(store.insert_exit_grant(&g, now).unwrap());
+        assert!(!store.insert_exit_grant(&g, now).unwrap(), "duplicate is a no-op");
+        assert_eq!(store.find_exit_grant("51A99999", now).unwrap(), Some(g.payment_id));
+        assert!(store.consume_exit_grant(g.payment_id, now).unwrap());
+        assert!(!store.consume_exit_grant(g.payment_id, now).unwrap());
+        assert_eq!(store.find_exit_grant("51A99999", now).unwrap(), None);
+    }
+
+    #[test]
+    fn expired_exit_grants_are_pruned_on_insert() {
+        let (store, _d) = temp_store();
+        let now = Utc::now();
+        let g = grant("A1", now + chrono::Duration::minutes(1));
+        store.insert_exit_grant(&g, now).unwrap();
+        let later = now + chrono::Duration::minutes(5);
+        assert!(!store.consume_exit_grant(g.payment_id, later).unwrap());
+        store
+            .insert_exit_grant(&grant("B2", later + chrono::Duration::minutes(5)), later)
+            .unwrap();
+        let n: i64 = store
+            .conn
+            .lock()
+            .unwrap()
+            .query_row("SELECT COUNT(*) FROM exit_grants", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 1, "expired grant pruned");
+    }
+
+    #[test]
+    fn retention_prunes_old_events_and_settled_walk_ins_only() {
+        let (store, _d) = temp_store();
+        let now = Utc::now();
+        store.record_local_event("NEW", "entry", "allow").unwrap();
+        {
+            let conn = store.conn.lock().unwrap();
+            // both timestamp forms that exist in the table
+            conn.execute(
+                "INSERT INTO local_events (plate_normalized, direction, decision, occurred_at)
+                 VALUES ('OLD1', 'entry', 'allow', ?1)",
+                params![dt_s(&(now - chrono::Duration::days(40)))],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO local_events (plate_normalized, direction, decision, occurred_at)
+                 VALUES ('OLD2', 'entry', 'allow', datetime('now', '-40 days'))",
+                [],
+            )
+            .unwrap();
+        }
+        let gate = Uuid::new_v4();
+        let old_settled = open_row("S1");
+        store.insert_walk_in(&old_settled).unwrap();
+        store
+            .close_walk_in(
+                old_settled.session_id,
+                gate,
+                now - chrono::Duration::days(40),
+                10_000,
+                &settle_as("cash"),
+            )
+            .unwrap();
+        let mut old_open = open_row("O1");
+        old_open.entered_at = now - chrono::Duration::days(60);
+        store.insert_walk_in(&old_open).unwrap();
+        let recent = open_row("R1");
+        store.insert_walk_in(&recent).unwrap();
+        store
+            .close_walk_in(recent.session_id, gate, now, 10_000, &settle_as("cash"))
+            .unwrap();
+        store.enqueue_event("anpr", json!({"i": 0})).unwrap();
+
+        let pruned = store
+            .prune_older_than(now - chrono::Duration::days(30), now)
+            .unwrap();
+        assert_eq!(pruned.local_events, 2);
+        assert_eq!(pruned.walk_ins, 1);
+        assert!(store.last_local_event("NEW", "entry").unwrap().is_some());
+        assert!(store.walk_in(old_settled.session_id).unwrap().is_none());
+        assert!(store.walk_in(old_open.session_id).unwrap().is_some(), "open session kept");
+        assert!(store.walk_in(recent.session_id).unwrap().is_some());
+        assert_eq!(store.pending_count().unwrap(), 1, "outbox untouched");
+    }
+
+    #[test]
+    fn wipe_tenant_data_clears_tables_and_kv() {
+        let (store, _d) = temp_store();
+        store.enqueue_event("anpr", json!({})).unwrap();
+        store.record_local_event("A", "entry", "allow").unwrap();
+        store.record(Uuid::new_v4(), true);
+        store.kv_set("site_pricing", "{}").unwrap();
+        store.kv_set("schema_version", "1").unwrap();
+        store.set_bound_tenant(Uuid::new_v4()).unwrap();
+        assert_eq!(store.tenant_data_rows().unwrap(), 3);
+        let wiped = store.wipe_tenant_data().unwrap();
+        assert!(wiped.iter().any(|(t, n)| *t == "pending_events" && *n == 1));
+        assert_eq!(store.tenant_data_rows().unwrap(), 0);
+        assert!(store.kv_get("site_pricing").unwrap().is_none());
+        assert!(store.bound_tenant().unwrap().is_none());
+        assert_eq!(store.kv_get("schema_version").unwrap().as_deref(), Some("1"));
     }
 
     #[test]

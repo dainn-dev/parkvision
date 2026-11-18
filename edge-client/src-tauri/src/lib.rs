@@ -4,6 +4,7 @@ pub mod anpr;
 pub mod camera_worker;
 pub mod commands;
 pub mod config;
+pub mod exit_grant;
 pub mod fsm;
 pub mod hal;
 pub mod heartbeat;
@@ -14,10 +15,12 @@ pub mod mqtt;
 pub mod payloads;
 pub mod pipeline;
 pub mod pricing;
+pub mod retention;
 pub mod runtime;
 pub mod store;
 pub mod sync;
 pub mod telemetry;
+pub mod tenant_binding;
 pub mod update;
 pub mod walkin;
 pub mod worker_ipc;
@@ -188,6 +191,15 @@ pub async fn boot_runtime(app: &AppHandle, cfg: EdgeConfig) -> anyhow::Result<()
     let app_data = app.path().app_data_dir()?;
     std::fs::create_dir_all(&app_data)?;
     let store = Store::open(&app_data.join("edge.db"))?;
+    // Boot-time binding: adopts pre-binding data, wipes if the config now
+    // names a different tenant than the one recorded in edge.db.
+    let binding = tenant_binding::bind_tenant(
+        &store,
+        &app_data,
+        cfg.tenant_id,
+        tenant_binding::BindMode::Boot,
+    )?;
+    tracing::debug!("boot tenant binding: {binding:?}");
     let hal_factory = |binding: &crate::config::GateBinding| -> Arc<dyn BarrierHal> {
         crate::hal::build_hal(binding)
     };

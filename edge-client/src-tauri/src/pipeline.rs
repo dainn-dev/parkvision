@@ -181,11 +181,15 @@ pub async fn run_pipeline(
             "plateImageKey": plate_key,
             "at": chrono::Utc::now().to_rfc3339(),
         });
+        if let Some(pid) = outcome.paid_exit_payment {
+            event["paymentId"] = pid.to_string().into();
+        }
         if let Some(fee) = &fee_due {
             event["reason"] = "walk_in_fee_due".into();
             event["sessionId"] = fee.session_id.to_string().into();
             event["amountVnd"] = serde_json::json!(fee.amount_vnd);
         }
+        let event_reason = event["reason"].as_str().unwrap_or_default().to_string();
         hooks.notify(event);
 
         let frame = TelemetryFrame {
@@ -200,6 +204,9 @@ pub async fn run_pipeline(
                 lane_id: cfg.lane_id,
                 plate_image_key: plate_key,
                 overview_image_key: overview_key,
+                edge_decision: Some(outcome.decision.clone()),
+                edge_reason: Some(event_reason),
+                paid_exit_payment_id: outcome.paid_exit_payment,
             }),
             ..Default::default()
         };
@@ -541,6 +548,48 @@ mod tests {
             fsm.lock().unwrap().state(),
             GateState::Opening | GateState::Open
         ));
+    }
+
+    #[tokio::test]
+    async fn paid_exit_grant_opens_exit_lane_once_while_offline() {
+        let (e, tx) = exit_rig();
+        let now = chrono::Utc::now();
+        let pid = Uuid::new_v4();
+        e.rig
+            .store
+            .insert_exit_grant(
+                &crate::store::ExitGrant {
+                    payment_id: pid,
+                    session_id: Some(Uuid::new_v4()),
+                    plate_number: "51A-999.99".into(),
+                    plate_normalized: "51A99999".into(),
+                    paid_at: Some(now),
+                    expires_at: now + chrono::Duration::minutes(15),
+                },
+                now,
+            )
+            .unwrap();
+        e.rig.pub_.set_connected(false);
+        tx.send(reading("51A-999.99")).await.unwrap();
+        drop(tx);
+        let (last, pub_) = (e.last.clone(), e.rig.pub_.clone());
+        let (store, fsm) = run_exit(e).await;
+
+        assert!(matches!(
+            fsm.lock().unwrap().state(),
+            GateState::Opening | GateState::Open
+        ));
+        let ev = last.lock().unwrap().clone().unwrap();
+        assert_eq!(ev["decision"], "allow");
+        assert_eq!(ev["reason"], "paid_exit");
+        assert_eq!(ev["paymentId"], pid.to_string());
+        assert!(pub_.sent.lock().unwrap().is_empty());
+        let queued = store.drain_events(10).unwrap();
+        assert_eq!(queued.len(), 1);
+        assert_eq!(queued[0].2["edgeDecision"], "allow");
+        assert_eq!(queued[0].2["edgeReason"], "paid_exit");
+        assert_eq!(queued[0].2["paidExitPaymentId"], pid.to_string());
+        assert_eq!(store.find_exit_grant("51A99999", chrono::Utc::now()).unwrap(), None);
     }
 
     #[tokio::test]

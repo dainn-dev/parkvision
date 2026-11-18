@@ -72,6 +72,17 @@ pub struct AnprFields {
     pub plate_image_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub overview_image_key: Option<String>,
+    /// What the edge decided locally (`allow`/`deny`) and why. The backend
+    /// re-decides from `plateNumber`; these let it see an offline edge
+    /// decision (e.g. `paid_exit` from a local grant). The bridge reads the
+    /// payload as a dict, so unknown keys are ignored.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub edge_decision: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub edge_reason: Option<String>,
+    /// Payment whose paid-exit grant opened the barrier.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub paid_exit_payment_id: Option<Uuid>,
 }
 
 /// 5s device liveness on the telemetry topic.
@@ -358,6 +369,9 @@ mod tests {
                 lane_id: Some(Uuid::parse_str("55555555-5555-5555-5555-555555555555").unwrap()),
                 plate_image_key: None,
                 overview_image_key: None,
+                edge_decision: Some("allow".to_string()),
+                edge_reason: Some("paid_exit".to_string()),
+                paid_exit_payment_id: None,
             }),
             ..Default::default()
         };
@@ -368,6 +382,9 @@ mod tests {
         assert!((v["confidence"].as_f64().unwrap() - 0.985).abs() < 0.001);
         assert_eq!(v["laneId"], "55555555-5555-5555-5555-555555555555");
         assert_eq!(v["eventId"], "66666666-6666-6666-6666-666666666666");
+        assert_eq!(v["edgeDecision"], "allow");
+        assert_eq!(v["edgeReason"], "paid_exit");
+        assert!(v.get("paidExitPaymentId").is_none());
         assert!(
             v.get("anpr").is_none(),
             "anpr must be flattened, not nested"

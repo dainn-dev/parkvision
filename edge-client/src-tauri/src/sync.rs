@@ -367,6 +367,7 @@ mod tests {
                 cameras: vec![],
                 barrier: None,
             }],
+            retention_days: None,
         })
     }
 

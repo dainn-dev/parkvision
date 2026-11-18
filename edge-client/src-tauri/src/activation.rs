@@ -124,7 +124,27 @@ fn bundle_to_config(
                 barrier: existing_barriers.get(&g.gate_id).cloned(),
             })
             .collect(),
+        retention_days: None,
     })
+}
+
+/// Merge a `GET /edge/config` bundle onto the persisted config: cloud-owned
+/// fields come from the bundle; device-local ones (barrier wiring by gate
+/// id, persisted API key, `retentionDays`) are kept.
+fn refresh_merge(bundle: &BundleOut, cfg: &EdgeConfig) -> Result<EdgeConfig> {
+    let barriers: HashMap<Uuid, BarrierConfig> = cfg
+        .gates
+        .iter()
+        .filter_map(|g| g.barrier.clone().map(|b| (g.gate_id, b)))
+        .collect();
+    let mut merged = bundle_to_config(
+        bundle,
+        &cfg.api_base_url,
+        Some(cfg.api_key.clone()),
+        &barriers,
+    )?;
+    merged.retention_days = cfg.retention_days;
+    Ok(merged)
 }
 
 fn config_store(app: &AppHandle) -> Result<ConfigStore> {
@@ -158,17 +178,7 @@ pub async fn refresh_and_boot(app: &AppHandle, cfg: EdgeConfig) -> Result<()> {
         }
         Ok(resp) if resp.status().is_success() => {
             let bundle: BundleOut = resp.json().await.context("config body decode")?;
-            let barriers: HashMap<Uuid, BarrierConfig> = cfg
-                .gates
-                .iter()
-                .filter_map(|g| g.barrier.clone().map(|b| (g.gate_id, b)))
-                .collect();
-            let merged = bundle_to_config(
-                &bundle,
-                &cfg.api_base_url,
-                Some(cfg.api_key.clone()),
-                &barriers,
-            )?;
+            let merged = refresh_merge(&bundle, &cfg)?;
             if serde_json::to_value(&merged)? != serde_json::to_value(&cfg)? {
                 config_store(app)?.save(&merged)?;
                 tracing::info!("config refreshed from backend");
@@ -322,9 +332,26 @@ pub async fn activate(
     if let Some(rt) = old {
         rt.stop().await;
     }
+    // D-EDG-1/2: data left by another (or an unknown) tenant is wiped before
+    // the new runtime can serve or flush it.
+    bind_tenant_for_activation(&app, cfg.tenant_id).map_err(|e| e.to_string())?;
     crate::boot_runtime(&app, cfg)
         .await
         .map_err(|e| e.to_string())
+}
+
+fn bind_tenant_for_activation(app: &AppHandle, tenant: Uuid) -> Result<()> {
+    let app_data = app.path().app_data_dir().context("app_data_dir")?;
+    std::fs::create_dir_all(&app_data)?;
+    let store = crate::store::Store::open(&app_data.join("edge.db"))?;
+    let outcome = crate::tenant_binding::bind_tenant(
+        &store,
+        &app_data,
+        tenant,
+        crate::tenant_binding::BindMode::Activation,
+    )?;
+    tracing::info!("activation tenant binding: {outcome:?}");
+    Ok(())
 }
 
 /// This device's primary local IP — the address of the interface the OS
@@ -504,6 +531,36 @@ mod tests {
 
         let cfg = bundle_to_config(&bundle, "http://api", None, &HashMap::new()).unwrap();
         assert!(cfg.gates[0].barrier.is_none());
+    }
+
+    #[test]
+    fn refresh_merge_keeps_local_barrier_and_retention() {
+        let bundle: BundleOut = serde_json::from_value(bundle_json()).unwrap();
+        let mut local = bundle_to_config(&bundle, "http://api", None, &HashMap::new()).unwrap();
+        local.retention_days = Some(7);
+        local.gates[0].barrier = Some(crate::hal::config::BarrierConfig {
+            backend: crate::hal::config::RelayBackendConfig::ModbusTcp {
+                host: "10.0.0.5".into(),
+                port: 502,
+                unit_id: 1,
+            },
+            brand: crate::hal::config::BarrierBrand::Came,
+            outputs: crate::hal::config::OutputMap {
+                open: 1,
+                close: Some(2),
+                stop: None,
+                power: None,
+            },
+            inputs: None,
+            overrides: Default::default(),
+        });
+        let mut v = bundle_json();
+        v["api"]["token"] = serde_json::Value::Null;
+        let refreshed: BundleOut = serde_json::from_value(v).unwrap();
+        let merged = refresh_merge(&refreshed, &local).unwrap();
+        assert_eq!(merged.retention_days, Some(7));
+        assert!(merged.gates[0].barrier.is_some());
+        assert_eq!(merged.api_key, "pk_abc");
     }
 
     #[test]

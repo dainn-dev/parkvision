@@ -21,6 +21,8 @@ pub fn normalize_plate(plate: &str) -> String {
 pub struct AccessOutcome {
     pub decision: String, // "allow" | "deny"
     pub reason: String,
+    /// Payment whose paid-exit grant was consumed (reason `paid_exit`).
+    pub paid_exit_payment: Option<uuid::Uuid>,
 }
 
 // EDGE-RULE-001: keep schedule evaluation in UTC to mirror backend semantics.
@@ -65,7 +67,7 @@ fn apply_anti_passback(
     now: &DateTime<Utc>,
 ) -> AccessOutcome {
     if decision != "allow" || !matches!(direction, "entry" | "exit") {
-        return AccessOutcome { decision, reason };
+        return AccessOutcome { decision, reason, paid_exit_payment: None };
     }
     if store
         .kv_get("anti_passback_enabled")
@@ -74,7 +76,7 @@ fn apply_anti_passback(
         .as_deref()
         == Some("false")
     {
-        return AccessOutcome { decision, reason };
+        return AccessOutcome { decision, reason, paid_exit_payment: None };
     }
     let window: i64 = store
         .kv_get("anti_passback_window_minutes")
@@ -83,7 +85,7 @@ fn apply_anti_passback(
         .and_then(|v| v.parse().ok())
         .unwrap_or(5);
     if window <= 0 {
-        return AccessOutcome { decision, reason };
+        return AccessOutcome { decision, reason, paid_exit_payment: None };
     }
     if let Ok(Some((last_dir, last_dec, last_at))) = store.last_local_event(normalized, direction) {
         if last_dec == "allow"
@@ -93,10 +95,11 @@ fn apply_anti_passback(
             return AccessOutcome {
                 decision: "deny".to_string(),
                 reason: "anti_passback".to_string(),
+                paid_exit_payment: None,
             };
         }
     }
-    AccessOutcome { decision, reason }
+    AccessOutcome { decision, reason, paid_exit_payment: None }
 }
 
 /// `decide_access(store, plate, direction, now)` → outcome.
@@ -114,6 +117,7 @@ pub fn decide_access(
             return AccessOutcome {
                 decision: "deny".to_string(),
                 reason: "no_plate_detected".to_string(),
+                paid_exit_payment: None,
             }
         }
     };
@@ -130,6 +134,28 @@ pub fn decide_access(
         }
         Some(v) if v.valid_to.map(|t| t < now).unwrap_or(false) => ("deny", "vehicle_expired"),
         Some(_) => ("allow", "vehicle_registered"),
+    };
+
+    // Pay-before-exit (GAP-PAY-003), mirroring backend `_paid_exit`: an
+    // otherwise-denied exit may be allowed by an unused, unexpired grant
+    // pushed by the backend. Blacklist is never overridden; deny_list rules
+    // below still win. The grant is only consumed if the final decision is
+    // `paid_exit` (see end of function).
+    let original = (base_decision, base_reason);
+    let mut grant: Option<uuid::Uuid> = None;
+    let (base_decision, base_reason) = if base_decision == "deny"
+        && direction == "exit"
+        && base_reason != "vehicle_blacklisted"
+    {
+        match store.find_exit_grant(&normalized, now) {
+            Ok(Some(pid)) => {
+                grant = Some(pid);
+                ("allow", "paid_exit")
+            }
+            _ => original,
+        }
+    } else {
+        original
     };
 
     let mut sorted: Vec<&RuleRow> = rules.iter().collect();
@@ -165,6 +191,7 @@ pub fn decide_access(
                 return AccessOutcome {
                     decision: "deny".to_string(),
                     reason: format!("rule:{}", rule.name),
+                    paid_exit_payment: None,
                 }
             }
             "allow_list" => {
@@ -181,14 +208,30 @@ pub fn decide_access(
         }
     }
 
-    apply_anti_passback(
+    let mut out = apply_anti_passback(
         store,
         &normalized,
         direction,
         base_decision.to_string(),
         base_reason.to_string(),
         &now,
-    )
+    );
+    if let Some(pid) = grant {
+        if out.decision == "allow" && out.reason == "paid_exit" {
+            // Atomic claim: if another lane used it first, fall back to the
+            // decision the grant would have overridden.
+            if store.consume_exit_grant(pid, now).unwrap_or(false) {
+                out.paid_exit_payment = Some(pid);
+            } else {
+                out = AccessOutcome {
+                    decision: original.0.to_string(),
+                    reason: original.1.to_string(),
+                    paid_exit_payment: None,
+                };
+            }
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -446,6 +489,96 @@ mod tests {
         // exit is a different direction → unaffected
         let out = decide_access(&store, Some("30E89241"), "exit", now());
         assert_eq!(out.decision, "allow");
+    }
+
+    // ---------- paid-exit grants (GAP-PAY-003) ----------
+
+    fn grant(plate_number: &str, plate_normalized: &str, expires_in_min: i64) -> crate::store::ExitGrant {
+        crate::store::ExitGrant {
+            payment_id: Uuid::new_v4(),
+            session_id: Some(Uuid::new_v4()),
+            plate_number: plate_number.into(),
+            plate_normalized: plate_normalized.into(),
+            paid_at: Some(now() - Duration::minutes(1)),
+            expires_at: now() + Duration::minutes(expires_in_min),
+        }
+    }
+
+    #[test]
+    fn paid_exit_grant_allows_exit_once() {
+        let (store, _d) = temp_store();
+        let g = grant("51A-999.99", "51A99999", 15);
+        assert!(store.insert_exit_grant(&g, now()).unwrap());
+        let out = decide_access(&store, Some("51A99999"), "exit", now());
+        assert_eq!(out.decision, "allow");
+        assert_eq!(out.reason, "paid_exit");
+        assert_eq!(out.paid_exit_payment, Some(g.payment_id));
+        // anti-passback off so the second read is judged on the grant alone
+        store.kv_set("anti_passback_enabled", "false").unwrap();
+        let again = decide_access(&store, Some("51A99999"), "exit", now());
+        assert_eq!(again.decision, "deny");
+        assert_eq!(again.reason, "plate_not_registered");
+        assert_eq!(again.paid_exit_payment, None);
+    }
+
+    #[test]
+    fn paid_exit_grant_matches_edge_normalization_of_raw_plate() {
+        let (store, _d) = temp_store();
+        // backend's plateNormalized differs; edge normalization of the raw
+        // plateNumber still matches the reading.
+        store
+            .insert_exit_grant(&grant("51a-999.99", "XXXX", 15), now())
+            .unwrap();
+        let out = decide_access(&store, Some("51A 999 99"), "exit", now());
+        assert_eq!(out.reason, "paid_exit");
+    }
+
+    #[test]
+    fn expired_paid_exit_grant_is_ignored() {
+        let (store, _d) = temp_store();
+        let g = grant("51A99999", "51A99999", 15);
+        store.insert_exit_grant(&g, now()).unwrap();
+        let later = now() + Duration::minutes(16);
+        let out = decide_access(&store, Some("51A99999"), "exit", later);
+        assert_eq!(out.decision, "deny");
+        assert_eq!(out.reason, "plate_not_registered");
+    }
+
+    #[test]
+    fn paid_exit_grant_never_overrides_blacklist() {
+        let (store, _d) = temp_store();
+        store.upsert_vehicle(&vehicle("blacklist", "active")).unwrap();
+        let g = grant("30E89241", "30E89241", 15);
+        store.insert_exit_grant(&g, now()).unwrap();
+        let out = decide_access(&store, Some("30E89241"), "exit", now());
+        assert_eq!(out.decision, "deny");
+        assert_eq!(out.reason, "vehicle_blacklisted");
+        // and the grant is still unused
+        assert_eq!(store.find_exit_grant("30E89241", now()).unwrap(), Some(g.payment_id));
+    }
+
+    #[test]
+    fn paid_exit_grant_does_not_affect_entry() {
+        let (store, _d) = temp_store();
+        let g = grant("51A99999", "51A99999", 15);
+        store.insert_exit_grant(&g, now()).unwrap();
+        let out = decide_access(&store, Some("51A99999"), "entry", now());
+        assert_eq!(out.decision, "deny");
+        assert_eq!(out.reason, "plate_not_registered");
+        assert_eq!(store.find_exit_grant("51A99999", now()).unwrap(), Some(g.payment_id));
+    }
+
+    #[test]
+    fn deny_list_rule_wins_over_paid_exit_and_keeps_grant() {
+        let (store, _d) = temp_store();
+        let g = grant("51A99999", "51A99999", 15);
+        store.insert_exit_grant(&g, now()).unwrap();
+        store
+            .replace_rules(&[rule("Ban", "deny_list", 1, json!({"plates": ["51A99999"]}), json!({}))])
+            .unwrap();
+        let out = decide_access(&store, Some("51A99999"), "exit", now());
+        assert_eq!(out.reason, "rule:Ban");
+        assert_eq!(store.find_exit_grant("51A99999", now()).unwrap(), Some(g.payment_id));
     }
 
     #[test]

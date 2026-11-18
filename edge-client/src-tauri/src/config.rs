@@ -97,7 +97,14 @@ pub struct EdgeConfig {
     pub api_base_url: String,
     pub mqtt: MqttConfig,
     pub gates: Vec<GateBinding>,
+    /// Days of local history kept (access events, settled walk-ins, capture
+    /// photos). Optional: absent = `DEFAULT_RETENTION_DAYS`, and omitted when
+    /// unset so existing v3 files round-trip unchanged (no version bump).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retention_days: Option<u32>,
 }
+
+pub const DEFAULT_RETENTION_DAYS: u32 = 30;
 
 fn default_version() -> u32 {
     CONFIG_VERSION
@@ -146,6 +153,14 @@ impl EdgeConfig {
         }
     }
 
+    /// Effective retention window in days (unset or 0 → default).
+    pub fn retention_days(&self) -> u32 {
+        match self.retention_days {
+            Some(d) if d > 0 => d,
+            _ => DEFAULT_RETENTION_DAYS,
+        }
+    }
+
     pub fn gate(&self, gate_id: &Uuid) -> Option<&GateBinding> {
         self.gates.iter().find(|g| &g.gate_id == gate_id)
     }
@@ -187,6 +202,7 @@ impl fmt::Debug for EdgeConfig {
             .field("api_base_url", &self.api_base_url)
             .field("mqtt", &self.mqtt)
             .field("gates", &self.gates.len())
+            .field("retention_days", &self.retention_days)
             .finish()
     }
 }
@@ -255,6 +271,7 @@ impl EdgeConfigV1 {
                 cameras,
                 barrier: None,
             }],
+            retention_days: None,
         }
     }
 }
@@ -399,6 +416,7 @@ mod tests {
                     barrier: None,
                 },
             ],
+            retention_days: None,
         }
     }
 
@@ -541,6 +559,32 @@ mod tests {
         let mut cfg = sample_config();
         cfg.gates[0].direction = "ENTRY".to_string();
         assert!(store.save(&cfg).is_err());
+    }
+
+    #[test]
+    fn v3_config_without_retention_days_defaults_to_30() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("edge-config.json");
+        let v = serde_json::to_value(sample_config()).unwrap();
+        assert!(v.get("retentionDays").is_none(), "unset field is not written");
+        fs::write(&path, serde_json::to_string(&v).unwrap()).unwrap();
+        let cfg = ConfigStore::new(path).load().unwrap().unwrap();
+        assert_eq!(cfg.version, CONFIG_VERSION);
+        assert_eq!(cfg.retention_days, None);
+        assert_eq!(cfg.retention_days(), DEFAULT_RETENTION_DAYS);
+    }
+
+    #[test]
+    fn retention_days_round_trips_and_zero_means_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = ConfigStore::new(dir.path().join("edge-config.json"));
+        let mut cfg = sample_config();
+        cfg.retention_days = Some(7);
+        store.save(&cfg).unwrap();
+        let loaded = store.load().unwrap().unwrap();
+        assert_eq!(loaded.retention_days(), 7);
+        cfg.retention_days = Some(0);
+        assert_eq!(cfg.retention_days(), DEFAULT_RETENTION_DAYS);
     }
 
     #[test]
