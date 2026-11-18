@@ -575,7 +575,11 @@ async def test_shared_driver_can_pay_session(
     )
     assert r.status_code == 201
 
-    t0 = datetime.now(timezone.utc) - timedelta(hours=3)
+    # The share covers sessions *entered* on share_date, so keep the entry on
+    # today's date; plain now-3h fails every day between 00:00 and 03:00 UTC.
+    now = datetime.now(timezone.utc)
+    start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    t0 = max(now - timedelta(hours=3), start_of_today + timedelta(minutes=1))
     entry = await access_event(
         admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry", at=t0
     )
@@ -699,3 +703,222 @@ async def test_payment_expires_after_ttl(
         json={"kind": "membership", "membershipId": m["id"]},
     )
     assert r2.status_code == 201, r2.text
+
+
+# ---------- LOGIC-BE-009: paid but activation fails ----------
+
+
+def test_activation_failure_note_is_capped_to_column_width():
+    """admin_note is String(300): an over-long message must not overflow it
+    (that would roll back the whole paid transaction)."""
+    note = payment_service._activation_failure_note("x" * 1000)
+    assert len(note) <= 300
+    assert note.startswith("payment received; activation failed:")
+
+
+@pytest.mark.asyncio
+async def test_paid_but_activation_fails_is_flagged_consistently(
+    client, tenant, listed_site, gateway, admin_engine
+):
+    """Plate blacklisted after the driver requested the membership but before
+    the MoMo IPN: money is kept as 'paid', the membership stays 'pending'
+    with an operator-facing note, the payment carries an activation_error
+    flag, and no whitelist row is provisioned."""
+    from sqlalchemy import select
+
+    from app.models import DriverMembership, DriverPayment, RegisteredVehicle
+
+    p = await make_plan(client, tenant, listed_site["id"])
+    client.cookies.clear()
+    d = await driver(client)
+    v = await add_vehicle(client, d, "51P-900.01")
+    m = await request_membership(client, d, p["id"], v["id"])
+    pay = (
+        await client.post(
+            "/api/v1/driver/payments",
+            headers=d["headers"],
+            json={"kind": "membership", "membershipId": m["id"]},
+        )
+    ).json()
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession)
+    async with Session() as db:
+        db.add(
+            RegisteredVehicle(
+                tenant_id=tenant["tenant_id"],
+                plate_number="51P-900.01",
+                plate_normalized="51P90001",
+                tag="blacklist",
+                status="active",
+            )
+        )
+        await db.commit()
+
+    ipn = ipn_for(pay, order_id=await _order_id(admin_engine, pay["id"]))
+    assert (await client.post("/api/v1/public/payments/momo/ipn", json=ipn)).status_code == 200
+
+    async with Session() as db:
+        payment = (
+            await db.execute(select(DriverPayment).where(DriverPayment.id == uuid.UUID(pay["id"])))
+        ).scalar_one()
+        membership = (
+            await db.execute(select(DriverMembership).where(DriverMembership.id == uuid.UUID(m["id"])))
+        ).scalar_one()
+        members = (
+            await db.execute(
+                select(RegisteredVehicle).where(
+                    RegisteredVehicle.tenant_id == tenant["tenant_id"],
+                    RegisteredVehicle.tag == "member",
+                )
+            )
+        ).scalars().all()
+
+    assert payment.status == "paid" and payment.paid_at is not None
+    assert "blacklisted" in payment.raw_payload["activation_error"]
+    assert payment.raw_payload["transId"] == 12345678  # original IPN payload kept
+    assert membership.status == "pending"
+    assert "activation failed" in membership.admin_note
+    assert members == []
+
+
+@pytest.mark.asyncio
+async def test_paid_for_non_pending_membership_is_flagged(
+    client, tenant, listed_site, gateway, admin_engine
+):
+    """A membership cancelled while its payment was in flight must not be
+    silently swallowed when the IPN arrives: the payment is flagged."""
+    from sqlalchemy import select, update as sa_update
+
+    from app.models import DriverMembership, DriverPayment
+
+    p = await make_plan(client, tenant, listed_site["id"])
+    client.cookies.clear()
+    d = await driver(client)
+    v = await add_vehicle(client, d, "51P-900.02")
+    m = await request_membership(client, d, p["id"], v["id"])
+    pay = (
+        await client.post(
+            "/api/v1/driver/payments",
+            headers=d["headers"],
+            json={"kind": "membership", "membershipId": m["id"]},
+        )
+    ).json()
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession)
+    async with Session() as db:
+        await db.execute(
+            sa_update(DriverMembership)
+            .where(DriverMembership.id == uuid.UUID(m["id"]))
+            .values(status="cancelled")
+        )
+        await db.commit()
+
+    ipn = ipn_for(pay, order_id=await _order_id(admin_engine, pay["id"]))
+    assert (await client.post("/api/v1/public/payments/momo/ipn", json=ipn)).status_code == 200
+
+    async with Session() as db:
+        payment = (
+            await db.execute(select(DriverPayment).where(DriverPayment.id == uuid.UUID(pay["id"])))
+        ).scalar_one()
+        membership = (
+            await db.execute(select(DriverMembership).where(DriverMembership.id == uuid.UUID(m["id"])))
+        ).scalar_one()
+    assert payment.status == "paid"
+    assert "cancelled" in payment.raw_payload["activation_error"]
+    assert membership.status == "cancelled"
+    assert "payment received" in membership.admin_note
+
+
+# ---------- LOGIC-BE-010: concurrency ----------
+
+
+@pytest.mark.asyncio
+async def test_concurrent_session_payments_create_single_row(
+    client, tenant, listed_site, gateway, admin_engine
+):
+    """Two simultaneous POST /driver/payments for the same session must yield
+    one payment row (the loser gets the in-flight one back)."""
+    import asyncio
+
+    from sqlalchemy import func, select
+
+    from app.models import DriverPayment
+
+    await _set_pricing(admin_engine, listed_site["id"], {"hourlyFrom": 10000})
+    client.cookies.clear()
+    d = await driver(client)
+    plate = "51P-900.03"
+    await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate})
+    t0 = datetime.now(timezone.utc) - timedelta(hours=2)
+    entry = await access_event(
+        admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry", at=t0
+    )
+
+    body = {"kind": "session", "sessionId": str(entry.id)}
+    rs = await asyncio.gather(
+        *[client.post("/api/v1/driver/payments", headers=d["headers"], json=body) for _ in range(4)]
+    )
+    assert all(r.status_code == 201 for r in rs), [r.text for r in rs]
+    assert len({r.json()["id"] for r in rs}) == 1
+
+    async with async_sessionmaker(admin_engine, class_=AsyncSession)() as db:
+        n = (
+            await db.execute(
+                select(func.count())
+                .select_from(DriverPayment)
+                .where(DriverPayment.session_ref == str(entry.id))
+            )
+        ).scalar_one()
+    assert n == 1
+
+
+@pytest.mark.asyncio
+async def test_cancel_waits_for_row_lock_and_cannot_overwrite_paid(
+    client, tenant, listed_site, gateway, admin_engine
+):
+    """cancel_payment must lock the row: if an IPN has the payment locked and
+    flips it to paid, a racing cancel must see 'paid' and 409 rather than
+    overwrite it with 'cancelled'."""
+    import asyncio
+
+    from sqlalchemy import select
+
+    from app.core.errors import ApiError
+    from app.models import DriverPayment
+
+    p = await make_plan(client, tenant, listed_site["id"])
+    client.cookies.clear()
+    d = await driver(client)
+    v = await add_vehicle(client, d, "51P-900.04")
+    m = await request_membership(client, d, p["id"], v["id"])
+    pay = (
+        await client.post(
+            "/api/v1/driver/payments",
+            headers=d["headers"],
+            json={"kind": "membership", "membershipId": m["id"]},
+        )
+    ).json()
+    pid = uuid.UUID(pay["id"])
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession)
+    async with Session() as db:
+        row = (
+            await db.execute(
+                select(DriverPayment).where(DriverPayment.id == pid).with_for_update()
+            )
+        ).scalar_one()
+        driver_id = row.driver_id
+        row.status = "paid"  # what a concurrent IPN would be doing
+        await db.flush()
+
+        task = asyncio.create_task(payment_service.cancel_payment(driver_id, pid))
+        await asyncio.sleep(0.5)
+        assert not task.done(), "cancel_payment did not wait for the row lock"
+        await db.commit()
+
+    with pytest.raises(ApiError):
+        await asyncio.wait_for(task, timeout=5)
+    async with Session() as db:
+        status = (
+            await db.execute(select(DriverPayment.status).where(DriverPayment.id == pid))
+        ).scalar_one()
+    assert status == "paid"

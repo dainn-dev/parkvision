@@ -299,21 +299,26 @@ async def locate_presence(
     return await _select_active_presence(db, tenant_id, normalize_plate(plate_number))
 
 
-async def sweep_stale_presences(db: AsyncSession, *, stale_before: datetime, expire_before: datetime) -> int:
+async def sweep_stale_presences(
+    db: AsyncSession,
+    *,
+    stale_before: datetime,
+    expire_before: datetime,
+    tenant_id: uuid.UUID | None = None,
+) -> int:
     """parked + last_seen older than `stale_before` → 'stale'; any active row
-    older than `expire_before` → 'exited'. Returns rows touched."""
-    rows = (
-        (
-            await db.execute(
-                select(VehiclePresence).where(
-                    VehiclePresence.status.in_(_ACTIVE_STATUSES),
-                    VehiclePresence.last_seen_at < stale_before,
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
+    older than `expire_before` → 'exited'. Returns rows touched.
+
+    When `tenant_id` is given only that tenant's rows are considered (the TTL
+    is per tenant, so callers sweeping per tenant must scope — LOGIC-BE-008).
+    """
+    conditions = [
+        VehiclePresence.status.in_(_ACTIVE_STATUSES),
+        VehiclePresence.last_seen_at < stale_before,
+    ]
+    if tenant_id is not None:
+        conditions.append(VehiclePresence.tenant_id == tenant_id)
+    rows = (await db.execute(select(VehiclePresence).where(*conditions))).scalars().all()
 
     # Pre-fetch (tenant_id, plate_normalized) pairs that have an active
     # membership so we can skip them during the hard-expire phase. Long-term

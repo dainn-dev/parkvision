@@ -472,7 +472,7 @@ async def expire_stale_presence(ctx) -> int:
 
     now = datetime.now(timezone.utc)
     total = 0
-    for _tenant_id, tenant_settings in tenants:
+    for tenant_id, tenant_settings in tenants:
         try:
             ttl_hours = int((tenant_settings or {}).get("parking_presence_ttl_hours") or 48)
         except (TypeError, ValueError):
@@ -482,6 +482,7 @@ async def expire_stale_presence(ctx) -> int:
                 db,
                 stale_before=now - timedelta(hours=ttl_hours),
                 expire_before=now - timedelta(hours=ttl_hours * 4),
+                tenant_id=tenant_id,
             )
     return total
 

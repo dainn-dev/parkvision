@@ -30,7 +30,7 @@ are idempotent.
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from app.config import settings
 from app.core.errors import ApiError, bad_request, conflict, not_found, unprocessable
@@ -325,6 +325,13 @@ async def create_payment(
         elif kind == "session":
             if not session_ref:
                 raise bad_request("sessionId is required")
+            # No row exists yet to lock, so serialise concurrent creates for
+            # the same session with a transaction-scoped advisory lock; the
+            # loser then sees the winner's in-flight/paid row below.
+            await db.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:k, 0))"),
+                {"k": f"payment-session:{session_ref}"},
+            )
             entry, exit_ev = await _resolve_session(db, driver_id, session_ref)
             site = (
                 await db.execute(select(TenantSite).where(TenantSite.id == entry.site_id))
@@ -465,6 +472,24 @@ async def list_payments(driver_id: uuid.UUID) -> list[dict]:
         return [_payment_out(p, names.get(p.site_id)) for p in rows]
 
 
+_ADMIN_NOTE_MAX = 300  # DriverMembership.admin_note is String(300)
+
+
+def _activation_failure_note(reason: str) -> str:
+    """Operator-facing note, capped so it can never overflow admin_note."""
+    return f"payment received; activation failed: {reason}"[:_ADMIN_NOTE_MAX]
+
+
+def _flag_activation_failure(
+    p: DriverPayment, m: DriverMembership | None, reason: str
+) -> None:
+    """Record a paid-but-not-activated outcome on the payment (raw_payload
+    `activation_error`) and, when present, on the membership's admin_note."""
+    p.raw_payload = {**(p.raw_payload or {}), "activation_error": reason}
+    if m is not None:
+        m.admin_note = _activation_failure_note(reason)
+
+
 async def _apply_paid(db, p: DriverPayment, payload: dict | None) -> None:
     """Mark paid + run side effects. Idempotent: callers check status."""
     p.status = "paid"
@@ -483,15 +508,22 @@ async def _apply_paid(db, p: DriverPayment, payload: dict | None) -> None:
                 select(DriverMembership).where(DriverMembership.id == p.membership_id)
             )
         ).scalar_one_or_none()
-        if m is not None and m.status == "pending":
+        if m is None:
+            _flag_activation_failure(p, None, "membership no longer exists")
+        elif m.status != "pending":
+            _flag_activation_failure(p, m, f"membership is {m.status}, not pending")
+        else:
             try:
                 await membership_service._activate_membership_row(
                     db, m, f"auto: paid via {p.method}"
                 )
             except ApiError as exc:
-                # money received but activation failed (e.g. blacklisted
-                # plate) — keep paid, surface the failure for the operator.
-                m.admin_note = f"payment received; activation failed: {exc.message}"
+                # Money received but activation failed (e.g. blacklisted
+                # plate). Keep the payment 'paid' (the charge is real), leave
+                # the membership 'pending', and flag both rows so an operator
+                # can activate manually or refund (LOGIC-BE-009). Automatic
+                # refund is a product decision and is intentionally not done.
+                _flag_activation_failure(p, m, exc.message)
     elif p.kind == "topup":
         await wallet_service.credit(
             db, p.driver_id, p.amount_vnd, "topup_credit", p.id, "Wallet top-up"
@@ -519,9 +551,13 @@ async def get_payment(driver_id: uuid.UUID, payment_id: uuid.UUID) -> dict:
         await _expire_stale(db)
         p = (
             await db.execute(
-                select(DriverPayment).where(
+                select(DriverPayment)
+                .where(
                     DriverPayment.id == payment_id, DriverPayment.driver_id == driver_id
                 )
+                # Same lock as IPN/refund: a pull-refresh must not race an IPN
+                # into applying side effects twice (LOGIC-BE-010).
+                .with_for_update()
             )
         ).scalar_one_or_none()
         if p is None:
@@ -538,9 +574,12 @@ async def cancel_payment(driver_id: uuid.UUID, payment_id: uuid.UUID) -> dict:
         await _expire_stale(db)
         p = (
             await db.execute(
-                select(DriverPayment).where(
+                select(DriverPayment)
+                .where(
                     DriverPayment.id == payment_id, DriverPayment.driver_id == driver_id
                 )
+                # Serialise with IPN: never overwrite 'paid' with 'cancelled'.
+                .with_for_update()
             )
         ).scalar_one_or_none()
         if p is None:

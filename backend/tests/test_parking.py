@@ -355,6 +355,44 @@ async def test_sweep_marks_stale_then_expired(tenant, level_zone, admin_engine):
         assert (s1, s2, s3) == ("stale", "exited", "parked")
 
 
+@pytest.mark.asyncio
+async def test_sweep_scoped_to_tenant_leaves_other_tenant_untouched(tenant, level_zone, admin_engine):
+    """LOGIC-BE-008: a sweep with a short TTL for one tenant must not touch
+    another tenant's presences."""
+    from app.models import VehiclePresence
+    from app.services.parking_service import sweep_stale_presences
+
+    now = datetime.now(timezone.utc)
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        p, _ = await _detect(db, level_zone, level_zone["zone_a"], plate="29A-444.44")
+        await db.execute(
+            update(VehiclePresence).where(VehiclePresence.id == p.id).values(last_seen_at=now - timedelta(hours=2))
+        )
+        await db.commit()
+
+        other_tenant_id = uuid.uuid4()
+        n = await sweep_stale_presences(
+            db,
+            stale_before=now - timedelta(hours=1),
+            expire_before=now - timedelta(hours=4),
+            tenant_id=other_tenant_id,
+        )
+        await db.commit()
+        assert n == 0
+        assert (await db.get(VehiclePresence, p.id)).status == "parked"
+
+        n = await sweep_stale_presences(
+            db,
+            stale_before=now - timedelta(hours=1),
+            expire_before=now - timedelta(hours=4),
+            tenant_id=level_zone["tenant_id"],
+        )
+        await db.commit()
+        assert n == 1
+        assert (await db.get(VehiclePresence, p.id)).status == "stale"
+
+
 # ---------- PARK-TC-004: concurrent detection race ----------
 
 
