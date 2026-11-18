@@ -4,7 +4,8 @@
 //! through `BarrierHal`. Time is injected (`tick(now, dt)`) so tests drive
 //! synthetic instants. `request_open`/`request_close` reject only on
 //! `Locked`/`Fault` — remote commands must work without a vehicle on the
-//! loop; the ANPR+loop allow-guard lives in the access pipeline.
+//! loop. `request_close` is additionally refused while the loop detector is
+//! occupied. No ANPR+loop open-guard exists in the pipeline (product decision).
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -76,6 +77,8 @@ pub enum FsmReject {
     NotFaulted,
     #[error("update_in_progress")]
     UpdateInProgress,
+    #[error("loop_active")]
+    LoopActive,
 }
 
 impl FsmReject {
@@ -86,6 +89,7 @@ impl FsmReject {
             FsmReject::NotLocked => "not_locked",
             FsmReject::NotFaulted => "not_faulted",
             FsmReject::UpdateInProgress => "update_in_progress",
+            FsmReject::LoopActive => "loop_active",
         }
     }
 }
@@ -189,9 +193,16 @@ impl GateFsm {
         Ok(())
     }
 
+    /// Remote/manual close — additionally refused while the loop detector
+    /// reports a vehicle under the arm (only observable when the gate has a
+    /// loop input wired; otherwise `loop_active` is always false and the
+    /// board's own interlock is the only protection).
     pub fn request_close(&mut self) -> Result<(), FsmReject> {
         self.reject()?;
         if !matches!(self.state, GateState::Closed | GateState::Closing) {
+            if self.hal.sensors().loop_active {
+                return Err(FsmReject::LoopActive);
+            }
             let _ = self.hal.energize_close();
             self.state = GateState::Closing;
             self.entered_at = Instant::now();
@@ -586,6 +597,9 @@ mod tests {
             self.current_milli
                 .store((a * 1000.0) as u32, Ordering::SeqCst);
         }
+        fn set_loop(&self, active: bool) {
+            self.loop_active.store(active, Ordering::SeqCst);
+        }
         fn set_link(&self, ok: bool) {
             self.link_ok.store(ok, Ordering::SeqCst);
         }
@@ -700,6 +714,27 @@ mod tests {
         hal.set_angle(90);
         tick_n(&mut fsm, t0, 0, 100);
         fsm.request_close().unwrap();
+        assert_eq!(fsm.state(), GateState::Closing);
+        assert!(hal.calls().contains(&"energize_close"));
+    }
+
+    #[test]
+    fn close_is_rejected_while_loop_detector_is_occupied() {
+        let hal = Scripted::new();
+        let mut fsm = GateFsm::with_tuning(hal.clone(), contact_tuning());
+        let t0 = Instant::now();
+        fsm.request_open().unwrap();
+        hal.set_angle(90);
+        tick_n(&mut fsm, t0, 0, 100);
+        assert_eq!(fsm.state(), GateState::Open);
+
+        hal.set_loop(true);
+        assert_eq!(fsm.request_close(), Err(FsmReject::LoopActive));
+        assert_eq!(fsm.state(), GateState::Open);
+        assert!(!hal.calls().contains(&"energize_close"));
+
+        hal.set_loop(false);
+        assert!(fsm.request_close().is_ok());
         assert_eq!(fsm.state(), GateState::Closing);
         assert!(hal.calls().contains(&"energize_close"));
     }

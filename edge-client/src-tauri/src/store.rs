@@ -630,6 +630,9 @@ impl Store {
     }
 }
 
+/// Retention for dedup rows; must comfortably exceed `MAX_COMMAND_AGE_SECS`.
+const PROCESSED_COMMANDS_RETENTION_DAYS: u32 = 7;
+
 impl CommandLog for Store {
     fn seen(&self, id: Uuid) -> Option<bool> {
         let conn = self.conn.lock().unwrap();
@@ -644,7 +647,14 @@ impl CommandLog for Store {
     }
 
     fn record(&self, id: Uuid, success: bool) {
-        let _ = self.conn.lock().unwrap().execute(
+        let conn = self.conn.lock().unwrap();
+        // Bound the table: rows far older than the command freshness window
+        // can never be redelivered as valid, so they are safe to drop.
+        let _ = conn.execute(
+            "DELETE FROM processed_commands WHERE processed_at < datetime('now', ?1)",
+            params![format!("-{PROCESSED_COMMANDS_RETENTION_DAYS} days")],
+        );
+        let _ = conn.execute(
             "INSERT OR REPLACE INTO processed_commands (command_id, success) VALUES (?1, ?2)",
             params![id.to_string(), success as i64],
         );
@@ -747,6 +757,26 @@ mod tests {
         }
         let store = Store::open(&path).unwrap();
         assert_eq!(store.seen(id), Some(true));
+    }
+
+    #[test]
+    fn old_processed_commands_are_pruned_on_record() {
+        let (store, _d) = temp_store();
+        let old = Uuid::new_v4();
+        store.record(old, true);
+        store
+            .conn
+            .lock()
+            .unwrap()
+            .execute(
+                "UPDATE processed_commands SET processed_at = datetime('now', '-30 days')",
+                [],
+            )
+            .unwrap();
+        let fresh = Uuid::new_v4();
+        store.record(fresh, true);
+        assert!(store.seen(old).is_none());
+        assert_eq!(store.seen(fresh), Some(true));
     }
 
     #[test]

@@ -2,8 +2,9 @@
 //! `command_ack` on the telemetry topic (spec §5.1.3). Every commandId is
 //! recorded in `CommandLog` *before* the ack is published, so a broker
 //! redelivery replays the stored ack instead of re-firing a relay. The
-//! in-memory `InMemCommandLog` is for tests/diagnostics; the SQLite impl
-//! lands in Task 10.
+//! in-memory `InMemCommandLog` is for tests only; production uses the
+//! durable SQLite `Store` so dedup survives restarts. Commands whose
+//! `issuedAt` is outside the freshness window are refused.
 
 use std::sync::{Arc, Mutex};
 
@@ -15,6 +16,12 @@ use crate::fsm::GateFsm;
 use crate::mqtt::Publisher;
 use crate::payloads::{telemetry_topic, CommandAck, CommandPayload};
 
+/// Commands older than this are refused: a QoS-1 redelivery after a long
+/// outage must not move a barrier for a request nobody is waiting on.
+pub const MAX_COMMAND_AGE_SECS: i64 = 120;
+/// Tolerated device/backend clock skew for commands issued "in the future".
+pub const MAX_CLOCK_SKEW_SECS: i64 = 60;
+
 /// Deduplication record for inbound commands. `seen` returns the stored
 /// success flag if this commandId was already processed.
 pub trait CommandLog: Send + Sync {
@@ -22,7 +29,7 @@ pub trait CommandLog: Send + Sync {
     fn record(&self, id: Uuid, success: bool);
 }
 
-/// Volatile dedup log — used by tests; production swaps in SQLite (Task 10).
+/// Volatile dedup log — tests only; production uses the SQLite `Store`.
 pub struct InMemCommandLog {
     map: Mutex<std::collections::HashMap<Uuid, bool>>,
 }
@@ -108,7 +115,14 @@ impl CommandExecutor {
             return;
         }
 
-        let result: Result<(), String> = {
+        let age = chrono::Utc::now().signed_duration_since(cmd.issued_at);
+        let stale = age > chrono::Duration::seconds(MAX_COMMAND_AGE_SECS)
+            || age < -chrono::Duration::seconds(MAX_CLOCK_SKEW_SECS);
+
+        let result: Result<(), String> = if stale {
+            warn!("command {} rejected as stale (age {age})", cmd.command_id);
+            Err("stale_command".to_string())
+        } else {
             let mut fsm = self.fsm.lock().unwrap();
             match cmd.command.as_str() {
                 "open" => fsm.request_open().map_err(|r| r.as_str().to_string()),
@@ -126,7 +140,7 @@ impl CommandExecutor {
 
         let success = result.is_ok();
         // Record the verdict BEFORE publishing so a crash+redelivery still
-        // dedups; SQLite impl makes this durable across restarts (Task 10).
+        // dedups; the SQLite `Store` makes this durable across restarts.
         self.log.record(cmd.command_id, success);
 
         let ack = match result {
@@ -177,13 +191,22 @@ mod tests {
     }
 
     fn cmd_body_with(command: &str, id: Uuid, gate: Uuid) -> serde_json::Value {
+        cmd_body_issued(command, id, gate, chrono::Utc::now())
+    }
+
+    fn cmd_body_issued(
+        command: &str,
+        id: Uuid,
+        gate: Uuid,
+        issued_at: chrono::DateTime<chrono::Utc>,
+    ) -> serde_json::Value {
         json!({
             "commandId": id,
             "correlationId": "test",
             "command": command,
             "gateId": gate,
             "tenantId": TENANT,
-            "issuedAt": "2026-09-28T08:30:10+00:00",
+            "issuedAt": issued_at.to_rfc3339(),
             "payload": {}
         })
     }
@@ -325,5 +348,52 @@ mod tests {
         rig.exec.handle(json!({"garbage": true})).await;
         rig.exec.handle(json!("not even an object")).await;
         assert_eq!(rig.pub_.sent.lock().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn stale_command_is_rejected_without_energizing() {
+        let rig = rig();
+        let issued = chrono::Utc::now() - chrono::Duration::seconds(MAX_COMMAND_AGE_SECS + 5);
+        let body = cmd_body_issued("open", Uuid::new_v4(), rig.cfg.gate_id, issued);
+        rig.exec.handle(body).await;
+        assert_eq!(rig.hal.opens.load(Ordering::SeqCst), 0, "stale open must not fire");
+        let sent = rig.pub_.sent.lock().unwrap();
+        assert_eq!(sent.len(), 1);
+        assert_eq!(sent[0].1["success"], false);
+        assert_eq!(sent[0].1["error"], "stale_command");
+    }
+
+    #[tokio::test]
+    async fn far_future_command_is_rejected() {
+        let rig = rig();
+        let issued = chrono::Utc::now() + chrono::Duration::seconds(MAX_CLOCK_SKEW_SECS + 60);
+        rig.exec
+            .handle(cmd_body_issued("open", Uuid::new_v4(), rig.cfg.gate_id, issued))
+            .await;
+        assert_eq!(rig.hal.opens.load(Ordering::SeqCst), 0);
+        assert_eq!(rig.pub_.sent.lock().unwrap()[0].1["error"], "stale_command");
+    }
+
+    #[tokio::test]
+    async fn dedup_survives_restart_with_durable_store_log() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("edge.db");
+        let id = Uuid::new_v4();
+        let mut total_opens = 0;
+        // Two executors over a re-opened SQLite file simulate an app restart.
+        for _ in 0..2 {
+            let hal = SpyHal::new();
+            let log: Arc<dyn CommandLog> = Arc::new(crate::store::Store::open(&path).unwrap());
+            let cfg = cfg();
+            let exec = CommandExecutor::new(
+                Arc::new(Mutex::new(GateFsm::new(hal.clone()))),
+                Arc::new(MemPublisher::new()),
+                log,
+                cfg.clone(),
+            );
+            exec.handle(cmd_body_with("open", id, cfg.gate_id)).await;
+            total_opens += hal.opens.load(Ordering::SeqCst);
+        }
+        assert_eq!(total_opens, 1, "replayed commandId must not re-fire after restart");
     }
 }

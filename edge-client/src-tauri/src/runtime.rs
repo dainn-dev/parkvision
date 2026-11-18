@@ -23,7 +23,7 @@ use uuid::Uuid;
 
 use crate::anpr::{ManualPlateSource, PlateReading, PlateSource};
 use crate::camera_worker::{CameraWorkerManager, WorkerCommand};
-use crate::commands::{CommandExecutor, InMemCommandLog};
+use crate::commands::CommandExecutor;
 use crate::config::{EdgeConfig, GateBinding, GateCtx};
 use crate::fsm::{FsmEvent, GateFsm, GateState};
 use crate::hal::BarrierHal;
@@ -291,7 +291,7 @@ impl EdgeRuntime {
                 Arc::new(CommandExecutor::new(
                     fsm.clone(),
                     publisher.clone(),
-                    Arc::new(InMemCommandLog::new()),
+                    store.clone(),
                     ctx.clone(),
                 )),
             ));
@@ -871,7 +871,7 @@ mod tests {
             "command": command,
             "gateId": gate,
             "tenantId": TENANT,
-            "issuedAt": "2026-09-28T08:30:10+00:00",
+            "issuedAt": chrono::Utc::now().to_rfc3339(),
             "payload": {}
         })
     }
