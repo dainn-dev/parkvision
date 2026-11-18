@@ -106,8 +106,10 @@ cd backend && .venv/bin/python -m pytest                       # needs isolated 
 cd backend && .venv/bin/python -m pytest tests/test_pricing.py # single file — still needs the DB/Redis fixtures
 cd backend && .venv/bin/python -m ruff check app tests scripts
 ```
-Backend integration tests use an **autouse fixture that drops and recreates
-the `public` schema** and flushes a Redis key. Both `DATABASE_URL` and
+Backend integration tests drop and recreate the `public` schema **once per
+pytest session** (session-scoped `migrated` fixture) and flush a Redis key per
+test — rows persist across tests, so tests must use random ids and scope
+counts to their own tenant rather than assume empty tables. Both `DATABASE_URL` and
 `MIGRATION_DATABASE_URL` must point at the same dedicated `*_test` database on
 an **isolated** Postgres/Redis instance — not dev, not prod, not even "same
 cluster, different DB name" (the first migration can `ALTER ROLE` at the
