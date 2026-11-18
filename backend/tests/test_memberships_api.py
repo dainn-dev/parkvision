@@ -249,7 +249,7 @@ async def test_activate_creates_whitelist_vehicle(client, tenant, listed_site, a
     await login(client, tenant["email"], tenant["password"])
     res = await client.post(
         f"/api/v1/tenants/{tenant['tenant_id']}/memberships/{m['id']}/activate",
-        json={},
+        json={"note": "manual activation (test)"},
         headers=csrf(client),
     )
     assert res.status_code == 200, res.text
@@ -264,7 +264,7 @@ async def test_activate_creates_whitelist_vehicle(client, tenant, listed_site, a
     # conflict rather than re-provisioning the whitelist row.
     repeated = await client.post(
         f"/api/v1/tenants/{tenant['tenant_id']}/memberships/{m['id']}/activate",
-        json={},
+        json={"note": "manual activation (test)"},
         headers=csrf(client),
     )
     assert repeated.status_code == 409
@@ -281,7 +281,7 @@ async def test_revoke_suspends_gate_access(client, tenant, listed_site, admin_en
     await login(client, tenant["email"], tenant["password"])
     await client.post(
         f"/api/v1/tenants/{tenant['tenant_id']}/memberships/{m['id']}/activate",
-        json={},
+        json={"note": "manual activation (test)"},
         headers=csrf(client),
     )
     res = await client.post(
@@ -312,7 +312,7 @@ async def test_reject_pending_then_activate_409(client, tenant, listed_site):
     assert res.status_code == 200 and res.json()["status"] == "rejected"
     r = await client.post(
         f"/api/v1/tenants/{tenant['tenant_id']}/memberships/{m['id']}/activate",
-        json={},
+        json={"note": "manual activation (test)"},
         headers=csrf(client),
     )
     assert r.status_code == 409
@@ -335,7 +335,7 @@ async def test_driver_cancel_pending_and_active(client, tenant, listed_site, adm
     await login(client, tenant["email"], tenant["password"])
     await client.post(
         f"/api/v1/tenants/{tenant['tenant_id']}/memberships/{m2['id']}/activate",
-        json={},
+        json={"note": "manual activation (test)"},
         headers=csrf(client),
     )
     client.cookies.clear()  # switch back to driver bearer
@@ -357,7 +357,7 @@ async def test_expired_membership_swept_and_denied(client, tenant, listed_site, 
     await login(client, tenant["email"], tenant["password"])
     await client.post(
         f"/api/v1/tenants/{tenant['tenant_id']}/memberships/{m['id']}/activate",
-        json={},
+        json={"note": "manual activation (test)"},
         headers=csrf(client),
     )
 
@@ -442,7 +442,7 @@ async def test_activate_blacklisted_plate_conflict(client, tenant, listed_site, 
     await login(client, tenant["email"], tenant["password"])
     r = await client.post(
         f"/api/v1/tenants/{tenant['tenant_id']}/memberships/{m['id']}/activate",
-        json={},
+        json={"note": "manual activation (test)"},
         headers=csrf(client),
     )
     assert r.status_code == 409

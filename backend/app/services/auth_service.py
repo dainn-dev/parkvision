@@ -738,6 +738,14 @@ async def validate_session_state(session_id: uuid.UUID) -> bool:
         return True
 
 
+async def platform_admin_mfa_enabled(admin_id: uuid.UUID) -> bool:
+    """Whether the platform admin has completed MFA enrollment (DB truth, not the
+    token's `mfa` claim, so enrolling unlocks the current session at once)."""
+    async with platform_session() as db:
+        enabled = await db.scalar(select(PlatformAdmin.mfa_enabled).where(PlatformAdmin.id == admin_id))
+    return bool(enabled)
+
+
 async def mfa_setup(user: TenantUser | PlatformAdmin) -> tuple[str, str]:
     """Generate (and stash encrypted) a new TOTP secret. Returns secret + URI."""
     secret = new_totp_secret()

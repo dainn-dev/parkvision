@@ -1430,6 +1430,23 @@ class TenantMembershipOut(CamelModel):
 
 class MembershipActionIn(CamelModel):
     admin_note: str | None = Field(None, max_length=300)
+    # Activation only: reason for activating a paid plan with no paid
+    # payment (required then — 422 `activation_reason_required`).
+    note: str | None = Field(None, max_length=300)
+
+
+class MarkRefundedExternallyIn(CamelModel):
+    """Operator note for a refund done outside ParkVision."""
+
+    note: str = Field(min_length=3, max_length=300)
+
+    @field_validator("note")
+    @classmethod
+    def _strip(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 3:
+            raise ValueError("note must be at least 3 characters")
+        return v
 
 
 class TenantPaymentOut(CamelModel):
@@ -1453,6 +1470,13 @@ class TenantPaymentOut(CamelModel):
     paid_at: datetime | None
     refunded_at: datetime | None
     created_at: datetime
+    # Operator flags (from raw_payload). needs_attention mirrors ?attention=true.
+    activation_error: str | None = None
+    late_payment: bool = False
+    amount_mismatch: bool = False
+    refund_attempt_error: str | None = None
+    refunded_externally: bool = False
+    needs_attention: bool = False
 
 
 # ---------- app releases (self-hosted update channel) ----------

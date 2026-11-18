@@ -14,13 +14,14 @@ leaving `active` suspends that row.
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select, update
+from sqlalchemy import exists, func, select, update
 
 from app.core.enums import VehicleStatus
-from app.core.errors import conflict, not_found
+from app.core.errors import ApiError, conflict, not_found
 from app.database import platform_session
 from app.models import (
     DriverMembership,
+    DriverPayment,
     DriverUser,
     DriverVehicle,
     RegisteredVehicle,
@@ -43,7 +44,8 @@ async def _expire_stale(db) -> None:
     valid_to, so this only fixes display/admin state.
 
     Also auto-cancels `pending` membership requests older than 7 days, so a
-    forgotten tenant-admin decision doesn't leave a request open forever."""
+    forgotten tenant-admin decision doesn't leave a request open forever —
+    except ones with a `paid` payment (those need an operator)."""
     now = datetime.now(timezone.utc)
     stale = (
         (
@@ -73,6 +75,13 @@ async def _expire_stale(db) -> None:
                 select(DriverMembership).where(
                     DriverMembership.status == "pending",
                     DriverMembership.created_at < now - timedelta(days=7),
+                    # GAP-PAY-001: a pending membership the driver already
+                    # paid for (activation failed) waits for an operator to
+                    # activate or refund — never silently cancelled.
+                    ~exists().where(
+                        DriverPayment.membership_id == DriverMembership.id,
+                        DriverPayment.status == "paid",
+                    ),
                 )
             )
         )
@@ -317,14 +326,38 @@ async def _activate_membership_row(db, m: DriverMembership, admin_note: str | No
     return m
 
 
+def manual_activation_reason(note: str | None, admin_note: str | None) -> str | None:
+    """Reason given for a manual activation: `note`, else `adminNote`."""
+    return (note or "").strip() or (admin_note or "").strip() or None
+
+
 async def activate_membership(
-    db, tenant_id: uuid.UUID, mid: uuid.UUID, admin_note: str | None
+    db, tenant_id: uuid.UUID, mid: uuid.UUID, admin_note: str | None, note: str | None = None
 ) -> DriverMembership:
+    """Operator activation. A paid plan (price > 0) with no `paid` payment is
+    being given away / settled off-platform, so a reason is mandatory
+    (422 `activation_reason_required`); it is stored in admin_note."""
+    from app.services import payment_service
+
     await _expire_stale(db)
     m = await _get_membership(db, tenant_id, mid)
     if m.status != "pending":
         raise conflict(f"Membership is {m.status}, not pending") from None
-    return await _activate_membership_row(db, m, admin_note)
+    plan = (
+        await db.execute(select(SiteMembershipPlan).where(SiteMembershipPlan.id == m.plan_id))
+    ).scalar_one_or_none()
+    has_paid = await payment_service.membership_has_paid_payment(db, m.id)
+    reason = manual_activation_reason(note, admin_note)
+    if plan is not None and plan.price_vnd > 0 and not has_paid and reason is None:
+        raise ApiError(
+            422,
+            "activation_reason_required",
+            "This plan is paid and no payment was received — give a reason (note) to activate it manually.",
+        )
+    m = await _activate_membership_row(db, m, reason)
+    if has_paid:
+        await payment_service.resolve_activation_errors(db, m.id)
+    return m
 
 
 async def reject_membership(

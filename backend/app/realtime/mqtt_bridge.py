@@ -18,7 +18,7 @@ import logging
 import re
 import ssl
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import aiomqtt
 from sqlalchemy import select, update
@@ -298,7 +298,10 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
                 confidence=payload.get("confidence"),
                 plate_image_url=payload.get("plateImageKey"),
                 overview_image_url=payload.get("overviewImageKey"),
-                occurred_at=now,
+                occurred_at=_edge_event_time(payload, now),
+                edge_decision=_short_str(payload.get("edgeDecision")),
+                edge_reason=_short_str(payload.get("edgeReason")),
+                paid_exit_payment_id=_uuid_or_none(payload.get("paidExitPaymentId")),
             )
     await publish_ws(tenant_id, {"type": "telemetry", "siteId": site_id, "gateId": gate_id, **payload})
     if access_event is not None:
@@ -320,6 +323,30 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
                 },
             },
         )
+
+
+_MAX_EDGE_CLOCK_AHEAD = timedelta(minutes=5)
+
+
+def _edge_event_time(payload: dict, now: datetime) -> datetime:
+    """When the edge saw the vehicle (frame `timestamp`), so frames flushed
+    late from the offline outbox are judged (paid-exit grace, ordering) at
+    the time they happened. Missing/unparseable/naive or implausibly
+    future timestamps fall back to processing time."""
+    raw = payload.get("timestamp")
+    if not isinstance(raw, str) or not raw:
+        return now
+    try:
+        at = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return now
+    if at.tzinfo is None or at > now + _MAX_EDGE_CLOCK_AHEAD:
+        return now
+    return at.astimezone(timezone.utc)
+
+
+def _short_str(value, limit: int = 60) -> str | None:
+    return str(value)[:limit] if value not in (None, "") else None
 
 
 def _uuid_or_none(value) -> uuid.UUID | None:

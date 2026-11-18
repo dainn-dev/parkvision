@@ -113,7 +113,10 @@ async def activate_membership(
     db: AsyncSession = Depends(get_tenant_db),
     _: None = Depends(require_roles(*WRITE_ROLES)),
 ) -> TenantMembershipOut:
-    m = await membership_service.activate_membership(db, ctx.tenant_id, membership_id, body.admin_note)
+    m = await membership_service.activate_membership(
+        db, ctx.tenant_id, membership_id, body.admin_note, body.note
+    )
+    reason = membership_service.manual_activation_reason(body.note, body.admin_note)
     await write_audit(
         db,
         tenant_id=ctx.tenant_id,
@@ -123,6 +126,7 @@ async def activate_membership(
         action="membership.activated",
         resource_type="driver_membership",
         resource_id=str(membership_id),
+        details={"reason": reason} if reason else None,
         ip=request.client.host if request.client else None,
     )
     return await _membership_out(db, ctx.tenant_id, m)

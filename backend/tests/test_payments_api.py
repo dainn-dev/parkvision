@@ -201,7 +201,7 @@ async def test_active_membership_payment_rejected(client, tenant, listed_site, g
     await login(client, tenant["email"], tenant["password"])
     await client.post(
         f"/api/v1/tenants/{tenant['tenant_id']}/memberships/{m['id']}/activate",
-        json={},
+        json={"note": "manual activation (test)"},
         headers=csrf(client),
     )
     client.cookies.clear()
@@ -350,6 +350,18 @@ async def test_session_payment_amounts_from_pricing_rules(client, tenant, listed
     await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate})
     # completed session: 3h @10k → 30 000
     t0 = datetime.now(timezone.utc) - timedelta(hours=4)
+    # Owned plates only list stays entered after registration (GAP-AUTH-001).
+    from sqlalchemy import update as sa_update
+
+    from app.models import DriverVehicle
+
+    async with async_sessionmaker(admin_engine, class_=AsyncSession)() as db:
+        await db.execute(
+            sa_update(DriverVehicle)
+            .where(DriverVehicle.plate_normalized == "51P30001")
+            .values(created_at=t0 - timedelta(hours=1))
+        )
+        await db.commit()
     entry = await access_event(admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry", at=t0)
     await access_event(
         admin_engine,
@@ -804,6 +816,18 @@ async def test_concurrent_session_payments_create_single_row(
     plate = "51P-900.03"
     await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": plate})
     t0 = datetime.now(timezone.utc) - timedelta(hours=2)
+    # Owned plates only cover stays entered after registration.
+    from sqlalchemy import update as sa_update
+
+    from app.models import DriverVehicle as _DV
+
+    async with async_sessionmaker(admin_engine, class_=AsyncSession)() as db:
+        await db.execute(
+            sa_update(_DV)
+            .where(_DV.plate_normalized == "51P90003")
+            .values(created_at=t0 - timedelta(hours=1))
+        )
+        await db.commit()
     entry = await access_event(admin_engine, tenant["tenant_id"], listed_site["id"], plate, "entry", at=t0)
 
     body = {"kind": "session", "sessionId": str(entry.id)}

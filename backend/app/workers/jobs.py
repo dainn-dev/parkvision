@@ -365,11 +365,14 @@ async def reconcile_pending_payments(ctx) -> int:
     """
     from sqlalchemy import select
 
+    from app.config import settings
     from app.database import platform_session
     from app.models import DriverPayment
     from app.services.payment_service import _refresh_from_gateway
 
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(minutes=10)
+    late_since = now - timedelta(minutes=settings.payment_late_query_window_minutes)
     async with platform_session() as db:
         ids = (
             (
@@ -387,9 +390,29 @@ async def reconcile_pending_payments(ctx) -> int:
             .scalars()
             .all()
         )
+        # D-PAY-1: recently cancelled/expired payments that MoMo may still
+        # have settled — a 'paid' answer is recorded as late_ipn, not applied.
+        late_ids = (
+            (
+                await db.execute(
+                    select(DriverPayment.id)
+                    .where(
+                        DriverPayment.status.in_(("cancelled", "expired")),
+                        DriverPayment.method == "momo",
+                        DriverPayment.created_at >= late_since,
+                        ~DriverPayment.raw_payload.has_key("late_ipn"),
+                    )
+                    .order_by(DriverPayment.created_at.asc())
+                    .limit(100)
+                )
+            )
+            .scalars()
+            .all()
+        )
+    late = set(late_ids)
 
     refreshed = 0
-    for payment_id in ids:
+    for payment_id in [*ids, *late_ids]:
         try:
             # One transaction per payment, holding the same row lock as the
             # IPN/get/refund paths and re-checking status under it, so an IPN
@@ -399,13 +422,18 @@ async def reconcile_pending_payments(ctx) -> int:
                 payment = (
                     await db.execute(
                         select(DriverPayment)
-                        .where(DriverPayment.id == payment_id, DriverPayment.status == "created")
+                        .where(
+                            DriverPayment.id == payment_id,
+                            DriverPayment.status.in_(
+                                ("cancelled", "expired") if payment_id in late else ("created",)
+                            ),
+                        )
                         .with_for_update(skip_locked=True)
                     )
                 ).scalar_one_or_none()
                 if payment is None:
                     continue
-                await _refresh_from_gateway(db, payment)
+                await _refresh_from_gateway(db, payment, include_late=payment_id in late)
             refreshed += 1
         except Exception:
             # One provider/network failure must not prevent reconciliation

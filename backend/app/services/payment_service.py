@@ -23,14 +23,28 @@ payments credit the balance back. Refunded membership payments revoke an
 activated membership (whitelist suspended) or reject a still-pending one.
 
 A 'created' payment expires after `payment_ttl_minutes` (lazy sweep on
-reads/writes). Terminal rows are never mutated again — IPNs and queries
-are idempotent.
+reads/writes). Terminal rows never get their status or side effects changed
+by a provider callback — IPNs and queries are idempotent.
+
+Money-safety flags (all in `raw_payload`, surfaced to operators through the
+tenant feed and its `?attention=true` filter, never auto-refunded):
+
+- `activation_error`  — membership paid but not activated (GAP-PAY-001).
+- `late_ipn`          — provider reports success for a payment that was
+  already cancelled/expired/failed; no side effects applied (D-PAY-1).
+- `amount_mismatch`   — provider amount != `amount_vnd`; not marked paid
+  (D-PAY-2).
+- `refund_attempt_error` — the MoMo /refund call failed in transport; the
+  payment stays `paid` and is reconcilable (PG5).
+- `refunded_externally` — operator recorded an out-of-band refund.
 """
 
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select, text
+import httpx
+from sqlalchemy import exists, func, or_, select, text
 
 from app.config import settings
 from app.core.errors import ApiError, bad_request, conflict, not_found, unprocessable
@@ -45,12 +59,87 @@ from app.models import (
     TenantSite,
 )
 from app.services import wallet_service
-from app.services.event_service import normalize_plate
+from app.services.event_service import normalize_plate, paid_exit_grace_minutes
 from app.services.payments import MomoRejected, get_gateway
+from app.services.payments.gateways import GatewayQueryResult
 from app.services.pricing_service import estimate_fee, pricing_from_profile
+
+logger = logging.getLogger(__name__)
 
 _IN_FLIGHT = ("created",)
 _TERMINAL = ("paid", "failed", "cancelled", "expired", "refunded")
+# A provider success for one of these is a late payment: flag, don't apply.
+_LATE_ELIGIBLE = ("cancelled", "expired", "failed")
+# raw_payload keys that put a (non-refunded) payment on the operator's
+# attention list.
+ATTENTION_KEYS = ("activation_error", "late_ipn", "amount_mismatch", "refund_attempt_error")
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _merge_raw(p: DriverPayment, **entries) -> None:
+    """Add keys to raw_payload (reassigned so the JSONB change is tracked)."""
+    p.raw_payload = {**(p.raw_payload or {}), **entries}
+
+
+def _as_int(value) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _record_late_payment(
+    p: DriverPayment,
+    *,
+    source: str,
+    trans_id: str | None,
+    amount: int | None,
+    result_code: int | None = None,
+    message: str | None = None,
+) -> None:
+    """Provider says paid but the payment was already cancelled/expired:
+    keep the status, apply no side effects, flag it for the operator."""
+    _merge_raw(
+        p,
+        late_ipn={
+            "source": source,
+            "previousStatus": p.status,
+            "transId": trans_id,
+            "amount": amount,
+            "resultCode": result_code,
+            "message": message,
+            "at": _now_iso(),
+        },
+    )
+    if trans_id and not p.provider_trans_id:
+        p.provider_trans_id = trans_id
+
+
+def _amount_matches(p: DriverPayment, received: int | None, *, source: str, trans_id: str | None) -> bool:
+    """True when the provider-reported amount equals `amount_vnd`; otherwise
+    record `amount_mismatch` (the caller must not mark the payment paid)."""
+    if received == p.amount_vnd:
+        return True
+    _merge_raw(
+        p,
+        amount_mismatch={
+            "source": source,
+            "expected": p.amount_vnd,
+            "received": received,
+            "transId": trans_id,
+            "at": _now_iso(),
+        },
+    )
+    return False
+
+
+def _as_query_result(result) -> GatewayQueryResult:
+    # Older/fake adapters may still return the bare status string.
+    return GatewayQueryResult(status=result) if isinstance(result, str) else result
+
 
 TOPUP_MIN_VND = 10_000
 TOPUP_MAX_VND = 50_000_000
@@ -125,6 +214,14 @@ async def _site_names(db, site_ids: set[uuid.UUID]) -> dict[uuid.UUID, str]:
 # ---------- session resolution ----------
 
 
+def canonical_session_ref(session_ref: str) -> str:
+    """`str(uuid.UUID(x))` — lowercase, hyphenated. 404 for a non-UUID."""
+    try:
+        return str(uuid.UUID(str(session_ref).strip()))
+    except ValueError:
+        raise not_found("session", session_ref) from None
+
+
 async def _resolve_session(
     db, driver_id: uuid.UUID, session_ref: str
 ) -> tuple[AccessEvent, AccessEvent | None]:
@@ -155,11 +252,15 @@ async def _resolve_session(
         raise not_found("session", session_ref) from None
 
     plate_norm = normalize_plate(entry.plate_number)
+    # Owned plate: only stays that entered after the driver registered the
+    # vehicle (same cut-off as the driver session listings) — a previous
+    # holder's stay of this plate is not this driver's to see or pay.
     owned = (
         await db.execute(
             select(DriverVehicle.id).where(
                 DriverVehicle.driver_id == driver_id,
                 DriverVehicle.plate_normalized == plate_norm,
+                DriverVehicle.created_at <= entry.occurred_at,
             )
         )
     ).scalar_one_or_none()
@@ -313,6 +414,9 @@ async def create_payment(
         elif kind == "session":
             if not session_ref:
                 raise bad_request("sessionId is required")
+            # Canonical UUID string everywhere it is stored/compared/locked on,
+            # so 'ABC…' and 'abc…' cannot become two payments for one session.
+            session_ref = canonical_session_ref(session_ref)
             # No row exists yet to lock, so serialise concurrent creates for
             # the same session with a transaction-scoped advisory lock; the
             # loser then sees the winner's in-flight/paid row below.
@@ -335,19 +439,51 @@ async def create_payment(
                 raise unprocessable("This site has no pricing rules — fee is not estimable") from None
             if amount <= 0:
                 raise bad_request("This session is free — nothing to pay") from None
-            paid = (
-                await db.execute(
-                    select(DriverPayment)
-                    .where(
-                        DriverPayment.session_ref == session_ref,
-                        DriverPayment.status == "paid",
+            paid_rows = (
+                (
+                    await db.execute(
+                        select(DriverPayment)
+                        .where(
+                            DriverPayment.session_ref == session_ref,
+                            DriverPayment.status == "paid",
+                        )
+                        .order_by(DriverPayment.paid_at.desc().nulls_last())
+                        .with_for_update()
                     )
-                    .order_by(DriverPayment.created_at.desc())
-                    .limit(1)
                 )
-            ).scalar_one_or_none()
-            if paid is not None:
-                raise conflict("A payment for this session is already paid") from None
+                .scalars()
+                .all()
+            )
+            if paid_rows:
+                latest = paid_rows[0]
+                now = datetime.now(timezone.utc)
+                grace = await paid_exit_grace_minutes(db, entry.tenant_id)
+                if (
+                    exit_ev is not None
+                    or latest.exit_granted_at is not None
+                    or latest.paid_at is None
+                    or latest.paid_at >= now - timedelta(minutes=grace)
+                ):
+                    raise conflict("A payment for this session is already paid") from None
+                # Paid, still parked, grace lapsed without an exit consuming
+                # the grant (§17 #4): bill only what accrued since.
+                owed = amount - sum(p.amount_vnd for p in paid_rows)
+                if owed <= 0:
+                    # Nothing more is owed (same pricing block): re-open the
+                    # grace window on the latest paid payment instead of
+                    # minting a zero-amount payment.
+                    _merge_raw(
+                        latest,
+                        grace_refreshed=[
+                            *(latest.raw_payload or {}).get("grace_refreshed", []),
+                            {"previousPaidAt": latest.paid_at.isoformat(), "at": now.isoformat()},
+                        ],
+                    )
+                    latest.paid_at = now
+                    await _push_paid_exit_grant(db, latest)
+                    await db.flush()
+                    return _payment_out(latest, site.name if site else None)
+                amount = owed
             existing = (
                 await db.execute(
                     select(DriverPayment)
@@ -473,7 +609,8 @@ async def _apply_paid(db, p: DriverPayment, payload: dict | None) -> None:
     p.status = "paid"
     p.paid_at = datetime.now(timezone.utc)
     if payload:
-        p.raw_payload = payload
+        # Merge: keep any earlier flags (e.g. a prior amount_mismatch record).
+        p.raw_payload = {**(p.raw_payload or {}), **payload}
         trans = payload.get("transId")
         if trans is not None:
             p.provider_trans_id = str(trans)
@@ -500,19 +637,70 @@ async def _apply_paid(db, p: DriverPayment, payload: dict | None) -> None:
                 _flag_activation_failure(p, m, exc.message)
     elif p.kind == "topup":
         await wallet_service.credit(db, p.driver_id, p.amount_vnd, "topup_credit", p.id, "Wallet top-up")
+    elif p.kind == "session":
+        await _push_paid_exit_grant(db, p)
     await db.flush()
 
 
-async def _refresh_from_gateway(db, p: DriverPayment) -> None:
-    if p.status != "created" or p.method != "momo":
+async def _push_paid_exit_grant(db, p: DriverPayment) -> None:
+    """GAP-PAY-003: tell every gate of the session's site that this session
+    is paid, so an edge that loses the backend can still honour the exit
+    from its SQLite cache. Best effort — the backend's own paid_exit
+    decision (event_service) stays authoritative, so a Redis failure must
+    not roll back the payment."""
+    if p.tenant_id is None or p.site_id is None or not p.session_ref or p.paid_at is None:
+        return
+    from app.services.walk_in_service import enqueue_site_signal
+
+    grace = await paid_exit_grace_minutes(db, p.tenant_id)
+    message = {
+        "type": "paid_exit_grant",
+        "sessionId": p.session_ref,
+        "paymentId": str(p.id),
+        "plateNumber": p.plate_number or "",
+        "plateNormalized": normalize_plate(p.plate_number or ""),
+        "paidAt": p.paid_at.isoformat(),
+        "expiresAt": (p.paid_at + timedelta(minutes=grace)).isoformat(),
+    }
+    try:
+        await enqueue_site_signal(db, tenant_id=p.tenant_id, site_id=p.site_id, message=message)
+    except Exception:  # noqa: BLE001 — best-effort push, see docstring
+        logger.warning("paid_exit_grant push failed for payment %s", p.id, exc_info=True)
+
+
+async def _refresh_from_gateway(db, p: DriverPayment, *, include_late: bool = False) -> None:
+    """Pull the provider status for a 'created' MoMo payment. With
+    `include_late`, also query cancelled/expired ones not yet flagged so a
+    payment that succeeded after we gave up is recorded as `late_ipn`."""
+    if p.method != "momo":
+        return
+    late_check = (
+        include_late and p.status in ("cancelled", "expired") and "late_ipn" not in (p.raw_payload or {})
+    )
+    if p.status != "created" and not late_check:
         return
     gw = get_gateway()
     if gw is None:
         return
-    status = await gw.query_status(order_id=p.provider_order_id, request_id=p.provider_request_id)
-    if status == "paid":
-        await _apply_paid(db, p, {"query": "paid"})
-    elif status == "failed":
+    res = _as_query_result(
+        await gw.query_status(order_id=p.provider_order_id, request_id=p.provider_request_id)
+    )
+    if late_check:
+        if res.status == "paid":
+            _record_late_payment(p, source="query", trans_id=res.trans_id, amount=res.amount)
+        return
+    if res.status == "paid":
+        if res.amount is not None and not _amount_matches(
+            p, res.amount, source="query", trans_id=res.trans_id
+        ):
+            return
+        payload: dict = {"query": "paid"}
+        if res.trans_id:
+            payload["transId"] = res.trans_id
+        if res.amount is not None:
+            payload["amount"] = res.amount
+        await _apply_paid(db, p, payload)
+    elif res.status == "failed":
         p.status = "failed"
 
 
@@ -583,13 +771,35 @@ async def handle_momo_ipn(payload: dict) -> dict:
             # Unknown order — verify passed so it's a real MoMo call; ack
             # silently rather than erroring (idempotent retry semantics).
             return {"resultCode": 0, "message": "unknown order"}
+        succeeded = gw.ipn_succeeded(payload)
+        trans = payload.get("transId")
+        trans_id = str(trans) if trans not in (None, "") else None
+        amount = _as_int(payload.get("amount"))
+        if p.status in _LATE_ELIGIBLE and succeeded:
+            # D-PAY-1: money arrived after we cancelled/expired the payment.
+            # Ack MoMo (so it stops retrying) but apply no side effects.
+            if "late_ipn" not in (p.raw_payload or {}):
+                _record_late_payment(
+                    p,
+                    source="ipn",
+                    trans_id=trans_id,
+                    amount=amount,
+                    result_code=_as_int(payload.get("resultCode")),
+                    message=str(payload.get("message", ""))[:200],
+                )
+                await db.flush()
+            return {"resultCode": 0, "message": "late payment recorded"}
         if p.status in _TERMINAL:
             return {"resultCode": 0, "message": "already processed"}
-        if gw.ipn_succeeded(payload):
+        if succeeded:
+            # D-PAY-2: never mark paid on an amount we did not ask for.
+            if not _amount_matches(p, amount, source="ipn", trans_id=trans_id):
+                await db.flush()
+                return {"resultCode": 0, "message": "amount mismatch recorded"}
             await _apply_paid(db, p, payload)
         else:
             p.status = "failed"
-            p.raw_payload = payload
+            p.raw_payload = {**(p.raw_payload or {}), **payload}
         await db.flush()
         return {"resultCode": 0, "message": "ok"}
 
@@ -612,12 +822,17 @@ async def list_tenant_payments(
     status: str | None = None,
     kind: str | None = None,
     site_id: uuid.UUID | None = None,
+    attention: bool | None = None,
     page: int = 1,
     limit: int = 50,
 ) -> tuple[list[dict], int]:
     """Tenant-admin payment feed. `db` is a tenant_session — RLS already
     scopes driver_payments to the tenant (topup rows have NULL tenant_id
-    and are invisible here by design)."""
+    and are invisible here by design).
+
+    `attention=True` keeps only non-refunded payments carrying one of
+    `ATTENTION_KEYS` (paid-not-activated, late payment, amount mismatch,
+    failed refund attempt) — the operator's to-do list."""
     q = (
         select(DriverPayment, DriverUser, TenantSite)
         .join(DriverUser, DriverUser.id == DriverPayment.driver_id)
@@ -630,48 +845,69 @@ async def list_tenant_payments(
         q = q.where(DriverPayment.kind == kind)
     if site_id:
         q = q.where(DriverPayment.site_id == site_id)
+    if attention:
+        q = q.where(
+            DriverPayment.status != "refunded",
+            or_(*[DriverPayment.raw_payload.has_key(k) for k in ATTENTION_KEYS]),
+        )
     total = (await db.scalar(select(func.count()).select_from(q.subquery()))) or 0
     rows = (
         await db.execute(q.order_by(DriverPayment.created_at.desc()).offset((page - 1) * limit).limit(limit))
     ).all()
-    items = [
-        {
-            "id": p.id,
-            "driver_id": d.id,
-            "driver_name": d.full_name,
-            "driver_email": d.email,
-            "kind": p.kind,
-            "membership_id": p.membership_id,
-            "session_id": p.session_ref,
-            "site_id": p.site_id,
-            "site_name": s.name if s else None,
-            "plate_number": p.plate_number,
-            "amount_vnd": p.amount_vnd,
-            "currency": p.currency,
-            "provider": p.provider,
-            "method": p.method,
-            "status": p.status,
-            "paid_at": p.paid_at,
-            "refunded_at": p.refunded_at,
-            "created_at": p.created_at,
-        }
-        for p, d, s in rows
-    ]
-    return items, total
+    return [_tenant_payment_item(p, d, s) for p, d, s in rows], total
 
 
-async def refund_payment(db, tenant_id: uuid.UUID, payment_id: uuid.UUID) -> dict:
-    """Operator-initiated refund of a `paid` payment.
+def _operator_flags(p: DriverPayment) -> dict:
+    raw = p.raw_payload or {}
+    activation_error = raw.get("activation_error")
+    refund_error = raw.get("refund_attempt_error")
+    return {
+        "activation_error": str(activation_error) if activation_error else None,
+        "late_payment": "late_ipn" in raw,
+        "amount_mismatch": "amount_mismatch" in raw,
+        "refund_attempt_error": refund_error.get("message") if isinstance(refund_error, dict) else None,
+        "refunded_externally": "refunded_externally" in raw,
+        "needs_attention": p.status != "refunded" and any(k in raw for k in ATTENTION_KEYS),
+    }
 
-    - method='momo'   → provider `/refund` call (needs transId; a payment
-      marked paid via the pull-refresh path may lack one — operator must
-      refund in the MoMo console in that case).
-    - method='wallet' → credit the balance back (refund_credit ledger row).
 
-    Side effects: membership payments revoke an activated membership
-    (whitelist suspended) or reject a still-pending one; session payments
-    just flip status — an unconsumed exit grant stops matching `status='paid'`.
-    """
+def _tenant_payment_item(p: DriverPayment, d: DriverUser, s: TenantSite | None) -> dict:
+    return {
+        "id": p.id,
+        "driver_id": d.id,
+        "driver_name": d.full_name,
+        "driver_email": d.email,
+        "kind": p.kind,
+        "membership_id": p.membership_id,
+        "session_id": p.session_ref,
+        "site_id": p.site_id,
+        "site_name": s.name if s else None,
+        "plate_number": p.plate_number,
+        "amount_vnd": p.amount_vnd,
+        "currency": p.currency,
+        "provider": p.provider,
+        "method": p.method,
+        "status": p.status,
+        "paid_at": p.paid_at,
+        "refunded_at": p.refunded_at,
+        "created_at": p.created_at,
+        **_operator_flags(p),
+    }
+
+
+async def _tenant_payment_out(db, payment_id: uuid.UUID) -> dict:
+    p, d, s = (
+        await db.execute(
+            select(DriverPayment, DriverUser, TenantSite)
+            .join(DriverUser, DriverUser.id == DriverPayment.driver_id)
+            .outerjoin(TenantSite, TenantSite.id == DriverPayment.site_id)
+            .where(DriverPayment.id == payment_id)
+        )
+    ).one()
+    return _tenant_payment_item(p, d, s)
+
+
+async def _lock_refundable(db, tenant_id: uuid.UUID, payment_id: uuid.UUID) -> DriverPayment:
     p = (
         await db.execute(
             select(DriverPayment)
@@ -690,6 +926,48 @@ async def refund_payment(db, tenant_id: uuid.UUID, payment_id: uuid.UUID) -> dic
         raise conflict(f"Payment is {p.status}, not paid") from None
     if p.kind == "topup":
         raise conflict("Top-up payments cannot be refunded by a tenant") from None
+    return p
+
+
+async def _finish_refund(db, p: DriverPayment, note: str) -> None:
+    """Flip to refunded + membership side effects: an activated membership is
+    revoked (whitelist suspended), a still-pending one rejected. Session
+    payments just flip status — an unconsumed exit grant stops matching."""
+    p.status = "refunded"
+    p.refunded_at = datetime.now(timezone.utc)
+    if p.kind == "membership" and p.membership_id is not None:
+        from app.services import membership_service
+
+        m = (
+            await db.execute(select(DriverMembership).where(DriverMembership.id == p.membership_id))
+        ).scalar_one_or_none()
+        if m is not None:
+            if m.status == "active":
+                m.status = "revoked"
+                await membership_service._suspend_whitelist(db, m)
+            elif m.status == "pending":
+                m.status = "rejected"
+            m.admin_note = (f"{m.admin_note}; {note}" if m.admin_note else note)[:_ADMIN_NOTE_MAX]
+    await db.flush()
+
+
+async def refund_payment(db, tenant_id: uuid.UUID, payment_id: uuid.UUID) -> dict:
+    """Operator-initiated refund of a `paid` payment.
+
+    - method='momo'   → provider `/refund` call (needs transId; a payment
+      marked paid via the pull-refresh path may lack one — operator must
+      refund in the MoMo console in that case).
+    - method='wallet' → credit the balance back (refund_credit ledger row).
+
+    Side effects: membership payments revoke an activated membership
+    (whitelist suspended) or reject a still-pending one; session payments
+    just flip status — an unconsumed exit grant stops matching `status='paid'`.
+
+    A transport/HTTP failure talking to MoMo is a 502: the outcome is
+    unknown, so the payment stays `paid` and `raw_payload.refund_attempt_error`
+    is committed (attention list) for reconciliation against the console.
+    """
+    p = await _lock_refundable(db, tenant_id, payment_id)
 
     if p.method == "wallet":
         await wallet_service.credit(
@@ -709,40 +987,115 @@ async def refund_payment(db, tenant_id: uuid.UUID, payment_id: uuid.UUID) -> dic
             )
         except MomoRejected as exc:
             raise conflict(f"Refund rejected by provider: {exc}") from None
+        except httpx.HTTPError as exc:
+            _merge_raw(
+                p,
+                refund_attempt_error={
+                    "message": f"{type(exc).__name__}: {exc}"[:300],
+                    "at": _now_iso(),
+                },
+            )
+            await db.flush()
+            # Persist the record even though the request fails: the request
+            # transaction would otherwise roll it back with the error.
+            await db.commit()
+            raise ApiError(
+                502,
+                "refund_provider_error",
+                "Could not reach the payment provider; the refund was not confirmed. "
+                "The payment stays paid — check the MoMo console, then retry or mark it refunded externally.",
+            ) from None
 
-    p.status = "refunded"
-    p.refunded_at = datetime.now(timezone.utc)
+    await _finish_refund(db, p, "refunded by operator")
+    return await _tenant_payment_out(db, p.id)
 
-    if p.kind == "membership" and p.membership_id is not None:
-        from app.services import membership_service
 
-        m = (
-            await db.execute(select(DriverMembership).where(DriverMembership.id == p.membership_id))
+async def mark_refunded_externally(
+    db, tenant_id: uuid.UUID, payment_id: uuid.UUID, note: str, actor_id: uuid.UUID | None
+) -> dict:
+    """Operator records a refund done outside ParkVision (MoMo console, bank
+    transfer, cash). No provider call or wallet credit; same membership side
+    effects as `refund_payment`."""
+    p = await _lock_for_external_refund(db, tenant_id, payment_id)
+    _merge_raw(
+        p,
+        refunded_externally={
+            "note": note,
+            "by": str(actor_id) if actor_id else None,
+            "at": _now_iso(),
+        },
+    )
+    if p.status == "paid":
+        await _finish_refund(db, p, f"refunded externally: {note}")
+    else:
+        # Money MoMo collected but ParkVision never applied (late IPN /
+        # amount mismatch): close it out without any membership side effects.
+        p.status = "refunded"
+        p.refunded_at = datetime.now(timezone.utc)
+        await db.flush()
+    return await _tenant_payment_out(db, p.id)
+
+
+# Non-paid payments the provider still collected money for; only these may be
+# closed out by an external refund besides `paid` ones.
+_UNAPPLIED_COLLECTION_KEYS = ("late_ipn", "amount_mismatch")
+
+
+async def _lock_for_external_refund(db, tenant_id: uuid.UUID, payment_id: uuid.UUID) -> DriverPayment:
+    try:
+        return await _lock_refundable(db, tenant_id, payment_id)
+    except ApiError:
+        p = (
+            await db.execute(
+                select(DriverPayment)
+                .where(DriverPayment.id == payment_id, DriverPayment.tenant_id == tenant_id)
+                .with_for_update()
+            )
         ).scalar_one_or_none()
-        if m is not None:
-            if m.status == "active":
-                m.status = "revoked"
-                await membership_service._suspend_whitelist(db, m)
-            elif m.status == "pending":
-                m.status = "rejected"
-            note = "refunded by operator"
-            m.admin_note = f"{m.admin_note}; {note}" if m.admin_note else note
-    await db.flush()
-    row = (
-        await db.execute(
-            select(DriverPayment, DriverUser, TenantSite)
-            .join(DriverUser, DriverUser.id == DriverPayment.driver_id)
-            .outerjoin(TenantSite, TenantSite.id == DriverPayment.site_id)
-            .where(DriverPayment.id == p.id)
+        raw = (p.raw_payload or {}) if p is not None else {}
+        if p is None or p.status in ("paid", "refunded") or p.kind == "topup":
+            raise
+        if not any(k in raw for k in _UNAPPLIED_COLLECTION_KEYS):
+            raise
+        return p
+
+
+async def resolve_activation_errors(db, membership_id: uuid.UUID) -> None:
+    """A paid-but-not-activated membership was activated by an operator:
+    move `activation_error` aside so the payment leaves the attention list."""
+    rows = (
+        (
+            await db.execute(
+                select(DriverPayment).where(
+                    DriverPayment.membership_id == membership_id,
+                    DriverPayment.status == "paid",
+                    DriverPayment.raw_payload.has_key("activation_error"),
+                )
+            )
         )
-    ).one()
-    p2, d, s = row
-    return {
-        **_payment_out(p2, s.name if s else None),
-        "driver_id": d.id,
-        "driver_name": d.full_name,
-        "driver_email": d.email,
-    }
+        .scalars()
+        .all()
+    )
+    for p in rows:
+        raw = dict(p.raw_payload or {})
+        error = raw.pop("activation_error")
+        raw["activation_error_resolved"] = {"error": error, "at": _now_iso()}
+        p.raw_payload = raw
+    if rows:
+        await db.flush()
+
+
+async def membership_has_paid_payment(db, membership_id: uuid.UUID) -> bool:
+    return bool(
+        await db.scalar(
+            select(
+                exists().where(
+                    DriverPayment.membership_id == membership_id,
+                    DriverPayment.status == "paid",
+                )
+            )
+        )
+    )
 
 
 async def platform_refund_topup(db, payment_id: uuid.UUID) -> dict:

@@ -11,8 +11,10 @@ import uuid
 import jwt as pyjwt
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from app.api.deps import enforce_platform_admin_mfa
 from app.config import settings
 from app.core.enums import ActorType
+from app.core.errors import ApiError
 from app.redis_client import driver_plate_channel, get_redis, ws_channel
 from app.security import decode_access_token
 from app.services.auth_service import validate_session_state
@@ -44,6 +46,12 @@ async def _ws_auth(ws: WebSocket, tenant_id: uuid.UUID) -> bool:
     if not await validate_session_state(uuid.UUID(claims["sid"])):
         await ws.close(code=4401)
         return False
+    if typ == ActorType.PLATFORM_ADMIN:
+        try:
+            await enforce_platform_admin_mfa(typ, uuid.UUID(claims["sub"]), ws.url.path)
+        except ApiError:
+            await ws.close(code=4403)
+            return False
     return True
 
 

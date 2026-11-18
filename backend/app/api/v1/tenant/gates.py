@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, status
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,6 +37,7 @@ from app.schemas.resources import (
     GateOut,
     TelemetryOut,
 )
+from app.services import emqx_admin
 from app.services.audit_service import write_audit
 from app.services.command_service import issue_command
 from app.services.credential_service import generate_activation_code, hash_activation_code
@@ -587,6 +588,7 @@ async def create_activation_code(
 async def revoke_device_token(
     device_id: uuid.UUID,
     request: Request,
+    background: BackgroundTasks,
     ctx: TenantCtx = Depends(tenant_ctx),
     db: AsyncSession = Depends(get_tenant_db),
     _: None = Depends(require_roles(*WRITE_ROLES)),
@@ -626,6 +628,8 @@ async def revoke_device_token(
             details={"revokedCount": len(creds)},
             ip=request.client.host if request.client else None,
         )
+    # Drop the live MQTT session too; runs after the revoke has committed.
+    background.add_task(emqx_admin.kick_client, emqx_admin.device_client_id(device))
     return MessageOut(message="revoked", detail=f"{len(creds)} credential(s) revoked")
 
 
@@ -693,6 +697,7 @@ async def update_device(
 async def decommission_device(
     device_id: uuid.UUID,
     request: Request,
+    background: BackgroundTasks,
     ctx: TenantCtx = Depends(tenant_ctx),
     db: AsyncSession = Depends(get_tenant_db),
     _: None = Depends(require_roles(*WRITE_ROLES)),
@@ -718,6 +723,7 @@ async def decommission_device(
         resource_id=str(device_id),
         ip=request.client.host if request.client else None,
     )
+    background.add_task(emqx_admin.kick_client, emqx_admin.device_client_id(row))
     return DeviceOut.model_validate(row)
 
 
@@ -752,6 +758,7 @@ async def reactivate_device(
 async def delete_device(
     device_id: uuid.UUID,
     request: Request,
+    background: BackgroundTasks,
     ctx: TenantCtx = Depends(tenant_ctx),
     db: AsyncSession = Depends(get_tenant_db),
     _: None = Depends(require_roles(*WRITE_ROLES)),
@@ -778,7 +785,9 @@ async def delete_device(
         resource_id=str(device_id),
         ip=request.client.host if request.client else None,
     )
+    client_id = emqx_admin.device_client_id(row)
     await db.delete(row)
+    background.add_task(emqx_admin.kick_client, client_id)
     return MessageOut(message="Device deleted")
 
 

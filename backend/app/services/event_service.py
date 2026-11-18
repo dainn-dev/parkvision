@@ -74,6 +74,19 @@ async def _final(
     return decision, reason, vehicle_id
 
 
+async def paid_exit_grace_minutes(db: AsyncSession, tenant_id: uuid.UUID) -> int:
+    """Paid-exit grace window: tenant setting `paid_exit_grace_minutes`,
+    falling back to the app-level default. Shared by `_paid_exit` and the
+    `paid_exit_grant` edge push so both use the same expiry."""
+    settings_row = (
+        await db.execute(select(Tenant.settings).where(Tenant.id == tenant_id))
+    ).scalar_one_or_none() or {}
+    try:
+        return int(settings_row.get("paid_exit_grace_minutes") or app_settings.paid_exit_grace_minutes)
+    except (TypeError, ValueError):
+        return app_settings.paid_exit_grace_minutes
+
+
 async def _paid_exit(
     db: AsyncSession,
     tenant_id: uuid.UUID,
@@ -81,6 +94,7 @@ async def _paid_exit(
     site_id: uuid.UUID | None,
     *,
     for_update: bool = False,
+    at: datetime | None = None,
 ) -> DriverPayment | None:
     """A paid 'session' payment for this plate+site within the grace window
     that hasn't already granted an exit. Tenant setting
@@ -88,21 +102,20 @@ async def _paid_exit(
 
     Pass ``for_update=True`` when the caller intends to stamp
     ``exit_granted_at`` — this acquires a row lock so concurrent exit
-    attempts at different gates serialise correctly (EDGE-PAID-001)."""
-    settings_row = (
-        await db.execute(select(Tenant.settings).where(Tenant.id == tenant_id))
-    ).scalar_one_or_none() or {}
-    try:
-        grace = int(settings_row.get("paid_exit_grace_minutes") or app_settings.paid_exit_grace_minutes)
-    except (TypeError, ValueError):
-        grace = app_settings.paid_exit_grace_minutes
+    attempts at different gates serialise correctly (EDGE-PAID-001).
+
+    `at` is when the exit happened (the edge's event time for telemetry);
+    grace is measured against it, so an exit made inside the window but
+    flushed late from the edge's offline outbox is still recognised."""
+    grace = await paid_exit_grace_minutes(db, tenant_id)
+    at = at or datetime.now(timezone.utc)
     cond = [
         DriverPayment.tenant_id == tenant_id,
         DriverPayment.plate_normalized == plate_normalized,
         DriverPayment.kind == "session",
         DriverPayment.status == "paid",
         DriverPayment.exit_granted_at.is_(None),
-        DriverPayment.paid_at >= datetime.now(timezone.utc) - timedelta(minutes=grace),
+        DriverPayment.paid_at >= at - timedelta(minutes=grace),
     ]
     if site_id is not None:
         cond.append(DriverPayment.site_id == site_id)
@@ -118,8 +131,11 @@ async def decide_access(
     plate_number: str | None,
     direction: str | None = None,
     site_id: uuid.UUID | None = None,
+    at: datetime | None = None,
 ) -> tuple[str, str, uuid.UUID | None]:
-    """Evaluate registered vehicles + access rules → (decision, reason, vehicle_id)."""
+    """Evaluate registered vehicles + access rules → (decision, reason, vehicle_id).
+
+    `at` (event time) only affects the paid-exit grace check."""
     if not plate_number:
         return AccessDecision.DENY, "no_plate_detected", None
 
@@ -191,7 +207,7 @@ async def decide_access(
         and site_id is not None
         and (vehicle is None or vehicle.tag != VehicleTag.BLACKLIST)
     ):
-        paid_payment = await _paid_exit(db, tenant_id, normalized, site_id)
+        paid_payment = await _paid_exit(db, tenant_id, normalized, site_id, at=at)
         if paid_payment is not None:
             base_decision, reason = AccessDecision.ALLOW, "paid_exit"
 
@@ -246,12 +262,50 @@ async def record_access_event(
     occurred_at: datetime | None = None,
     force_decision: str | None = None,
     force_reason: str | None = None,
+    edge_decision: str | None = None,
+    edge_reason: str | None = None,
+    paid_exit_payment_id: uuid.UUID | None = None,
 ) -> AccessEvent:
+    """Persist an access event with the backend's decision.
+
+    `edge_*` carry what the edge decided locally. An edge exit opened on a
+    `paid_exit_grant` (possibly offline, flushed late) is recorded as
+    allow/paid_exit and consumes *that* grant when the referenced payment is
+    still a paid, unconsumed session payment for this plate/site — even if
+    the backend's own grace check would fail. Otherwise the backend decision
+    stands and a differing edge decision is appended to `reason` so the
+    discrepancy is visible."""
+    event_at = occurred_at or datetime.now(timezone.utc)
     decision, reason, vehicle_id = await decide_access(
-        db, tenant_id, plate_number, direction=direction, site_id=site_id
+        db, tenant_id, plate_number, direction=direction, site_id=site_id, at=event_at
     )
+    edge_grant: DriverPayment | None = None
     if force_decision:
         decision, reason = force_decision, force_reason or "manual_override"
+    elif (
+        edge_reason == "paid_exit"
+        and paid_exit_payment_id is not None
+        and direction == EventDirection.EXIT
+        and plate_number
+        and site_id is not None
+    ):
+        edge_grant = (
+            await db.execute(
+                select(DriverPayment)
+                .where(
+                    DriverPayment.id == paid_exit_payment_id,
+                    DriverPayment.tenant_id == tenant_id,
+                    DriverPayment.site_id == site_id,
+                    DriverPayment.kind == "session",
+                    DriverPayment.status == "paid",
+                    DriverPayment.exit_granted_at.is_(None),
+                    DriverPayment.plate_normalized == normalize_plate(plate_number),
+                )
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if edge_grant is not None:
+            decision, reason = AccessDecision.ALLOW, "paid_exit"
     event = AccessEvent(
         tenant_id=tenant_id,
         site_id=site_id,
@@ -266,7 +320,7 @@ async def record_access_event(
         plate_image_url=plate_image_url,
         overview_image_url=overview_image_url,
         source=str(source),
-        occurred_at=occurred_at or datetime.now(timezone.utc),
+        occurred_at=event_at,
     )
     db.add(event)
     if site_id is not None and str(decision) == AccessDecision.ALLOW:
@@ -299,10 +353,16 @@ async def record_access_event(
         and plate_number
         and site_id is not None
     ):
-        normalized = normalize_plate(plate_number)
-        paid_payment = await _paid_exit(db, tenant_id, normalized, site_id, for_update=True)
+        paid_payment = edge_grant or await _paid_exit(
+            db, tenant_id, normalize_plate(plate_number), site_id, for_update=True, at=event_at
+        )
         if paid_payment is not None:
             paid_payment.exit_granted_at = datetime.now(timezone.utc)
+
+    # Edge and backend disagree (e.g. edge opened on a grant already used):
+    # keep the backend decision, record the edge's view on the event.
+    if edge_decision and str(edge_decision) != str(decision):
+        event.reason = f"{reason} [edge: {edge_decision}/{edge_reason or '-'}]"[:200]
 
     if direction == EventDirection.EXIT and plate_number:
         # Lazy import: parking_service already imports normalize_plate from

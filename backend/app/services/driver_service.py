@@ -6,7 +6,9 @@ all queries run under platform_session — driver tables are platform-scoped
 """
 
 import uuid
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
@@ -421,6 +423,61 @@ async def plates_for_driver(driver_id: uuid.UUID, *, for_date: date | None = Non
             .all()
         )
         return set(owned) | set(shared)
+
+
+@dataclass(frozen=True)
+class PlateGrant:
+    """What a driver may see of one plate's stays (GAP-AUTH-001).
+
+    * owned_since: the driver's registration time of the plate — stays that
+      entered earlier belong to whoever held the plate before.
+    * share_dates: dates an owner shared the plate with this driver; a stay is
+      covered when its entry date in the *site's* timezone is one of them (the
+      same rule payment_service._resolve_session applies to payments).
+    """
+
+    owned_since: datetime | None = None
+    share_dates: frozenset[date] = field(default_factory=frozenset)
+
+    def covers(self, entered_at: datetime, site_timezone: str | None) -> bool:
+        if self.owned_since is not None and entered_at >= self.owned_since:
+            return True
+        if self.share_dates:
+            try:
+                tz = ZoneInfo(site_timezone or "UTC")
+            except (ZoneInfoNotFoundError, ValueError):
+                tz = ZoneInfo("UTC")
+            return entered_at.astimezone(tz).date() in self.share_dates
+        return False
+
+
+async def plate_grants_for_driver(driver_id: uuid.UUID) -> dict[str, PlateGrant]:
+    """Normalized plate -> PlateGrant for every plate the driver owns or was
+    ever shared. Every share date is returned, so sessions are filtered by
+    their own entry date rather than by today/yesterday."""
+    async with platform_session() as db:
+        owned = (
+            await db.execute(
+                select(DriverVehicle.plate_normalized, DriverVehicle.created_at).where(
+                    DriverVehicle.driver_id == driver_id
+                )
+            )
+        ).all()
+        shared = (
+            await db.execute(
+                select(DriverVehicle.plate_normalized, DriverVehicleShare.share_date)
+                .join(DriverVehicleShare, DriverVehicleShare.vehicle_id == DriverVehicle.id)
+                .where(DriverVehicleShare.shared_with_id == driver_id)
+            )
+        ).all()
+    since: dict[str, datetime] = dict(owned)
+    dates: dict[str, set[date]] = {}
+    for plate, share_date in shared:
+        dates.setdefault(plate, set()).add(share_date)
+    return {
+        plate: PlateGrant(owned_since=since.get(plate), share_dates=frozenset(dates.get(plate, ())))
+        for plate in since.keys() | dates.keys()
+    }
 
 
 # ---------- favorites ----------

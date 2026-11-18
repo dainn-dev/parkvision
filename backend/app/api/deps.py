@@ -9,9 +9,9 @@ from fastapi import Depends, Request
 
 from app.config import settings
 from app.core.enums import ActorType, PlatformAdminRole, TenantUserRole
-from app.core.errors import forbidden, unauthorized
+from app.core.errors import ApiError, forbidden, unauthorized
 from app.security import decode_access_token
-from app.services.auth_service import validate_session_state
+from app.services.auth_service import platform_admin_mfa_enabled, validate_session_state
 
 impersonator_ctx: ContextVar[uuid.UUID | None] = ContextVar("impersonator_id", default=None)
 
@@ -32,6 +32,44 @@ CSRF_EXEMPT_PATH_PREFIXES = (
     "/api/v1/legal",
 )
 DRIVER_PATH_PREFIXES = ("/api/v1/driver/", "/ws/driver/")
+
+# What a platform admin without MFA may still call when MFA is mandatory:
+# identify themselves, enroll, and end/renew the session. (logout and refresh
+# do not go through get_auth_context, but are listed for clarity.)
+MFA_ENROLLMENT_ALLOWED_PATHS = frozenset(
+    {
+        "/api/v1/auth/me",
+        "/api/v1/auth/mfa/setup",
+        "/api/v1/auth/mfa/enable",
+        "/api/v1/auth/logout",
+        "/api/v1/auth/refresh",
+    }
+)
+
+
+def platform_admin_mfa_required() -> bool:
+    """PLATFORM_ADMIN_MFA_REQUIRED, defaulting to "on outside development"."""
+    if settings.platform_admin_mfa_required is not None:
+        return settings.platform_admin_mfa_required
+    return settings.environment != "development"
+
+
+def mfa_enrollment_required() -> ApiError:
+    return ApiError(
+        403,
+        "mfa_enrollment_required",
+        "Platform administrators must enable two-factor authentication before continuing.",
+    )
+
+
+async def enforce_platform_admin_mfa(user_type: str, user_id: uuid.UUID, path: str) -> None:
+    """Raise `mfa_enrollment_required` for a platform admin without MFA, when mandatory."""
+    if user_type != ActorType.PLATFORM_ADMIN or not platform_admin_mfa_required():
+        return
+    if path.rstrip("/") in MFA_ENROLLMENT_ALLOWED_PATHS:
+        return
+    if not await platform_admin_mfa_enabled(user_id):
+        raise mfa_enrollment_required() from None
 
 
 def _cookie_names(path: str) -> tuple[str, str]:
@@ -85,6 +123,8 @@ async def get_auth_context(request: Request) -> AuthContext:
         raise unauthorized("MFA verification required") from None
     if not await validate_session_state(uuid.UUID(claims["sid"])):
         raise unauthorized("Session expired or revoked") from None
+
+    await enforce_platform_admin_mfa(claims["typ"], uuid.UUID(claims["sub"]), request.url.path)
 
     impersonator_ctx.set(uuid.UUID(claims["impersonator_id"]) if claims.get("impersonator_id") else None)
     return AuthContext(

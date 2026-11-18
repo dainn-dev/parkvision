@@ -820,3 +820,188 @@ async def test_unsigned_hook_fails_closed_outside_development(
         json={"username": body["mqtt"]["username"], "password": body["api"]["token"]},
     )
     assert res.json()["result"] == "deny"
+
+
+# ---------- D-MQTT-2: site-level MQTT ACL ----------
+
+
+async def _authz(client: AsyncClient, username: str, topic: str, action: str = "publish") -> str:
+    res = await client.post(
+        "/api/v1/edge/mqtt-auth", json={"username": username, "action": action, "topic": topic}
+    )
+    assert res.status_code == 200, res.text
+    return res.json()["result"]
+
+
+@pytest.mark.asyncio
+async def test_mqtt_authz_scopes_topics_to_device_site(client: AsyncClient, tenant, activation_setup):
+    """A device may only touch topics under its own site, not the whole tenant."""
+    s = activation_setup
+    act = await client.post("/api/v1/edge/activate", json={"code": s["code"]})
+    username = act.json()["mqtt"]["username"]
+    tid, sid, gate = s["tenant_id"], s["site_id"], uuid.uuid4()
+
+    own = f"tenants/{tid}/sites/{sid}"
+    for topic, action in (
+        (f"{own}/gates/{gate}/telemetry", "publish"),
+        (f"{own}/gates/{gate}/incident", "publish"),
+        (f"{own}/gates/{gate}/command", "subscribe"),
+        (f"{own}/cameras/{uuid.uuid4()}/detection", "publish"),
+    ):
+        assert await _authz(client, username, topic, action) == "allow", topic
+
+    other_site = uuid.uuid4()
+    for topic in (
+        f"tenants/{tid}/sites/{other_site}/gates/{gate}/telemetry",
+        f"tenants/{tid}/sites/{other_site}/gates/{gate}/command",
+        f"tenants/{tid}/sites/+/gates/+/command",
+        f"tenants/{tid}/#",
+        f"tenants/{tid}/sites/{sid}",  # prefix without the trailing level separator
+        f"tenants/{tid}/sites/{sid}x/gates/{gate}/telemetry",
+        f"tenants/{uuid.uuid4()}/sites/{sid}/gates/{gate}/telemetry",
+    ):
+        assert await _authz(client, username, topic) == "deny", topic
+
+
+@pytest.mark.asyncio
+async def test_mqtt_auth_denies_decommissioned_device(client: AsyncClient, tenant, activation_setup):
+    """Decommission must stop MQTT reconnects, otherwise the EMQX kick is moot."""
+    s = activation_setup
+    act = await client.post("/api/v1/edge/activate", json={"code": s["code"]})
+    body = act.json()
+    await login(client, tenant["email"], tenant["password"])
+    res = await client.post(
+        f"/api/v1/tenants/{s['tenant_id']}/devices/{s['device_id']}/decommission", headers=csrf(client)
+    )
+    assert res.status_code == 200, res.text
+    authn = await client.post(
+        "/api/v1/edge/mqtt-auth",
+        json={"username": body["mqtt"]["username"], "password": body["api"]["token"]},
+    )
+    assert authn.json()["result"] == "deny"
+
+
+# ---------- D-MQTT-4: kick the MQTT client on revoke/decommission/delete ----------
+
+
+@pytest.fixture
+def kicked(monkeypatch):
+    from app.services import emqx_admin
+
+    calls: list[str] = []
+
+    async def fake_kick(client_id: str) -> None:
+        calls.append(client_id)
+
+    monkeypatch.setattr(emqx_admin, "kick_client", fake_kick)
+    return calls
+
+
+@pytest.mark.asyncio
+async def test_revoke_token_kicks_mqtt_client(client: AsyncClient, tenant, activation_setup, kicked):
+    s = activation_setup
+    act = await client.post("/api/v1/edge/activate", json={"code": s["code"]})
+    username = act.json()["mqtt"]["username"]
+    await login(client, tenant["email"], tenant["password"])
+    res = await client.post(
+        f"/api/v1/tenants/{s['tenant_id']}/devices/{s['device_id']}/revoke-token", headers=csrf(client)
+    )
+    assert res.status_code == 200, res.text
+    assert kicked == [username] == [f"edge-{s['device_id']}"]
+
+
+@pytest.mark.asyncio
+async def test_decommission_and_delete_kick_mqtt_client(client: AsyncClient, tenant, site_and_device, kicked):
+    _, device = site_and_device
+    tid = tenant["tenant_id"]
+    dec = await client.post(
+        f"/api/v1/tenants/{tid}/devices/{device['id']}/decommission", headers=csrf(client)
+    )
+    assert dec.status_code == 200, dec.text
+    assert kicked == [f"edge-{device['id']}"]
+    dele = await client.delete(f"/api/v1/tenants/{tid}/devices/{device['id']}", headers=csrf(client))
+    assert dele.status_code == 200, dele.text
+    assert kicked == [f"edge-{device['id']}"] * 2
+
+
+@pytest.mark.asyncio
+async def test_kick_uses_custom_mqtt_client_id(client: AsyncClient, tenant, site_and_device, kicked):
+    _, device = site_and_device
+    tid = tenant["tenant_id"]
+    upd = await client.patch(
+        f"/api/v1/tenants/{tid}/devices/{device['id']}",
+        json={"mqttClientId": f"gw-{uuid.uuid4().hex[:6]}"},
+        headers=csrf(client),
+    )
+    assert upd.status_code == 200, upd.text
+    await client.post(f"/api/v1/tenants/{tid}/devices/{device['id']}/decommission", headers=csrf(client))
+    assert kicked == [upd.json()["mqttClientId"]]
+
+
+@pytest.mark.asyncio
+async def test_revoke_survives_kick_failure(client: AsyncClient, tenant, activation_setup, monkeypatch):
+    """EMQX being down must never fail (or roll back) the revoke."""
+    from app.services import emqx_admin
+
+    monkeypatch.setattr(settings, "emqx_api_url", "http://emqx.invalid:18083")
+    monkeypatch.setattr(emqx_admin, "_transport", _failing_transport())
+    s = activation_setup
+    act = await client.post("/api/v1/edge/activate", json={"code": s["code"]})
+    token = act.json()["api"]["token"]
+    await login(client, tenant["email"], tenant["password"])
+    res = await client.post(
+        f"/api/v1/tenants/{s['tenant_id']}/devices/{s['device_id']}/revoke-token", headers=csrf(client)
+    )
+    assert res.status_code == 200, res.text
+    assert (await client.get("/api/v1/edge/config", headers={"X-Api-Key": token})).status_code == 401
+
+
+def _failing_transport():
+    import httpx
+
+    def handler(request):
+        raise httpx.ConnectError("boom", request=request)
+
+    return httpx.MockTransport(handler)
+
+
+@pytest.mark.asyncio
+async def test_emqx_kick_client_calls_rest_api(monkeypatch):
+    import httpx
+
+    from app.services import emqx_admin
+
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(204)
+
+    monkeypatch.setattr(emqx_admin, "_transport", httpx.MockTransport(handler))
+    monkeypatch.setattr(settings, "emqx_api_url", "")
+    await emqx_admin.kick_client("edge-abc")
+    assert seen == []  # unset URL: skip silently
+
+    monkeypatch.setattr(settings, "emqx_api_url", "http://emqx:18083/")
+    monkeypatch.setattr(settings, "emqx_api_key", "key")
+    monkeypatch.setattr(settings, "emqx_api_secret", "secret")
+    await emqx_admin.kick_client("edge-abc")
+    assert len(seen) == 1
+    req = seen[0]
+    assert req.method == "DELETE"
+    assert str(req.url) == "http://emqx:18083/api/v5/clients/edge-abc"
+    assert req.headers["authorization"] == httpx.BasicAuth("key", "secret")._auth_header
+
+
+@pytest.mark.asyncio
+async def test_emqx_kick_client_swallows_errors(monkeypatch, caplog):
+    import httpx
+
+    from app.services import emqx_admin
+
+    monkeypatch.setattr(settings, "emqx_api_url", "http://emqx:18083")
+    monkeypatch.setattr(emqx_admin, "_transport", _failing_transport())
+    await emqx_admin.kick_client("edge-x")  # must not raise
+    monkeypatch.setattr(emqx_admin, "_transport", httpx.MockTransport(lambda r: httpx.Response(500)))
+    await emqx_admin.kick_client("edge-x")
+    assert sum("emqx" in r.getMessage().lower() for r in caplog.records) >= 2

@@ -26,6 +26,19 @@ class GatewayPaymentInit:
     pay_url: str | None
 
 
+@dataclass
+class GatewayQueryResult:
+    """Outcome of a provider status pull (/query).
+
+    `trans_id` and `amount` are what the provider reports for the order, so a
+    query-confirmed payment can be amount-checked and later refunded via API
+    (MoMo's /refund needs the transId)."""
+
+    status: str  # 'paid' | 'failed' | 'pending'
+    trans_id: str | None = None
+    amount: int | None = None
+
+
 class PaymentGateway(Protocol):
     name: str
 
@@ -44,14 +57,13 @@ class PaymentGateway(Protocol):
 
     def ipn_succeeded(self, payload: dict[str, Any]) -> bool: ...
 
-    async def query_status(
-        self, *, order_id: str, request_id: str
-    ) -> str: ...  # 'paid' | 'failed' | 'pending'
+    async def query_status(self, *, order_id: str, request_id: str) -> GatewayQueryResult: ...
 
     async def refund(
         self, *, order_id: str, request_id: str, trans_id: str, amount_vnd: int, description: str
     ) -> None:
-        """Refund a paid transaction. Raises MomoRejected on provider reject."""
+        """Refund a paid transaction. Raises MomoRejected on provider reject;
+        httpx transport/HTTP errors propagate (the caller maps them to 502)."""
 
 
 class MomoGateway:
@@ -139,7 +151,7 @@ class MomoGateway:
     def ipn_succeeded(self, payload: dict[str, Any]) -> bool:
         return int(payload.get("resultCode", -1)) == 0
 
-    async def query_status(self, *, order_id: str, request_id: str) -> str:
+    async def query_status(self, *, order_id: str, request_id: str) -> GatewayQueryResult:
         raw = (
             f"accessKey={self._access}&orderId={order_id}"
             f"&partnerCode={self._partner}&requestId={request_id}"
@@ -157,12 +169,21 @@ class MomoGateway:
                 resp.raise_for_status()
                 data = resp.json()
         except httpx.HTTPError:
-            return "pending"
+            return GatewayQueryResult(status="pending")
         code = int(data.get("resultCode", -1))
         if code == 0:
-            return "paid"
+            trans = data.get("transId")
+            try:
+                amount = int(data["amount"]) if data.get("amount") is not None else None
+            except (TypeError, ValueError):
+                amount = None
+            return GatewayQueryResult(
+                status="paid",
+                trans_id=str(trans) if trans not in (None, "", 0) else None,
+                amount=amount,
+            )
         # 1000 = in-flight/unknown order on MoMo's side
-        return "pending" if code == 1000 else "failed"
+        return GatewayQueryResult(status="pending" if code == 1000 else "failed")
 
     async def refund(
         self, *, order_id: str, request_id: str, trans_id: str, amount_vnd: int, description: str

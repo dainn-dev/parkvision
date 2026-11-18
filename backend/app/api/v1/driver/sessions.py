@@ -11,14 +11,14 @@ from app.services import driver_service, driver_session_service
 router = APIRouter(prefix="/driver/sessions", tags=["driver"], dependencies=[Depends(require_driver)])
 
 
-async def _plates(driver_id) -> set[str]:
-    return await driver_service.plates_for_driver(driver_id)
+async def _grants(driver_id) -> dict[str, driver_service.PlateGrant]:
+    return await driver_service.plate_grants_for_driver(driver_id)
 
 
 @router.get("/active", response_model=list[DriverSessionOut])
 async def list_active(auth: AuthContext = Depends(require_driver)) -> list[DriverSessionOut]:
     async with platform_session() as db:
-        return await driver_session_service.active_sessions(db, await _plates(auth.user_id))
+        return await driver_session_service.active_sessions(db, await _grants(auth.user_id))
 
 
 @router.get("/history", response_model=Page[DriverSessionOut])
@@ -28,5 +28,5 @@ async def list_history(
     limit: int = Query(20, ge=1, le=100),
 ) -> Page[DriverSessionOut]:
     async with platform_session() as db:
-        items, total = await driver_session_service.history(db, await _plates(auth.user_id), page, limit)
+        items, total = await driver_session_service.history(db, await _grants(auth.user_id), page, limit)
     return paginate(items, total, page, limit)

@@ -569,6 +569,20 @@ async def test_no_active_session_after_exit_and_history_has_pair(client, listed_
     d = await driver(client)
     await client.post("/api/v1/driver/vehicles", headers=d["headers"], json={"plateNumber": "51B-456.78"})
     t0 = datetime.now(timezone.utc) - timedelta(hours=2)
+    # Owned plates only show stays entered after registration (GAP-AUTH-001):
+    # the vehicle must predate the back-dated stay below.
+    from sqlalchemy import update as _sa_update_vehicle
+
+    from app.models import DriverVehicle
+
+    Session = async_sessionmaker(admin_engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as db:
+        await db.execute(
+            _sa_update_vehicle(DriverVehicle)
+            .where(DriverVehicle.plate_normalized == "51B45678")
+            .values(created_at=t0 - timedelta(hours=1))
+        )
+        await db.commit()
     await access_event(
         admin_engine, listed_site["tenant_id"], listed_site["id"], "51B-456.78", "entry", at=t0
     )

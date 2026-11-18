@@ -4,7 +4,7 @@ import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response
 from sqlalchemy import func, or_, select, update
 
 from app.api.deps import AuthContext, csrf_protect, require_platform_admin
@@ -76,7 +76,7 @@ from app.security import (
     hash_refresh_token,
     new_csrf_token,
 )
-from app.services import payment_service
+from app.services import emqx_admin, payment_service
 from app.services.audit_service import write_audit
 from app.services.command_service import issue_command
 from app.services.credential_service import new_api_key as _new_api_key
@@ -1240,11 +1240,16 @@ async def impersonate_tenant(
         owner = (
             (
                 await db.execute(
-                    select(TenantUser).where(
+                    select(TenantUser)
+                    .where(
                         TenantUser.tenant_id == tenant_id,
                         TenantUser.role == "owner",
                         TenantUser.status == "active",
                     )
+                    # Deterministic target when a tenant has several owners:
+                    # the oldest active owner (id breaks created_at ties).
+                    .order_by(TenantUser.created_at.asc(), TenantUser.id.asc())
+                    .limit(1)
                 )
             )
             .scalars()
@@ -1435,6 +1440,7 @@ async def rotate_credential(
 async def revoke_credential(
     cred_id: uuid.UUID,
     request: Request,
+    background: BackgroundTasks,
     auth: AuthContext = Depends(
         require_platform_admin((PlatformAdminRole.SUPER_ADMIN, PlatformAdminRole.OPS))
     ),
@@ -1459,5 +1465,8 @@ async def revoke_credential(
             details={"name": c.name},
             ip=request.client.host if request.client else None,
         )
+        device = await db.get(EdgeDevice, c.edge_device_id) if c.edge_device_id else None
         await db.commit()
+    if device is not None:
+        background.add_task(emqx_admin.kick_client, emqx_admin.device_client_id(device))
     return MessageOut(message="credential revoked")

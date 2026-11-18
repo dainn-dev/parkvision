@@ -3,7 +3,10 @@
 There is no dedicated driver-session table: a session is inferred from the
 latest allowed `access_events` rows for the driver's registered (normalized)
 plates. Queries run under `platform_session` and are always restricted to the
-caller's own plates, so no cross-tenant data leaks.
+caller's own plates, so no cross-tenant data leaks. Each stay is further
+filtered by the caller's `PlateGrant` for that plate (GAP-AUTH-001): owned
+plates only show stays entered at/after registration, shared plates only
+stays whose site-local entry date is a share date.
 
 History pairing scans at most `_SCAN_LIMIT_PER_PLATE` allowed events per
 plate — documented bound to keep the pairing pass cheap.
@@ -17,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import AccessEvent, ParkingLevel, ParkingZone, Tenant, TenantSite
 from app.schemas.driver import DriverSessionOut
+from app.services.driver_service import PlateGrant
 from app.services.event_service import normalize_plate
 from app.services.parking_service import locate_presence
 from app.services.pricing_service import estimate_fee, pricing_from_profile
@@ -117,16 +121,24 @@ def _to_out(
     )
 
 
-async def active_sessions(db: AsyncSession, plates: set[str]) -> list[DriverSessionOut]:
-    """One PARKED row per plate whose latest allowed event is an entry."""
-    events = await _allowed_events(db, plates)
+def _covered(grants: dict[str, PlateGrant], entry: AccessEvent, site: TenantSite) -> bool:
+    grant = grants.get(normalize_plate(entry.plate_number or ""))
+    return grant is not None and grant.covers(entry.occurred_at, site.timezone)
+
+
+async def active_sessions(db: AsyncSession, grants: dict[str, PlateGrant]) -> list[DriverSessionOut]:
+    """One PARKED row per plate whose latest allowed event is an entry the
+    caller's grant covers."""
+    events = await _allowed_events(db, set(grants))
     latest: dict[str, AccessEvent] = {}
     for ev in events:  # newest first — first hit per plate is the latest
         plate = normalize_plate(ev.plate_number or "")
         latest.setdefault(plate, ev)
 
-    parked = [ev for ev in latest.values() if ev.direction == "entry"]
-    sites = await _site_index(db, {ev.site_id for ev in parked})
+    sites = await _site_index(db, {ev.site_id for ev in latest.values() if ev.direction == "entry"})
+    parked = [
+        ev for ev in latest.values() if ev.direction == "entry" and _covered(grants, ev, sites[ev.site_id][0])
+    ]
     out: list[DriverSessionOut] = []
     for ev in parked:
         site, slug = sites[ev.site_id]
@@ -146,10 +158,11 @@ async def active_sessions(db: AsyncSession, plates: set[str]) -> list[DriverSess
 
 
 async def history(
-    db: AsyncSession, plates: set[str], page: int, limit: int
+    db: AsyncSession, grants: dict[str, PlateGrant], page: int, limit: int
 ) -> tuple[list[DriverSessionOut], int]:
-    """Completed entry→exit pairs per (plate, site), newest exit first."""
-    events = await _allowed_events(db, plates)
+    """Completed entry→exit pairs per (plate, site) whose entry the caller's
+    grant covers, newest exit first."""
+    events = await _allowed_events(db, set(grants))
     open_entries: dict[tuple[str, uuid.UUID], list[AccessEvent]] = {}
     pairs: list[tuple[AccessEvent, AccessEvent]] = []
     for ev in reversed(events):  # chronological
@@ -159,11 +172,14 @@ async def history(
         elif ev.direction == "exit" and open_entries.get(key):
             pairs.append((open_entries[key].pop(), ev))
 
+    # Pair on the full event stream first so a pre-grant entry cannot be
+    # re-paired with a later exit; then drop the stays the grant does not cover.
+    sites = await _site_index(db, {entry.site_id for entry, _ in pairs})
+    pairs = [(entry, ex) for entry, ex in pairs if _covered(grants, entry, sites[entry.site_id][0])]
     pairs.sort(key=lambda p: p[1].occurred_at, reverse=True)
     total = len(pairs)
     page_rows = pairs[(page - 1) * limit : page * limit]
 
-    sites = await _site_index(db, {ev.site_id for _, ev in page_rows})
     return (
         [_to_out(entry, *sites[entry.site_id], exited_at=ex.occurred_at) for entry, ex in page_rows],
         total,

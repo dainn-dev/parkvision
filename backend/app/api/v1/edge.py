@@ -434,7 +434,11 @@ async def mqtt_auth(
     topic} (no password). Password is the device's `pk_` credential — so a
     tenant-side revoke kills MQTT access too. Username must equal the
     device's `mqtt_client_id` (`edge-{device_id}` default) and topics are
-    scoped to the credential's tenant prefix.
+    scoped to the device's own site: `tenants/{tenant}/sites/{device.site_id}/`.
+    Every topic the edge client and the camera-detection contract use lives
+    under that prefix (gates/{id}/telemetry|incident|command,
+    cameras/{id}/detection), so a device cannot read or command another
+    site's gates in the same tenant. Decommissioned devices are denied.
     """
     if not settings.mqtt_hook_secret:
         if _exposed_deployment():
@@ -492,6 +496,8 @@ async def mqtt_auth(
             return _DENY
         if body.username != (device.mqtt_client_id or f"edge-{device.id}"):
             return _DENY
-        if body.topic and not body.topic.startswith(f"tenants/{cred.tenant_id}/"):
+        if device.tenant_id != cred.tenant_id or device.status == "decommissioned":
+            return _DENY
+        if body.topic and not body.topic.startswith(f"tenants/{cred.tenant_id}/sites/{device.site_id}/"):
             return _DENY
     return MqttAuthOut(result="allow")

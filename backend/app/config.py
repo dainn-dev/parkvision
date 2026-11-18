@@ -110,6 +110,10 @@ class Settings(BaseSettings):
     payment_ttl_minutes: int = 30
     # After a paid session payment, the exit gate grants within this window.
     paid_exit_grace_minutes: int = 15
+    # Reconcile cron also /query's cancelled/expired MoMo payments created
+    # within this window, to catch a payment that succeeded after we gave up
+    # (recorded as raw_payload.late_ipn, never applied).
+    payment_late_query_window_minutes: int = 120
 
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
@@ -122,6 +126,24 @@ class Settings(BaseSettings):
 
     seed_platform_admin_email: str = "admin@example.com"
     seed_platform_admin_password: str = "ChangeMe!123"
+
+    # EMQX management REST API, used best-effort to disconnect an edge device's
+    # MQTT session when its credential is revoked or the device is retired.
+    # Empty URL disables the kick. Key/secret are an EMQX API key pair (basic auth).
+    emqx_api_url: str = ""
+    emqx_api_key: str = ""
+    emqx_api_secret: str = ""
+
+    # Platform admins must have MFA enabled to use the platform. None (unset)
+    # means "required everywhere except ENVIRONMENT=development".
+    platform_admin_mfa_required: bool | None = None
+
+    @field_validator("platform_admin_mfa_required", mode="before")
+    @classmethod
+    def blank_bool_is_unset(cls, v: object) -> object:
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
     @field_validator("mqtt_public_port", "mqtt_public_tls", mode="before")
     @classmethod
