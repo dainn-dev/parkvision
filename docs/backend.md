@@ -232,7 +232,16 @@ Các nhóm bảng chính:
 - Vị trí: `parking_levels`, `parking_zones`, `camera_zone_coverage`, `vehicle_presences`, `vehicle_location_events`.
 - Driver/kinh doanh: `driver_users`, `driver_vehicles`, `driver_favorites`, `site_membership_plans`, `driver_memberships`, `driver_payments`, `driver_wallets`, `wallet_transactions`.
 
-Biển số được chuẩn hóa bằng uppercase và bỏ ký tự ngoài `A-Z0-9`. Whitelist là theo tenant; driver vehicle unique theo `plate_normalized` toàn hệ thống — mỗi biển số chỉ thuộc một tài khoản driver. Chủ xe có thể chia sẻ quyền xem phiên/thanh toán cho tài khoản khác theo ngày cụ thể qua bảng `driver_vehicle_shares` (`vehicle_id`, `shared_with_id`, `share_date`); quyền đó chỉ có hiệu lực cho đúng ngày được chia sẻ. Không mô tả nó như xác thực chủ xe pháp lý (không yêu cầu giấy tờ/OTP) — người đăng ký đầu tiên là chủ sở hữu.
+Biển số được chuẩn hóa bằng uppercase và bỏ ký tự ngoài `A-Z0-9`. Whitelist là theo tenant; driver vehicle unique theo `plate_normalized` toàn hệ thống — mỗi biển số chỉ thuộc một tài khoản driver. Chủ xe có thể chia sẻ quyền xem phiên/thanh toán cho tài khoản khác theo ngày cụ thể qua bảng `driver_vehicle_shares` (`vehicle_id`, `shared_with_id`, `share_date`); phạm vi thực tế của quyền đó xem §7.2.
+
+**Quy tắc sở hữu biển số driver (hành vi hiện tại, GAP-AUTH-001):**
+
+- Ràng buộc DB `uq_driver_vehicle_plate_global` (migration `0019_plate_ownership`) trên `driver_vehicles.plate_normalized`. `driver_service.add_vehicle`/`update_vehicle` trả **409** `Plate already registered by another account` nếu biển số đã thuộc tài khoản khác; race chèn đồng thời rơi vào `IntegrityError` → 409.
+- **Người khai đầu tiên là chủ sở hữu.** Không có bước chứng minh quyền sở hữu (giấy tờ xe, OTP, đối chiếu whitelist tenant hay đối chiếu ảnh). Biển số thuộc người khác chỉ được giải phóng khi chủ hiện tại tự xóa/đổi biển số xe đó.
+- Không có API tenant hay platform để xem, chuyển, thu hồi hoặc xử lý tranh chấp `driver_vehicles`; xử lý tranh chấp hiện chỉ có thể làm trực tiếp trên DB.
+- Migration `0019` đã dedupe dữ liệu cũ bằng cách giữ row `created_at` sớm nhất mỗi biển số và **xóa** các row còn lại, không thông báo cho tài khoản bị xóa xe.
+
+Không mô tả quy tắc này như xác thực chủ xe pháp lý. Hệ quả về dữ liệu nhạy cảm (ảnh, vị trí, lịch sử) nêu ở §7.2; các lựa chọn chưa chốt nằm ở §17.
 
 ### Lịch sử schema
 
@@ -306,7 +315,14 @@ Zone resolve theo explicit ID, code ưu tiên coverage/site của camera, hoặc
 
 Map occupancy đếm presence `parked` và `stale`, không phải `tenant_sites.current_occupancy`. Public map chỉ trả geometry/occupancy; public locate vẫn tiết lộ vị trí nếu biết biển số chính xác, nên cần xem xét yêu cầu riêng tư khi công bố.
 
-Cron stale presence có ý định dùng `parking_presence_ttl_hours` theo tenant (default 48 giờ), stale khi vượt TTL, exited khi vượt 4 lần TTL. **Giới hạn hiện tại:** vòng cron đọc từng tenant nhưng gọi `sweep_stale_presences` dưới `platform_session` mà không truyền tenant filter; không coi TTL khác nhau giữa các tenant đã được cách ly đúng trong job này.
+**Cron stale presence (`jobs.expire_stale_presence`, GAP-PRES-001):** đọc danh sách tenant, rồi với **từng tenant** mở một `platform_session` riêng và gọi `parking_service.sweep_stale_presences(..., tenant_id=<tenant>)`. Hàm thêm điều kiện `VehiclePresence.tenant_id == tenant_id`, nên TTL của tenant A chỉ áp lên presence của tenant A.
+
+- TTL = `tenants.settings.parking_presence_ttl_hours`; thiếu, `0`/rỗng hoặc không parse được thành số nguyên thì dùng 48 giờ.
+- Presence `parked` có `last_seen_at` cũ hơn TTL → `stale`, ghi location event `stale`.
+- Presence `parked`/`stale` có `last_seen_at` cũ hơn 4 × TTL → `exited` (`exited_at` = thời điểm sweep), ghi location event `exited`.
+- **Ngoại lệ member:** nếu tenant đó có `registered_vehicles` cùng biển số với `tag=member`, `status=active` thì presence **không** bị chuyển `exited` dù vượt 4 × TTL (vẫn có thể thành `stale`). Tra cứu member được khóa theo cặp (tenant, plate), member của tenant khác không bảo vệ presence của tenant này.
+- Mỗi tenant là một transaction riêng; lỗi giữa chừng không rollback kết quả các tenant đã sweep trước đó.
+- Gọi `sweep_stale_presences` không truyền `tenant_id` vẫn quét mọi tenant (chế độ tương thích của hàm); cron hiện tại không dùng chế độ đó.
 
 **Nguồn:** `backend/app/services/parking_service.py`, `backend/app/api/v1/tenant/parking.py`, `backend/app/api/v1/tenant/cameras.py`, `backend/app/api/v1/public.py`, `backend/app/workers/jobs.py`.
 
@@ -319,6 +335,14 @@ Không có bảng “parking sessions” riêng. `driver_session_service.py` l�
 - ID session là ID entry access event; payment dùng ID này làm `sessionId`/`session_ref`.
 - Có bound scan: giới hạn truy vấn tổng 500 × số biển số, sau đó tối đa 500 event mỗi plate. History không phải lịch sử vô hạn; total là số cặp suy ra trong tập đã scan.
 - Ảnh entry trả URL GET ký sẵn nếu có key; vị trí tầng/zone lấy từ presence hiện tại.
+
+**Tập biển số và phạm vi dữ liệu lộ ra (GAP-AUTH-001):** `driver_service.plates_for_driver` trả biển số driver sở hữu **cộng** biển số được share cho driver với `share_date` là hôm nay hoặc hôm qua theo `date.today()` của tiến trình API (không theo timezone site). `driver_session_service` chỉ lọc event theo tập biển số đó, nên:
+
+- Chủ xe thấy toàn bộ phiên suy ra của biển số trong phạm vi scan bound, **kể cả event trước thời điểm họ khai xe** (không lọc theo `driver_vehicles.created_at`).
+- Người được share thấy toàn bộ phiên active/history của biển số (cùng ảnh entry ký sẵn, tầng/zone, phí ước tính) trong hai ngày đó, **không chỉ phiên của `share_date`**.
+- Tạo payment session chặt hơn: `payment_service._resolve_session` chỉ chấp nhận chủ xe hoặc người có share với `share_date` trùng ngày entry tính theo timezone site; không thỏa thì 404.
+
+Đây là hành vi hiện tại, không phải yêu cầu riêng tư đã được chốt; xem §17.
 
 Không suy diễn xe có trong `driver_vehicles` thì backend tự cho vào cổng: đó chỉ là danh sách xe của tài khoản mobile; quyền cổng dựa whitelist/rule/payment nói trên.
 
@@ -385,7 +409,21 @@ Hoặc `kind=membership` với `membershipId`, hoặc `kind=topup` với `amount
 - `session`: entry allow thuộc plate driver; service tìm exit cặp nếu đã rời bãi, nếu chưa thì tính tới thời điểm tạo payment. Không có pricing trả 422; phí ≤ 0 không tạo payment.
 - `topup`: chỉ qua MoMo, từ 10.000 đến 50.000.000 VND; tenant/site NULL vì ví thuộc platform. Chỉ topup cho phép client chọn amount trong bound.
 - `method=wallet`: chỉ membership/session, debit số dư và áp dụng paid trong một transaction DB, không cần gateway MoMo.
-- Kiểm tra service từ chối payment membership/session khác đang `created` hoặc đã `paid` cùng reference; không coi kiểm tra này là bảo đảm exactly-once dưới mọi race.
+**Chống trùng payment (hành vi hiện tại, GAP-PAY-002).** Quy tắc: mỗi membership/session có tối đa **một** payment `created` tại một thời điểm, và không tạo thêm khi đã có payment `paid`. Cách `payment_service.create_payment` thực thi:
+
+| Trường hợp | Kết quả |
+|---|---|
+| Đã có payment `paid` cùng membership / cùng `session_ref` | **409** `A payment for this ... is already paid` |
+| Đã có payment `created` cùng reference | Trả lại **chính row đó** (200, idempotent), không tạo row mới, không gọi gateway lần nữa — kể cả khi request mới chọn `method` khác |
+| Payment trước đã `failed`/`cancelled`/`expired`/`refunded` | Được tạo payment mới |
+| `topup` | Không có kiểm tra trùng; mỗi request tạo một payment |
+
+Tuần tự hóa: membership khóa row `driver_memberships` bằng `SELECT ... FOR UPDATE`; session lấy `pg_advisory_xact_lock(hashtextextended('payment-session:<sessionId>', 0))` rồi khóa row access event entry `FOR UPDATE` trong `_resolve_session`. Request thua chờ khóa, sau đó thấy row của request thắng và rơi vào một trong hai dòng đầu bảng. Không có unique index/partial index trong DB cho "một payment paid mỗi reference"; bảo đảm nằm ở service. Không có idempotency key do client gửi.
+
+Giới hạn còn lại:
+
+- Khóa advisory và tra cứu trùng dùng chuỗi `sessionId` thô (`session_ref` là `str`), trong khi `_resolve_session` parse UUID. Hai cách viết khác nhau của cùng UUID (hoa/thường, có/không gạch nối) không được coi là cùng reference ở bước tra cứu trùng.
+- Cancel chỉ đổi trạng thái ở backend, không hủy đơn ở MoMo (xem §10.2). Nếu driver vẫn hoàn tất trả tiền trên `payUrl` sau khi payment đã `cancelled`/`expired`, IPN tới payment terminal được ACK `already processed` và **không** ghi nhận; `reconcile_pending_payments` chỉ quét payment `created`. Tiền đã thu ở MoMo nhưng không có payment `paid` tương ứng; phải đối soát thủ công ở console MoMo.
 
 ### 10.2 Gateway MoMo
 
@@ -396,22 +434,56 @@ Hoặc `kind=membership` với `membershipId`, hoặc `kind=topup` với `amount
 - Redirect URL chỉ đưa người dùng về app; không tin redirect là bằng chứng đã trả tiền.
 - IPN tại `/api/v1/public/payments/momo/ipn`, kiểm chứng HMAC-SHA256 trước khi cập nhật.
 - `GET /driver/payments/{payment_id}` có thể pull `/query` khi payment còn created. List payment không đồng nghĩa query provider từng row.
-- State: `created → paid | failed | cancelled | expired`; `paid → refunded` qua refund API. Expiry default 30 phút, sweep lười trên một số reads/writes, không có cron payment riêng.
+- State: `created → paid | failed | cancelled | expired`; `paid → refunded` qua refund API. Expiry default 30 phút (`payment_ttl_minutes`), sweep lười trên một số reads/writes; không có cron chuyển `expired`.
+- Cron `reconcile_pending_payments` (mỗi 5 phút) lấy tối đa 100 payment MoMo còn `created` và đã tạo hơn 10 phút, gọi `/query` để bù IPN bị mất; lỗi query của một row bị bỏ qua, row đó chờ lần sau.
 - IPN cho payment đã terminal hoặc order không biết được ACK theo nhánh code; không tự tái mở cancelled/expired. Không mô tả cancel ở backend là hủy giao dịch nhà cung cấp hoặc hoàn tiền.
 
-Paid membership kích hoạt whitelist. Nếu tiền đã nhận nhưng activate thất bại (ví dụ blacklist), payment giữ `paid`, membership có `admin_note` báo lỗi; operator phải xử lý, không tự refund trong nhánh đó.
+**Tuần tự hóa cập nhật trạng thái:** IPN (`handle_momo_ipn`), `GET /driver/payments/{id}` (`get_payment`), `POST .../cancel` (`cancel_payment`) và refund tenant đều đọc row payment bằng `SELECT ... FOR UPDATE`, nên cancel không ghi đè `paid` và IPN/pull-refresh không áp side effect hai lần với nhau. `reconcile_pending_payments` cũng vậy: mỗi payment được xử lý trong một transaction riêng, `SELECT ... FOR UPDATE SKIP LOCKED` và kiểm tra lại `status = 'created'` dưới khóa, nên một IPN đang hoặc vừa settle row sẽ không bị áp side effect lần hai (test `test_reconcile_cron_does_not_double_apply_while_ipn_holds_row`). Đây vẫn không phải exactly-once với MoMo (xem PG1 trong `development-and-operations.md`).
+
+#### Tiền đã nhận nhưng membership không kích hoạt (GAP-PAY-001)
+
+Payment membership chuyển `paid` (IPN, pull-refresh, cron reconcile hoặc wallet) gọi `membership_service._activate_membership_row`. Khi bước này không thành công, `payment_service._apply_paid` xử lý như sau:
+
+| Nguyên nhân | Payment | Membership |
+|---|---|---|
+| Activate ném lỗi (hiện tại: biển số `blacklist` trong tenant → 409 nội bộ) | Giữ `paid`; `raw_payload.activation_error` = thông điệp lỗi | Giữ `pending`; `admin_note` = `payment received; activation failed: <lý do>` (cắt 300 ký tự) |
+| Membership không còn `pending` lúc tiền về (ví dụ đã bị cancel/reject) | Giữ `paid`; `raw_payload.activation_error` = `membership is <status>, not pending` | Giữ nguyên status; `admin_note` bị ghi đè bằng thông điệp trên |
+| Membership không còn tồn tại | Giữ `paid`; `raw_payload.activation_error` = `membership no longer exists` | — |
+
+Không có refund tự động, không có trạng thái payment riêng kiểu "paid-activation-failed", không gửi email/WS/thông báo cho driver hay operator. Driver chỉ thấy payment `paid` và membership `pending` (schema driver không trả `admin_note` hay `raw_payload`). Operator chỉ thấy được qua cột `admin_note` trong danh sách membership tenant; feed payment tenant không trả `raw_payload`, nên trường hợp membership không còn tồn tại không hiện ở API nào.
+
+Hướng xử lý operator hiện có: gỡ blacklist rồi `POST .../memberships/{id}/activate` (chỉ khi membership còn `pending`), hoặc refund payment qua §10.5 (membership `pending` → `rejected`). Lưu ý thời hạn: sweep lười `membership_service._expire_stale` tự **cancel** membership `pending` có `created_at` quá 7 ngày và ghi đè `admin_note` thành `auto-cancelled: pending > 7 days` — sau đó không activate được nữa, dấu vết lỗi chỉ còn ở `raw_payload` của payment, và payment vẫn `paid` cho tới khi được refund. Driver cũng có thể tự cancel membership `pending`; việc đó không refund.
+
+Không có SLA, owner hay thời hạn xử lý được code thực thi; xem §17.
 
 ### 10.3 Pay-before-exit
 
-Payment session paid cho phép nhánh access engine tìm một grant theo plate/site, grace default 15 phút; tenant setting `paid_exit_grace_minutes` có thể override. Khi final allow, đóng dấu đã dùng. Blacklist không được nhánh paid-exit tự vượt qua; rule/anti-passback vẫn có thể deny.
+Grant paid-exit là logic **của backend** (`event_service._paid_exit`, `decide_access`, `record_access_event`):
 
-**Giới hạn:** kiểm tra trả tiền chỉ là đường fallback cho exit vốn deny. Xe whitelist hợp lệ vẫn allow mà không bắt buộc phải có payment, không phải cơ chế mọi xe đều “phải trả tiền mới ra”. Sau khi trả tiền, bộ nhớ offline edge không tự có một payment grant chỉ vì endpoint whitelist/rules tồn tại; không coi flow online này là bằng chứng paid-exit offline đã đồng bộ end-to-end.
+- Điều kiện: exit vốn deny, có `site_id`, xe không blacklist; tìm payment `kind=session`, `status=paid`, cùng tenant + biển số chuẩn hóa + site, `exit_granted_at` NULL, `paid_at` trong cửa sổ grace. Grace default 15 phút (`PAID_EXIT_GRACE_MINUTES`), tenant setting `paid_exit_grace_minutes` override.
+- Grace tính **từ `paid_at`**, không từ lúc xe rời chỗ hay từ giờ chốt phí.
+- Khi access event exit được lưu với final allow + reason `paid_exit`, backend khóa payment `FOR UPDATE` và đóng dấu `exit_granted_at`; mỗi payment chỉ cấp một lần exit. Bản thân `decide_access` không đóng dấu, nên gọi engine mà không lưu event không tiêu grant.
+- Blacklist không được nhánh paid-exit tự vượt qua; rule/anti-passback vẫn có thể deny.
+- Kiểm tra trả tiền chỉ là đường fallback cho exit vốn deny. Xe whitelist hợp lệ vẫn allow mà không bắt buộc phải có payment, không phải cơ chế mọi xe đều “phải trả tiền mới ra”.
 
-**Vận hành khi edge mất mạng (GAP-PAY-002, 2026-10-24):** `decide_access` offline trên edge không biết về payment. Nếu khách đã `paid_exit` đúng lúc cổng mất mạng, lối thoát duy nhất là nhân viên vận hành dùng lệnh mở cổng thủ công (`manual_open`, `edge-client/src-tauri/src/lib.rs`) — không có đồng bộ tự động payment grant vào SQLite cục bộ. Quy trình này cần được truyền thông tới trạm vận hành.
+**Hết grace (grace-period cliff):** quá `paid_at + grace` mà xe chưa ra thì grant không còn match, exit lại bị deny. Driver không tạo được payment mới cho cùng session (409 `already paid`, §10.1) và không có cơ chế thu thêm phí phát sinh sau thời điểm chốt. Phí session của xe còn trong bãi được chốt tới thời điểm tạo payment.
+
+**Edge không biết về payment — ở cả trạng thái online lẫn offline (GAP-PAY-003; CLAUDE.md gọi là GAP-PAY-002):**
+
+- Edge quyết định mở cổng hoàn toàn cục bộ: `edge-client/src-tauri/src/pipeline.rs::run_pipeline` gọi `access.rs::decide_access` trên SQLite (whitelist + rules + anti-passback), chỉ `request_open()` khi kết quả `allow`. Không có bảng/endpoint/sync nào đưa payment session vào edge (`/edge/.../whitelist`, `/rules`, `/pricing`, `/walk-ins/open` không chứa payment driver), và edge không hỏi backend trước khi deny một exit. Riêng tra cứu online `walk-ins/open` chỉ dành cho walk-in (xe chưa đăng ký), không phải payment driver.
+- Frame ANPR edge gửi lên không mang decision của edge. Bridge gọi `record_access_event` và **backend tự quyết lại**; vì vậy backend có thể ghi event `allow`/`paid_exit` và đóng dấu `exit_granted_at` trong khi barrier tại edge vẫn đóng. Frame bị giữ trong outbox lúc offline được bridge xử lý theo thời gian nhận (§6.1), nên cũng có thể tiêu grant khi replay nếu vẫn trong grace.
+- Không có đường nào tự phát command mở cổng khi có payment `paid`: `issue_command` chỉ được gọi từ API gate của tenant/platform.
+
+Hệ quả: với xe không có whitelist hợp lệ, trả tiền session trên app **không tự mở barrier** tại cổng do edge-client điều khiển. Lối ra hiện có:
+
+1. Nhân viên mở thủ công tại kiosk edge (`manual_open`, `edge-client/src-tauri/src/lib.rs`) — chạy cục bộ, không cần mạng; lệnh này không tự tạo access event.
+2. Khi edge còn kết nối MQTT: operator gửi command mở cổng qua API gate (§11.2); HTTP 202 chưa có nghĩa barrier đã mở.
+
+Quy trình này cần được truyền thông tới trạm vận hành. Phạm vi cần quyết định xem §17.
 
 ### 10.4 Ví
 
-Topup paid ghi `driver_wallets.balance_vnd` và ledger `topup_credit`. Thanh toán bằng ví ghi `spend_debit`; refund ghi `refund_credit`. Service khóa wallet có sẵn bằng `SELECT FOR UPDATE`, từ chối số dư âm bằng 409. Ledger chứa amount tuyệt đối và `balance_after_vnd`, hướng tiền phân biệt bằng kind.
+Topup paid ghi `driver_wallets.balance_vnd` và ledger `topup_credit`. Thanh toán bằng ví ghi `spend_debit`; refund ghi `refund_credit`. `wallet_service.get_or_create_wallet` tạo ví lần đầu bằng `INSERT ... ON CONFLICT (driver_id) DO NOTHING` rồi đọc lại `SELECT FOR UPDATE`, nên hai request đầu tiên đồng thời không lỗi unique và cùng thao tác trên một ví. Service từ chối số dư âm bằng 409. Ledger chứa amount tuyệt đối và `balance_after_vnd`, hướng tiền phân biệt bằng kind.
 
 API ví chỉ đọc số dư/transaction gần đây, không có route rút tiền hoặc chuyển ví trong nhóm router hiện tại. Dù comment có nhắc `refund_debit` cho topup, không có API tenant refund topup; không tài liệu hóa như tính năng vận hành đã sẵn sàng.
 
@@ -444,6 +516,8 @@ tenants/{tenantId}/sites/{siteId}/cameras/{cameraId}/detection
 Bridge subscribe wildcard tương ứng với QoS 1. `command` là hướng backend→edge; bridge bỏ qua echo command của chính nó.
 
 Telemetry thường cập nhật trạng thái gate, arm angle, nhiệt độ, relay, loop, pin/cycle và lưu raw payload. `type=heartbeat` với `deviceId` cập nhật last heartbeat/device online cùng CPU/RAM/storage/latency nếu có, không resurrect device decommissioned. `plateNumber` trên telemetry tạo access event riêng.
+
+Frame `walk_in_entry`/`walk_in_exit` trên topic telemetry được ghi vào `walk_in_sessions` theo `sessionId` do edge sinh. Vì bridge chạy dưới `platform_session` (bỏ qua RLS), `walk_in_service.upsert_entry`/`apply_exit` kiểm tra row đã có thuộc đúng tenant + site của topic; nếu `sessionId` thuộc tenant/site khác thì frame bị **bỏ** (log warning), không sửa row, không ghi access event, không phát WS.
 
 ACK mẫu trên telemetry:
 
@@ -501,12 +575,14 @@ Import/export trả 202, theo dõi `background_jobs` qua tenant/platform `/jobs/
 - Tạo partition: 00:30.
 - Expire command: mỗi phút, giây 10.
 - Mark device offline: giây 0/15/30/45; online device không có heartbeat mới trong 20 giây chuyển offline, thực tế phụ thuộc lịch worker.
+- Reconcile payment MoMo `created` quá 10 phút: mỗi 5 phút (xem §10.2).
+- Flag device token cũ: 04:00.
 - Cleanup session: 03:15, xóa session có `expires_at` cũ hơn 30 ngày.
-- Presence stale/expiry: phút 5/20/35/50, với giới hạn tenant-filter đã nêu.
+- Presence stale/expiry: phút 5/20/35/50, quét theo từng tenant với TTL của tenant đó (§7.1).
 - Retention: 02:00.
 - Incident notify: mỗi phút, giây 45.
 
-Các giờ/phút này là giá trị cron trong `WorkerSettings`; không diễn giải thành giờ địa phương từng bãi. Không có cron recurring subscription hay payment reconciliation riêng được đăng ký.
+Các giờ/phút này là giá trị cron trong `WorkerSettings`; không diễn giải thành giờ địa phương từng bãi. Không có cron recurring subscription; reconcile payment chỉ pull trạng thái payment MoMo còn `created`, không đối soát payment đã terminal với sổ của MoMo.
 
 ### Cảnh báo incident
 
@@ -651,9 +727,40 @@ Không thấy stub trả thành công giả cho payment trong service: gateway k
 
 - Rule quota/site/holiday/action tổng quát; recurring membership và billing SaaS.
 - Booking giữ chỗ, tự động thu phí mọi exit, hóa đơn/thuế, partial refund, chuyển/rút ví.
-- ~~Chứng minh sở hữu biển số driver~~ — đã xử lý: mỗi biển số chỉ thuộc một tài khoản, chia sẻ theo ngày qua `driver_vehicle_shares` (GAP-BE-002).
-- Payment grant offline và enforcement giống nhau hoàn toàn giữa backend/edge.
+- Chứng minh sở hữu biển số driver: chỉ có uniqueness toàn hệ thống (người khai đầu tiên thắng) và chia sẻ theo ngày qua `driver_vehicle_shares` (GAP-BE-002); không có xác minh hay xử lý tranh chấp (§5).
+- Payment grant tới edge (online hoặc offline) và enforcement giống nhau giữa backend/edge (§10.3).
 - Transactional outbox, telemetry dedupe, WS replay/revoke tức thời.
-- TTL presence cách ly theo tenant trong cron hiện tại, quyền DDL maintenance và di chuyển row DEFAULT tự động.
+- Quyền DDL maintenance và di chuyển row DEFAULT tự động. (TTL presence đã được cron áp theo từng tenant, §7.1.)
+
+## 17. Quyết định sản phẩm còn mở (Open product decisions)
+
+Các mục dưới đây mô tả **hành vi code hiện tại** cùng các lựa chọn cụ thể; chưa lựa chọn nào được chốt. Khi chốt, cập nhật code, test và mục tương ứng ở trên.
+
+1. **[Decision needed] Tiền đã nhận nhưng membership không kích hoạt (GAP-PAY-001, §10.2).** Hiện tại: payment giữ `paid`, membership giữ `pending` có `admin_note`, không refund tự động, không thông báo, không SLA; sau 7 ngày membership bị auto-cancel. Lựa chọn:
+   - (a) Giữ xử lý thủ công, nhưng định nghĩa owner + SLA và thêm hàng đợi/bộ lọc cho operator (ví dụ hiện `activation_error` trong feed payment tenant).
+   - (b) Tự refund toàn phần khi activate thất bại (MoMo `/refund` hoặc credit ví).
+   - (c) Tự credit số tiền vào ví driver thay cho refund về nguồn.
+   - (d) Loại membership có payment `paid` khỏi auto-cancel 7 ngày, hoặc refund khi auto-cancel.
+   - Kèm theo: có thông báo driver hay không, và qua kênh nào.
+2. **[Decision needed] Payment trả sau khi đã cancel/expire và các race còn lại (GAP-PAY-002, §10.1–10.2).** Hiện tại: IPN tới payment terminal bị bỏ qua; cron reconcile không khóa row; tra cứu trùng dùng chuỗi `sessionId` thô. Lựa chọn:
+   - (a) Ghi nhận IPN thành công trên payment `cancelled`/`expired` như `paid` (khi reference chưa có payment paid khác), ngược lại đánh dấu cần refund.
+   - (b) Gọi API hủy/đóng đơn của MoMo khi cancel/expire để chặn trả tiền muộn.
+   - (c) Chỉ đối soát thủ công định kỳ với báo cáo MoMo (hành vi hiện tại, cần quy trình).
+   - Đi kèm, không phải lựa chọn sản phẩm mà là sửa kỹ thuật cần xếp lịch: chuẩn hóa `sessionId` về UUID, cân nhắc partial unique index `paid` theo reference.
+3. **[Decision needed] Paid-exit tại cổng edge (GAP-PAY-003; CLAUDE.md: GAP-PAY-002, §10.3).** Hiện tại: payment session không bao giờ tự mở barrier do edge-client điều khiển, online hay offline; lối ra là `manual_open` tại kiosk hoặc command từ dashboard. Lựa chọn:
+   - (a) Tuyên bố paid-exit qua app là ngoài phạm vi cho cổng edge; chỉ dùng thu phí walk-in tại edge và mở thủ công.
+   - (b) Backend phát command mở cổng khi exit được ghi `paid_exit` (chỉ khi online; cần xử lý HTTP 202 ≠ barrier đã mở).
+   - (c) Đồng bộ grant paid-exit xuống SQLite edge (như whitelist) để `access.rs::decide_access` dùng được cả khi offline; cần quy tắc hết hạn và chống dùng lại khi đồng bộ trễ.
+   - (d) Edge hỏi online backend trước khi deny exit (tương tự tra cứu walk-in), fallback mở thủ công khi offline.
+   - Kèm theo: quy tắc bồi hoàn/khiếu nại khi khách đã trả tiền nhưng bị giữ tại cổng, và việc backend ghi `allow`/`paid_exit` trong khi barrier không mở.
+4. **[Decision needed] Hết grace paid-exit (§10.3).** Hiện tại: grace 15 phút tính từ `paid_at`; quá hạn thì bị deny và không trả thêm được cho cùng session. Lựa chọn:
+   - (a) Cho phép tạo payment bổ sung cho phần phí phát sinh sau thời điểm chốt.
+   - (b) Tính grace từ thời điểm khác (ví dụ từ lần trả tiền gần nhất cộng thời gian di chuyển tối đa theo site) hoặc nới grace theo site.
+   - (c) Giữ cliff, nhưng ghi rõ cho driver trên app và quy trình mở thủ công cho nhân viên.
+5. **[Decision needed] Sở hữu biển số và quyền riêng tư (GAP-AUTH-001, §5, §7.2).** Hiện tại: người khai đầu tiên sở hữu, không xác minh, không quy trình tranh chấp; chủ xe thấy cả lịch sử trước khi khai; người được share thấy toàn bộ lịch sử biển số trong ngày share/hôm sau; public locate lộ tầng/zone cho ai biết biển số. Lựa chọn:
+   - (a) Xác minh sở hữu trước khi lộ dữ liệu (ví dụ đối chiếu biển số với lần vào/ra có thanh toán, OTP qua tenant, hoặc giấy tờ do tenant duyệt).
+   - (b) Chỉ trả phiên có entry sau thời điểm driver khai xe; chỉ trả phiên của đúng `share_date` cho người được share.
+   - (c) Bỏ/thu hẹp ảnh entry ký sẵn và vị trí zone trong API driver cho tới khi biển số được xác minh.
+   - (d) Thêm API platform/tenant để thu hồi/chuyển biển số khi có tranh chấp, kèm audit.
 
 Đây là các giới hạn đọc từ code, không phải kết quả pentest, thử tải hay xác nhận môi trường triển khai. Khi thay đổi hành vi, cập nhật tài liệu cùng service/router/test tương ứng thay vì biến mô tả thiết kế thành cam kết vận hành.

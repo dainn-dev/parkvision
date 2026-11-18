@@ -115,7 +115,46 @@ Refresh bundle diễn ra **lúc boot**, không có vòng refresh `/edge/config` 
 
 401/403 trong **vòng sync định kỳ** phát `revoked_rx`; Tauri gọi deprovision: lấy runtime ra khỏi slot, dừng task/worker và xóa config; phát `edge://deprovisioned` để UI quay về setup. Native command `deprovision` làm tương tự khi được gọi thủ công.
 
-Deprovision **không xóa `edge.db`, captures, worker JSON/queue hay `edge-lock.json`**. Đó không phải thao tác xóa sạch dữ liệu/secret. Sau khi xóa config, activation mới không còn bản wiring cũ để merge; cần bản sao lưu local an toàn và xác minh lại đúng cổng. Quy trình tái cấp thiết bị sang tenant khác phải xử lý dữ liệu tồn dư có kiểm soát, không coi API deprovision hiện tại là tenant-data isolation đầy đủ.
+Deprovision (`activation.rs` `deprovision_inner`) xóa `edge-config.json` (gồm API key, MQTT password và wiring `barrier`) và xóa `edge-lock.json` (`LockStore::set_password(None)` gọi `fs::remove_file`; lỗi chỉ được log). Nó **không xóa `edge.db`, `captures/` hay `camera-workers/`**. Đó không phải thao tác xóa sạch dữ liệu tenant. Sau khi xóa config, activation mới không còn bản wiring cũ để merge; cần bản sao lưu local an toàn và xác minh lại đúng cổng. `reset_foreign_config` (`lib.rs`, khi config trỏ tới server khác build hiện tại) cũng chỉ xóa config + khóa và giữ dữ liệu. Chi tiết dữ liệu tồn dư và quy trình tái cấp: §3.4.
+
+### 3.4. Dữ liệu tồn dư và tái cấp thiết bị sang tenant khác
+
+**Hiện trạng (đọc mã, 2026-11-18).** App không có thao tác xóa dữ liệu tenant và **không lưu tenant nào sở hữu `edge.db`** (không có khóa tenant trong `kv`), nên khi kích hoạt lại cho tenant khác nó dùng tiếp file cũ mà không cảnh báo. Chưa có test cho deprovision.
+
+| Dữ liệu | Vị trí | Sau deprovision |
+|---------|--------|-----------------|
+| Config: API key `pk_`, MQTT credential, tenant/site/gate, wiring relay (gồm password relay) | `<app_config_dir>/edge-config.json` | **Xóa** (`ConfigStore::clear`) |
+| Hash mật khẩu kiosk | `<app_config_dir>/edge-lock.json` | **Xóa** |
+| Whitelist biển số, rules, `local_events` (lịch sử biển số), `pending_events` (outbox chưa gửi), `walk_in_sessions`, `processed_commands`, `kv` (`whitelist_synced_at`, `site_pricing`, anti-passback) | `<app_data_dir>/edge.db` (+ `-wal`, `-shm`) | **Giữ** |
+| Ảnh biển số/toàn cảnh | `<app_data_dir>/captures/` | **Giữ** |
+| JSON cấu hình worker, snapshot, queue của từng camera | `<app_data_dir>/camera-workers/` | **Giữ** |
+
+**Hệ quả nếu kích hoạt máy cho tenant B mà không xóa dữ liệu của tenant A** (đọc mã, chưa chạy thử):
+
+- Vòng flush outbox (`runtime.rs`) drain `pending_events` còn lại của A và publish lên topic **`tenants/<B>/sites/<siteB>/gates/<gateId trong body>/…`**: dữ liệu biển số của A đi vào backend của B. ACL MQTT cho phép vì topic có prefix của B (xem [vận hành §8.1](development-and-operations.md#81-mqtt-xác-thực-acl-tls-và-cách-ly-tenant)).
+- Whitelist/rules của A tiếp tục quyết định mở cổng của B cho tới khi `reconcile_whitelist` và sync rules chạy xong — hai việc này chỉ chạy khi MQTT đã kết nối. Nếu máy offline sau khi kích hoạt, xe của A có thể được mở cổng tại B.
+- `walk_in_sessions` của A được `find_walk_in` tra trước tiên ở cổng ra của B: edge có thể báo phí/mở cổng theo session của A; backend sẽ bỏ frame vì session thuộc tenant khác, nhưng barrier đã mở.
+- `captures/` và `camera-workers/` của A còn đọc được bởi người dùng OS hoặc người nhận máy.
+
+**Quy trình bắt buộc trước khi tái cấp sang tenant khác (thao tác vận hành, cho tới khi có quyết định bên dưới):**
+
+1. Trên dashboard tenant A: revoke token device (`POST /tenants/{A}/devices/{d}/revoke-token`) hoặc decommission device.
+2. Trên kiosk: chờ app về màn activation (hoặc gọi deprovision), rồi **thoát hẳn app**.
+3. Xóa `edge.db`, `edge.db-wal`, `edge.db-shm`, thư mục `captures/` và `camera-workers/` trong `<app_data_dir>` (Windows thường là `%APPDATA%\com.parkvision.edge`). Cần backup thì làm trước bước này theo §10 mục 8, lưu ở nơi tenant A kiểm soát.
+4. Mở app, kích hoạt bằng mã của tenant B. `Store::open` tạo lại schema rỗng.
+
+**Tiêu chí đạt (có thể kiểm):**
+
+- E1 — sau bước 2: `edge-config.json` và `edge-lock.json` không còn tồn tại; UI ở màn activation.
+- E2 — sau bước 3: `Test-Path "$env:APPDATA\com.parkvision.edge\edge.db"` trả `False`; `captures` và `camera-workers` không tồn tại.
+- E3 — sau bước 4, trước khi có xe qua cổng của B: `sqlite3 edge.db "SELECT COUNT(*) FROM pending_events; SELECT COUNT(*) FROM local_events; SELECT COUNT(*) FROM walk_in_sessions;"` trả `0`, `0`, `0`; số dòng `whitelist` bằng số xe B trả về sau sync đầu tiên.
+- E4 — đối chứng: nếu **bỏ** bước 3, E2/E3 không đạt (file còn, các bảng còn dữ liệu A). Đây là hành vi mã hiện tại, không phải lỗi môi trường test.
+
+**Quyết định sản phẩm còn mở:**
+
+- `[Decision needed]` **D-EDG-1 — ai xóa dữ liệu khi deprovision:** (a) giữ như hiện tại, xóa bằng quy trình vận hành ở trên (phụ thuộc người làm); (b) deprovision trong app xóa luôn `edge.db`, `captures/`, `camera-workers/` (mất outbox chưa gửi và dữ liệu điều tra sự cố); (c) deprovision giữ dữ liệu, nhưng app lưu `tenant_id` vào `edge.db` và **từ chối boot / tự xóa** khi activation trả tenant khác.
+- `[Decision needed]` **D-EDG-2 — outbox chưa gửi khi bị revoke:** (a) bỏ; (b) giữ và chỉ gửi cho đúng tenant cũ (cần credential cũ, hiện đã bị revoke); (c) xuất file cho tenant cũ rồi xóa.
+- `[Decision needed]` **D-EDG-3 — retention local:** thời gian giữ `captures/`, `local_events`, `walk_in_sessions` trên máy (hiện không có chính sách retention trong runtime) và có cần mã hóa at-rest hay không.
 
 ## 4. Config v3
 
@@ -461,7 +500,7 @@ Edge giữ toàn bộ lượt gửi: tạo session lúc vào (`walkin::admit`), 
 4. Dừng luồng xe trước probe/test. Xác minh dry-contact, OPEN/CLOSE/STOP, cực tính inputs, pulse/travel, ai sở hữu auto-close và liên động vật lý.
 5. Kiểm tra thiếu model/worker, mất RTSP, relay unreachable và phục hồi. Không chỉ nhìn preview hay ACK để kết luận gate thật hoạt động.
 6. Thử mất REST riêng, mất MQTT riêng, offline/reconnect và restart; kiểm outbox tăng/giảm, hiểu các cửa sổ mất/nhân đôi đã nêu.
-7. Thử thu hồi credential và tái kích hoạt trong môi trường thử; xác nhận kế hoạch phục hồi wiring/dữ liệu. Không dùng deprovision như nút “xóa tất cả”.
+7. Thử thu hồi credential và tái kích hoạt trong môi trường thử; xác nhận kế hoạch phục hồi wiring/dữ liệu. Không dùng deprovision như nút “xóa tất cả”: khi chuyển máy sang tenant khác, làm đủ quy trình và tiêu chí E1–E4 ở §3.4.
 8. Phân quyền thư mục chứa secret, kế hoạch dung lượng/retention, bảo vệ tài khoản OS, backup khi app đã dừng hoặc bằng phương thức SQLite-consistent. Không copy riêng `edge.db` đang hoạt động rồi bỏ qua WAL như một backup chắc chắn.
 
 ### Triệu chứng thường gặp

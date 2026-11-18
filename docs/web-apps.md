@@ -85,7 +85,7 @@ Tenant user lấy tenant từ session; platform admin chọn tenant để tải 
 - **Memberships:** ba tab requests/plans/payments; CRUD gói theo site, activate/reject/revoke yêu cầu, lọc payment và refund.
 - **Settings:** lưu org/contact, OCR threshold, delay, barrier policy, webhook/Telegram, backup/retention/notification fields qua API. UI OCR nhập phần trăm và đổi về 0–1 trước gửi.
 
-Vai trò UI hiển thị từ dữ liệu server, không phải cơ chế bảo vệ tài nguyên. Nhiều nút không bị ẩn hoàn toàn theo từng role; server vẫn phải kiểm tra quyền. Các giới hạn/guard UI không thay thế authorization backend.
+Vai trò UI hiển thị từ dữ liệu server, không phải cơ chế bảo vệ tài nguyên. Điểm thực thi quyền là backend; quy tắc đầy đủ theo vai trò × thao tác nằm ở [mục 2.5](#25-ma-trận-vai-trò--thao-tác-nhạy-cảm-backend-enforcement). Các giới hạn/guard UI không thay thế authorization backend.
 
 Nguồn: [`App.tsx`](../frontend/src/App.tsx), [`PlatformSidebar.tsx`](../frontend/src/components/layout/PlatformSidebar.tsx), [`TenantMembershipsPage.tsx`](../frontend/src/pages/tenant/TenantMembershipsPage.tsx), [`TenantSettingsPage.tsx`](../frontend/src/pages/tenant/TenantSettingsPage.tsx), `frontend/src/pages/tenant/` và `frontend/src/components/tenant/`.
 
@@ -104,6 +104,80 @@ Tab/modal dùng state, không có route URL riêng. `driverApi.updateMe` có tro
 
 Nguồn: [`mobile/src/App.tsx`](../mobile/src/App.tsx), [`ProfileScreen.tsx`](../mobile/src/components/views/ProfileScreen.tsx), [`FindMyVehicleModal.tsx`](../mobile/src/components/discover/FindMyVehicleModal.tsx).
 
+### 2.5. Ma trận vai trò × thao tác nhạy cảm (backend enforcement)
+
+Backend là điểm thực thi duy nhất. Vai trò lấy từ claim `role` của access token (`deps.get_auth_context`); không có kiểm tra quyền theo site, theo tài nguyên riêng lẻ hay theo MFA (xem mục 3, MFA và step-up).
+
+**Vai trò tồn tại** (`backend/app/core/enums.py`):
+
+- Tenant user (`TenantUserRole`): `owner`, `admin`, `operator`, `viewer`.
+- Platform admin (`PlatformAdminRole`): `super_admin`, `ops`, `support`.
+
+**Các dependency quyết định kết quả** (`backend/app/api/deps.py`):
+
+| Dependency | Ai qua được | Từ chối |
+|---|---|---|
+| `tenant_ctx` → `tenant_match` | Tenant user có `tid` = `{tenant_id}` trên path (mọi role), **mọi** platform admin (bypass) | 403 `Tenant mismatch` |
+| `require_roles(*WRITE_ROLES)` | Tenant user `owner`/`admin`/`operator` | 403 `Tenant user required` (platform admin, driver), 403 `Insufficient role` (`viewer`) |
+| `require_roles(*ADMIN_ROLES)` | Tenant user `owner`/`admin` | 403 `Tenant user required`, 403 `Insufficient role` |
+| `require_tenant_audit_reader` | Tenant user `owner`/`admin` của đúng tenant, mọi platform admin | 403 `Tenant mismatch` / `Insufficient role` |
+| `require_platform_admin()` (gắn ở router `/platform`) | Mọi platform admin | 403 `Platform admin required` |
+| `require_platform_admin((...))` theo route | Platform role nằm trong tuple | 403 `Insufficient platform role` |
+| `csrf_protect` | Ghi bằng cookie có `X-CSRF-Token` khớp `vm_csrf`; request có header `Authorization` được miễn | 403 `CSRF token missing or mismatched` |
+
+Token thiếu/hết hạn/bị thu hồi hoặc còn `mfa_pending` trả **401** trước mọi kiểm tra role (`get_auth_context`). Mọi lỗi 403 có `code: forbidden`.
+
+**Hệ quả quan trọng:** `require_roles` gọi `require_tenant_user` trước, nên **platform admin không impersonate chỉ đọc được dữ liệu tenant**; mọi endpoint ghi dưới `/tenants/{tenantId}` trả 403 `Tenant user required`. Muốn ghi, platform admin phải impersonate (xem dưới).
+
+**Tenant portal** (`/api/v1/tenants/{tenantId}/...`):
+
+| Thao tác | owner | admin | operator | viewer | Platform admin (không impersonate) | Nguồn |
+|---|:-:|:-:|:-:|:-:|:-:|---|
+| Đọc mọi danh sách/chi tiết: sites, gates, commands, telemetry, devices, cameras, vehicles, rules, users, access events, incidents, parking, memberships, payments, walk-ins, dashboard | ✓ | ✓ | ✓ | ✓ | ✓ (đọc) | `tenant_ctx`, không có `require_roles` trên các route `GET` |
+| Đọc settings | ✓ | ✓ | ✓ | ✓, các khóa thông báo nhạy cảm bị che `•••` | ✓, bị che như viewer | `events.get_tenant_settings` |
+| Gửi lệnh gate (open/close/lock/`reboot`…) | ✓ | ✓ | ✓ | 403 | 403 | `gates.send_command` |
+| Edge device: đăng ký, sửa, **decommission**, reactivate, xóa, **reboot**, tạo activation code, **thu hồi token**, `edge-setup` | ✓ | ✓ | ✓ | 403 | 403 | `gates.register_device`, `update_device`, `decommission_device`, `reactivate_device`, `delete_device`, `reboot_device`, `create_activation_code`, `revoke_device_token`, `setup_edge_client` |
+| Sites/lanes/gates/cameras/parking levels/zones: tạo, sửa, xóa; presign ảnh | ✓ | ✓ | ✓ | 403 | 403 | `sites.py`, `gates.create_gate/update_gate`, `cameras.py`, `parking.py` |
+| Vehicles/whitelist: tạo, sửa, xóa, import CSV | ✓ | ✓ | ✓ | 403 | 403 | `vehicles.create_vehicle/update_vehicle/delete_vehicle/import_vehicles` |
+| Rules: tạo, sửa, xóa, simulate | ✓ | ✓ | ✓ | 403 | 403 | `rules.py` |
+| Access events: tạo thủ công, **sửa biển số**, presign; incidents: tạo, ack, resolve, bulk resolve | ✓ | ✓ | ✓ | 403 | 403 | `events.create_access_event`, `correct_plate`, `acknowledge_incident`, `resolve_incident`, `bulk_resolve_incidents` |
+| Manual check-in/check-out presence | ✓ | ✓ | ✓ | 403 | 403 | `parking.manual_checkin/manual_checkout` |
+| Ghi settings | ✓ | ✓ | ✓ | 403 | 403 | `events.put_tenant_settings` |
+| Membership plans: tạo, sửa | ✓ | ✓ | ✓ | 403 | 403 | `memberships.create_plan/update_plan` |
+| Membership: activate, reject, **revoke** | ✓ | ✓ | ✓ | 403 | 403 | `memberships.activate_membership/reject_membership/revoke_membership` |
+| **Refund** payment `paid` (membership/session; không phải top-up) | ✓ | ✓ | ✓ | 403 | 403 | `payments.refund_payment` |
+| Users: mời, sửa role/trạng thái, vô hiệu hóa, gửi lại lời mời, **reset password** | ✓ | ✓ (trừ tài khoản owner) | 403 | 403 | 403 | `users.invite_user/update_user/deactivate_user/resend_invite/admin_password_reset` |
+| Cấp/đổi/gỡ role `owner`, vô hiệu hóa hoặc reset password của một owner | ✓ | 403 `Only an owner can manage owner accounts` | 403 | 403 | 403 | `users._require_owner_for_owner_change` |
+| Hạ cấp/vô hiệu hóa owner active cuối cùng | 409 `A tenant must keep at least one active owner` | — | — | — | — | `users._require_other_active_owner` |
+| Đọc audit log tenant | ✓ | ✓ | 403 | 403 | ✓ | `audit.list_audit_logs` (`require_tenant_audit_reader`) |
+| Export audit log tenant | ✓ | ✓ | 403 | 403 | 403 | `audit.export_audit_logs` (`require_roles(*ADMIN_ROLES)`) |
+
+Tenant user của tenant khác nhận 403 `Tenant mismatch` cho mọi route trên, bất kể role. Các bảng tenant còn được RLS lọc theo tenant (`get_tenant_db` → `tenant_session`). Kiểm thử neo: `backend/tests/test_rbac_matrix.py`.
+
+**Platform console** (`/api/v1/platform/...`, router đã yêu cầu platform admin):
+
+| Thao tác | super_admin | ops | support | Nguồn (`backend/app/api/v1/platform.py`) |
+|---|:-:|:-:|:-:|---|
+| Đọc tenants, users của tenant, admins, sessions, settings, feature flags, infra health, security alerts, login events, metrics, telemetry snapshot, audit logs, credentials, jobs | ✓ | ✓ | ✓ | router dependency `require_platform_admin()` |
+| Export audit; ack/resolve security alert | ✓ | ✓ | ✓ | `export_platform_audit_logs`, `acknowledge_security_alert`, `resolve_security_alert` |
+| Tạo/sửa tenant, **đổi trạng thái tenant** (suspend…) | ✓ | ✓ | 403 | `create_tenant`, `update_tenant`, `update_tenant_status` |
+| **Impersonate** tenant | ✓ | ✓ | 403 | `impersonate_tenant` |
+| Ghi platform settings, feature flags | ✓ | ✓ | 403 | `put_setting`, `put_flag` |
+| **Reboot** edge device (mọi tenant) | ✓ | ✓ | 403 | `reboot_edge_device` |
+| API credentials: tạo, **rotate**, **revoke** | ✓ | ✓ | 403 | `create_credential`, `rotate_credential`, `revoke_credential` |
+| **Refund top-up ví** (MoMo, toàn phần) | ✓ | ✓ | 403 | `refund_topup` |
+| **Revoke phiên** bất kỳ (admin hoặc tenant user) | ✓ | 403 | ✓ | `revoke_any_session` |
+| Tạo/sửa platform admin | ✓ | 403 | 403 | `create_admin`, `update_admin` (không tự vô hiệu hóa chính mình: 409) |
+| **Reset MFA** của platform admin | ✓ | 403 | 403 | `reset_admin_mfa` |
+
+**Impersonation:** `impersonate_tenant` phát token 15 phút (`ttl = 900`) đăng nhập với tư cách **một owner active** của tenant (query `.first()` không `ORDER BY`, nên khi có nhiều owner thì không xác định là owner nào) (`role=owner`, `mfa_verified=False`); tenant không có owner active → 409. Trong thời gian đó platform admin có toàn bộ quyền owner ở bảng tenant portal. Audit ghi `TENANT_IMPERSONATE`; các audit ghi trong phiên impersonate mang `impersonator_id` (`audit_service.write_audit` đọc `deps.impersonator_ctx`).
+
+**Gating UI so với backend** (`frontend/src/lib/permissions.ts` sao chép các tuple trên):
+
+- Có gating theo role: các trang tenant dùng `canTenantWrite` (Dashboard thao tác gate, Location, Vehicles, Rules, Edge devices, Parking map, Memberships gồm refund, Settings, AccessEventDrawer, BarrierMapVisualization) và `canManageTenantUsers`/`canExportTenantAudit`; platform dùng `canManagePlatformOps` (Settings, Feature flags, Credentials ở Security), `canManagePlatformAdmins` (Admins, reset MFA), `canRevokePlatformSessions`.
+- **Không gating theo platform role (chỉ backend chặn):** nút Impersonate và đổi trạng thái tenant ở `TenantDetailPage.tsx`/`TenantsListPage.tsx`, `CreateTenantModal.tsx`, nút Reboot edge ở `MonitoringPage.tsx` (chỉ kiểm `userType === 'platform_admin'`). Role `support` vẫn thấy các nút này và nhận 403.
+- Refund top-up (`/platform/payments/{id}/refund-topup`) **không có UI** trong cả hai app; chỉ gọi qua API.
+
 ## 3. Session, state và hợp đồng HTTP
 
 ### Dashboard: cookie + CSRF
@@ -115,6 +189,20 @@ REST client cố định `/api/v1`, gửi `credentials: 'include'`. Với `POST/
 `PlatformProvider` gọi `/auth/me` khi mount, giữ userType/tenantId/tenantSlug/MFA state. `logout` gọi server và xóa trạng thái auth cục bộ. Khi refresh thất bại ở HTTP client, không có cơ chế phát event logout toàn cục giống mobile; không nên suy ra mọi 401 tự chuyển màn login.
 
 Impersonation: POST `/platform/tenants/{id}/impersonate`, đọc lại `/auth/me`, hiển thị banner với `expiresIn`. Thoát bằng refresh session rồi `/auth/me`. Banner dùng số phút từ response, không phải đồng hồ countdown đáng tin cậy cho thời hạn server.
+
+### Dashboard: MFA và step-up
+
+MFA chỉ được thực thi **một lần, lúc đăng nhập**, và chỉ với tài khoản đã bật MFA (`auth_service`: `user.mfa_enabled` → token `mfa_pending`; `deps.get_auth_context` trả 401 `MFA verification required` cho token này trên mọi endpoint). Sau khi đăng nhập, quy tắc là:
+
+- **Không có step-up phía server.** Claim `mfa` được đọc vào `AuthContext.mfa_verified` nhưng không dependency/router nào kiểm tra nó; không endpoint nào yêu cầu xác thực lại OTP trước thao tác nhạy cảm. Mọi thao tác ở mục 2.5 (refund, revoke, reboot, impersonate, reset MFA, decommission…) chỉ phụ thuộc role.
+- Không có chính sách bắt buộc bật MFA theo role (kể cả `super_admin`); bật/tắt là lựa chọn của từng tài khoản.
+- Thao tác MFA có xác thực server thật: enroll (`authApi.mfaEnable` với OTP đầu tiên), disable (`authApi.mfaDisable` cần **mật khẩu + OTP hiện tại**, server thu hồi mọi phiên), reset MFA của admin khác (`platformApi.resetAdminMfa`, chỉ `super_admin`; server xóa secret/backup codes, thu hồi phiên của admin đó, phát security alert `MFA_RESET`).
+- Phiên impersonate luôn có `mfa_verified=False`; vì không có step-up nên điều này không giới hạn thao tác nào.
+- Mode `challenge` của `MfaFlowModal`: **không có lời gọi nào mở mode này** (`openMfaModal` chỉ được gọi với `enroll`, `disable`, `reset_admin`). Nếu bị mở, `handleVerifyOtp` luôn hiển thị lỗi `Step-up verification is not available for active sessions.` và không bao giờ báo thành công; nó không gọi server và không mở khóa thao tác nào.
+
+Việc có cần step-up cho thao tác nhạy cảm hay không là quyết định sản phẩm chưa có (mục 10).
+
+Nguồn: [`MfaFlowModal.tsx`](../frontend/src/components/modals/MfaFlowModal.tsx), [`PlatformContext.tsx`](../frontend/src/context/PlatformContext.tsx) (`openMfaModal`), `backend/app/api/deps.py`, `backend/app/services/auth_service.py`, `backend/app/api/v1/platform.py` (`reset_admin_mfa`).
 
 ### Driver: bearer token
 
@@ -184,13 +272,23 @@ Nguồn: [`PlatformContext.tsx`](../frontend/src/context/PlatformContext.tsx), [
 1. Tenant tạo/sửa gói theo site trong Memberships → Plans, gồm giá, số ngày, perks và trạng thái.
 2. Driver xem gói public tại chi tiết site; chọn một xe đã đăng ký rồi gửi `planId` + `vehicleId` tới `/driver/memberships`.
 3. UI hiển thị trạng thái backend (`pending`, `active`, `rejected`, `cancelled`, `expired`, `revoked`), cho hủy/thanh toán khi phù hợp.
-4. Tenant activate/reject/revoke qua API. UI không tự cấp quyền ANPR chỉ vì người lái đã gửi yêu cầu; tác động whitelist/edge synchronization phải xác minh từ hệ thống backend/edge.
+4. Tenant activate/reject/revoke qua API (role ghi, mục 2.5), hoặc membership tự kích hoạt khi payment `paid`. UI không tự cấp quyền ANPR chỉ vì người lái đã gửi yêu cầu. Kích hoạt tạo/bật dòng whitelist `registered_vehicles` tag `member`; revoke/cancel/expire chuyển dòng đó sang `suspended`; edge nhận thay đổi qua REST sync (eventual). Chi tiết ở "Hệ quả nghiệp vụ theo trạng thái payment".
 
 ### Phí và tạo giao dịch
 
 Driver session mapper lấy `feeVnd` thành `currentFeeVnd`; UI không tự tính hóa đơn từ đồng hồ đếm thời gian. Null được hiển thị `—`; lịch sử thể hiện phí ước tính. Form payment không gửi số tiền tự tính cho session/membership, chỉ gửi ID tham chiếu; top-up có `amountVnd`.
 
-`PaymentEWalletModal` từ Profile lấy memberships, active sessions và **trang đầu 20 phiên lịch sử** để tạo danh sách cần trả; lấy payments + wallet. Không phải sổ công nợ đầy đủ tất cả lịch sử. Trong sheet có MoMo/wallet; nút trả ở tab Memberships gửi body không kèm `method` để backend áp default.
+`PaymentEWalletModal` từ Profile lấy memberships, active sessions và **trang đầu 20 phiên lịch sử** để tạo danh sách cần trả; lấy payments + wallet. Không phải sổ công nợ đầy đủ tất cả lịch sử.
+
+**Phương thức thanh toán (`method`):**
+
+- Backend chỉ chấp nhận `momo` hoặc `wallet`; **thiếu `method` thì mặc định là `momo`** (`PaymentCreateIn.method: Literal["momo", "wallet"] = "momo"` trong `backend/app/schemas/driver.py`; `payment_service.create_payment(method="momo")`). Backend không bao giờ tự chọn ví.
+- Nút "Thanh toán để kích hoạt" ở tab Memberships (`App.tsx` → `onPay` của `MembershipsScreen`) gửi `{kind: 'membership', membershipId}` không kèm `method`, nên **luôn là MoMo**. Tab không hiển thị phương thức, không có bước xác nhận và không cho chọn ví. Muốn trả bằng ví, người lái phải dùng nút ví trong payment sheet ở Profile.
+- Trong payment sheet, nút số tiền (MoMo) cũng không gửi `method` (→ `momo`); nút ví gửi `method: 'wallet'` tường minh. Top-up luôn là `momo`; `method: wallet` cho top-up bị 400.
+- Với `momo`: nếu deployment không có gateway (`PAYMENT_PROVIDER=none`), backend trả 503 `payments_not_configured` và không tạo payment. Payment sheet hiển thị panel "chưa bật thanh toán"; tab Memberships chỉ hiện `Error.message`. Nếu có gateway, backend tạo payment `created` với `payUrl`, hết hạn sau `payment_ttl_minutes` (mặc định 30); không trừ tiền ví.
+- Với `wallet`: trừ ví và đánh dấu `paid` trong **một transaction**; thiếu số dư thì rollback, không tạo payment.
+
+Việc nút ở tab Memberships có phải cho chọn/xác nhận phương thức hay không là quyết định sản phẩm chưa có (mục 10).
 
 `usePayments.payAndWatch()`:
 
@@ -208,16 +306,46 @@ Payment sheet bắt riêng mã `payments_not_configured` và chuyển sang thôn
 
 Wallet API trả balance và ledger; sheet có top-up, trả session/membership bằng `method: wallet` và hiển thị một phần giao dịch gần nhất. UI kiểm tra đủ số dư để bật nút, nhưng kiểm tra nguyên tử số dư/hoàn tiền thuộc backend. Khi dữ liệu ví chưa có, UI có thể hiển thị 0, không nên xem đó là số dư đã đối soát.
 
-Tenant Payments cho xem trạng thái `created/paid/failed/cancelled/expired/refunded` và `POST /tenants/{tenantId}/payments/{id}/refund`, rồi refetch. Việc tiền thực sự được trả về provider/wallet, tự kích hoạt membership, grace window hay gate release không thể chứng minh chỉ từ source hai web app.
+Tenant Payments cho xem trạng thái `created/paid/failed/cancelled/expired/refunded` và `POST /tenants/{tenantId}/payments/{id}/refund`, rồi refetch. Nút refund chỉ hiện cho role ghi (`canTenantWrite`) với payment `paid` không phải top-up; hộp xác nhận ghi rõ nơi hoàn tiền theo `method`.
 
-Nguồn: [`TenantMembershipsPage.tsx`](../frontend/src/pages/tenant/TenantMembershipsPage.tsx), [`TenantDetailModal.tsx`](../mobile/src/components/discover/TenantDetailModal.tsx), [`PaymentEWalletModal.tsx`](../mobile/src/components/profile/PaymentEWalletModal.tsx), [`usePayments.ts`](../mobile/src/hooks/usePayments.ts), [`driver.ts`](../mobile/src/api/driver.ts).
+### Hệ quả nghiệp vụ theo trạng thái payment (backend)
+
+Quy tắc dưới đây đọc từ `backend/app/services/payment_service.py`, `membership_service.py` và `event_service.py`. Đây là hành vi source; chưa có bằng chứng E2E với gateway thật.
+
+**Vòng đời payment:** `created` → `paid` | `failed` | `cancelled` | `expired`; `paid` → `refunded`. Trạng thái cuối không bị IPN/refresh ghi đè lại (`_TERMINAL`).
+
+| Sự kiện | Payment | Membership (`kind=membership`) | Ví | Ra vào |
+|---|---|---|---|---|
+| Trả `wallet` thành công | `paid` ngay | Tự kích hoạt nếu đang `pending` (như dòng `paid` bên dưới) | Trừ `spend_debit` | Như dòng `paid` |
+| MoMo IPN thành công hoặc pull-refresh báo `paid` (`handle_momo_ipn`, `_refresh_from_gateway`) | `paid` | `_apply_paid` → `_activate_membership_row`: `active`, `ends_at = now + duration_days` (thiếu plan: 30 ngày), tạo/kích hoạt `registered_vehicles` tag `member` với `valid_to = ends_at`; membership active khác trên cùng xe bị `revoked` | Top-up: cộng `topup_credit` | Membership: whitelist mới tới edge qua REST sync (eventual, xem `docs/edge-client.md`) |
+| `paid` nhưng không kích hoạt được (membership không còn tồn tại, không còn `pending`, hoặc biển số bị blacklist) | **Giữ `paid`**, ghi `raw_payload.activation_error` | Giữ nguyên trạng thái (thường `pending`), `admin_note = "payment received; activation failed: …"` | Không đổi | Không cấp quyền. **Không tự hoàn tiền**; operator phải activate tay hoặc refund |
+| MoMo từ chối lúc tạo order | `failed` (API trả 409) | Giữ `pending`, được tạo payment mới | Không đổi | Không |
+| IPN thất bại / query báo `failed` | `failed` | Giữ `pending`, được tạo payment mới | Không đổi | Không |
+| Driver hủy (chỉ khi `created`) | `cancelled` | Giữ `pending` | Không đổi | Không |
+| Quá `payment_ttl_minutes` (30) khi còn `created` | `expired` (quét lười khi đọc/ghi) | Giữ `pending` | Không đổi | Không |
+| Tenant refund (`refund_payment`, chỉ khi `paid`, không phải top-up) | `refunded`, `refunded_at` | `active` → `revoked` + whitelist `suspended`; `pending` → `rejected`; trạng thái khác giữ nguyên; luôn nối note `refunded by operator` | `method=wallet`: **hoàn về ví** (`refund_credit`), không về MoMo. `method=momo`: gọi gateway `/refund` **toàn phần** | Session: grant thoát chưa dùng hết hiệu lực (không còn `status='paid'`) |
+| Platform refund top-up (`platform_refund_topup`, `super_admin`/`ops`) | `refunded` | — | Chỉ khi top-up MoMo và số dư ví ≥ số tiền top-up; trừ `refund_debit` toàn phần, gọi gateway `/refund`. Đã tiêu một phần → 409 | — |
+
+**Quy tắc refund:**
+
+- Chỉ hoàn **toàn phần** `amount_vnd`; không có refund một phần. Chỉ payment `paid` (khác → 409 `Payment is …, not paid`).
+- Tenant không refund top-up (409); top-up chỉ platform refund.
+- MoMo payment thiếu `provider_trans_id` (ví dụ được đánh dấu paid qua pull-refresh) → 409 `refund via the MoMo console`; payment **vẫn `paid`** trong hệ thống, không có API đánh dấu đã hoàn ngoài hệ thống.
+- Gateway từ chối refund → 409, payment giữ `paid`. Thiếu gateway → 503.
+- Refund chạy dưới khóa dòng; refund đồng thời lần hai nhận 409.
+
+**Không tự sinh hoàn tiền trong các trường hợp sau** (payment giữ `paid`): tenant revoke/reject membership, driver hủy membership `active`, membership hết hạn, membership `pending` bị tự hủy sau 7 ngày (`membership_service._expire_stale`, áp cả khi đã trả nhưng kích hoạt thất bại), tenant activate tay một membership đã có payment `paid` bị gắn cờ. Ngược lại, tenant activate tay một membership có gói trả phí **không cần payment** (`activate_membership` không kiểm tra payment); sau đó driver tạo payment sẽ nhận 409 `Membership is active, not pending`.
+
+**Session payment và ra cổng:** khi một payment `kind=session` `paid`, `event_service.decide_access` đổi quyết định **deny chiều exit** thành `allow` (`reason: paid_exit`) **một lần** cho đúng biển số + site trong `paid_exit_grace_minutes` (mặc định 15, tenant setting ghi đè), không áp cho blacklist và rule deny vẫn thắng. Đây là quyết định **backend ghi cho access event** nhận qua telemetry. Edge quyết định mở cổng cục bộ từ SQLite (`edge-client/src-tauri/src/access.rs::decide_access`) và trong source edge không có đầu vào payment/`paid_exit`; `payment_service` cũng không phát lệnh mở cổng khi `paid`. Vì vậy source không chứng minh payment `paid` tự mở barrier; với trường hợp edge mất mạng, tài liệu backend đã ghi lối thoát duy nhất là lệnh `manual_open` của nhân viên (GAP-PAY-002, `docs/backend.md`). Xem mục 10.
+
+Nguồn: [`TenantMembershipsPage.tsx`](../frontend/src/pages/tenant/TenantMembershipsPage.tsx), [`TenantDetailModal.tsx`](../mobile/src/components/discover/TenantDetailModal.tsx), [`PaymentEWalletModal.tsx`](../mobile/src/components/profile/PaymentEWalletModal.tsx), [`MembershipsScreen.tsx`](../mobile/src/components/views/MembershipsScreen.tsx), [`usePayments.ts`](../mobile/src/hooks/usePayments.ts), [`driver.ts`](../mobile/src/api/driver.ts); backend `schemas/driver.py` (`PaymentCreateIn`), `services/payment_service.py` (`create_payment`, `_apply_paid`, `_flag_activation_failure`, `handle_momo_ipn`, `refund_payment`, `platform_refund_topup`), `services/membership_service.py` (`_activate_membership_row`, `_expire_stale`, `revoke_membership`, `cancel_membership`), `services/event_service.py` (`_paid_exit`, `decide_access`).
 
 ## 7. Phần demo, stub và nội dung không nên diễn giải quá mức
 
 ### Dashboard
 
 - **Landing simulator:** kịch bản biển số, confidence/latency, logic VIP/block và animation barrier là demo phía trình duyệt, không gọi OCR/relay. Pricing lấy `/plans` nhưng fallback marketing khi lỗi; các cam kết marketing/pháp lý không tự chứng minh tính năng vận hành.
-- **MFA:** login MFA/resume/resend, setup/enroll/disable/reset-admin có API. Riêng nhánh `challenge` trong `MfaFlowModal` là demo step-up: xử lý sau timeout, không gọi endpoint server xác thực nâng quyền. Không dùng nhánh này làm cổng bảo mật thật.
+- **MFA:** login MFA/resume/resend, setup/enroll/disable/reset-admin có API. Mode `challenge` trong `MfaFlowModal` không được màn nào mở, không gọi server và luôn trả lỗi "not available"; nó không phải cổng bảo mật và không có thao tác nào phụ thuộc nó. Backend không có step-up (mục 3, MFA và step-up).
 - **Heuristic anomaly:** detector dùng Z-score/EWMA và baseline chung cố định, không phải mô hình ML đã huấn luyện từng bãi. “Mitigate” cập nhật detector/UI và append audit cục bộ; không chứng minh edge rate-limit/CCTV đã được bật.
 - **Mock data filenames:** `data/mockData.ts` chứa defaults settings, `tenantMockData.ts` chứa location rỗng. `barrierMockData.ts` cung cấp outline Việt Nam cho bản đồ. Phải đọc cách dùng, không kết luận toàn bộ dashboard là mock vì tên tệp.
 - **Bản đồ barrier:** phép chiếu tọa độ xấp xỉ; site thiếu GPS có vị trí rải xác định để vẽ, không phải tọa độ địa lý được đo.
@@ -326,3 +454,19 @@ Không mặc định `localhost` bên trong container là host. `nginx.conf.temp
 `npm run build` sinh `mobile/dist/`. Không có Dockerfile riêng; dùng static hosting/reverse proxy tùy hạ tầng. Phải cấu hình proxy REST và WS production riêng; Vite dev proxy không được đưa vào output build. Nếu dùng relative base mặc định, host phục vụ trang phải định tuyến `/api` và `/ws/driver/sessions`. Nếu dùng absolute base, cấu hình lúc build và kiểm domain/TLS/CORS; không kỳ vọng env runtime của static server tự thay bundle.
 
 Không đặt API keys, gateway secrets hay relay credentials trong frontend environment. Driver bearer token có thể nằm trong query WS, biển số có trong lookup URL; cần che query/logs, giới hạn chia sẻ dữ liệu và dùng HTTPS. Các hướng dẫn ở đây không sửa backend Compose hay bảo đảm sẵn cấu hình production cho hệ thống.
+
+## 10. Quyết định sản phẩm còn mở
+
+Các mục dưới đây mô tả hành vi **hiện tại** của source và các phương án cụ thể; chưa có quyết định BA/PO nên không nên coi hành vi hiện tại là yêu cầu đã được duyệt.
+
+1. **[Decision needed] Step-up MFA cho thao tác nhạy cảm** (GAP-WEB-002). Hiện tại: không có step-up; chỉ role quyết định (mục 3). Phương án: (a) chấp nhận hiện trạng, xóa mode `challenge` khỏi `MfaFlowModal`; (b) thêm endpoint step-up server (OTP trong N phút) và bắt buộc cho tập thao tác chọn lọc (refund, impersonate, reset MFA, revoke credential, decommission/reboot); (c) chỉ bắt buộc phiên đăng nhập có `mfa_verified=True` cho các thao tác đó, không hỏi lại OTP.
+2. **[Decision needed] Bắt buộc bật MFA theo role** (GAP-WEB-002). Hiện tại: tùy từng tài khoản, kể cả `super_admin`. Phương án: (a) giữ tùy chọn; (b) bắt buộc với mọi platform admin; (c) bắt buộc với platform admin và tenant `owner`/`admin`.
+3. **[Decision needed] Gating UI cho các nút platform chỉ có backend chặn** (GAP-WEB-001). Hiện tại: `support` thấy Impersonate, đổi trạng thái tenant, tạo tenant, Reboot edge và nhận 403. Phương án: (a) giữ, coi 403 là đủ; (b) ẩn/disable bằng `canManagePlatformOps` như các trang Settings/Flags.
+4. **[Decision needed] `operator` có được refund và revoke membership không** (GAP-WEB-001). Hiện tại: có, vì refund/revoke dùng `WRITE_ROLES` như mọi thao tác ghi vận hành. Phương án: (a) giữ; (b) chuyển refund (và tùy chọn revoke membership, decommission/xóa device, thu hồi token) sang `ADMIN_ROLES`.
+5. **[Decision needed] Platform admin ghi vào tenant mà không impersonate** (GAP-WEB-001). Hiện tại: chỉ đọc; ghi trả 403 `Tenant user required`; impersonate cho toàn quyền owner 15 phút và chọn owner không xác định khi có nhiều owner. Phương án: (a) giữ; (b) giới hạn quyền trong phiên impersonate (ví dụ read-only hoặc loại trừ refund/users); (c) cho platform `ops` ghi trực tiếp với audit riêng.
+6. **[Decision needed] Phương thức mặc định ở nút trả tab Memberships** (GAP-WEB-004). Hiện tại: không gửi `method` → backend `momo`, không hiển thị, không xác nhận; deployment không có gateway thì báo lỗi dù ví đủ tiền. Phương án: (a) giữ MoMo nhưng ghi rõ "Thanh toán qua MoMo" trên nút; (b) mở payment sheet/bộ chọn MoMo/ví trước khi tạo payment; (c) tự chọn ví khi đủ số dư, kèm bước xác nhận. Kèm theo: có bắt buộc client gửi `method` tường minh (bỏ default ở `PaymentCreateIn`) hay không.
+7. **[Decision needed] Paid nhưng không kích hoạt được membership** (GAP-WEB-003). Hiện tại: payment giữ `paid`, membership giữ trạng thái cũ và được gắn note; không tự hoàn tiền; membership `pending` vẫn bị tự hủy sau 7 ngày mà payment vẫn `paid`; UI tenant không có hàng đợi riêng cho các ca này (chỉ thấy qua `admin_note`). Phương án: (a) giữ xử lý tay; (b) tự refund ngay; (c) tự refund sau thời hạn nếu operator không xử lý; kèm quyết định có loại trừ membership đã trả tiền khỏi auto-cancel 7 ngày.
+8. **[Decision needed] Hoàn tiền khi membership kết thúc sớm** (GAP-WEB-003). Hiện tại: revoke/reject của tenant, driver tự hủy membership `active` đều không hoàn tiền; chỉ refund tường minh mới hoàn (toàn phần). Phương án: (a) giữ, refund là thao tác riêng; (b) hoàn tỷ lệ theo số ngày còn lại (cần thêm refund một phần); (c) tự refund toàn phần khi tenant revoke/reject trong một khoảng thời gian.
+9. **[Decision needed] Activate tay membership có gói trả phí khi chưa trả tiền** (GAP-WEB-003). Hiện tại: được phép, không cần payment. Phương án: (a) giữ (thu tiền ngoài hệ thống); (b) chặn activate khi `price_vnd > 0` và chưa có payment `paid`; (c) cho phép nhưng bắt buộc ghi lý do.
+10. **[Decision needed] Nơi nhận tiền hoàn** (GAP-WEB-003). Hiện tại: payment `wallet` hoàn về ví, payment `momo` hoàn về MoMo; MoMo thiếu `provider_trans_id` phải hoàn tay trên console và payment vẫn `paid` trong hệ thống. Phương án: (a) giữ; (b) thêm thao tác "đánh dấu đã hoàn ngoài hệ thống" có audit; (c) cho phép hoàn MoMo về ví khi gateway không hoàn được.
+11. **[Decision needed] Session payment `paid` có tự mở barrier không** (GAP-WEB-003, liên quan GAP-PAY-002). Hiện tại: backend chỉ đổi quyết định của access event ghi nhận (`paid_exit`, 1 lần, 15 phút); edge không có đầu vào payment và không có lệnh mở cổng tự động khi `paid`. Phương án: (a) giữ, nhân viên mở tay; (b) backend phát lệnh mở cổng khi `paid` và xe đang ở làn ra; (c) đồng bộ grant `paid_exit` xuống SQLite edge để quyết định cục bộ, kể cả khi offline.

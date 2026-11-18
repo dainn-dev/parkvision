@@ -60,10 +60,13 @@ Key boundaries — don't blur these when making changes:
    contracts** (`docs/mqtt-camera-detection.md` vs. the gate telemetry topic
    in `docs/edge-client.md`). The Python worker does not publish the
    monitor-camera contract.
-7. **Known operational gap (GAP-PAY-002):** if a gate loses network right
-   after a driver's `paid_exit`, edge's offline `decide_access` has no idea
-   the trip was paid. The only way out is a manual `manual_open` command from
-   staff — there is no local payment-grant sync for offline exits.
+7. **Known gap (GAP-PAY-002, wider than "offline"):** the edge decides access
+   only from its local whitelist/rules (`access.rs::decide_access`) and has
+   no payment input; the backend's `paid_exit` only re-decides the *recorded*
+   event and nothing sends an open command. So a paid session never opens an
+   edge-controlled barrier, online or offline — staff must `manual_open` (or
+   send a gate command while the edge is connected). Product decision pending
+   (`docs/backend.md` §17).
 
 ## Verification commands
 
@@ -278,8 +281,10 @@ back on next save. A backend `/edge/config` refresh merges new gate bindings
 onto the existing config by `gateId` — gates not present in the new bundle
 lose their binding, but **existing gates keep their local `barrier` block**.
 401/403 during the periodic sync triggers deprovision (config wiped, runtime
-torn down); deprovision does **not** delete `edge.db`, captures, or
-`edge-lock.json`.
+torn down); deprovision deletes `edge-config.json` and the kiosk lock
+(`edge-lock.json`), but does **not** delete `edge.db`, `captures/` or
+`camera-workers/` — re-activating for another tenant without a manual wipe
+carries the old tenant's data over (see `docs/edge-client.md` §3.4).
 
 **Offline behavior:** SQLite outbox caps at 10,000 rows (oldest dropped past
 that). The 60-second REST sync loop is gated on MQTT being connected — REST
@@ -305,10 +310,14 @@ are plaintext.
   not. If you hit `add_reader`/`add_writer` errors running the bridge
   natively on Windows, run it in a Linux container instead of patching around
   it.
-- **CI path filters**: `backend-ci.yml` and `frontend-ci.yml` only trigger on
-  changes under their respective directories (plus their own workflow file).
-  There is currently no CI workflow for `mobile/`, `anpr-worker/`, or
-  `edge-client/`.
+- **CI path filters**: each workflow (`backend-ci`, `frontend-ci`,
+  `mobile-ci`, `edge-client-ci`, `anpr-worker-ci`) only triggers on changes
+  under its own directory plus its workflow file; `edge-client-ci` also
+  watches the shared plate/pricing fixtures its cargo tests read.
+- **Compose override**: `backend/docker-compose.override.yml` is a
+  production-style overlay (required secrets) that `docker compose` applies
+  automatically. For a local/E2E stack use the base file only:
+  `docker compose -f docker-compose.yml up -d --build`.
 
 ## graphify
 
