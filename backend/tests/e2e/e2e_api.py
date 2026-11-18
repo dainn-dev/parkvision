@@ -237,7 +237,8 @@ check(
     r.status_code == 200 and bool(j["data"].get("csrfToken")),
     f"status={r.status_code}",
 )
-r = sess.post(f"{API}/auth/logout")
+# logout is a cookie-authenticated write, so it needs the double-submit token
+r = sess.post(f"{API}/auth/logout", headers={"X-CSRF-Token": sess.cookies.get("vm_csrf") or ""})
 check("S12b /auth/logout -> 200", r.status_code == 200, f"status={r.status_code} {r.text[:80]}")
 r = sess.get(f"{API}/auth/me")
 check("S12c /me after logout -> 401", r.status_code == 401, f"status={r.status_code} {r.text[:100]}")
