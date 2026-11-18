@@ -55,6 +55,28 @@ jobs:
         working-directory: backend
         run: ruff format --check .
 
+      # SeaweedFS S3 (same as compose) for the app-release tests. Started here
+      # rather than as a job service because it needs a custom entrypoint.
+      # Settings defaults point at http://localhost:9000 with test/test keys.
+      - name: Start S3 (SeaweedFS)
+        run: |
+          docker run -d --name s3 -p 9000:4566 --entrypoint /bin/sh chrislusf/seaweedfs:4.53 -c \
+            "printf '{\"identities\":[{\"name\":\"ci\",\"credentials\":[{\"accessKey\":\"test\",\"secretKey\":\"test\"}],\"actions\":[\"Admin\",\"Read\",\"Write\",\"List\",\"Tagging\"]}]}' > /tmp/s3.json && exec weed server -dir=/data -s3 -s3.port=4566 -s3.config=/tmp/s3.json -master.volumeSizeLimitMB=256 -volume.max=0"
+          for i in $(seq 1 30); do curl -s -o /dev/null http://localhost:9000 && break; sleep 2; done
+
+      # Unit/integration tests run WITHOUT the bridge: many tests assert on the
+      # Redis mqtt:outbox list, which a running bridge would drain under them.
+      - name: Pytest
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://vehicle_app:vehicle_app@localhost:5432/vehicle_mgmt_test
+          MIGRATION_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/vehicle_mgmt_test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: ci-test-secret-0123456789abcdef0123456789ab
+          FIELD_ENCRYPTION_KEY: ci-fernet-key
+          COOKIE_SECURE: "false"
+        run: pytest tests -q --deselect tests/test_resources_and_commands.py::test_command_idempotency_and_outbox
+
       - name: Start mqtt-bridge (drains Redis outbox → EMQX)
         working-directory: backend
         env:
@@ -69,7 +91,7 @@ jobs:
           nohup python -m app.realtime.mqtt_bridge > bridge.log 2>&1 &
           sleep 3
 
-      - name: Pytest
+      - name: Pytest (outbox -> EMQX delivery through the bridge)
         working-directory: backend
         env:
           DATABASE_URL: postgresql+asyncpg://vehicle_app:vehicle_app@localhost:5432/vehicle_mgmt_test
@@ -78,4 +100,9 @@ jobs:
           JWT_SECRET: ci-test-secret-0123456789abcdef0123456789ab
           FIELD_ENCRYPTION_KEY: ci-fernet-key
           COOKIE_SECURE: "false"
-        run: pytest tests -q
+        run: pytest -q tests/test_resources_and_commands.py::test_command_idempotency_and_outbox
+
+      - name: Bridge log on failure
+        if: failure()
+        working-directory: backend
+        run: tail -100 bridge.log || true
