@@ -519,3 +519,39 @@ async def test_topup_refund_blocked_after_partial_spend(
 
     # Verify balance unchanged
     assert await _wallet_balance(admin_engine, did) == 200_000
+
+
+@pytest.mark.asyncio
+async def test_concurrent_first_wallet_creation_yields_one_row(client, admin_engine):
+    """Two transactions creating a driver's first wallet at once must both
+    succeed and share one row (driver_wallets.driver_id is UNIQUE)."""
+    import asyncio
+
+    from sqlalchemy import func, select
+
+    from app.database import platform_session
+    from app.models import DriverUser, DriverWallet
+    from app.services import wallet_service
+
+    d = await driver(client)
+    async with async_sessionmaker(admin_engine, class_=AsyncSession)() as db:
+        driver_id = (
+            await db.execute(select(DriverUser.id).where(DriverUser.email == d["email"]))
+        ).scalar_one()
+
+    async def create() -> uuid.UUID:
+        async with platform_session() as db:
+            w = await wallet_service.get_or_create_wallet(db, driver_id)
+            await asyncio.sleep(0.2)  # hold the txn open so the creates overlap
+            return w.id
+
+    ids = await asyncio.gather(*[create() for _ in range(4)])
+    assert len(set(ids)) == 1
+
+    async with async_sessionmaker(admin_engine, class_=AsyncSession)() as db:
+        n = (
+            await db.execute(
+                select(func.count()).select_from(DriverWallet).where(DriverWallet.driver_id == driver_id)
+            )
+        ).scalar_one()
+    assert n == 1

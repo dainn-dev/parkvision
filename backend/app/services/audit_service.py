@@ -32,10 +32,12 @@ _CATEGORY_PREFIXES: tuple[tuple[str, str], ...] = (
 
 
 def audit_category(action: str) -> str:
-    for prefix, category in _CATEGORY_PREFIXES:
-        if action.startswith(prefix):
-            return category
-    return "TENANT_MANAGEMENT"
+    # Longest matching prefix wins, so "tenant.settings.*" (CONFIGURATION) is
+    # not swallowed by the broader "tenant." (TENANT_MANAGEMENT) entry.
+    matches = [(prefix, category) for prefix, category in _CATEGORY_PREFIXES if action.startswith(prefix)]
+    if not matches:
+        return "TENANT_MANAGEMENT"
+    return max(matches, key=lambda m: len(m[0]))[1]
 
 
 async def write_audit(

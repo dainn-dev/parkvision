@@ -220,6 +220,7 @@ async def test_feature_flag_metadata_and_platform_actor_email(client, admin_engi
     res = await client.put(
         f"/api/v1/platform/feature-flags/{key}",
         json={"description": "QA flag", "enabled": True, "tenantOverrides": {}},
+        headers=csrf(client),
     )
     assert res.status_code == 200, res.text
     body = res.json()
@@ -236,7 +237,7 @@ async def test_platform_setting_audit_contains_actor_email(client, admin_engine)
     email, password = await _platform_admin(admin_engine)
     await login(client, email, password)
     key = f"qa-setting-{uuid.uuid4().hex[:8]}"
-    saved = await client.put(f"/api/v1/platform/settings/{key}", json={"value": {"enabled": True}})
+    saved = await client.put(f"/api/v1/platform/settings/{key}", json={"value": {"enabled": True}}, headers=csrf(client))
     assert saved.status_code == 200, saved.text
     logs = await client.get("/api/v1/platform/audit-logs?action=platform.setting.updated")
     assert logs.status_code == 200, logs.text

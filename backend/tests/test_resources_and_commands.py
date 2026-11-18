@@ -91,8 +91,16 @@ async def test_command_idempotency_and_outbox(client: AsyncClient, tenant, gate)
     # (the bridge drains mqtt:outbox, so we can't read the list itself).
     import asyncio
     import json as _json
+    import socket
 
     import aiomqtt
+
+    from app.config import settings as _settings
+
+    try:
+        socket.create_connection((_settings.mqtt_host, _settings.mqtt_port), timeout=1).close()
+    except OSError:
+        pytest.skip("MQTT broker unreachable: outbox->EMQX delivery needs the compose stack (EMQX + mqtt-bridge)")
 
     delivered = asyncio.Event()
 
