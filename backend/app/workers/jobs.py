@@ -371,29 +371,47 @@ async def reconcile_pending_payments(ctx) -> int:
 
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
     async with platform_session() as db:
-        payments = (
-            await db.execute(
-                select(DriverPayment)
-                .where(
-                    DriverPayment.status == "created",
-                    DriverPayment.method == "momo",
-                    DriverPayment.created_at < cutoff,
+        ids = (
+            (
+                await db.execute(
+                    select(DriverPayment.id)
+                    .where(
+                        DriverPayment.status == "created",
+                        DriverPayment.method == "momo",
+                        DriverPayment.created_at < cutoff,
+                    )
+                    .order_by(DriverPayment.created_at.asc())
+                    .limit(100)
                 )
-                .order_by(DriverPayment.created_at.asc())
-                .limit(100)
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
-        refreshed = 0
-        for payment in payments:
-            try:
+    refreshed = 0
+    for payment_id in ids:
+        try:
+            # One transaction per payment, holding the same row lock as the
+            # IPN/get/refund paths and re-checking status under it, so an IPN
+            # that settles the row concurrently is never applied twice.
+            # skip_locked: a row being settled right now is left for that path.
+            async with platform_session() as db:
+                payment = (
+                    await db.execute(
+                        select(DriverPayment)
+                        .where(DriverPayment.id == payment_id, DriverPayment.status == "created")
+                        .with_for_update(skip_locked=True)
+                    )
+                ).scalar_one_or_none()
+                if payment is None:
+                    continue
                 await _refresh_from_gateway(db, payment)
-                refreshed += 1
-            except Exception:
-                # One provider/network failure must not prevent reconciliation
-                # of other payments; this record will be retried next sweep.
-                continue
-        return refreshed
+            refreshed += 1
+        except Exception:
+            # One provider/network failure must not prevent reconciliation
+            # of other payments; this record will be retried next sweep.
+            continue
+    return refreshed
 
 
 async def mark_offline_devices(ctx, stale_seconds: int = 20) -> int:
@@ -439,8 +457,7 @@ async def flag_stale_device_tokens(ctx) -> int:
                 .where(
                     EdgeDevice.status == "offline",
                     ApiCredential.revoked_at.is_(None),
-                    (EdgeDevice.last_heartbeat_at.is_(None))
-                    | (EdgeDevice.last_heartbeat_at < cutoff),
+                    (EdgeDevice.last_heartbeat_at.is_(None)) | (EdgeDevice.last_heartbeat_at < cutoff),
                 )
             )
         ).all()

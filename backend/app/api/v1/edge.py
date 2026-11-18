@@ -273,7 +273,11 @@ async def edge_site_pricing(
     cred: ApiCredential = Depends(edge_ctx),
 ) -> EdgeSitePricingOut:
     async with platform_session() as db:
-        site = (await db.execute(select(TenantSite).where(TenantSite.id == site_id, TenantSite.tenant_id == tenant_id))).scalar_one_or_none()
+        site = (
+            await db.execute(
+                select(TenantSite).where(TenantSite.id == site_id, TenantSite.tenant_id == tenant_id)
+            )
+        ).scalar_one_or_none()
     if site is None:
         raise ApiError(status.HTTP_404_NOT_FOUND, "not_found", "site not found")
     profile = site.public_profile or {}
@@ -295,16 +299,18 @@ async def edge_open_walk_in(
     from app.services.event_service import normalize_plate
 
     async with platform_session() as db:
-        row = (await db.execute(
-            select(WalkInSession)
-            .where(
-                WalkInSession.tenant_id == tenant_id,
-                WalkInSession.plate_normalized == normalize_plate(plate),
-                WalkInSession.status == "open",
+        row = (
+            await db.execute(
+                select(WalkInSession)
+                .where(
+                    WalkInSession.tenant_id == tenant_id,
+                    WalkInSession.plate_normalized == normalize_plate(plate),
+                    WalkInSession.status == "open",
+                )
+                .order_by(WalkInSession.entered_at.desc())
+                .limit(1)
             )
-            .order_by(WalkInSession.entered_at.desc())
-            .limit(1)
-        )).scalar_one_or_none()
+        ).scalar_one_or_none()
     if row is None:
         return None
     return EdgeWalkInOut(
@@ -439,6 +445,11 @@ async def mqtt_auth(
         return _DENY
     if _is_backend_bridge(body):
         return MqttAuthOut(result="allow", is_superuser=True)
+    if not body.password and not body.topic:
+        # Authn (connect) requests carry no topic and must present the device
+        # token; only authz requests may omit it. Without this an attacker who
+        # knows a device's `edge-{uuid}` username could connect password-less.
+        return _DENY
     async with platform_session() as db:
         if body.password:
             cred = await authenticate_api_key(db, body.password)

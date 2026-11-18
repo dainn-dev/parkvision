@@ -505,6 +505,19 @@ async def test_mqtt_auth_denies_username_mismatch(client: AsyncClient, tenant, a
 
 
 @pytest.mark.asyncio
+async def test_mqtt_authn_without_password_is_denied(client: AsyncClient, tenant, activation_setup):
+    """Authn (no topic) must require the device token: knowing an active
+    device's username alone must not let a client connect."""
+    s = activation_setup
+    act = await client.post("/api/v1/edge/activate", json={"code": s["code"]})
+    username = act.json()["mqtt"]["username"]
+    for body in ({"username": username}, {"username": username, "password": ""}):
+        res = await client.post("/api/v1/edge/mqtt-auth", json=body)
+        assert res.status_code == 200, res.text
+        assert res.json()["result"] == "deny", body
+
+
+@pytest.mark.asyncio
 async def test_mqtt_authz_scopes_topics_to_tenant(client: AsyncClient, tenant, activation_setup):
     """Authz phase: publish/subscribe only allowed under the credential's tenant prefix."""
     s = activation_setup
@@ -753,9 +766,7 @@ async def test_mqtt_auth_requires_hook_secret_when_configured(
     monkeypatch.setattr(settings, "mqtt_hook_secret", "hook-secret")
 
     missing = await client.post("/api/v1/edge/mqtt-auth", json=creds)
-    wrong = await client.post(
-        "/api/v1/edge/mqtt-auth", json=creds, headers={"X-Mqtt-Hook-Secret": "guess"}
-    )
+    wrong = await client.post("/api/v1/edge/mqtt-auth", json=creds, headers={"X-Mqtt-Hook-Secret": "guess"})
     right = await client.post(
         "/api/v1/edge/mqtt-auth", json=creds, headers={"X-Mqtt-Hook-Secret": "hook-secret"}
     )

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.services import payment_service
 from tests.conftest import csrf, driver, login
-from tests.test_driver_api import access_event, listed_site
+from tests.test_driver_api import access_event, listed_site  # noqa: F401 (pytest fixture)
 from tests.test_memberships_api import add_vehicle, make_plan, request_membership
 from tests.test_payments_api import FakeGateway, ipn_for
 
@@ -44,9 +44,7 @@ async def _driver_id(admin_engine, email: str) -> uuid.UUID:
 
         from app.models import DriverUser
 
-        return (
-            await db.execute(select(DriverUser.id).where(DriverUser.email == email))
-        ).scalar_one()
+        return (await db.execute(select(DriverUser.id).where(DriverUser.email == email))).scalar_one()
 
 
 async def _wallet_balance(admin_engine, driver_id) -> int:
@@ -56,9 +54,7 @@ async def _wallet_balance(admin_engine, driver_id) -> int:
         from app.models import DriverWallet
 
         w = (
-            await db.execute(
-                select(DriverWallet).where(DriverWallet.driver_id == driver_id)
-            )
+            await db.execute(select(DriverWallet).where(DriverWallet.driver_id == driver_id))
         ).scalar_one_or_none()
         return 0 if w is None else w.balance_vnd
 
@@ -70,9 +66,7 @@ async def _order_id(admin_engine, payment_id: str) -> str:
         from app.models import DriverPayment
 
         p = (
-            await db.execute(
-                select(DriverPayment).where(DriverPayment.id == uuid.UUID(payment_id))
-            )
+            await db.execute(select(DriverPayment).where(DriverPayment.id == uuid.UUID(payment_id)))
         ).scalar_one()
         return p.provider_order_id
 
@@ -92,9 +86,7 @@ async def _paid_membership_payment(client, tenant, listed_site, gateway, admin_e
     assert r.status_code == 201, r.text
     pay = r.json()
     order_id = await _order_id(admin_engine, pay["id"])
-    r = await client.post(
-        "/api/v1/public/payments/momo/ipn", json=ipn_for(pay, order_id=order_id)
-    )
+    r = await client.post("/api/v1/public/payments/momo/ipn", json=ipn_for(pay, order_id=order_id))
     assert r.status_code == 200, r.text
     return d, pay, m
 
@@ -119,9 +111,7 @@ async def _tenant_login(client, tenant):
 
 @pytest.mark.asyncio
 async def test_tenant_lists_payments(client, tenant, listed_site, gateway, admin_engine):
-    d, pay, _ = await _paid_membership_payment(
-        client, tenant, listed_site, gateway, admin_engine
-    )
+    d, pay, _ = await _paid_membership_payment(client, tenant, listed_site, gateway, admin_engine)
     await _tenant_login(client, tenant)
     r = await client.get(f"/api/v1/tenants/{tenant['tenant_id']}/payments")
     assert r.status_code == 200, r.text
@@ -136,12 +126,8 @@ async def test_tenant_lists_payments(client, tenant, listed_site, gateway, admin
 
 
 @pytest.mark.asyncio
-async def test_refund_momo_membership_revokes(
-    client, tenant, listed_site, gateway, admin_engine
-):
-    d, pay, m = await _paid_membership_payment(
-        client, tenant, listed_site, gateway, admin_engine
-    )
+async def test_refund_momo_membership_revokes(client, tenant, listed_site, gateway, admin_engine):
+    d, pay, m = await _paid_membership_payment(client, tenant, listed_site, gateway, admin_engine)
     await _tenant_login(client, tenant)
     r = await client.post(
         f"/api/v1/tenants/{tenant['tenant_id']}/payments/{pay['id']}/refund",
@@ -157,16 +143,12 @@ async def test_refund_momo_membership_revokes(
         from app.models import DriverMembership, RegisteredVehicle
 
         mm = (
-            await db.execute(
-                select(DriverMembership).where(DriverMembership.id == uuid.UUID(m["id"]))
-            )
+            await db.execute(select(DriverMembership).where(DriverMembership.id == uuid.UUID(m["id"])))
         ).scalar_one()
         assert mm.status == "revoked"
         rv = (
             await db.execute(
-                select(RegisteredVehicle).where(
-                    RegisteredVehicle.id == mm.registered_vehicle_id
-                )
+                select(RegisteredVehicle).where(RegisteredVehicle.id == mm.registered_vehicle_id)
             )
         ).scalar_one()
         assert rv.status == "suspended"
@@ -194,12 +176,8 @@ async def test_refund_unpaid_payment_409(client, tenant, listed_site, gateway):
 
 
 @pytest.mark.asyncio
-async def test_refund_foreign_tenant_404(
-    client, tenant, other_tenant, listed_site, gateway, admin_engine
-):
-    _, pay, _ = await _paid_membership_payment(
-        client, tenant, listed_site, gateway, admin_engine
-    )
+async def test_refund_foreign_tenant_404(client, tenant, other_tenant, listed_site, gateway, admin_engine):
+    _, pay, _ = await _paid_membership_payment(client, tenant, listed_site, gateway, admin_engine)
     await _tenant_login(client, other_tenant)
     r = await client.post(
         f"/api/v1/tenants/{other_tenant['tenant_id']}/payments/{pay['id']}/refund",
@@ -225,9 +203,7 @@ async def test_topup_paid_credits_wallet(client, gateway, admin_engine):
     assert pay["amountVnd"] == 500_000
 
     order_id = await _order_id(admin_engine, pay["id"])
-    r = await client.post(
-        "/api/v1/public/payments/momo/ipn", json=ipn_for(pay, order_id=order_id)
-    )
+    r = await client.post("/api/v1/public/payments/momo/ipn", json=ipn_for(pay, order_id=order_id))
     assert r.status_code == 200, r.text
 
     did = await _driver_id(admin_engine, d["email"])
@@ -298,9 +274,7 @@ async def test_wallet_pay_insufficient_409(client, tenant, listed_site, gateway)
 
 
 @pytest.mark.asyncio
-async def test_wallet_refund_credits_back(
-    client, tenant, listed_site, gateway, admin_engine
-):
+async def test_wallet_refund_credits_back(client, tenant, listed_site, gateway, admin_engine):
     p = await make_plan(client, tenant, listed_site["id"], price=200_000)
     client.cookies.clear()
     d = await driver(client)
@@ -331,9 +305,7 @@ async def test_wallet_refund_credits_back(
 
 
 @pytest.mark.asyncio
-async def test_topup_tenant_cannot_refund_404(
-    client, tenant, listed_site, gateway, admin_engine
-):
+async def test_topup_tenant_cannot_refund_404(client, tenant, listed_site, gateway, admin_engine):
     d = await driver(client)
     r = await client.post(
         "/api/v1/driver/payments",
@@ -354,9 +326,7 @@ async def test_topup_tenant_cannot_refund_404(
 
 
 @pytest.mark.asyncio
-async def test_record_event_publishes_plate_hint(
-    client, tenant, listed_site, admin_engine, monkeypatch
-):
+async def test_record_event_publishes_plate_hint(client, tenant, listed_site, admin_engine, monkeypatch):
     import asyncio
     import json
 
@@ -378,10 +348,9 @@ async def test_record_event_publishes_plate_hint(
     hit = [p for ch, p in published if ch == "pv:plate:30A99999"]
     assert hit and json.loads(hit[0])["type"] == "session_event"
 
+
 @pytest.mark.asyncio
-async def test_concurrent_wallet_refund_credits_once(
-    client, tenant, listed_site, gateway, admin_engine
-):
+async def test_concurrent_wallet_refund_credits_once(client, tenant, listed_site, gateway, admin_engine):
     """Two simultaneous refunds of the same payment: one wins, one gets 409."""
     import asyncio
 
@@ -402,9 +371,7 @@ async def test_concurrent_wallet_refund_credits_once(
     await _tenant_login(client, tenant)
     url = f"/api/v1/tenants/{tenant['tenant_id']}/payments/{pay['id']}/refund"
     headers = csrf(client)
-    results = await asyncio.gather(
-        client.post(url, headers=headers), client.post(url, headers=headers)
-    )
+    results = await asyncio.gather(client.post(url, headers=headers), client.post(url, headers=headers))
 
     assert sorted(r.status_code for r in results) == [200, 409], [r.text for r in results]
     assert await _wallet_balance(admin_engine, did) == 500_000
@@ -414,9 +381,7 @@ async def test_concurrent_wallet_refund_credits_once(
 
 
 @pytest.mark.asyncio
-async def test_concurrent_wallet_debits_only_one_succeeds(
-    client, tenant, listed_site, gateway, admin_engine
-):
+async def test_concurrent_wallet_debits_only_one_succeeds(client, tenant, listed_site, gateway, admin_engine):
     """Two wallet spends submitted simultaneously for a driver whose balance
     covers exactly one. One must succeed, the other must 409, and the balance
     must never go negative."""
@@ -464,9 +429,7 @@ async def test_concurrent_wallet_debits_only_one_succeeds(
 
 
 @pytest.mark.asyncio
-async def test_topup_refund_blocked_after_partial_spend(
-    client, tenant, listed_site, gateway, admin_engine
-):
+async def test_topup_refund_blocked_after_partial_spend(client, tenant, listed_site, gateway, admin_engine):
     """A topup that has been partially spent cannot be refunded because the
     wallet balance no longer covers the clawback (refund_debit would make
     balance negative). The system should refuse with 409."""
@@ -513,9 +476,7 @@ async def test_topup_refund_blocked_after_partial_spend(
         f"/api/v1/tenants/{tenant['tenant_id']}/payments/{topup_pay['id']}/refund",
         headers=csrf(client),
     )
-    assert r.status_code == 404, (
-        "Topup with NULL tenant_id should be invisible to tenant refund"
-    )
+    assert r.status_code == 404, "Topup with NULL tenant_id should be invisible to tenant refund"
 
     # Verify balance unchanged
     assert await _wallet_balance(admin_engine, did) == 200_000
@@ -555,3 +516,41 @@ async def test_concurrent_first_wallet_creation_yields_one_row(client, admin_eng
             )
         ).scalar_one()
     assert n == 1
+
+
+@pytest.mark.asyncio
+async def test_reconcile_cron_does_not_double_apply_while_ipn_holds_row(client, gateway, admin_engine):
+    """The reconcile cron must lock each payment and re-check its status: an
+    IPN that settles the row concurrently must not be applied a second time
+    (a top-up would otherwise credit the wallet twice)."""
+    import asyncio
+
+    from sqlalchemy import text
+
+    from app.workers.jobs import reconcile_pending_payments
+
+    d = await driver(client)
+    r = await client.post(
+        "/api/v1/driver/payments", headers=d["headers"], json={"kind": "topup", "amountVnd": 500_000}
+    )
+    assert r.status_code == 201, r.text
+    pid = r.json()["id"]
+    order_id = await _order_id(admin_engine, pid)
+    gateway.query_results[order_id] = "paid"
+
+    async with admin_engine.connect() as ipn:
+        await ipn.execute(
+            text("UPDATE driver_payments SET created_at = now() - interval '20 minutes' WHERE id = :id"),
+            {"id": pid},
+        )
+        await ipn.commit()
+        # "IPN" takes the row lock and settles it (its own credit is out of scope)
+        await ipn.execute(text("SELECT 1 FROM driver_payments WHERE id = :id FOR UPDATE"), {"id": pid})
+        await ipn.execute(text("UPDATE driver_payments SET status = 'paid' WHERE id = :id"), {"id": pid})
+        cron = asyncio.create_task(reconcile_pending_payments({}))
+        await asyncio.sleep(0.5)
+        await ipn.commit()
+    await cron
+
+    did = await _driver_id(admin_engine, d["email"])
+    assert await _wallet_balance(admin_engine, did) == 0, "cron re-applied a payment the IPN settled"
