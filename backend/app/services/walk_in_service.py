@@ -39,12 +39,21 @@ def _parse_time(value: str | datetime | None) -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _belongs_to(row: WalkInSession, tenant_id: uuid.UUID, site_id: uuid.UUID) -> bool:
+    return row.tenant_id == tenant_id and row.site_id == site_id
+
+
 async def upsert_entry(
     db: AsyncSession, *, tenant_id: uuid.UUID, site_id: uuid.UUID, gate_id: uuid.UUID, payload: dict
-) -> tuple[WalkInSession, bool]:
+) -> tuple[WalkInSession | None, bool]:
+    """Returns (None, False) when the sessionId already belongs to another
+    tenant/site: callers run under platform_session (RLS bypassed), so the
+    foreign row must be neither touched nor published."""
     session_id = uuid.UUID(str(payload["sessionId"]))
     existing = await db.get(WalkInSession, session_id)
     if existing is not None:
+        if not _belongs_to(existing, tenant_id, site_id):
+            return None, False
         return existing, False
     plate = str(payload.get("plateNumber", ""))[:20]
     row = WalkInSession(
@@ -65,9 +74,13 @@ async def upsert_entry(
 
 async def apply_exit(
     db: AsyncSession, *, tenant_id: uuid.UUID, site_id: uuid.UUID, gate_id: uuid.UUID, payload: dict
-) -> tuple[WalkInSession, bool]:
+) -> tuple[WalkInSession | None, bool]:
+    """Returns (None, False) for a sessionId owned by another tenant/site
+    (see upsert_entry)."""
     session_id = uuid.UUID(str(payload["sessionId"]))
     row = await db.get(WalkInSession, session_id)
+    if row is not None and not _belongs_to(row, tenant_id, site_id):
+        return None, False
     entered_at = _parse_time(payload.get("enteredAt"))
     exited_at = _parse_time(payload.get("exitedAt"))
     if row is None:

@@ -269,9 +269,46 @@ async def test_entry_frame_replay_is_noop(client, tenant, site, gates):
     await _send(tenant, site, gates[0], frame)
     await _send(tenant, site, gates[0], frame)
     async with platform_session() as db:
-        n = (await db.execute(select(func.count()).select_from(WalkInSession))).scalar_one()
+        n = (
+            await db.execute(
+                select(func.count())
+                .select_from(WalkInSession)
+                .where(WalkInSession.tenant_id == tenant["tenant_id"])
+            )
+        ).scalar_one()
     assert n == 1
     assert len(await _events(tenant)) == 1
+
+
+@pytest.mark.asyncio
+async def test_frames_cannot_touch_another_tenants_or_sites_session(
+    client, tenant, other_tenant, site, gates
+):
+    """The bridge runs under platform_session (RLS bypassed), so a frame whose
+    sessionId collides with another tenant's/site's row must be dropped, not
+    applied to (or published as) that row."""
+    from app.database import platform_session
+    from app.services.walk_in_service import apply_exit, upsert_entry
+
+    sid = uuid.uuid4()
+    entered = datetime.now(timezone.utc) - timedelta(hours=4)
+    await _send(tenant, site, gates[0], _entry(sid, entered=entered))
+
+    foreigners = [
+        {"tenant_id": other_tenant["tenant_id"], "site_id": uuid.UUID(site)},
+        {"tenant_id": tenant["tenant_id"], "site_id": uuid.uuid4()},
+    ]
+    async with platform_session() as db:
+        for f in foreigners:
+            gate = uuid.uuid4()
+            assert await upsert_entry(db, gate_id=gate, payload=_entry(sid), **f) == (None, False)
+            assert await apply_exit(db, gate_id=gate, payload=_exit(sid, entered), **f) == (None, False)
+
+    # through the bridge too: must not crash and must not close the row
+    await _send(other_tenant, site, gates[1], _exit(sid, entered))
+    row = await _row(sid)
+    assert row.status == "open" and row.tenant_id == tenant["tenant_id"]
+    assert await _events(other_tenant) == []
 
 
 @pytest.mark.asyncio
@@ -462,16 +499,25 @@ def bank_secret(monkeypatch):
 
 @pytest.fixture
 async def open_session(tenant, site, gates):
-    sid = uuid.UUID("0a1b2c3d-0000-0000-0000-000000000000")
+    # random per test: the schema is migrated once per pytest session, so a
+    # fixed id would collide with rows left behind by earlier tests
+    sid = uuid.uuid4()
     await _send(tenant, site, gates[0], _entry(sid))
     return sid
+
+
+def _code(session_id) -> str:
+    """Pay code as a driver would type it into the transfer note."""
+    from app.services.walk_in_service import pay_code_for
+
+    return pay_code_for(session_id).lower()
 
 
 @pytest.mark.asyncio
 async def test_bank_webhook_matches_open_session_and_signals_edge(
     client, tenant, site, gates, open_session, bank_secret
 ):
-    res = await _post_webhook(client, _webhook_body(site, "NGUYEN VAN A chuyen tien pv0a1b2c3d"))
+    res = await _post_webhook(client, _webhook_body(site, f"NGUYEN VAN A chuyen tien {_code(open_session)}"))
     assert res.status_code == 200, res.text
     assert res.json() == {"matched": True}
     row = await _row(open_session)
@@ -486,7 +532,7 @@ async def test_bank_webhook_matches_open_session_and_signals_edge(
 
 @pytest.mark.asyncio
 async def test_bank_webhook_replay_does_not_signal_twice(client, tenant, site, gates, open_session, bank_secret):
-    body = _webhook_body(site, "pv0a1b2c3d")
+    body = _webhook_body(site, _code(open_session))
     assert (await _post_webhook(client, body)).json() == {"matched": True}
     assert (await _post_webhook(client, body)).json() == {"matched": True}
     assert len(await _outbox()) == 2
@@ -494,7 +540,7 @@ async def test_bank_webhook_replay_does_not_signal_twice(client, tenant, site, g
 
 @pytest.mark.asyncio
 async def test_bank_webhook_bad_signature_is_401(client, tenant, site, gates, open_session, bank_secret):
-    res = await _post_webhook(client, _webhook_body(site, "pv0a1b2c3d"), secret="wrong")
+    res = await _post_webhook(client, _webhook_body(site, _code(open_session)), secret="wrong")
     assert res.status_code == 401
     assert (await _row(open_session)).bank_ref is None
     assert await _outbox() == []
@@ -505,7 +551,7 @@ async def test_bank_webhook_empty_secret_rejects_everything(client, tenant, site
     from app.config import settings
 
     monkeypatch.setattr(settings, "bank_webhook_secret", "")
-    res = await _post_webhook(client, _webhook_body(site, "pv0a1b2c3d"), secret="")
+    res = await _post_webhook(client, _webhook_body(site, _code(open_session)), secret="")
     assert res.status_code == 401
 
 
@@ -520,14 +566,14 @@ async def test_bank_webhook_unknown_code_is_unmatched(client, tenant, site, gate
 async def test_bank_webhook_ignores_closed_session(client, tenant, site, gates, open_session, bank_secret):
     entered = datetime.now(timezone.utc) - timedelta(hours=4)
     await _send(tenant, site, gates[1], _exit(open_session, entered))
-    res = await _post_webhook(client, _webhook_body(site, "pv0a1b2c3d"))
+    res = await _post_webhook(client, _webhook_body(site, _code(open_session)))
     assert res.json() == {"matched": False}
     assert await _outbox() == []
 
 
 @pytest.mark.asyncio
 async def test_bank_webhook_short_amount_is_still_forwarded(client, tenant, site, gates, open_session, bank_secret):
-    res = await _post_webhook(client, _webhook_body(site, "pv0a1b2c3d", amount=5000))
+    res = await _post_webhook(client, _webhook_body(site, _code(open_session), amount=5000))
     assert res.json() == {"matched": True}
     row = await _row(open_session)
     assert row.bank_amount_vnd == 5000 and row.status == "open"

@@ -198,6 +198,9 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
             row, is_new = await upsert_entry(
                 db, tenant_id=tid, site_id=uuid.UUID(site_id), gate_id=gid, payload=payload
             )
+            if row is None:
+                log.warning("walk_in_entry %s dropped: session owned by another tenant/site", payload.get("sessionId"))
+                return
             if is_new:
                 await record_access_event(
                     db,
@@ -220,6 +223,9 @@ async def handle_telemetry(tenant_id: str, site_id: str, gate_id: str, payload: 
             row, applied = await apply_exit(
                 db, tenant_id=tid, site_id=uuid.UUID(site_id), gate_id=gid, payload=payload
             )
+            if row is None:
+                log.warning("walk_in_exit %s dropped: session owned by another tenant/site", payload.get("sessionId"))
+                return
             if applied:
                 await record_access_event(
                     db,
