@@ -1,12 +1,15 @@
 import React from 'react';
 import { ActiveParkingCard } from '../discover/ActiveParkingCard';
-import { ActiveParkingSession, ParkingHistoryItem } from '../../types';
+import { ActiveParkingSession, DriverPayment, ParkingHistoryItem } from '../../types';
+import { PAID_EXIT_GRACE_MINUTES, sessionPaymentState } from '../../lib/payments';
 import { Car, Clock, History, CheckCircle2, Loader2 } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useParkingHistory } from '../../hooks/useParkingHistory';
 
 interface MyParkingScreenProps {
   activeSession: ActiveParkingSession | null;
+  /** Driver payments, used to show the paid-exit grace notice. */
+  payments?: DriverPayment[];
   onOpenFindVehicle: () => void;
   onOpenTenantDetail: (tenantId: string) => void;
 }
@@ -34,8 +37,40 @@ function formatTimeRange(item: ParkingHistoryItem, language: string): string {
   return `${dateFmt}, ${timeFmt(entry)} - ${timeFmt(exit)}`;
 }
 
+/** Text-only notice for a session that has been paid: the driver must leave
+ * within the paid-exit grace window, or the extra time becomes payable. */
+const PaidExitNotice: React.FC<{ session: ActiveParkingSession; payments: DriverPayment[] }> = ({
+  session,
+  payments
+}) => {
+  const { t, language } = useLanguage();
+  const state = sessionPaymentState(session, payments);
+  if (state.kind === 'paid_in_grace') {
+    const time = state.exitBy.toLocaleTimeString(language === 'vi' ? 'vi-VN' : 'en-GB', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    return (
+      <div className="flex items-start gap-2 text-[11px] text-emerald-200 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2">
+        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-px" />
+        <span>{t('paidExitWithinGrace', { minutes: PAID_EXIT_GRACE_MINUTES, time })}</span>
+      </div>
+    );
+  }
+  if (state.kind === 'payable' && state.afterGrace) {
+    return (
+      <div className="flex items-start gap-2 text-[11px] text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
+        <Clock className="w-4 h-4 shrink-0 text-amber-400 mt-px" />
+        <span>{t('graceExpiredPayRemaining')}</span>
+      </div>
+    );
+  }
+  return null;
+};
+
 export const MyParkingScreen: React.FC<MyParkingScreenProps> = ({
   activeSession,
+  payments = [],
   onOpenFindVehicle,
   onOpenTenantDetail
 }) => {
@@ -54,11 +89,14 @@ export const MyParkingScreen: React.FC<MyParkingScreenProps> = ({
 
       {/* Active Session Section */}
       {activeSession ? (
-        <ActiveParkingCard
-          session={activeSession}
-          onOpenFindVehicle={onOpenFindVehicle}
-          onOpenTenantDetail={onOpenTenantDetail}
-        />
+        <>
+          <ActiveParkingCard
+            session={activeSession}
+            onOpenFindVehicle={onOpenFindVehicle}
+            onOpenTenantDetail={onOpenTenantDetail}
+          />
+          <PaidExitNotice session={activeSession} payments={payments} />
+        </>
       ) : (
         <div className="p-6 text-center bg-slate-900 border border-slate-800 rounded-2xl space-y-2">
           <div className="w-12 h-12 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">

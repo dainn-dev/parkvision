@@ -119,11 +119,15 @@ export function usePayments(enabled: boolean) {
     [wallet]
   );
 
+  // Membership payments are one-shot. Sessions are deliberately not covered:
+  // a paid session whose exit grace expired is payable again for the
+  // remaining amount — use `sessionPaymentState` (lib/payments) instead.
   const hasPaymentFor = useCallback(
-    (kind: 'membership' | 'session', refId: string) =>
+    (kind: 'membership', refId: string) =>
       payments.some(
         (p) =>
-          (kind === 'membership' ? p.membershipId === refId : p.sessionId === refId) &&
+          p.kind === kind &&
+          p.membershipId === refId &&
           (p.status === 'created' || p.status === 'paid')
       ),
     [payments]

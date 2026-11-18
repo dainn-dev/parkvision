@@ -328,6 +328,7 @@ function MainAppContent() {
           isAuthed ? (
             <MyParkingScreen
               activeSession={activeSession}
+              payments={paymentsHook.payments}
               onOpenFindVehicle={() => setIsFindVehicleModalOpen(true)}
               onOpenTenantDetail={(id) => {
                 const found = tenantsWithFavs.find(t => t.id === id);
@@ -346,9 +347,10 @@ function MainAppContent() {
               memberships={membershipHook.memberships}
               loading={membershipHook.loading}
               onCancel={membershipHook.cancel}
-              onPay={async (membershipId) => {
+              walletBalanceVnd={paymentsHook.wallet?.balanceVnd ?? null}
+              onPay={async (membershipId, method) => {
                 await paymentsHook.payAndWatch(
-                  { kind: 'membership', membershipId },
+                  { kind: 'membership', membershipId, method },
                   () => void membershipHook.refetch()
                 );
               }}

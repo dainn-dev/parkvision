@@ -272,7 +272,16 @@ export const translations = {
     txnTopup: "Top-up",
     txnSpend: "Payment",
     txnRefundCredit: "Refund",
-    txnRefundDebit: "Top-up refund"
+    txnRefundDebit: "Top-up refund",
+    close: "Close",
+    choosePaymentMethod: "Choose payment method",
+    amountToPay: "Amount to pay",
+    payWithMomo: "MoMo",
+    momoHint: "Pay in the MoMo app",
+    momoNotConfigured: "Online payment (MoMo) is not available here. Use your wallet or pay at the parking office.",
+    paidExitWithinGrace: "Paid — exit within {minutes} minutes (by {time}). After that, the extra parking time must be paid.",
+    payRemaining: "Pay remaining",
+    graceExpiredPayRemaining: "Exit grace period expired — the extra parking time must be paid before exit."
   },
   vi: {
     // Header
@@ -545,6 +554,15 @@ export const translations = {
     txnTopup: "Nạp ví",
     txnSpend: "Thanh toán",
     txnRefundCredit: "Hoàn tiền",
-    txnRefundDebit: "Hoàn tiền nạp ví"
+    txnRefundDebit: "Hoàn tiền nạp ví",
+    close: "Đóng",
+    choosePaymentMethod: "Chọn phương thức thanh toán",
+    amountToPay: "Số tiền cần trả",
+    payWithMomo: "MoMo",
+    momoHint: "Thanh toán bằng ứng dụng MoMo",
+    momoNotConfigured: "Thanh toán trực tuyến (MoMo) chưa khả dụng tại đây. Hãy dùng ví hoặc thanh toán tại bãi xe.",
+    paidExitWithinGrace: "Đã thanh toán — vui lòng ra khỏi bãi trong {minutes} phút (trước {time}). Sau thời gian này, thời gian gửi thêm phải được thanh toán.",
+    payRemaining: "Thanh toán phần còn lại",
+    graceExpiredPayRemaining: "Đã quá thời gian ra bãi sau thanh toán — cần thanh toán thời gian gửi thêm trước khi ra."
   }
 };

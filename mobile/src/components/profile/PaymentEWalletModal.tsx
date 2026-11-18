@@ -5,6 +5,7 @@ import { ApiError } from '../../lib/api';
 import { memberships as membershipsApi, sessions as sessionsApi, PaymentCreateBody } from '../../api/driver';
 import { usePayments } from '../../hooks/usePayments';
 import { DriverMembership, ParkingHistoryItem } from '../../types';
+import { PAID_EXIT_GRACE_MINUTES, sessionPaymentState } from '../../lib/payments';
 
 export interface PaymentEWalletModalProps {
   isOpen: boolean;
@@ -86,9 +87,14 @@ export const PaymentEWalletModal: React.FC<PaymentEWalletModalProps> = ({
     (m) =>
       m.status === 'pending' && m.plan.priceVnd > 0 && !hasPaymentFor('membership', m.id)
   );
-  const payableSessions = sessions.filter(
-    (s) => (s.currentFeeVnd ?? 0) > 0 && !hasPaymentFor('session', s.id)
-  );
+  // A session may be paid more than once: after the paid-exit grace window
+  // expires the remaining amount is payable again (server prices it).
+  const sessionRows = sessions
+    .map((s) => ({ s, state: sessionPaymentState(s, payments) }))
+    .filter(({ state }) => state.kind === 'payable' || state.kind === 'paid_in_grace');
+  const payableSessions = sessionRows.filter(({ state }) => state.kind === 'payable');
+  const timeFmt = (d: Date) =>
+    d.toLocaleTimeString(language === 'vi' ? 'vi-VN' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
 
   const pay = async (body: PaymentCreateBody) => {
     setError(null);
@@ -219,7 +225,7 @@ export const PaymentEWalletModal: React.FC<PaymentEWalletModalProps> = ({
                   <div className="shrink-0 flex flex-col items-stretch gap-1">
                     <button
                       disabled={busyId !== null}
-                      onClick={() => void pay({ kind: 'membership', membershipId: m.id })}
+                      onClick={() => void pay({ kind: 'membership', membershipId: m.id, method: 'momo' })}
                       className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[11px] font-bold rounded-lg transition-colors"
                     >
                       {busyId ? <Loader2 className="w-3 h-3 animate-spin" /> : <CreditCard className="w-3 h-3" />}
@@ -237,7 +243,28 @@ export const PaymentEWalletModal: React.FC<PaymentEWalletModalProps> = ({
                   </div>
                 </div>
               ))}
-              {payableSessions.map((s) => (
+              {sessionRows.map(({ s, state }) => {
+                if (state.kind === 'paid_in_grace') {
+                  return (
+                    <div
+                      key={s.id}
+                      className="flex items-start gap-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2.5"
+                    >
+                      <Car className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-white truncate">
+                          {s.tenantName} · <span className="font-mono">{s.vehiclePlate}</span>
+                        </p>
+                        <p className="text-[11px] text-emerald-200">
+                          {t('paidExitWithinGrace', { minutes: PAID_EXIT_GRACE_MINUTES, time: timeFmt(state.exitBy) })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+                if (state.kind !== 'payable') return null;
+                const amount = state.amountVnd;
+                return (
                 <div
                   key={s.id}
                   className="flex items-center justify-between gap-2 bg-slate-800/60 border border-slate-700/60 rounded-xl px-3 py-2.5"
@@ -251,20 +278,23 @@ export const PaymentEWalletModal: React.FC<PaymentEWalletModalProps> = ({
                       <p className="text-[10px] text-slate-400 font-mono">
                         {s.vehiclePlate} · {t('estFee')}
                       </p>
+                      {state.afterGrace && (
+                        <p className="text-[10px] text-amber-300">{t('graceExpiredPayRemaining')}</p>
+                      )}
                     </div>
                   </div>
                   <div className="shrink-0 flex flex-col items-stretch gap-1">
                     <button
                       disabled={busyId !== null}
-                      onClick={() => void pay({ kind: 'session', sessionId: s.id })}
+                      onClick={() => void pay({ kind: 'session', sessionId: s.id, method: 'momo' })}
                       className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[11px] font-bold rounded-lg transition-colors"
                     >
                       {busyId ? <Loader2 className="w-3 h-3 animate-spin" /> : <CreditCard className="w-3 h-3" />}
-                      {fmt(s.currentFeeVnd ?? 0)}
+                      {amount != null ? fmt(amount) : t('payRemaining')}
                     </button>
                     <button
-                      disabled={busyId !== null || !canAfford(s.currentFeeVnd ?? 0, 'wallet')}
-                      title={canAfford(s.currentFeeVnd ?? 0, 'wallet') ? undefined : t('insufficientBalance')}
+                      disabled={busyId !== null || (amount != null && !canAfford(amount, 'wallet'))}
+                      title={amount == null || canAfford(amount, 'wallet') ? undefined : t('insufficientBalance')}
                       onClick={() => void pay({ kind: 'session', sessionId: s.id, method: 'wallet' })}
                       className="flex items-center justify-center gap-1.5 px-3 py-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white text-[10px] font-bold rounded-lg transition-colors"
                     >
@@ -273,7 +303,8 @@ export const PaymentEWalletModal: React.FC<PaymentEWalletModalProps> = ({
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </section>
 
             {/* History */}

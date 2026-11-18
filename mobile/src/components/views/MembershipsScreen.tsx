@@ -1,14 +1,19 @@
 import React from 'react';
-import { DriverMembership, MembershipStatus } from '../../types';
+import { DriverMembership, MembershipStatus, PaymentMethod } from '../../types';
 import { CreditCard, ShieldCheck, Car, Clock, XCircle } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { translations } from '../../i18n/translations';
+import { PaymentMethodSheet } from '../profile/PaymentMethodSheet';
+import { isPaymentsNotConfigured } from '../../lib/payments';
 
 interface MembershipsScreenProps {
   memberships: DriverMembership[];
   loading: boolean;
   onCancel: (id: string) => Promise<void>;
-  onPay?: (membershipId: string) => Promise<void>;
+  /** Create a payment with the method the driver picked in the chooser. */
+  onPay?: (membershipId: string, method: PaymentMethod) => Promise<void>;
+  /** Wallet balance shown in the method chooser (null while loading). */
+  walletBalanceVnd?: number | null;
   onOpenDiscover: () => void;
 }
 
@@ -31,12 +36,19 @@ export const MembershipsScreen: React.FC<MembershipsScreenProps> = ({
   loading,
   onCancel,
   onPay,
+  walletBalanceVnd,
   onOpenDiscover
 }) => {
   const { t } = useLanguage();
   const [cancelling, setCancelling] = React.useState<string | null>(null);
   const [paying, setPaying] = React.useState<string | null>(null);
   const [payError, setPayError] = React.useState<string | null>(null);
+  // Membership whose payment-method chooser is open.
+  const [chooserFor, setChooserFor] = React.useState<DriverMembership | null>(null);
+  // Set after MoMo answered 503 payments_not_configured; wallet still works.
+  const [momoUnavailable, setMomoUnavailable] = React.useState(false);
+  // Card that last started a payment, so an error renders on that card only.
+  const [lastPaidId, setLastPaidId] = React.useState<string | null>(null);
 
   const handleCancel = async (id: string) => {
     setCancelling(id);
@@ -47,14 +59,26 @@ export const MembershipsScreen: React.FC<MembershipsScreenProps> = ({
     }
   };
 
-  const handlePay = async (id: string) => {
-    if (!onPay) return;
+  const openChooser = (mem: DriverMembership) => {
+    setPayError(null);
+    setChooserFor(mem);
+  };
+
+  const handlePay = async (method: PaymentMethod) => {
+    if (!onPay || !chooserFor) return;
+    const id = chooserFor.id;
     setPaying(id);
     setPayError(null);
     try {
-      await onPay(id);
+      await onPay(id, method);
+      setChooserFor(null);
     } catch (e) {
-      setPayError(e instanceof Error ? e.message : 'payment_failed');
+      if (method === 'momo' && isPaymentsNotConfigured(e)) {
+        // Keep the chooser open with MoMo disabled so the driver can use the wallet.
+        setMomoUnavailable(true);
+      } else {
+        setPayError(e instanceof Error ? e.message : 'payment_failed');
+      }
     } finally {
       setPaying(null);
     }
@@ -124,7 +148,7 @@ export const MembershipsScreen: React.FC<MembershipsScreenProps> = ({
                   </div>
                 </div>
 
-                {payError && (
+                {payError && chooserFor === null && paying === null && lastPaidId === mem.id && (
                   <div className="text-[11px] text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-2 py-1.5">
                     {payError}
                   </div>
@@ -147,7 +171,7 @@ export const MembershipsScreen: React.FC<MembershipsScreenProps> = ({
                   <span className="flex items-center gap-3">
                     {mem.status === 'pending' && mem.plan.priceVnd > 0 && onPay && (
                       <button
-                        onClick={() => void handlePay(mem.id)}
+                        onClick={() => { setLastPaidId(mem.id); openChooser(mem); }}
                         disabled={paying === mem.id}
                         className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-semibold disabled:opacity-50"
                       >
@@ -172,6 +196,19 @@ export const MembershipsScreen: React.FC<MembershipsScreenProps> = ({
           })}
         </div>
       )}
+
+      <PaymentMethodSheet
+        isOpen={chooserFor !== null}
+        title={t('choosePaymentMethod')}
+        subtitle={chooserFor ? `${chooserFor.plan.name} · ${chooserFor.siteName} · ${chooserFor.plateNumber}` : undefined}
+        amountVnd={chooserFor?.plan.priceVnd ?? 0}
+        walletBalanceVnd={walletBalanceVnd}
+        momoUnavailable={momoUnavailable}
+        busy={paying !== null}
+        error={payError}
+        onSelect={(method) => void handlePay(method)}
+        onClose={() => setChooserFor(null)}
+      />
     </div>
   );
 };
