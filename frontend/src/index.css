@@ -211,6 +211,42 @@ html.light body,
   color: #0f172a !important;
 }
 
+/* Keep white-on-dark marketing and 3D tour UI readable in the light theme. */
+.light .marketing-cta.text-white,
+.light .marketing-cta .text-white {
+  color: #ffffff !important;
+}
+
+.light .tour-dark-ui .text-white {
+  color: #f4f4f4 !important;
+}
+
+.light .tour-dark-ui .text-\[\#c9d1d9\] {
+  color: #c9d1d9 !important;
+}
+
+.light .tour-dark-ui .text-\[\#8b949e\],
+.light .tour-dark-ui .text-\[\#6e7681\] {
+  color: #aebbc4 !important;
+}
+
+.light .tour-dark-ui .text-\[\#58a6ff\] {
+  color: #79b8ff !important;
+}
+
+.light .tour-dark-ui .text-\[\#3fb950\] {
+  color: #62d98c !important;
+}
+
+.light .tour-dark-ui.bg-\[\#0d0e12\],
+.light .tour-dark-ui .bg-\[\#0d0e12\] {
+  background-color: #0d0e12 !important;
+}
+
+.light .tour-dark-ui .bg-\[\#161b22\] {
+  background-color: #161b22 !important;
+}
+
 /* Primary buttons and badge contrasts */
 .light .bg-\[\#58a6ff\] {
   background-color: #0969da !important;
@@ -319,7 +355,7 @@ html.light body,
 }
 
 /* Header & Sidebar in Light Mode */
-.light header {
+.light header:not(.tesla) {
   background-color: #ffffff !important;
   border-bottom-color: #d0d7de !important;
   box-shadow: 0 1px 2px rgba(31, 35, 40, 0.04);
@@ -491,4 +527,45 @@ html.light ::-webkit-scrollbar-thumb:hover,
   --sidebar-accent-foreground: #58a6ff;
   --sidebar-border: #30363d;
   --sidebar-ring: #58a6ff;
+}
+/*
+ * Landing page ("Tesla" system from design-md/tesla): white canvas, carbon ink, one blue for
+ * primary actions, 4px radii, 0.33s colour-only transitions. Dark theme uses the system's
+ * Carbon Dark surface.
+ */
+.tesla {
+  --t-canvas: #ffffff;
+  --t-ash: #f4f4f4;
+  --t-ink: #171a20;
+  --t-body: #393c41;
+  --t-pewter: #5c5e62;
+  --t-fog: #8e8e8e;
+  --t-line: #eeeeee;
+  --t-line-strong: #d0d1d2;
+  --t-blue: #3e6ae1;
+  --t-blue-hover: #3457b1;
+  --t-frost: rgba(255, 255, 255, 0.75);
+  --t-ease: cubic-bezier(0.5, 0, 0, 0.75);
+  color: var(--t-body);
+  font-feature-settings: normal;
+}
+.dark .tesla {
+  --t-canvas: #171a20;
+  --t-ash: #1f232b;
+  --t-ink: #f4f4f4;
+  --t-body: #c7cacf;
+  --t-pewter: #9a9da3;
+  --t-fog: #7a7d83;
+  --t-line: #2a2e36;
+  --t-line-strong: #3a3f48;
+  --t-frost: rgba(23, 26, 32, 0.78);
+}
+.tesla-link {
+  color: var(--t-pewter);
+  box-shadow: inset 0 0 0 transparent;
+  transition: color 0.33s, box-shadow 0.33s var(--t-ease);
+}
+.tesla-link:hover {
+  color: var(--t-ink);
+  box-shadow: inset 0 -1px 0 currentColor;
 }

@@ -79,7 +79,8 @@ interface CamKey {
 }
 
 type Shot = Pick<CamKey, 'pos' | 'target'>;
-const AERIAL: Shot = { pos: [-58, -88, 58], target: [0, -4, 0] };
+// low enough that the horizon and a band of sky stay in frame above the plot
+const AERIAL: Shot = { pos: [-66, -104, 34], target: [4, 4, 19] };
 const APPROACH: Shot = { pos: [-15, -42, 6.5], target: [-5, -27, 1.4] };
 const ENTRY_CAM: Shot = { pos: [-8.2, -11.8, 3.8], target: [-5, -23, 0.8] };
 const ENTRY_READ: Shot = { pos: [-7.8, -12.3, 3.3], target: [-5, -20.4, 0.9] };

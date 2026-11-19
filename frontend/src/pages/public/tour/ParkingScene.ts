@@ -8,6 +8,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import QRCode from 'qrcode';
 import modelUrl from './assets/parkvision-lot.glb?url';
 import {
+  CAMERA_KEYS,
   CHASES,
   LEGS,
   PACKETS,
@@ -41,9 +42,13 @@ import {
   type Row,
 } from './timeline';
 import { FONT, MONO, brandSign, ledPanel, plateTexture, signTexture } from './textures';
+import { PHOTO_MATERIALS, PHOTO_TILE, loadPhotoEnvironment, photoMaterial, type PhotoEnvironment } from './photoAssets';
+import { forestBillboards, loadTrees, plotTrees, type PlotTrees } from './trees';
+import { buildCity } from './city';
 import {
   SURFACE_MATERIALS,
   applyWorldUVs,
+  buildSurroundings,
   carPaint,
   makeSurface,
   organicFoliage,
@@ -107,6 +112,17 @@ export interface HoverInfo {
   y: number;
 }
 
+/**
+ * Tints over the photographed albedo: asphalt_04 is a pale, sun-bleached asphalt and
+ * leafy_grass is half dry leaves, which read as concrete and sand from a distance.
+ */
+const PHOTO_TINT: Record<string, number> = {
+  Asphalt: 0x66686c,
+  LotAsphalt: 0x74767a,
+  Grass: 0x6f8c62,
+  Sidewalk: 0xd6d4ce,
+};
+
 type LedKey = 'entry' | 'exit' | 'guide' | 'pylon';
 type Led = ReturnType<typeof ledPanel>;
 
@@ -157,7 +173,7 @@ function lerpAngle(a: number, b: number, t: number) {
 export class ParkingScene {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.PerspectiveCamera(42, 1, 0.1, 900);
+  private readonly camera = new THREE.PerspectiveCamera(42, 1, 0.1, 2600);
   private readonly pipCam = new THREE.PerspectiveCamera(24, 1.6, 0.1, 120);
   private readonly raycaster = new THREE.Raycaster();
   private composer!: EffectComposer;
@@ -191,6 +207,12 @@ export class ParkingScene {
   private parkedGroup = new THREE.Group();
   private entryPivot?: THREE.Object3D;
   private exitPivot?: THREE.Object3D;
+  private sun!: THREE.DirectionalLight;
+  private proceduralSky?: THREE.Object3D;
+  private plotTrees?: PlotTrees;
+  /** knee of the folding boom: the outer half counter-rotates so it stays level under the canopy */
+  private entryKnee?: THREE.Object3D;
+  private exitKnee?: THREE.Object3D;
   private entryLamp!: THREE.Mesh;
   private exitLamp!: THREE.Mesh;
   private leds = {} as Record<LedKey, Led>;
@@ -208,6 +230,8 @@ export class ParkingScene {
   private parkedCount = 0;
   private hovered: THREE.Object3D | null = null;
   private chasePos: THREE.Vector3 | null = null;
+  /** Dev-only still capture (landing imagery): fixed camera in Blender coords, PiP hidden. */
+  captureShot: { pos: [number, number, number]; target: [number, number, number]; fov?: number } | null = null;
 
   constructor(
     private readonly container: HTMLElement,
@@ -237,6 +261,7 @@ export class ParkingScene {
     }
     this.setupWorld();
     this.setupPost();
+    if (import.meta.env.DEV) (window as unknown as { __tour?: ParkingScene }).__tour = this;
     this.resize();
   }
 
@@ -247,9 +272,34 @@ export class ParkingScene {
     this.gtao.updateGtaoMaterial({ radius: 1.2, distanceExponent: 1.4, thickness: 1.5, scale: 1.1, samples: 16 });
     this.gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
     this.gtao.blendIntensity = 0.9;
+    // GTAO redraws the scene with its own normal material, which ignores alpha cut-outs: billboards
+    // and leaf cards would come out as solid dark rectangles. Leave them out of that pass.
+    const gtaoRender = this.gtao.render.bind(this.gtao);
+    this.gtao.render = (...args: Parameters<GTAOPass['render']>) => {
+      const hidden: THREE.Object3D[] = [];
+      this.scene.traverse((o) => {
+        if (o.userData.cutout && o.visible) {
+          o.visible = false;
+          hidden.push(o);
+        }
+      });
+      try {
+        gtaoRender(...args);
+      } finally {
+        for (const o of hidden) o.visible = true;
+      }
+    };
     this.composer.addPass(this.gtao);
     // only HDR highlights (lamps, LEDs, the sun) cross this threshold
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.22, 0.12, 4.5);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.25, 0.15, 4);
+    // Cap what feeds the bloom: a sun glint on glass is hundreds of times brighter than an LED and
+    // would otherwise blow up into a veil. LEDs and status lamps sit just under the cap.
+    const hp = this.bloom.materialHighPassFilter;
+    hp.fragmentShader = hp.fragmentShader.replace(
+      'gl_FragColor = mix( outputColor, texel, alpha );',
+      'gl_FragColor = mix( outputColor, texel * min( 1.0, 6.0 / max( v, 1e-4 ) ), alpha );',
+    );
+    hp.needsUpdate = true;
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
     this.applyQuality();
@@ -278,14 +328,18 @@ export class ParkingScene {
   // ------------------------------------------------------------------ setup
 
   private setupWorld() {
-    this.scene.fog = new THREE.Fog(0xbfd0e2, 220, 650);
+    // aerial haze; the colour matches the sky near the horizon so the ground fades into it
+    this.scene.fog = new THREE.Fog(0xb9cde0, 420, 2200);
     this.scene.add(new THREE.HemisphereLight(0xdfe9f5, 0x3d4632, 0.05));
     const sun = new THREE.DirectionalLight(0xfff0d8, 11);
-    // low morning sun from the east-north-east: long side shadows, and no backlight in the south-facing gate shots
+    // morning sun from the east-north-east: long side shadows, and no backlight in the south-facing gate shots
     sun.position.copy(B(80, 22, 58));
     sun.target.position.copy(B(0, -6, 0));
+    // procedural sky until the photographic one has loaded (and as the fallback if it fails)
     const sky = setupSky(this.renderer, this.scene, sun.position.clone().sub(sun.target.position).normalize());
     this.track(sky.env, sky.sky.geometry, sky.sky.material);
+    this.proceduralSky = sky.sky;
+    this.sun = sun;
     this.scene.environmentIntensity = 0.3;
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -295,14 +349,76 @@ export class ParkingScene {
     this.scene.add(sun, sun.target, this.parkedGroup);
   }
 
+  /**
+   * Split a boom at its middle into an articulated (folding) arm. A straight 6.6 m boom raised
+   * to vertical would reach ~7.9 m and go through the 5.4 m canopy; gates under a low roof use
+   * folding booms, whose outer half stays level, so the raised arm tops out near 4.7 m.
+   */
+  private makeKnee(pivot: THREE.Object3D | undefined, gate: 'Entry' | 'Exit') {
+    if (!pivot) return undefined;
+    const outer = [4, 5, 6, 7]
+      .map((i) => pivot.getObjectByName(`Barrier_${gate}_Arm${i}`))
+      .filter((o): o is THREE.Object3D => !!o);
+    const first = outer[0] as THREE.Mesh | undefined;
+    if (!first) return undefined;
+    // hinge at the inner end of the first outer segment, in the pivot's local frame
+    first.geometry.computeBoundingBox();
+    const box = first.geometry.boundingBox!;
+    const halfLen = (box.max.x - box.min.x) / 2;
+    const dir = Math.sign(first.position.x) || 1;
+    const knee = new THREE.Object3D();
+    knee.name = `Barrier_${gate}_Knee`;
+    knee.position.set(first.position.x - dir * halfLen, first.position.y, first.position.z);
+    pivot.add(knee);
+    for (const seg of outer) knee.attach(seg);
+    // a small hinge block so the fold reads as a joint
+    const hinge = new THREE.Mesh(
+      this.track(new THREE.BoxGeometry(0.16, 0.16, 0.14)),
+      (pivot.getObjectByName(`Barrier_${gate}_Hub`) as THREE.Mesh | undefined)?.material ?? new THREE.MeshStandardMaterial({ color: 0x23262b }),
+    );
+    hinge.castShadow = true;
+    knee.add(hinge);
+    return knee;
+  }
+
   private track<T extends { dispose(): void }>(first: T, ...rest: { dispose(): void }[]): T {
     this.disposables.push(first, ...rest);
     return first;
   }
 
+  /** Swap the procedural sky for the photographed one and put the sun where the photo has it. */
+  private applyPhotoSky(photo: PhotoEnvironment) {
+    if (this.proceduralSky) this.scene.remove(this.proceduralSky);
+    this.scene.background = photo.background;
+    this.scene.environment = photo.environment;
+    this.scene.backgroundRotation.copy(photo.rotation);
+    this.scene.environmentRotation.copy(photo.rotation);
+    // the backdrop JPEG is already tone-mapped; keep it near its authored brightness
+    this.scene.backgroundIntensity = 1;
+    this.scene.environmentIntensity = 0.55;
+    this.sun.position.copy(this.sun.target.position).addScaledVector(photo.sunDir, 150);
+    // haze toward the photo's pale horizon, so the ground melts into it instead of ending on a line
+    this.scene.fog = new THREE.Fog(0xc3ccd4, 220, 1300);
+    this.disposables.push(...photo.disposables);
+  }
+
   async load(): Promise<void> {
-    const gltf = await new GLTFLoader().loadAsync(modelUrl);
+    const sunTo = this.sun.position.clone().sub(this.sun.target.position);
+    const [gltf, photo, trees] = await Promise.all([
+      new GLTFLoader().loadAsync(modelUrl),
+      // keep the light's azimuth (east-north-east) so the gate shots stay side-lit
+      loadPhotoEnvironment(this.renderer, Math.atan2(sunTo.z, sunTo.x)).catch((err: unknown) => {
+        console.warn('photographic sky unavailable, keeping the procedural one', err);
+        return null;
+      }),
+      loadTrees().catch((err: unknown) => {
+        console.warn('scanned trees unavailable, keeping the low-poly ones', err);
+        return null;
+      }),
+    ]);
+    if (trees) this.disposables.push(...trees.disposables);
     const root = gltf.scene;
+    if (photo) this.applyPhotoSky(photo);
 
     // physically based look: procedural surfaces, metals, glass, emissives
     const surfaces = new Map<SurfaceKind, ReturnType<typeof makeSurface>>();
@@ -322,17 +438,68 @@ export class ParkingScene {
       m.receiveShadow = true;
       m.castShadow = !o.name.startsWith('Static_Ground');
       const src = m.material as THREE.Material;
-      if (!upgraded.has(src.name)) upgraded.set(src.name, upgradeMaterial(src, surfaceOf));
+      const photoKind = photo ? PHOTO_MATERIALS[src.name] : undefined;
+      if (!upgraded.has(src.name)) {
+        upgraded.set(
+          src.name,
+          photo && photoKind
+            ? photoMaterial(src.name, photo.surfaces[photoKind], PHOTO_TINT[src.name] ?? 0xffffff)
+            : upgradeMaterial(src, surfaceOf),
+        );
+      }
       const next = upgraded.get(src.name);
       if (next) {
         m.material = next;
         const surf = SURFACE_MATERIALS[src.name];
-        if (surf) applyWorldUVs(m, surf.tile);
+        if (photoKind) applyWorldUVs(m, PHOTO_TILE[photoKind]);
+        else if (surf) applyWorldUVs(m, surf.tile);
       }
       if (src.name === 'Leaf' || src.name === 'Leaf2') organicFoliage(m);
       this.track(m.geometry, src);
     });
     for (const mat of upgraded.values()) if (mat) this.track(mat);
+
+    // carry the ground, street and trees out to the horizon
+    const mat = (n: string) => upgraded.get(n) as THREE.Material;
+    // neighbourhood: buildings across the street, either side and behind; roofs in the concrete
+    const city = buildCity(mat('Concrete'), [...CAMERA_KEYS.map((k) => k.pos), [-30, -58, 3.5], [44, -26, 27]]);
+    this.disposables.push(...city.disposables);
+    this.scene.add(city.group);
+    const around = buildSurroundings(
+      {
+      grass: mat('Grass'),
+      asphalt: mat('Asphalt'),
+      sidewalk: mat('Sidewalk'),
+      line: mat('LineWhite'),
+      leaf: mat('Leaf'),
+      leaf2: mat('Leaf2'),
+      bark: mat('Bark'),
+      },
+      photo ? { grass: PHOTO_TILE.grass, asphalt: PHOTO_TILE.asphalt, sidewalk: PHOTO_TILE.concrete } : undefined,
+      trees
+        ? (spots) => {
+            const f = forestBillboards(trees.impostors, spots);
+            this.disposables.push(...f.disposables);
+            return f.group;
+          }
+        : undefined,
+      city.occupied,
+    );
+    if (trees) {
+      // the scanned trees replace the plot's low-poly crowns, trunks and planter bushes
+      root.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.isMesh && ['Leaf', 'Leaf2', 'Bark'].includes((m.material as THREE.Material).name)) m.visible = false;
+      });
+      this.plotTrees = plotTrees(trees);
+      this.disposables.push(...this.plotTrees.disposables);
+      this.scene.add(this.plotTrees.group);
+    }
+    around.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh) this.track(m.geometry);
+    });
+    this.scene.add(around);
 
     const sedan = root.getObjectByName('Car_Sedan');
     const suv = root.getObjectByName('Car_SUV');
@@ -345,6 +512,8 @@ export class ParkingScene {
 
     this.entryPivot = root.getObjectByName('Barrier_Entry_Pivot');
     this.exitPivot = root.getObjectByName('Barrier_Exit_Pivot');
+    this.entryKnee = this.makeKnee(this.entryPivot, 'Entry');
+    this.exitKnee = this.makeKnee(this.exitPivot, 'Exit');
     root.updateMatrixWorld(true);
     root.getObjectByName('ANPR_Entry_Eye')?.getWorldPosition(this.eyes.entry);
     root.getObjectByName('ANPR_Exit_Eye')?.getWorldPosition(this.eyes.exit);
@@ -471,7 +640,7 @@ export class ParkingScene {
       if (!anchor) return;
       const geo = new THREE.PlaneGeometry(w, h);
       const mat = emissive
-        ? new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color().setScalar(4) }) // HDR so LEDs bloom
+        ? new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color().setScalar(4.6) }) // HDR so LEDs bloom, softly
         : new THREE.MeshStandardMaterial({ map: tex, roughness: 0.5 });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.z = 0.005;
@@ -746,6 +915,7 @@ export class ParkingScene {
     for (const id of Object.keys(CAST) as CarId[]) this.poseCar(id, p);
 
     this.updateCamera(p, dt);
+    this.plotTrees?.update(this.camera.position);
 
     // street traffic (time based, loops)
     for (const c of this.streetCars) {
@@ -760,11 +930,13 @@ export class ParkingScene {
     const maxA = THREE.MathUtils.degToRad(86);
     if (this.entryPivot) this.entryPivot.rotation.z = -liftIn * maxA;
     if (this.exitPivot) this.exitPivot.rotation.z = liftOut * maxA;
+    if (this.entryKnee) this.entryKnee.rotation.z = liftIn * maxA;
+    if (this.exitKnee) this.exitKnee.rotation.z = -liftOut * maxA;
     const fsmEntry = fsmState(liftIn, this.prevLift.entry);
     const fsmExit = fsmState(liftOut, this.prevLift.exit);
     this.prevLift = { entry: liftIn, exit: liftOut };
-    (this.entryLamp.material as THREE.MeshBasicMaterial).color.setHex(liftIn > 0.02 ? 0x3fff6a : 0xff3b30).multiplyScalar(5);
-    (this.exitLamp.material as THREE.MeshBasicMaterial).color.setHex(liftOut > 0.02 ? 0x3fff6a : 0xff3b30).multiplyScalar(5);
+    (this.entryLamp.material as THREE.MeshBasicMaterial).color.setHex(liftIn > 0.02 ? 0x3fff6a : 0xff3b30).multiplyScalar(8);
+    (this.exitLamp.material as THREE.MeshBasicMaterial).color.setHex(liftOut > 0.02 ? 0x3fff6a : 0xff3b30).multiplyScalar(8);
 
     for (const r of this.routes) {
       const o = 0.85 * windowed(p, ...r.w);
@@ -823,7 +995,7 @@ export class ParkingScene {
         const pk = this.packets[i];
         pk.visible = ti > 0 && ti < 1;
         pk.position.copy(origin).add(new THREE.Vector3(0, h, 0));
-        (pk.material as THREE.MeshBasicMaterial).color.setHex(pkt.dir === 'up' ? 0x9cd0ff : 0xffd27a).multiplyScalar(5);
+        (pk.material as THREE.MeshBasicMaterial).color.setHex(pkt.dir === 'up' ? 0x9cd0ff : 0xffd27a).multiplyScalar(8);
       }
     }
     if (!PACKETS.some((pkt) => p >= pkt.a - 0.004 && p <= pkt.b + 0.004 && pkt.from === 'monitor')) this.beam.position.copy(BOOTH_TOP);
@@ -903,6 +1075,12 @@ export class ParkingScene {
       fm.opacity = 0.1 + 0.06 * pulse;
     }
 
+    // stills for the landing page are photographs of the site: no tour overlays in them
+    if (this.captureShot) {
+      for (const o of [this.offlineSprite, this.beam, this.frustum, this.plateFrame, this.zoneOutline, ...this.packets, ...this.zoneSprites]) o.visible = false;
+      for (const r of this.routes) r.mesh.visible = false;
+    }
+
     // render main view
     this.renderer.setScissorTest(false);
     this.renderer.setViewport(0, 0, this.width, this.height);
@@ -915,7 +1093,7 @@ export class ParkingScene {
     const ph = Math.round(pw * 0.6);
     const rect = { x: this.width - pw - 16, y: narrow ? 16 : this.height - ph - 16, w: pw, h: ph };
     const pip: PipInfo = { visible: false, cam: read?.cam ?? null, rect, box: null, stage, car: read?.car ?? null };
-    if (read && target && stage.step > 0 && frameCorners.length) {
+    if (read && target && stage.step > 0 && frameCorners.length && !this.captureShot) {
       pip.visible = true;
       this.pipCam.aspect = pw / ph;
       this.pipCam.fov = read.cam === 'entry' ? 24 : read.cam === 'exit' ? 26 : 34;
@@ -950,6 +1128,14 @@ export class ParkingScene {
   }
 
   private updateCamera(p: number, dt: number) {
+    if (this.captureShot) {
+      const { pos, target, fov } = this.captureShot;
+      this.camera.fov = fov ?? 42;
+      this.camera.updateProjectionMatrix();
+      this.camera.position.copy(B(...pos));
+      this.camera.lookAt(B(...target));
+      return;
+    }
     this.pointerSmoothed.lerp(this.pointerInside ? this.pointer : new THREE.Vector2(), 1 - Math.exp(-dt * 3));
     const cam = cameraAt(p);
     const pos = B(...cam.pos);

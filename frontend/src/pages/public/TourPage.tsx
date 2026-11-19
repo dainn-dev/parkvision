@@ -63,8 +63,8 @@ const INITIAL_HUD: Hud = {
   pipStage: { step: 0, text: '', confidence: 0 },
 };
 
-/** Navbar height: the 3D stage sticks right under it. */
-const TOP = 64;
+/** Height of the marketing navbar (LandingNavbar, h-14): the 3D stage sticks right under it. */
+const TOP = 56;
 const TRACK_VH = 1800;
 
 const fmtVnd = (n: number) => `${n.toLocaleString('vi-VN')}₫`;
@@ -375,7 +375,7 @@ export const TourPage: React.FC<{ onNavigate: (view: PublicViewType) => void }> 
   const panel = <ChapterPanel id={chapter.id} hud={hud} qr={qr} t={t} />;
 
   return (
-    <section ref={trackRef} className="relative bg-[#0d0e12]" style={{ height: `${TRACK_VH}vh` }} aria-label={t('3D site tour')}>
+    <section ref={trackRef} className="tour-dark-ui relative bg-background" style={{ height: `${TRACK_VH}vh` }} aria-label={t('3D site tour')}>
       <div
         ref={stageRef}
         className="sticky overflow-hidden"
@@ -384,7 +384,7 @@ export const TourPage: React.FC<{ onNavigate: (view: PublicViewType) => void }> 
         onPointerLeave={(e) => onPointer(e, false)}
       >
         <div ref={hostRef} className="absolute inset-0" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0d0e12]/70 via-transparent to-transparent max-md:bg-gradient-to-t" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0d0e12]/45 via-transparent to-transparent max-md:bg-gradient-to-t" />
 
         {/* progress */}
         <div className="absolute inset-x-0 top-0 h-1 bg-white/10">

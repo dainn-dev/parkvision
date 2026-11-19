@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import heroGate from './assets/hero-gate.jpg';
+import { Plain } from './tesla';
 
 type DemoStatus = 'ALLOWED' | 'DENIED' | 'CRITICAL_BLOCK';
 
@@ -95,38 +97,25 @@ function classifyCustomPlate(input: string): DemoScenario {
   };
 }
 
-const STATUS_VIEW: Record<DemoStatus, { decision: string; barrier: string; tone: string; dot: string }> = {
-  ALLOWED: { decision: 'Entry allowed', barrier: 'Arm raised', tone: 'text-[var(--success)]', dot: 'bg-[var(--success)]' },
-  DENIED: { decision: 'Denied: staff check', barrier: 'Arm down', tone: 'text-[var(--warning)]', dot: 'bg-[var(--warning)]' },
-  CRITICAL_BLOCK: { decision: 'Blocked: flagged', barrier: 'Arm locked', tone: 'text-destructive', dot: 'bg-destructive' },
+const STATUS_VIEW: Record<DemoStatus, { decision: string; barrier: string; dot: string }> = {
+  ALLOWED: { decision: 'Entry allowed', barrier: 'Arm raised', dot: 'bg-[#2e9e5b]' },
+  DENIED: { decision: 'Denied: staff check', barrier: 'Arm down', dot: 'bg-[#d9a400]' },
+  CRITICAL_BLOCK: { decision: 'Blocked: flagged', barrier: 'Arm locked', dot: 'bg-[#d4342c]' },
 };
 
-const CarFront: React.FC = () => (
-  <svg viewBox="0 0 320 200" className="h-full w-full text-muted-foreground" aria-hidden="true">
-    <line x1="0" y1="186" x2="320" y2="186" stroke="currentColor" strokeOpacity="0.4" strokeDasharray="6 6" />
-    <path d="M78 92 L104 44 H216 L242 92 Z" fill="currentColor" fillOpacity="0.18" stroke="currentColor" strokeWidth="2" />
-    <path d="M96 88 L114 54 H206 L224 88 Z" fill="currentColor" fillOpacity="0.08" />
-    <rect x="34" y="90" width="252" height="74" rx="18" fill="currentColor" fillOpacity="0.22" stroke="currentColor" strokeWidth="2" />
-    <rect x="52" y="104" width="44" height="14" rx="5" fill="currentColor" fillOpacity="0.55" />
-    <rect x="224" y="104" width="44" height="14" rx="5" fill="currentColor" fillOpacity="0.55" />
-    <rect x="118" y="106" width="84" height="8" rx="3" fill="currentColor" fillOpacity="0.35" />
-    <rect x="48" y="160" width="40" height="24" rx="6" fill="currentColor" fillOpacity="0.45" />
-    <rect x="232" y="160" width="40" height="24" rx="6" fill="currentColor" fillOpacity="0.45" />
-    <rect x="22" y="80" width="18" height="10" rx="3" fill="currentColor" fillOpacity="0.4" />
-    <rect x="280" y="80" width="18" height="10" rx="3" fill="currentColor" fillOpacity="0.4" />
-  </svg>
-);
+/** Where the plate sits in hero-gate.jpg (percent of the 16:9 frame). */
+const PLATE_SPOT = { left: '45.75%', top: '69.6%' };
 
 const BarrierArm: React.FC<{ isRaised: boolean }> = ({ isRaised }) => (
-  <svg viewBox="0 0 120 60" className="h-12 w-24 text-muted-foreground" aria-hidden="true">
-    <rect x="8" y="22" width="14" height="38" rx="2" fill="currentColor" fillOpacity="0.5" />
+  <svg viewBox="0 0 120 60" className="h-12 w-24 text-[var(--t-pewter)]" aria-hidden="true">
+    <rect x="8" y="22" width="14" height="38" rx="1" fill="currentColor" fillOpacity="0.6" />
     <rect
       x="15"
       y="22"
       width="100"
       height="6"
-      rx="3"
-      className={`fill-foreground origin-left transition-transform duration-700 [transform-box:fill-box] motion-reduce:transition-none ${
+      rx="1"
+      className={`origin-left fill-[var(--t-ink)] transition-transform duration-700 [transform-box:fill-box] motion-reduce:transition-none ${
         isRaised ? '-rotate-[75deg]' : 'rotate-0'
       }`}
     />
@@ -172,118 +161,120 @@ export const DemoSection: React.FC = () => {
   ];
 
   return (
-    <section id="simulator" aria-labelledby="demo-heading" className="scroll-mt-20 border-b border-border bg-card/40">
-      <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
-        <p className="font-mono text-xs uppercase tracking-widest text-primary">02 · {t('Demo')}</p>
-        <h2 id="demo-heading" className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-          {t('Try a gate decision')}
-        </h2>
-        <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-          {t('Pick a vehicle or type a plate to see how a rule is matched and what the barrier does. This is a simulation in your browser; no camera is involved.')}
-        </p>
+    <Plain
+      id="simulator"
+      titleId="demo-heading"
+      ash
+      title={t('Try a gate decision')}
+      lead={t(
+        'Pick a vehicle or type a plate to see how a rule is matched and what the barrier does. This is a simulation in your browser; no camera is involved.',
+      )}
+    >
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-14">
+        <div>
+          <h3 className="text-[17px] font-medium text-[var(--t-ink)]">{t('Sample vehicles')}</h3>
+          <ul className="mt-4">
+            {DEMO_SCENARIOS.map((preset) => {
+              const isSelected = preset.id === scenario.id;
+              return (
+                <li key={preset.id}>
+                  <button
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => handleSelect(preset)}
+                    className={`flex w-full cursor-pointer items-center gap-3 rounded-[4px] px-3 py-3 text-left transition-colors duration-[330ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--t-blue)] ${
+                      isSelected ? 'bg-[var(--t-canvas)]' : 'hover:bg-[var(--t-canvas)]'
+                    }`}
+                  >
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${STATUS_VIEW[preset.status].dot}`} aria-hidden="true" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-[var(--t-ink)]">{t(preset.name)}</span>
+                      <span className="block text-xs text-[var(--t-pewter)]">{preset.plate}</span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          <form onSubmit={handleCustomScan} className="mt-8">
+            <label htmlFor="demo-plate" className="text-sm font-medium text-[var(--t-ink)]">
+              {t('Or type any plate')}
+            </label>
+            <div className="mt-2 flex gap-2">
+              <input
+                id="demo-plate"
+                type="text"
+                value={plateInput}
+                onChange={(e) => setPlateInput(e.target.value)}
+                placeholder="59X1-888.99"
+                maxLength={16}
+                autoComplete="off"
+                className="min-h-10 min-w-0 flex-1 rounded-[4px] border border-[var(--t-line-strong)] bg-[var(--t-canvas)] px-3 text-sm uppercase text-[var(--t-ink)] placeholder:text-[var(--t-fog)] focus:border-[var(--t-ink)] focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={isScanning || !plateInput.trim()}
+                className="min-h-10 cursor-pointer rounded-[4px] bg-[var(--t-blue)] px-5 text-sm font-medium text-[#fff] transition-colors duration-[330ms] hover:bg-[var(--t-blue-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {t('Scan')}
+              </button>
+            </div>
+          </form>
+        </div>
 
-        <div className="mt-12 grid gap-6 lg:grid-cols-[2fr_3fr]">
-          <div className="rounded-xl border border-border bg-card p-5">
-            <h3 className="font-mono text-xs uppercase tracking-wider text-muted-foreground">{t('Sample vehicles')}</h3>
-            <ul className="mt-4 space-y-2">
-              {DEMO_SCENARIOS.map((preset) => {
-                const isSelected = preset.id === scenario.id;
-                return (
-                  <li key={preset.id}>
-                    <button
-                      type="button"
-                      aria-pressed={isSelected}
-                      onClick={() => handleSelect(preset)}
-                      className={`flex w-full items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                        isSelected ? 'border-primary bg-accent' : 'border-border bg-background hover:bg-secondary'
-                      }`}
-                    >
-                      <span className={`h-2 w-2 shrink-0 rounded-full ${STATUS_VIEW[preset.status].dot}`} aria-hidden="true" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-foreground">{t(preset.name)}</span>
-                        <span className="block font-mono text-xs text-muted-foreground">{preset.plate}</span>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            <form onSubmit={handleCustomScan} className="mt-6 border-t border-border pt-5">
-              <label htmlFor="demo-plate" className="text-sm font-medium text-foreground">
-                {t('Or type any plate')}
-              </label>
-              <div className="mt-2 flex gap-2">
-                <input
-                  id="demo-plate"
-                  type="text"
-                  value={plateInput}
-                  onChange={(e) => setPlateInput(e.target.value)}
-                  placeholder="59X1-888.99"
-                  maxLength={16}
-                  autoComplete="off"
-                  className="min-w-0 flex-1 rounded-lg border border-input bg-background px-3 py-2 font-mono text-sm uppercase text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-                <button
-                  type="submit"
-                  disabled={isScanning || !plateInput.trim()}
-                  className="rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {t('Scan')}
-                </button>
+        <div>
+          <div className="relative aspect-video overflow-hidden bg-[#171a20]">
+            <img
+              src={heroGate}
+              alt={t('A car stopped at the entry lane, its plate facing the gate camera')}
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            <span className="absolute left-3 top-3 rounded-[4px] bg-white/90 px-2 py-1 text-xs font-medium text-[#393c41]">
+              {t('Lane 01 · entry')} · {t('simulated')}
+            </span>
+            <div className="absolute -translate-x-1/2 -translate-y-1/2" style={PLATE_SPOT}>
+              <div
+                className="rounded-[2px] p-[3px]"
+                style={{ outline: isScanning ? '2px dashed #ffffff' : '2px solid #3e6ae1' }}
+              >
+                <div className="whitespace-nowrap rounded-[2px] border border-[#171a20] bg-[#f4f4f0] px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-[#171a20] sm:text-xs">
+                  {isScanning ? '·······' : scenario.plate}
+                </div>
               </div>
-            </form>
+            </div>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <div className="dark">
-              <div className="relative aspect-[16/10] bg-background">
-                <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 py-3 font-mono text-xs text-muted-foreground">
-                  <span>{t('Lane 01 · entry')}</span>
-                  <span className="rounded border border-border px-2 py-0.5">{t('simulated')}</span>
+          <div className="mt-6 min-h-[168px]" aria-live="polite">
+            {isScanning ? (
+              <p className="text-sm text-[var(--t-pewter)]">{t('Reading plate…')}</p>
+            ) : (
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-2 text-[17px] font-medium text-[var(--t-ink)]">
+                    <span className={`h-2 w-2 rounded-full ${view.dot}`} aria-hidden="true" />
+                    {t(view.decision)}
+                  </p>
+                  <p className="mt-1 text-sm leading-5 text-[var(--t-body)]">{t(scenario.reason)}</p>
+                  <dl className="mt-4 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-[auto_1fr]">
+                    {details.map(([label, value]) => (
+                      <React.Fragment key={label}>
+                        <dt className="text-[var(--t-pewter)]">{t(label)}</dt>
+                        <dd className="text-[var(--t-ink)]">{value}</dd>
+                      </React.Fragment>
+                    ))}
+                  </dl>
                 </div>
-                <div className="absolute inset-x-[12%] bottom-[6%] top-[14%]">
-                  <CarFront />
-                  <div className="absolute left-1/2 top-[64%] -translate-x-1/2 -translate-y-1/2">
-                    <div className={`rounded-sm p-1 ${isScanning ? 'border-2 border-dashed border-muted-foreground' : 'border-2 border-primary'}`}>
-                      <div className="whitespace-nowrap rounded-sm border border-background bg-foreground px-2 py-0.5 font-mono text-xs font-bold tracking-wider text-background sm:text-sm">
-                        {isScanning ? '·······' : scenario.plate}
-                      </div>
-                    </div>
-                  </div>
+                <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end">
+                  <BarrierArm isRaised={scenario.status === 'ALLOWED'} />
+                  <span className="text-xs text-[var(--t-pewter)]">{t(view.barrier)}</span>
                 </div>
-                {isScanning && (
-                  <div className="absolute inset-x-0 top-1/2 h-px bg-primary motion-safe:animate-pulse" aria-hidden="true" />
-                )}
               </div>
-            </div>
-
-            <div className="p-5 sm:p-6" aria-live="polite">
-              {isScanning ? (
-                <p className="font-mono text-sm text-muted-foreground">{t('Reading plate…')}</p>
-              ) : (
-                <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <p className={`text-lg font-semibold ${view.tone}`}>{t(view.decision)}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{t(scenario.reason)}</p>
-                    <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[auto_1fr]">
-                      {details.map(([label, value]) => (
-                        <React.Fragment key={label}>
-                          <dt className="font-mono text-xs text-muted-foreground sm:pt-0.5">{t(label)}</dt>
-                          <dd className="text-foreground">{value}</dd>
-                        </React.Fragment>
-                      ))}
-                    </dl>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end">
-                    <BarrierArm isRaised={scenario.status === 'ALLOWED'} />
-                    <span className={`font-mono text-xs ${view.tone}`}>{t(view.barrier)}</span>
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </div>
-    </section>
+    </Plain>
   );
 };

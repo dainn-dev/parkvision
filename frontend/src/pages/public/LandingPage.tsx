@@ -16,7 +16,7 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, onSelectPlan }) => (
-  <div className="w-full bg-background font-sans text-foreground antialiased">
+  <div className="tesla w-full bg-[var(--t-canvas)] font-sans antialiased">
     <HeroSection onNavigate={onNavigate} />
     <PipelineSection />
     <DemoSection />

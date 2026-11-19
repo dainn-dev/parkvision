@@ -83,7 +83,7 @@ const SPECS: Record<SurfaceKind, Spec> = {
   lotAsphalt: { base: [92, 94, 98], mottle: 16, grain: 12, rough: 0.86, roughVar: 0.1, normal: 1.5, speckles: 0.01, stains: 0.45 },
   concrete: { base: [158, 157, 150], mottle: 18, grain: 10, rough: 0.82, roughVar: 0.1, normal: 1.4, speckles: 0.01 },
   sidewalk: { base: [140, 139, 133], mottle: 14, grain: 10, rough: 0.85, roughVar: 0.08, normal: 1.4, speckles: 0.008, joints: 2 },
-  grass: { base: [64, 96, 42], mottle: 26, grain: 30, rough: 0.96, roughVar: 0.04, normal: 3.0, grass: true },
+  grass: { base: [70, 90, 50], mottle: 20, grain: 22, rough: 0.97, roughVar: 0.04, normal: 2.6, grass: true },
   facade: { base: [214, 216, 220], mottle: 8, grain: 5, rough: 0.75, roughVar: 0.08, normal: 0.8 },
 };
 
@@ -148,10 +148,11 @@ export function makeSurface(kind: SurfaceKind, size = 512): Surface {
         const dry = fbm(x, y, size, 6, 3, seed + 31);
         shade += (blades - 0.5) * 34;
         h = blades;
-        if (dry > 0.62) {
-          const k = Math.min(1, (dry - 0.62) / 0.15);
-          r += 40 * k;
-          g += 18 * k;
+        if (dry > 0.6) {
+          const k = Math.min(1, (dry - 0.6) / 0.25);
+          r += 22 * k;
+          g += 8 * k;
+          b += 4 * k;
         }
       }
 
@@ -236,22 +237,42 @@ export function applyWorldUVs(mesh: THREE.Mesh, metersPerTile: number) {
 
 export function setupSky(renderer: THREE.WebGLRenderer, scene: THREE.Scene, sunDir: THREE.Vector3) {
   const sky = new Sky();
-  sky.scale.setScalar(450);
-  // The visible sky is HDR; scale it down so it does not feed the bloom pass as haze.
-  sky.material.uniforms.skyGain = { value: 0.26 };
+  // drawn first and never depth-tested, so it sits behind everything however far the ground reaches
+  sky.scale.setScalar(1000);
+  sky.renderOrder = -1;
+  sky.frustumCulled = false;
+  sky.material.depthTest = false;
+  // The visible sky is HDR. Bloom input is capped in ParkingScene, so it can stay a clear blue.
+  sky.material.uniforms.skyGain = { value: 0.2 };
   sky.material.fragmentShader = sky.material.fragmentShader
     .replace('uniform float showSunDisc;', 'uniform float showSunDisc;\nuniform float skyGain;')
-    .replace('gl_FragColor = vec4( texColor, 1.0 );', 'gl_FragColor = vec4( texColor * skyGain, 1.0 );');
+    // Grade: keep the pale band at the horizon, but deepen to a clear blue within a few degrees
+    // above it; otherwise the low, wide views only ever show the washed-out bottom of the sky.
+    .replace(
+      'gl_FragColor = vec4( texColor, 1.0 );',
+      `float skyUp = smoothstep( 0.0, 0.22, direction.y );
+      vec3 deepSky = texColor * vec3( 0.5, 0.76, 1.24 );
+      texColor = mix( texColor, deepSky, skyUp * 0.9 );
+      gl_FragColor = vec4( texColor * skyGain, 1.0 );`,
+    );
   const u = sky.material.uniforms;
-  u.turbidity.value = 3.2;
-  u.rayleigh.value = 1.4;
-  u.mieCoefficient.value = 0.0022;
-  u.mieDirectionalG.value = 0.78;
-  u.sunPosition.value.copy(sunDir);
+  // clear, dry day: strong Rayleigh (blue) and almost no Mie haze, so neither the sun side nor
+  // the horizon washes out to white
+  u.turbidity.value = 1.7;
+  u.rayleigh.value = 2.6;
+  u.mieCoefficient.value = 0.0004;
+  u.mieDirectionalG.value = 0.6;
+  // The sky is drawn with the sun raised to ~60° (same azimuth as the light). A low sun puts its
+  // glow on the horizon right where the wide shots look; the lighting keeps the real, lower sun.
+  const skySun = sunDir.clone().setY(0).normalize().multiplyScalar(Math.cos(Math.PI / 3));
+  skySun.y = Math.sin(Math.PI / 3);
+  u.sunPosition.value.copy(skySun);
   // the disc is so bright that the bloom pass turns it into a veil over the whole frame
   u.showSunDisc.value = 0;
-  u.cloudCoverage.value = 0.35;
-  u.cloudDensity.value = 0.35;
+  // a few soft clouds; heavier coverage streaks badly near the horizon at this cloud scale
+  u.cloudCoverage.value = 0.18;
+  u.cloudDensity.value = 0.25;
+  u.cloudScale.value = 0.00012;
   scene.add(sky);
 
   // environment: the same sky over a dusty ground, prefiltered for PBR reflections
@@ -264,6 +285,11 @@ export function setupSky(renderer: THREE.WebGLRenderer, scene: THREE.Scene, sunD
     eu[k].value = v instanceof THREE.Vector3 ? v.clone() : v;
   }
   eu.showSunDisc.value = 0;
+  // Light the scene from the real sky, not the graded backdrop: the raised sun and the extra
+  // Rayleigh that make the backdrop blue would otherwise wash everything in a blue cast.
+  eu.sunPosition.value.copy(sunDir);
+  eu.rayleigh.value = 1.3;
+  eu.turbidity.value = 2.6;
   envScene.add(envSky);
   const ground = new THREE.Mesh(
     new THREE.CircleGeometry(80, 32).rotateX(-Math.PI / 2),
@@ -324,9 +350,10 @@ export function upgradeMaterial(src: THREE.Material, surfaces: (kind: SurfaceKin
     case 'Steel':
       return new THREE.MeshStandardMaterial({ name, color: 0xb8bcc2, metalness: 1, roughness: 0.32 });
     case 'Rim':
-      return new THREE.MeshStandardMaterial({ name, color: 0xc9ccd1, metalness: 1, roughness: 0.28 });
+      // painted alloy, not polished chrome
+      return new THREE.MeshStandardMaterial({ name, color: 0x9da2a8, metalness: 0.85, roughness: 0.42 });
     case 'Chrome':
-      return new THREE.MeshStandardMaterial({ name, color: 0xe6e8ec, metalness: 1, roughness: 0.16 });
+      return new THREE.MeshStandardMaterial({ name, color: 0xb9bdc3, metalness: 1, roughness: 0.3 });
     case 'Caliper':
       return new THREE.MeshPhysicalMaterial({ name, color: 0xb3150f, roughness: 0.35, clearcoat: 0.8, clearcoatRoughness: 0.2 });
     case 'DarkMetal':
@@ -352,27 +379,38 @@ export function upgradeMaterial(src: THREE.Material, surfaces: (kind: SurfaceKin
     case 'Windows':
       return new THREE.MeshPhysicalMaterial({ name, color: 0x2a3a48, metalness: 0.85, roughness: 0.06, envMapIntensity: 1.4 });
     case 'CarGlass':
-      return new THREE.MeshPhysicalMaterial({ name, color: 0x0c1218, metalness: 0.4, roughness: 0.1, clearcoat: 1, clearcoatRoughness: 0.1, envMapIntensity: 1.6 });
+      // tinted glass: dark interior behind a dielectric surface that only reflects at grazing angles
+      return new THREE.MeshPhysicalMaterial({ name, color: 0x141b22, metalness: 0, roughness: 0.06, ior: 1.5, specularIntensity: 1, envMapIntensity: 1.15 });
     case 'Lens':
       return new THREE.MeshPhysicalMaterial({ name, color: 0x050608, metalness: 0.2, roughness: 0.02, clearcoat: 1 });
     case 'Tyre':
-      return new THREE.MeshStandardMaterial({ name, color: 0x151515, roughness: 0.92 });
+      return new THREE.MeshStandardMaterial({ name, color: 0x1b1b1c, roughness: 0.86 });
     case 'Trim':
-      return new THREE.MeshStandardMaterial({ name, color: 0x101114, roughness: 0.55 });
+      // textured black plastic (bumpers, gaskets, grille)
+      return new THREE.MeshStandardMaterial({ name, color: 0x141518, roughness: 0.72 });
     case 'Bark':
       return new THREE.MeshStandardMaterial({ name, color: 0x4a3426, roughness: 0.95 });
     case 'Leaf':
     case 'Leaf2':
-      return new THREE.MeshStandardMaterial({ name, color: colorOf(src).multiplyScalar(0.9), roughness: 0.88, flatShading: false });
+      // foliage absorbs most light: darker, less saturated than the authored swatch
+      {
+        const c = colorOf(src);
+        const hsl = c.getHSL({ h: 0, s: 0, l: 0 });
+        // pull the hue toward yellow-green; the authored swatches drift cyan once darkened
+        c.setHSL(hsl.h - (name === 'Leaf2' ? 0.035 : 0.05), hsl.s * 0.72, hsl.l * 0.62);
+        return new THREE.MeshStandardMaterial({ name, color: c, roughness: 0.95 });
+      }
     case 'Headlight':
     case 'Taillight':
     case 'LampGlow':
     case 'IRLed': {
       // daytime: lenses read as lit glass, not light sources (only LEDs and status lamps bloom)
       // fairly rough: the lenses face up into the sun and a mirror finish glints straight into the bloom
-      const m = new THREE.MeshStandardMaterial({ name, color: colorOf(src).multiplyScalar(0.85), roughness: 0.42 });
+      // unlit lamp units: a clear lens over a reflector reads as pale grey, not a white block
+      const lens = name === 'Headlight' ? new THREE.Color(0x8d9399) : colorOf(src).multiplyScalar(0.7);
+      const m = new THREE.MeshPhysicalMaterial({ name, color: lens, metalness: 0.3, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.08 });
       m.emissive.copy(std.emissive ?? new THREE.Color(1, 1, 1));
-      m.emissiveIntensity = name === 'Taillight' ? 0.35 : name === 'IRLed' ? 0.8 : 0.45;
+      m.emissiveIntensity = name === 'Taillight' ? 0.25 : name === 'IRLed' ? 0.8 : name === 'LampGlow' ? 0.45 : 0.06;
       return m;
     }
     default:
@@ -383,15 +421,20 @@ export function upgradeMaterial(src: THREE.Material, surfaces: (kind: SurfaceKin
 /** Glossy automotive paint. Light colours read better with less metal flake. */
 export function carPaint(hex: number) {
   const c = new THREE.Color(hex);
-  const light = c.getHSL({ h: 0, s: 0, l: 0 }).l > 0.6;
+  const hsl = c.getHSL({ h: 0, s: 0, l: 0 });
+  // Real paint albedo tops out near 0.8 and solid colours are a little less saturated than
+  // the swatches; full-strength values are what read as toy plastic under a strong sun.
+  c.setHSL(hsl.h, hsl.s * 0.82, Math.min(hsl.l, 0.78) * 0.92);
+  const metallic = hsl.l < 0.6 && hsl.s > 0.25;
   return new THREE.MeshPhysicalMaterial({
     name: 'CarPaint',
     color: c,
-    metalness: light ? 0.15 : 0.55,
-    roughness: light ? 0.4 : 0.32,
-    clearcoat: 1,
-    clearcoatRoughness: 0.12,
-    envMapIntensity: 1.2,
+    // a dielectric base (metallic flake only for saturated mid tones) under a clear coat
+    metalness: metallic ? 0.28 : 0.04,
+    roughness: metallic ? 0.38 : 0.5,
+    clearcoat: 0.85,
+    clearcoatRoughness: 0.18,
+    envMapIntensity: 0.85,
   });
 }
 
@@ -413,4 +456,134 @@ export function organicFoliage(mesh: THREE.Mesh) {
   g.computeVertexNormals();
   mesh.geometry.dispose();
   mesh.geometry = g;
+}
+
+// ---------------------------------------------------------------------------
+// Surroundings: the model is a 180 × 170 m plot; this carries the ground, the
+// street and a scatter of trees out to the horizon so the plot never ends in a void.
+// ---------------------------------------------------------------------------
+
+interface SurroundingMaterials {
+  grass: THREE.Material;
+  asphalt: THREE.Material;
+  sidewalk: THREE.Material;
+  line: THREE.Material;
+  leaf: THREE.Material;
+  leaf2: THREE.Material;
+  bark: THREE.Material;
+}
+
+/** Blender plot coordinates (x right, y north, z up) → three.js. */
+const P = (x: number, y: number, z = 0) => new THREE.Vector3(x, z, -y);
+
+export function buildSurroundings(
+  materials: SurroundingMaterials,
+  tiles: { grass: number; asphalt: number; sidewalk: number } = { grass: 5, asphalt: 4, sidewalk: 3 },
+  /** builds the distant forest from tree spots; without it the trees are simple low-poly crowns */
+  forest?: (spots: { pos: THREE.Vector3; height: number; yaw: number }[]) => THREE.Object3D,
+  /** keeps trees out of building footprints (Blender x/y) */
+  blocked?: (x: number, y: number) => boolean,
+  radius = 1400,
+): THREE.Group {
+  const g = new THREE.Group();
+  g.name = 'Surroundings';
+  const meshes: THREE.Mesh[] = [];
+  const add = (geo: THREE.BufferGeometry, mat: THREE.Material, tile?: number) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.receiveShadow = true;
+    g.add(m);
+    if (tile) meshes.push(Object.assign(m, { userData: { tile } }));
+    return m;
+  };
+
+  // ground just under the plot's own grass so the plot wins where they overlap
+  const ground = add(new THREE.CircleGeometry(radius, 96).rotateX(-Math.PI / 2), materials.grass, tiles.grass);
+  ground.position.y = -0.03;
+
+  // the street (Blender y = -46) and its sidewalks, continued past both ends of the plot
+  const PLOT_X = 90;
+  const len = radius - PLOT_X;
+  for (const side of [-1, 1]) {
+    const cx = side * (PLOT_X + len / 2);
+    const street = add(new THREE.BoxGeometry(len, 0.04, 12), materials.asphalt, tiles.asphalt);
+    street.position.copy(P(cx, -46, 0.02));
+    for (const sy of [-38.75, -53.25]) {
+      const walk = add(new THREE.BoxGeometry(len, 0.2, 2.5), materials.sidewalk, tiles.sidewalk);
+      walk.position.copy(P(cx, sy, 0.1));
+    }
+  }
+  // centre-line dashes
+  const dashGeo = new THREE.PlaneGeometry(2, 0.15).rotateX(-Math.PI / 2);
+  const dashCount = Math.floor(len / 4) * 2;
+  const dashes = new THREE.InstancedMesh(dashGeo, materials.line, dashCount);
+  const m4 = new THREE.Matrix4();
+  let d = 0;
+  for (const side of [-1, 1]) {
+    for (let x = PLOT_X + 2; x < radius && d < dashCount; x += 4) {
+      m4.makeTranslation(P(side * x, -46, 0.045));
+      dashes.setMatrixAt(d++, m4);
+    }
+  }
+  dashes.count = d;
+  dashes.receiveShadow = true;
+  g.add(dashes);
+
+  for (const m of meshes) applyWorldUVs(m, m.userData.tile as number);
+
+  // a scatter of trees thinning out with distance, clear of the plot and the street
+  let seed = 7;
+  const rnd = () => {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
+  const crownGeo = new THREE.IcosahedronGeometry(1, 2);
+  const trunkGeo = new THREE.CylinderGeometry(0.16, 0.22, 1, 7).translate(0, 0.5, 0);
+  const COUNT = 900;
+  const crownsA = new THREE.InstancedMesh(crownGeo, materials.leaf, COUNT);
+  const crownsB = new THREE.InstancedMesh(crownGeo, materials.leaf2, COUNT);
+  const trunks = new THREE.InstancedMesh(trunkGeo, materials.bark, COUNT * 2);
+  let a = 0;
+  let b = 0;
+  let t = 0;
+  const q = new THREE.Quaternion();
+  const s = new THREE.Vector3();
+  const spots: { pos: THREE.Vector3; height: number; yaw: number }[] = [];
+  for (let tries = 0; tries < COUNT * 6 && a + b < COUNT * 2 - 2; tries++) {
+    const r = 105 + Math.pow(rnd(), 1.6) * (radius * 0.75 - 105);
+    const ang = rnd() * Math.PI * 2;
+    const x = Math.cos(ang) * r;
+    const y = Math.sin(ang) * r;
+    if (Math.abs(y + 46) < 14) continue; // street + verges
+    if (Math.abs(x) < 95 && y > -60 && y < 90) continue; // the plot
+    if (blocked?.(x, y)) continue;
+    const h = 4 + rnd() * 6;
+    const w = h * (0.34 + rnd() * 0.12);
+    const pos = P(x, y, 0);
+    if (forest) {
+      spots.push({ pos, height: h * 1.15, yaw: rnd() * Math.PI });
+      a++;
+      continue;
+    }
+    s.set(0.9 + rnd() * 0.5, h * 0.42, 0.9 + rnd() * 0.5);
+    m4.compose(pos, q, s);
+    trunks.setMatrixAt(t++, m4);
+    s.set(w, w * (1.05 + rnd() * 0.35), w);
+    m4.compose(pos.clone().setY(h * 0.62), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * 6.28), s);
+    if (rnd() < 0.5) crownsA.setMatrixAt(a++, m4);
+    else crownsB.setMatrixAt(b++, m4);
+  }
+  if (forest) {
+    for (const im of [crownsA, crownsB, trunks]) im.dispose();
+    g.add(forest(spots));
+    return g;
+  }
+  crownsA.count = a;
+  crownsB.count = b;
+  trunks.count = t;
+  for (const im of [crownsA, crownsB, trunks]) {
+    im.castShadow = false;
+    im.receiveShadow = true;
+    g.add(im);
+  }
+  return g;
 }

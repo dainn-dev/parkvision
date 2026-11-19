@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { Plain } from './tesla';
 
 interface Solution {
   title: string;
@@ -33,34 +34,22 @@ const SOLUTIONS: Solution[] = [
 export const SolutionsSection: React.FC = () => {
   const { t } = useTranslation('landing');
   return (
-    <section id="solutions" aria-labelledby="solutions-heading" className="scroll-mt-20 border-b border-border bg-card/40">
-      <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
-        <div className="grid gap-12 lg:grid-cols-[1fr_2fr] lg:gap-16">
-          <div>
-            <p className="font-mono text-xs uppercase tracking-widest text-primary">04 · {t('Solutions')}</p>
-            <h2 id="solutions-heading" className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              {t('Built for the lots you run')}
-            </h2>
-            <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-              {t('The same gate, rules and dashboard, set up for how each kind of property works.')}
-            </p>
-          </div>
-          <ol className="divide-y divide-border border-y border-border">
-            {SOLUTIONS.map((solution, index) => (
-              <li key={solution.title} className="grid gap-3 py-8 sm:grid-cols-[3rem_1fr]">
-                <span className="font-mono text-sm text-primary" aria-hidden="true">
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">{t(solution.title)}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t(solution.body)}</p>
-                  <p className="mt-3 font-mono text-xs text-muted-foreground">{t(solution.uses)}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </div>
-    </section>
+    <Plain
+      id="solutions"
+      titleId="solutions-heading"
+      ash
+      title={t('Built for the lots you run')}
+      lead={t('The same gate, rules and dashboard, set up for how each kind of property works.')}
+    >
+      <ul className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4 lg:gap-10">
+        {SOLUTIONS.map((solution) => (
+          <li key={solution.title}>
+            <h3 className="text-[17px] font-medium text-[var(--t-ink)]">{t(solution.title)}</h3>
+            <p className="mt-2 text-sm leading-5 text-[var(--t-body)]">{t(solution.body)}</p>
+            <p className="mt-4 text-xs leading-5 text-[var(--t-pewter)]">{t(solution.uses)}</p>
+          </li>
+        ))}
+      </ul>
+    </Plain>
   );
 };

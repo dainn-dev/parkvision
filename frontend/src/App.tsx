@@ -9,12 +9,11 @@ import { CreateTenantModal } from './pages/tenants/CreateTenantModal';
 import { MfaFlowModal } from './components/modals/MfaFlowModal';
 
 // Public & Marketing Pages
-import { PublicNavbar } from './components/layout/PublicNavbar';
 import { PUBLIC_ROUTES, shouldResetToLanding, viewFromPath, type PublicViewType } from './lib/publicRoutes';
 import { DownloadPage } from './pages/public/DownloadPage';
 import { TourPage } from './pages/public/TourPage';
-import { PublicFooter } from './components/layout/PublicFooter';
 import { LandingPage } from './pages/public/LandingPage';
+import { LandingFooter, LandingNavbar } from './pages/public/landing/LandingChrome';
 import { PrivacyPolicyPage } from './pages/public/PrivacyPolicyPage';
 import { TermsOfServicePage } from './pages/public/TermsOfServicePage';
 import { SlaPolicyPage } from './pages/public/SlaPolicyPage';
@@ -68,7 +67,9 @@ const PlatformAppContent: React.FC = () => {
     mfaTargetAdminName,
     mfaTargetAdminId,
     impersonation,
-    exitImpersonation
+    exitImpersonation,
+    theme,
+    toggleTheme
   } = usePlatform();
   const { t } = useTranslation('layout');
   const { t: tMonitoring } = useTranslation('monitoring');
@@ -77,6 +78,12 @@ const PlatformAppContent: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const publicView = viewFromPath(location.pathname);
+  const usesMarketingChrome = !['login', 'register', 'activate', 'reset-password'].includes(publicView);
+  const publicContentOffset = ['privacy', 'terms', 'sla'].includes(publicView)
+    ? 'pt-2'
+    : publicView === 'find-car'
+      ? 'pt-4'
+      : '';
   const onNavigate = (view: PublicViewType) => navigate(PUBLIC_ROUTES[view]);
   const searchParams = new URLSearchParams(location.search);
   const inviteToken = searchParams.get('token') ?? '';
@@ -116,19 +123,21 @@ const PlatformAppContent: React.FC = () => {
           </div>
         )}
 
-        {/* Public Navigation Bar (only on non-login/register standalone pages) */}
-        {publicView !== 'login' && publicView !== 'register' && publicView !== 'activate' && publicView !== 'reset-password' && (
-          <PublicNavbar
-            currentView={publicView}
+        {/* Shared marketing chrome across the landing, product, tour, and policy pages */}
+        {usesMarketingChrome && (
+          <LandingNavbar
             onNavigate={onNavigate}
-            onScrollToSection={(sectionId) => {
-              document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
+            currentView={publicView}
+            isAuthenticated={isAuthenticated}
+            onOpenWorkspace={() => setIsPreviewingLandingAsAuth(false)}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            top={isAuthPreview ? 37 : 0}
           />
         )}
 
         {/* Main Content by Public Route */}
-        <main className="flex-1">
+        <main className={`flex-1 ${publicContentOffset}`}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={publicView}
@@ -190,14 +199,8 @@ const PlatformAppContent: React.FC = () => {
           </AnimatePresence>
         </main>
 
-        {/* Public Footer (only on content pages) */}
-        {publicView !== 'login' && publicView !== 'register' && publicView !== 'activate' && publicView !== 'reset-password' && (
-          <PublicFooter
-            onNavigate={onNavigate}
-            onScrollToSection={(sectionId) => {
-              document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
-          />
+        {usesMarketingChrome && (
+          <LandingFooter onNavigate={onNavigate} />
         )}
 
         <ToastContainer />

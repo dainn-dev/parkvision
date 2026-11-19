@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
+import { Plain } from './tesla';
 
 interface Faq {
   q: string;
@@ -37,32 +38,26 @@ const FAQS: Faq[] = [
 export const FaqSection: React.FC = () => {
   const { t } = useTranslation('landing');
   return (
-    <section id="faq" aria-labelledby="faq-heading" className="scroll-mt-20 border-b border-border">
-      <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-20 sm:px-6 sm:py-28 lg:grid-cols-[1fr_2fr] lg:gap-16 lg:px-8">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-widest text-primary">07 · {t('FAQ')}</p>
-          <h2 id="faq-heading" className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            {t('Questions owners ask')}
-          </h2>
-          <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-            {t('Straight answers, including what the system does not do.')}
-          </p>
-        </div>
-        <div className="divide-y divide-border border-y border-border">
-          {FAQS.map((faq, index) => (
-            <details key={faq.q} className="group" open={index === 0}>
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 text-left text-base font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-                <span>{t(faq.q)}</span>
-                <ChevronDown
-                  className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
-                  aria-hidden="true"
-                />
-              </summary>
-              <p className="pb-6 pr-8 text-sm leading-relaxed text-muted-foreground">{t(faq.a)}</p>
-            </details>
-          ))}
-        </div>
+    <Plain
+      id="faq"
+      titleId="faq-heading"
+      title={t('Questions owners ask')}
+      lead={t('Straight answers, including what the system does not do.')}
+    >
+      <div className="max-w-3xl border-t border-[var(--t-line)]">
+        {FAQS.map((faq, index) => (
+          <details key={faq.q} className="group border-b border-[var(--t-line)]" open={index === 0}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 text-left text-[17px] font-medium text-[var(--t-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--t-blue)] [&::-webkit-details-marker]:hidden">
+              <span>{t(faq.q)}</span>
+              <ChevronDown
+                className="h-4 w-4 shrink-0 text-[var(--t-pewter)] transition-transform duration-[330ms] group-open:rotate-180 motion-reduce:transition-none"
+                aria-hidden="true"
+              />
+            </summary>
+            <p className="pb-6 pr-8 text-sm leading-6 text-[var(--t-body)]">{t(faq.a)}</p>
+          </details>
+        ))}
       </div>
-    </section>
+    </Plain>
   );
 };

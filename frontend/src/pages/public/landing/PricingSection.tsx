@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import type { PublicViewType } from '../../../lib/publicRoutes';
 import { publicApi, type PlanOut } from '../../../services/api';
+import { Plain, TeslaButton } from './tesla';
 
 interface PricingSectionProps {
   onNavigate: (view: PublicViewType) => void;
@@ -33,7 +34,6 @@ const FALLBACK_PLANS: PricingPlan[] = [
     description: 'For standalone parking lots, mini condos or small-to-medium company offices.',
     features: [
       'Up to 2 Barrier Lanes (1 In - 1 Out)',
-      'Manage 1 Site',
       'Capacity up to 500 vehicles',
       'ANPR camera with AI OCR plate recognition',
       'Basic access rules engine',
@@ -52,7 +52,6 @@ const FALLBACK_PLANS: PricingPlan[] = [
     description: 'The perfect solution for grade A-B office buildings, shopping malls and premium residential areas.',
     features: [
       'Up to 8 multi-direction Barrier Lanes',
-      'Manage up to 3 Sites simultaneously',
       'Capacity up to 3,000 vehicles',
       'Deterministic Policy Engine (Priority #1 - #9999)',
       'Anti-Tailgating & Anti-passback',
@@ -73,7 +72,7 @@ const FALLBACK_PLANS: PricingPlan[] = [
     description: 'For corporations managing building chains, industrial parks, large hospitals and logistics centers.',
     features: [
       'Unlimited Barrier Lanes & access gates',
-      'Unlimited Sites and stored vehicles',
+      'Unlimited stored vehicles',
       'Dedicated isolated database (Dedicated RLS DB)',
       'Deep integration with BMS, SAP, Oracle ERP, VietQR',
       'Compensated 99.99% Uptime SLA commitment',
@@ -129,63 +128,46 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onNavigate, onSe
   };
 
   return (
-    <section id="pricing" aria-labelledby="pricing-heading" className="scroll-mt-20 border-b border-border bg-card/40">
-      <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
-        <p className="font-mono text-xs uppercase tracking-widest text-primary">06 · {t('Pricing')}</p>
-        <h2 id="pricing-heading" className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-          {t('Plans by lanes and sites')}
-        </h2>
-        <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-          {t('Every plan starts with a free trial. Pick the one that fits how many lanes and sites you run.')}
-        </p>
-
-        <ul className="mt-14 grid gap-6 lg:grid-cols-3">
-          {plans.map((plan) => (
-            <li
-              key={plan.id}
-              className={`flex flex-col rounded-xl border bg-card p-6 sm:p-8 ${
-                plan.popular ? 'border-primary ring-1 ring-primary' : 'border-border'
-              }`}
+    <Plain
+      id="pricing"
+      titleId="pricing-heading"
+      ash
+      title={t('Plans by lanes and sites')}
+      lead={t('Every plan starts with a free trial. Pick the one that fits how many lanes and sites you run.')}
+    >
+      <ul className="grid gap-6 lg:grid-cols-3">
+        {plans.map((plan) => (
+          <li key={plan.id} className={`flex flex-col border-t-2 bg-[var(--t-canvas)] p-7 sm:p-8 ${plan.popular ? 'border-[var(--t-blue)]' : 'border-[var(--t-line-strong)]'}`}>
+            <p className={`text-xs font-medium ${plan.popular ? 'text-[var(--t-blue)]' : 'text-[var(--t-pewter)]'}`}>
+              {t(plan.badge)}
+            </p>
+            <h3 className="mt-2 text-[28px] font-medium leading-tight text-[var(--t-ink)]">{plan.name}</h3>
+            <p className="mt-2 text-sm leading-5 text-[var(--t-body)]">{t(plan.description)}</p>
+            <p className="mt-8 flex flex-wrap items-baseline gap-x-2">
+              <span className="text-[32px] font-medium leading-none text-[var(--t-ink)] tabular-nums">{t(plan.price)}</span>
+              <span className="text-sm text-[var(--t-pewter)]">
+                {plan.currency?.toLowerCase() ?? 'vnd'}/{t(plan.period)}
+              </span>
+            </p>
+            <p className="mt-8 text-sm font-medium text-[var(--t-ink)]">{t('Included benefits:')}</p>
+            <ul className="mt-3 flex-1 space-y-2 text-sm text-[var(--t-body)]">
+              {plan.features.map((feature) => (
+                <li key={feature} className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--t-pewter)]" aria-hidden="true" />
+                  <span>{t(feature)}</span>
+                </li>
+              ))}
+            </ul>
+            <TeslaButton
+              variant={plan.popular ? 'primary' : 'secondary'}
+              className="mt-10 sm:w-full"
+              onClick={() => handleChoose(plan.id)}
             >
-              <p className="font-mono text-xs text-primary">{t(plan.badge)}</p>
-              <h3 className="mt-2 text-2xl font-semibold text-foreground">{plan.name}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t(plan.description)}</p>
-
-              <p className="mt-6 flex flex-wrap items-baseline gap-x-2 border-y border-border py-5">
-                <span className="font-mono text-3xl font-semibold text-foreground">{t(plan.price)}</span>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {plan.currency?.toLowerCase() ?? 'vnd'}/{t(plan.period)}
-                </span>
-              </p>
-
-              <p className="mt-6 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                {t('Included benefits:')}
-              </p>
-              <ul className="mt-3 flex-1 space-y-2.5 text-sm text-foreground">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                    <span>{t(feature)}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <button
-                type="button"
-                onClick={() => handleChoose(plan.id)}
-                className={`mt-8 inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                  plan.popular
-                    ? 'bg-primary text-primary-foreground hover:opacity-90'
-                    : 'border border-border bg-secondary text-secondary-foreground hover:bg-muted'
-                }`}
-              >
-                {t(plan.ctaText)}
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
+              {t(plan.ctaText)}
+            </TeslaButton>
+          </li>
+        ))}
+      </ul>
+    </Plain>
   );
 };
