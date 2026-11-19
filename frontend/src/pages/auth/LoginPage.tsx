@@ -1,26 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import {
-  ShieldCheck,
-  Lock,
-  Mail,
-  Key,
-  ArrowRight,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  ChevronLeft,
-  Layers,
-  Activity,
-  Check,
-  Eye,
-  EyeOff,
-  ArrowLeft
-} from 'lucide-react';
-import { Button, Badge } from '../../components/ui';
+import { Link } from 'react-router';
+import { AlertCircle, CheckCircle2, Clock, Eye, EyeOff } from 'lucide-react';
+import { TeslaButton } from '../public/landing/tesla';
+import heroGate from '../public/landing/assets/hero-gate.jpg';
 import { usePlatform } from '../../context/PlatformContext';
 import { authApi } from '../../services/api';
-import { PublicViewType } from '../../components/layout/PublicNavbar';
+import type { PublicViewType } from '../../lib/publicRoutes';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../../components/common/LanguageSwitcher';
 
@@ -245,412 +230,308 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
     setForgotSent(true);
   };
 
+  const goTo = (view: PublicViewType) => (e: React.MouseEvent) => {
+    if (!onNavigate) return;
+    e.preventDefault();
+    onNavigate(view);
+  };
+
+  const field =
+    'block w-full min-h-10 rounded-[4px] border border-[var(--t-line-strong)] bg-transparent px-3 text-sm text-[var(--t-ink)] placeholder:text-[var(--t-fog)] transition-[border-color,box-shadow] duration-[330ms] focus:border-[var(--t-blue)] focus:outline-none focus:shadow-[0_0_0_1px_var(--t-blue)]';
+  const label = 'mb-1.5 block text-sm font-medium text-[var(--t-ink)]';
+  const textLink =
+    'cursor-pointer text-sm text-[var(--t-pewter)] transition-colors duration-[330ms] hover:text-[var(--t-ink)] focus-visible:outline-none focus-visible:underline';
+  const fullBtn = 'sm:w-full!';
+
+  const errorBox = errorMessage && (
+    <p role="alert" className="flex items-start gap-2 rounded-[4px] bg-[var(--t-ash)] px-3 py-2.5 text-sm text-[#c0392b] dark:text-[#ff8a7a]">
+      <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+      <span>{errorMessage}</span>
+    </p>
+  );
+
+  const sessionWarning = mfaSessionTimeLeft > 0 && mfaSessionTimeLeft < 60 && (
+    <p role="status" className="flex items-center gap-2 rounded-[4px] bg-[var(--t-ash)] px-3 py-2.5 text-sm text-[var(--t-body)]">
+      <Clock aria-hidden="true" className="size-4 shrink-0" />
+      <span>{t('MFA session expires in {{seconds}}s', { seconds: mfaSessionTimeLeft })}</span>
+    </p>
+  );
+
+  const emailField = (
+    <div>
+      <label htmlFor="login-email" className={label}>
+        {t('Email')}
+      </label>
+      <input
+        id="login-email"
+        type="email"
+        required
+        autoComplete="username"
+        autoFocus
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="name@company.com"
+        className={field}
+      />
+    </div>
+  );
+
+  const heading = (title: string, hint?: string) => (
+    <div className="mb-8">
+      <h1 className="text-[28px] font-medium leading-[1.2] text-[var(--t-ink)] sm:text-[40px]">{title}</h1>
+      {hint && <p className="mt-2 text-sm leading-5 text-[var(--t-body)]">{hint}</p>}
+    </div>
+  );
+
+  const back = (onClick: () => void, text: string) => (
+    <TeslaButton variant="secondary" className={fullBtn} onClick={onClick}>
+      {text}
+    </TeslaButton>
+  );
+
   return (
-    <div className="min-h-screen w-screen bg-[#0d0e12] text-[#c9d1d9] flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-[#58a6ff] selection:text-slate-950">
-      {/* Background Subtle Glowing Gradients */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-[#58a6ff]/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-[#8250df]/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="tesla min-h-screen w-full bg-[var(--t-canvas)] font-sans text-[var(--t-body)] antialiased lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(440px,0.85fr)]">
+      {/* The photograph carries the brand; the form stays plain. */}
+      <aside className="relative hidden overflow-hidden lg:block" aria-hidden="true">
+        <img src={heroGate} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: '55% 50%' }} />
+        <div className="absolute inset-0 [background-image:linear-gradient(to_bottom,rgba(10,16,22,0.5),rgba(10,16,22,0)_30%,rgba(10,16,22,0)_62%,rgba(10,16,22,0.55))]" />
+        <Link
+          to="/"
+          tabIndex={-1}
+          onClick={goTo('landing')}
+          className="absolute left-10 top-3 text-[15px] font-medium leading-8 tracking-[0.32em] text-[#fff]"
+        >
+          PARKVISION
+        </Link>
+        <p className="absolute bottom-12 left-10 max-w-sm text-[22px] font-medium leading-[1.3] text-[#fff]">
+          {t('Every gate, plate and payment in one place.')}
+        </p>
+      </aside>
 
-      {/* Top navigation helper when onNavigate is provided */}
-      {onNavigate && (
-        <div className="w-full max-w-md flex items-center justify-between mb-3 z-10 text-xs">
-          <button
-            type="button"
-            onClick={() => onNavigate('landing')}
-            className="inline-flex items-center gap-1.5 text-[#8b949e] hover:text-white transition-colors cursor-pointer"
+      <div className="flex min-h-screen flex-col">
+        <div className="flex h-14 items-center justify-between px-6 sm:px-10">
+          <Link
+            to="/"
+            onClick={goTo('landing')}
+            className="text-[15px] font-medium tracking-[0.32em] text-[var(--t-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--t-blue)] lg:invisible"
+            aria-label="ParkVision"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>{t('Back to Home')}</span>
-          </button>
-          <div className="flex items-center gap-2">
+            PARKVISION
+          </Link>
+          <div className="flex items-center gap-4">
             <LanguageSwitcher />
-            <button
-              type="button"
-              onClick={() => onNavigate('register')}
-              className="text-[#58a6ff] hover:underline font-semibold cursor-pointer"
-            >
-              {t('Sign up for a 14-day trial →')}
-            </button>
+            <Link to="/" onClick={goTo('landing')} className={textLink}>
+              {t('Back to Home')}
+            </Link>
           </div>
         </div>
-      )}
 
-      {/* Main Container */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.25 }}
-        className="w-full max-w-md bg-[#161b22] border border-[#30363d] rounded-2xl shadow-2xl overflow-hidden relative z-10 flex flex-col"
-      >
-        {/* Header Header */}
-        <div className="p-6 border-b border-[#30363d] bg-[#0d0e12] text-center relative">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] mb-3">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <h2 className="text-xl font-extrabold text-white tracking-tight">
-            Vehicle Fleet Governance
-          </h2>
-          <p className="text-xs text-[#8b949e] mt-1 font-mono">
-            {t('Centralized Dashboard & Security Administration')}
-          </p>
-        </div>
-
-        {/* Form Body */}
-        <div className="p-6 space-y-5">
-          {/* STEP 1: CREDENTIALS FORM */}
-          {step === 'credentials' && (
-            <form onSubmit={handleCredentialsSubmit} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-[#c9d1d9] block mb-1.5">
-                  {t('Administrator Email Address')}
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-[#8b949e] absolute left-3 top-3" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@vehicleplatform.com"
-                    className="w-full pl-9 pr-3 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-xs text-white placeholder-[#8b949e] focus:outline-none focus:border-[#58a6ff] focus:ring-2 focus:ring-[#58a6ff]/20 transition-all font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-[#c9d1d9] block mb-1.5">
-                  {t('Access Password')}
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-[#8b949e] absolute left-3 top-3" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="w-full pl-9 pr-9 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-xs text-white placeholder-[#8b949e] focus:outline-none focus:border-[#58a6ff] focus:ring-2 focus:ring-[#58a6ff]/20 transition-all font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-[#8b949e] hover:text-white cursor-pointer"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {errorMessage && (
-                <div className="p-3 bg-[#da3633]/20 border border-[#f85149]/40 rounded-xl text-[#f85149] text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{errorMessage}</span>
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                variant="primary"
-                className="w-full py-2.5"
-                isLoading={isLoading}
-                icon={ArrowRight}
-              >
-                {isLoading ? t('Verifying credentials...') : t('Continue to sign in')}
-              </Button>
-
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep('forgot_password');
-                    setErrorMessage(null);
-                    setForgotSent(false);
-                  }}
-                  className="text-[11px] text-[#8b949e] hover:text-[#58a6ff] hover:underline font-mono cursor-pointer"
-                >
-                  {t('Forgot your password?')}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* STEP 0: FORGOT PASSWORD */}
-          {step === 'forgot_password' && (
-            <form onSubmit={handleForgotSubmit} className="space-y-4 animate-in fade-in duration-200">
-              <div className="text-center space-y-1">
-                <h3 className="text-sm font-bold text-white">{t('Reset your password')}</h3>
-                <p className="text-xs text-[#8b949e]">
-                  {t('Enter your account email and we will send you a reset link.')}
-                </p>
-              </div>
-
-              {forgotSent ? (
-                <div className="p-3 bg-[#238636]/15 border border-[#3fb950]/40 rounded-xl text-[#3fb950] text-xs flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>{t('If an account exists for this email, a reset link was sent.')}</span>
-                </div>
-              ) : (
+        <main className="flex flex-1 items-center justify-center px-6 py-10 sm:px-10">
+          <div className="w-full max-w-[380px]">
+            {/* STEP 1: CREDENTIALS */}
+            {step === 'credentials' && (
+              <form onSubmit={handleCredentialsSubmit} className="space-y-5" noValidate>
+                {heading(t('Sign in'), t('Centralized Dashboard & Security Administration'))}
+                {emailField}
                 <div>
-                  <label className="text-xs font-semibold text-[#c9d1d9] block mb-1.5">
-                    {t('Administrator Email Address')}
+                  <label htmlFor="login-password" className={label}>
+                    {t('Password')}
                   </label>
                   <div className="relative">
-                    <Mail className="w-4 h-4 text-[#8b949e] absolute left-3 top-3" />
                     <input
-                      type="email"
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
                       required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="admin@vehicleplatform.com"
-                      className="w-full pl-9 pr-3 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-xs text-white placeholder-[#8b949e] focus:outline-none focus:border-[#58a6ff] focus:ring-2 focus:ring-[#58a6ff]/20 transition-all font-mono"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className={`${field} pr-11`}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? t('Hide password') : t('Show password')}
+                      className="absolute inset-y-0 right-0 flex w-10 cursor-pointer items-center justify-center text-[var(--t-fog)] transition-colors duration-[330ms] hover:text-[var(--t-ink)]"
+                    >
+                      {showPassword ? <EyeOff aria-hidden="true" className="size-4" /> : <Eye aria-hidden="true" className="size-4" />}
+                    </button>
                   </div>
                 </div>
-              )}
 
-              {errorMessage && (
-                <div className="p-3 bg-[#da3633]/20 border border-[#f85149]/40 rounded-xl text-[#f85149] text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{errorMessage}</span>
+                {errorBox}
+
+                <TeslaButton type="submit" className={fullBtn} disabled={isLoading} aria-busy={isLoading}>
+                  {isLoading ? t('Verifying credentials...') : t('Sign in')}
+                </TeslaButton>
+
+                <div className="flex items-center justify-between gap-4 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('forgot_password');
+                      setErrorMessage(null);
+                      setForgotSent(false);
+                    }}
+                    className={textLink}
+                  >
+                    {t('Forgot your password?')}
+                  </button>
+                  <Link to="/register" onClick={goTo('register')} className={textLink}>
+                    {t('Sign up for a 14-day trial →')}
+                  </Link>
                 </div>
-              )}
+              </form>
+            )}
 
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setStep('credentials');
-                    setErrorMessage(null);
-                  }}
-                  icon={ChevronLeft}
-                >
-                  {t('Back')}
-                </Button>
-                {!forgotSent && (
-                  <Button type="submit" variant="primary" className="flex-1" isLoading={isLoading}>
-                    {t('Send reset link')}
-                  </Button>
+            {/* STEP 0: FORGOT PASSWORD */}
+            {step === 'forgot_password' && (
+              <form onSubmit={handleForgotSubmit} className="space-y-5" noValidate>
+                {heading(t('Reset your password'), t('Enter your account email and we will send you a reset link.'))}
+                {forgotSent ? (
+                  <p role="status" className="flex items-start gap-2 rounded-[4px] bg-[var(--t-ash)] px-3 py-2.5 text-sm text-[var(--t-ink)]">
+                    <CheckCircle2 aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-[var(--t-blue)]" />
+                    <span>{t('If an account exists for this email, a reset link was sent.')}</span>
+                  </p>
+                ) : (
+                  emailField
                 )}
-              </div>
-            </form>
-          )}
+                {errorBox}
+                {!forgotSent && (
+                  <TeslaButton type="submit" className={fullBtn} disabled={isLoading} aria-busy={isLoading}>
+                    {t('Send reset link')}
+                  </TeslaButton>
+                )}
+                {back(() => {
+                  setStep('credentials');
+                  setErrorMessage(null);
+                }, t('Back'))}
+              </form>
+            )}
 
-          {/* STEP 2: MFA TOTP CHALLENGE */}
-          {step === 'mfa_challenge' && (
-            <div className="space-y-5 animate-in fade-in duration-200">
-              <div className="text-center space-y-1">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#8250df]/20 text-[#a371f7] border border-[#8250df]/30 text-[11px] font-mono font-semibold">
-                  <ShieldCheck className="w-3.5 h-3.5" /> {t('2FA Security Flow (TOTP)')}
-                </div>
-                <h3 className="text-sm font-bold text-white pt-2">{t('Enter your 6-digit verification code')}</h3>
-                <p className="text-xs text-[#8b949e]">
-                  {t('Open Google Authenticator or Authy on your phone.')}
-                </p>
-              </div>
-
-              {/* 6 Digit Input Grid */}
-              <form onSubmit={handleMfaSubmit} className="space-y-4">
-                <div className="flex justify-center items-center gap-2">
+            {/* STEP 2: TOTP CHALLENGE */}
+            {step === 'mfa_challenge' && (
+              <form onSubmit={handleMfaSubmit} className="space-y-5">
+                {heading(t('Enter your 6-digit verification code'), t('Open Google Authenticator or Authy on your phone.'))}
+                <div className="flex items-center justify-between gap-2" role="group" aria-label={t('2FA Security Flow (TOTP)')}>
                   {otpDigits.map((digit, index) => (
                     <input
                       key={index}
-                      ref={(el) => { inputRefs.current[index] = el; }}
+                      ref={(el) => {
+                        inputRefs.current[index] = el;
+                      }}
                       type="text"
                       inputMode="numeric"
+                      autoComplete={index === 0 ? 'one-time-code' : 'off'}
                       maxLength={1}
                       value={digit}
+                      aria-label={`${index + 1} / 6`}
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
                       onPaste={index === 0 ? handleOtpPaste : undefined}
-                      className={`w-11 h-13 text-center text-xl font-bold font-mono rounded-xl border bg-[#0d0e12] focus:outline-none transition-all ${
+                      className={`h-12 w-full min-w-0 rounded-[4px] border bg-transparent text-center text-xl font-medium text-[var(--t-ink)] transition-[border-color,box-shadow] duration-[330ms] focus:outline-none focus:shadow-[0_0_0_1px_var(--t-blue)] ${
                         errorMessage
-                          ? 'border-[#f85149] text-[#f85149]'
+                          ? 'border-[#c0392b]'
                           : digit
-                          ? 'border-[#58a6ff] text-[#58a6ff] bg-[#58a6ff]/10'
-                          : 'border-[#30363d] text-white hover:border-[#484f58] focus:border-[#58a6ff]'
+                            ? 'border-[var(--t-ink)]'
+                            : 'border-[var(--t-line-strong)] focus:border-[var(--t-blue)]'
                       }`}
                     />
                   ))}
                 </div>
 
-                {/* Live Countdown Timer */}
-                <div className="flex items-center justify-between px-3 py-2 bg-[#0d0e12] border border-[#30363d] rounded-xl text-[11px] text-[#8b949e]">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-[#58a6ff]" />
-                    <span>{t('Code refreshes in:')}</span>
-                  </div>
-                  <div className="flex items-center gap-2 font-mono">
-                    <span className="font-bold text-white">{countdown}s</span>
-                    <div className="w-14 h-1.5 bg-[#21262d] rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-[#58a6ff] transition-all duration-1000"
-                        style={{ width: `${(countdown / 30) * 100}%` }}
-                      />
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between text-sm text-[var(--t-pewter)]">
+                  <span>{t('Code refreshes in:')}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="w-8 text-right font-medium tabular-nums text-[var(--t-ink)]">{countdown}s</span>
+                    <span className="h-1 w-16 overflow-hidden rounded-[2px] bg-[var(--t-line)]">
+                      <span className="block h-full bg-[var(--t-blue)] transition-[width] duration-1000 ease-linear" style={{ width: `${(countdown / 30) * 100}%` }} />
+                    </span>
+                  </span>
                 </div>
 
-                {/* MFA session expiry warning — appears under 60s remaining */}
-                {mfaSessionTimeLeft > 0 && mfaSessionTimeLeft < 60 && (
-                  <div className="p-2.5 bg-[#d29922]/15 border border-[#d29922]/40 rounded-xl text-[#e3b341] text-[11px] flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 shrink-0" />
-                    <span>{t('MFA session expires in {{seconds}}s', { seconds: mfaSessionTimeLeft })}</span>
-                  </div>
-                )}
+                {sessionWarning}
+                {errorBox}
 
-                {errorMessage && (
-                  <div className="p-3 bg-[#da3633]/20 border border-[#f85149]/40 rounded-xl text-[#f85149] text-xs flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>{errorMessage}</span>
-                  </div>
-                )}
-
-                {/* Recovery-code fallback */}
-                <div className="flex items-center justify-end text-[11px] pt-1">
+                <TeslaButton type="submit" className={fullBtn} disabled={isLoading} aria-busy={isLoading}>
+                  {t('Verify OTP Code')}
+                </TeslaButton>
+                <div className="flex items-center justify-between gap-4 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('credentials');
+                      setErrorMessage(null);
+                    }}
+                    className={textLink}
+                  >
+                    {t('Back')}
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
                       setStep('backup_code');
                       setErrorMessage(null);
                     }}
-                    className="text-[#8b949e] hover:text-white hover:underline font-mono cursor-pointer"
+                    className={textLink}
                   >
                     {t('Use a recovery code')}
                   </button>
                 </div>
-
-                <div className="flex items-center gap-2 pt-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setStep('credentials');
-                      setErrorMessage(null);
-                    }}
-                    icon={ChevronLeft}
-                  >
-                    {t('Back')}
-                  </Button>
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    className="flex-1 py-2.5"
-                    isLoading={isLoading}
-                    icon={ShieldCheck}
-                  >
-                    {t('Verify OTP Code')}
-                  </Button>
-                </div>
               </form>
-            </div>
-          )}
+            )}
 
-          {/* STEP 3: BACKUP RECOVERY CODE */}
-          {step === 'backup_code' && (
-            <form onSubmit={handleBackupCodeSubmit} className="space-y-4 animate-in fade-in duration-200">
-              <div className="text-center space-y-1">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#d29922]/20 text-[#d29922] border border-[#d29922]/30 text-[11px] font-mono font-semibold">
-                  <Key className="w-3.5 h-3.5" /> {t('Emergency Recovery Code')}
+            {/* STEP 3: RECOVERY CODE */}
+            {step === 'backup_code' && (
+              <form onSubmit={handleBackupCodeSubmit} className="space-y-5">
+                {heading(
+                  t('Enter an emergency recovery code'),
+                  t('Enter one of the 8 backup codes (8 characters) issued when 2FA was enabled.'),
+                )}
+                <div>
+                  <label htmlFor="login-recovery" className={label}>
+                    {t('Emergency Recovery Code')}
+                  </label>
+                  <input
+                    id="login-recovery"
+                    type="text"
+                    required
+                    autoFocus
+                    autoComplete="off"
+                    value={backupCode}
+                    onChange={(e) => setBackupCode(e.target.value)}
+                    placeholder="a7f9-4b2c"
+                    className={`${field} text-center font-mono tracking-[0.2em] uppercase`}
+                  />
                 </div>
-                <h3 className="text-sm font-bold text-white pt-2">{t('Enter an emergency recovery code')}</h3>
-                <p className="text-xs text-[#8b949e]">
-                  {t('Enter one of the 8 backup codes (8 characters) issued when 2FA was enabled.')}
-                </p>
-              </div>
-
-              <div>
-                <input
-                  type="text"
-                  required
-                  value={backupCode}
-                  onChange={(e) => setBackupCode(e.target.value)}
-                  placeholder="e.g. a7f9-4b2c"
-                  className="w-full px-3 py-2.5 bg-[#0d0e12] border border-[#30363d] rounded-xl text-sm font-mono font-bold text-center text-[#58a6ff] tracking-widest placeholder-[#8b949e] focus:outline-none focus:border-[#58a6ff] focus:ring-2 focus:ring-[#58a6ff]/20 uppercase"
-                />
-              </div>
-
-              {/* MFA session expiry warning — appears under 60s remaining */}
-              {mfaSessionTimeLeft > 0 && mfaSessionTimeLeft < 60 && (
-                <div className="p-2.5 bg-[#d29922]/15 border border-[#d29922]/40 rounded-xl text-[#e3b341] text-[11px] flex items-center gap-2">
-                  <Clock className="w-3.5 h-3.5 shrink-0" />
-                  <span>{t('MFA session expires in {{seconds}}s', { seconds: mfaSessionTimeLeft })}</span>
-                </div>
-              )}
-
-              {errorMessage && (
-                <div className="p-3 bg-[#da3633]/20 border border-[#f85149]/40 rounded-xl text-[#f85149] text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{errorMessage}</span>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setStep('mfa_challenge');
-                    setErrorMessage(null);
-                  }}
-                  icon={ChevronLeft}
-                >
-                  {t('Back to TOTP')}
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  className="flex-1 py-2.5"
-                  isLoading={isLoading}
-                  icon={CheckCircle2}
-                >
+                {sessionWarning}
+                {errorBox}
+                <TeslaButton type="submit" className={fullBtn} disabled={isLoading} aria-busy={isLoading}>
                   {t('Verify with Recovery Code')}
-                </Button>
-              </div>
-            </form>
-          )}
-        </div>
+                </TeslaButton>
+                {back(() => {
+                  setStep('mfa_challenge');
+                  setErrorMessage(null);
+                }, t('Back to TOTP'))}
+              </form>
+            )}
+          </div>
+        </main>
 
-        {/* Footer info */}
-        <div className="p-4 bg-[#0d0e12] border-t border-[#30363d] text-center text-[11px] text-[#8b949e] font-mono flex items-center justify-between">
-          <span>VehiclePlatform v4.8.2-prod</span>
-          <span className="flex items-center gap-1 text-[#3fb950]">
-            <Check className="w-3 h-3" /> TOTP 2FA Enabled
-          </span>
-        </div>
-      </motion.div>
-
-      {/* Bottom Legal Navigation */}
-      {onNavigate && (
-        <div className="w-full max-w-md text-center text-[11px] text-[#8b949e] mt-4 flex items-center justify-center gap-4 z-10">
-          <button
-            type="button"
-            onClick={() => onNavigate('privacy')}
-            className="hover:text-white transition-colors cursor-pointer"
-          >
-            {t('Privacy Policy')}
-          </button>
-          <span>•</span>
-          <button
-            type="button"
-            onClick={() => onNavigate('terms')}
-            className="hover:text-white transition-colors cursor-pointer"
-          >
-            {t('Terms of Service')}
-          </button>
-          <span>•</span>
-          <button
-            type="button"
-            onClick={() => onNavigate('sla')}
-            className="hover:text-white transition-colors cursor-pointer"
-          >
-            {t('99.9% SLA Commitment')}
-          </button>
-        </div>
-      )}
+        <footer className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 px-6 pb-6 text-xs text-[var(--t-pewter)]">
+          {(
+            [
+              ['privacy', 'Privacy Policy', '/privacy'],
+              ['terms', 'Terms of Service', '/terms'],
+              ['sla', '99.9% SLA Commitment', '/sla'],
+            ] as const
+          ).map(([view, text, to]) => (
+            <Link key={view} to={to} onClick={goTo(view)} className="transition-colors duration-[330ms] hover:text-[var(--t-ink)]">
+              {t(text)}
+            </Link>
+          ))}
+        </footer>
+      </div>
     </div>
   );
 };
