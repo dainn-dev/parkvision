@@ -78,7 +78,7 @@ export const RegisterDeviceModal: React.FC<RegisterDeviceModalProps> = ({ isOpen
       onClose={onClose}
       title={
         <span className="flex items-center gap-2">
-          <Server className="w-5 h-5 text-[#58a6ff]" />
+          <Server className="w-5 h-5 text-primary" />
           {t('Register Edge Device')}
         </span>
       }
@@ -98,7 +98,7 @@ export const RegisterDeviceModal: React.FC<RegisterDeviceModalProps> = ({ isOpen
     >
       <form id="register-device-form" onSubmit={handleSubmit} className="p-6 space-y-4">
         {error && (
-          <div className="p-3 rounded-lg bg-[#f85149]/10 border border-[#f85149]/30 text-xs text-[#f85149]">
+          <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-xs text-destructive">
             {error}
           </div>
         )}

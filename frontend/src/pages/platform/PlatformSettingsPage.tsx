@@ -51,13 +51,13 @@ export const PlatformSettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-[330ms]">
       {/* Top Title */}
       <div>
-        <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-          <Settings className="w-5 h-5 text-indigo-400" /> {t('Platform Global Settings')}
+        <h2 className="text-xl font-medium text-foreground tracking-tight flex items-center gap-2">
+          <Settings className="w-5 h-5 text-primary" /> {t('Platform Global Settings')}
         </h2>
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-xs text-muted-foreground mt-1">
           {t('Configure multi-tenant default security policies, token lifetimes, storage retention, and notification defaults.')}
         </p>
       </div>
@@ -69,10 +69,10 @@ export const PlatformSettingsPage: React.FC = () => {
           <div className="space-y-1 text-xs font-medium">
             <button
               onClick={() => handleSectionChange('general')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer ${
                 settingsSection === 'general'
-                  ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20'
-                  : 'text-slate-300 hover:bg-slate-800'
+                  ? 'bg-primary text-[#fff] font-medium '
+                  : 'text-foreground hover:bg-muted'
               }`}
             >
               <Settings className="w-4 h-4" />
@@ -81,49 +81,49 @@ export const PlatformSettingsPage: React.FC = () => {
 
             <button
               onClick={() => handleSectionChange('authentication')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer ${
                 settingsSection === 'authentication'
-                  ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20'
-                  : 'text-slate-300 hover:bg-slate-800'
+                  ? 'bg-primary text-[#fff] font-medium '
+                  : 'text-foreground hover:bg-muted'
               }`}
             >
-              <Lock className="w-4 h-4 text-amber-400" />
+              <Lock className="w-4 h-4 text-warning" />
               <span>{t('Authentication')}</span>
             </button>
 
             <button
               onClick={() => handleSectionChange('security')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer ${
                 settingsSection === 'security'
-                  ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20'
-                  : 'text-slate-300 hover:bg-slate-800'
+                  ? 'bg-primary text-[#fff] font-medium '
+                  : 'text-foreground hover:bg-muted'
               }`}
             >
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <ShieldCheck className="w-4 h-4 text-success" />
               <span>{t('Security Policy')}</span>
             </button>
 
             <button
               onClick={() => handleSectionChange('storage')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer ${
                 settingsSection === 'storage'
-                  ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20'
-                  : 'text-slate-300 hover:bg-slate-800'
+                  ? 'bg-primary text-[#fff] font-medium '
+                  : 'text-foreground hover:bg-muted'
               }`}
             >
-              <Database className="w-4 h-4 text-sky-400" />
+              <Database className="w-4 h-4 text-primary" />
               <span>{t('Storage & Retention')}</span>
             </button>
 
             <button
               onClick={() => handleSectionChange('notifications')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-pointer ${
                 settingsSection === 'notifications'
-                  ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20'
-                  : 'text-slate-300 hover:bg-slate-800'
+                  ? 'bg-primary text-[#fff] font-medium '
+                  : 'text-foreground hover:bg-muted'
               }`}
             >
-              <Bell className="w-4 h-4 text-purple-400" />
+              <Bell className="w-4 h-4 text-chart-5" />
               <span>{t('Notifications')}</span>
             </button>
           </div>
@@ -148,7 +148,7 @@ export const PlatformSettingsPage: React.FC = () => {
 
           <CardContent className="space-y-5">
             {!canManage && (
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+              <div className="p-3 rounded-xl bg-warning/10 border border-warning/30 text-warning text-xs">
                 {t('Your role has read-only access to platform settings.')}
               </div>
             )}
@@ -307,10 +307,10 @@ export const PlatformSettingsPage: React.FC = () => {
 
                 {/* Self-service MFA enrollment is not role-gated server-side —
                     every platform admin manages their own MFA regardless of role. */}
-                <div className="p-4 bg-[#0d0e12] border border-[#30363d] rounded-xl flex items-center justify-between gap-3">
+                <div className="p-4 bg-background border border-border rounded-xl flex items-center justify-between gap-3">
                   <div>
-                    <h5 className="font-bold text-white text-xs">{t('Self-Enrollment & Verification Test')}</h5>
-                    <p className="text-[11px] text-[#8b949e] mt-0.5">
+                    <h5 className="font-medium text-foreground text-xs">{t('Self-Enrollment & Verification Test')}</h5>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
                       {t('Pair your authenticator app, scan QR code, or test 6-digit TOTP validation.')}
                     </p>
                   </div>
@@ -420,7 +420,7 @@ export const PlatformSettingsPage: React.FC = () => {
 
             {/* Save / Reset Bar */}
             {canManage && (
-              <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-3 pt-6 border-t border-border">
                 <Button variant="ghost" size="sm" icon={RotateCcw} onClick={handleReset}>
                   {t('Reset Section')}
                 </Button>

@@ -115,97 +115,97 @@ export const TenantSettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-12 animate-in fade-in duration-300 max-w-4xl">
-      <div className="flex items-center justify-between gap-4 bg-[#161b22]/70 p-5 rounded-2xl border border-[#30363d] backdrop-blur-xs">
+    <div className="space-y-6 pb-12 animate-in fade-in duration-[330ms] max-w-4xl">
+      <div className="flex items-center justify-between gap-4 bg-card/70 p-5 rounded-2xl border border-border ">
         <div>
           <div className="flex items-center gap-2.5">
-            <Settings className="w-6 h-6 text-[#58a6ff]" />
-            <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
+            <Settings className="w-6 h-6 text-primary" />
+            <h1 className="text-xl md:text-2xl font-medium text-foreground tracking-tight">
               {t('Tenant Organization & Site Settings')}
             </h1>
           </div>
-          <p className="text-xs text-[#8b949e] mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {t('Configure default OCR recognition thresholds, automated barrier relay policies, and webhook subscriptions')}
           </p>
         </div>
-        {!loaded && <span className="text-[11px] text-[#8b949e]">{t('Loading…')}</span>}
+        {!loaded && <span className="text-[11px] text-muted-foreground">{t('Loading…')}</span>}
       </div>
 
       <form onSubmit={handleSave} className="space-y-5 text-xs">
         {!canManage && (
-          <div className="p-3 rounded-xl bg-[#d29922]/10 border border-[#d29922]/30 text-[#e3b341] text-[11px]">
+          <div className="p-3 rounded-xl bg-warning/10 border border-warning/30 text-warning text-[11px]">
             {t('Your role has read-only access to these settings.')}
           </div>
         )}
         <fieldset disabled={!canManage} className="space-y-5 contents">
         {/* Org Profile */}
-        <div className="p-5 rounded-2xl bg-[#161b22] border border-[#30363d] space-y-4">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-[#58a6ff]" />
+        <div className="p-5 rounded-2xl bg-card border border-border space-y-4">
+          <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-primary" />
             {t('Tenant Organization Profile')}
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Tenant Display Name')}</label>
+              <label className="block text-foreground font-medium mb-1.5">{t('Tenant Display Name')}</label>
               <Input
                 value={settings.orgName}
                 onChange={(e) => setSettings({ ...settings, orgName: e.target.value })}
-                className="bg-[#0d0e12] border-[#30363d] text-white"
+                className="bg-background border-border text-foreground"
               />
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Administrative Contact Email')}</label>
+              <label className="block text-foreground font-medium mb-1.5">{t('Administrative Contact Email')}</label>
               <Input
                 value={settings.contactEmail}
                 onChange={(e) => setSettings({ ...settings, contactEmail: e.target.value })}
-                className="bg-[#0d0e12] border-[#30363d] text-white"
+                className="bg-background border-border text-foreground"
               />
             </div>
           </div>
         </div>
 
         {/* ANPR Automation */}
-        <div className="p-5 rounded-2xl bg-[#161b22] border border-[#30363d] space-y-4">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <HardDrive className="w-4 h-4 text-[#3fb950]" />
+        <div className="p-5 rounded-2xl bg-card border border-border space-y-4">
+          <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+            <HardDrive className="w-4 h-4 text-success" />
             {t('ANPR Engine & Gate Automation Rules')}
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+              <label className="block text-foreground font-medium mb-1.5">
                 {t('Minimum OCR Confidence Threshold (%)')}
               </label>
               <Input
                 type="number"
                 value={settings.ocrConfidenceThreshold}
                 onChange={(e) => setSettings({ ...settings, ocrConfidenceThreshold: e.target.value })}
-                className="bg-[#0d0e12] border-[#30363d] text-white font-mono"
+                className="bg-background border-border text-foreground "
               />
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+              <label className="block text-foreground font-medium mb-1.5">
                 {t('Loop-Clear Delay (ms)')}
               </label>
               <Input
                 type="number"
                 value={settings.loopClearDelayMs}
                 onChange={(e) => setSettings({ ...settings, loopClearDelayMs: e.target.value })}
-                className="bg-[#0d0e12] border-[#30363d] text-white font-mono"
+                className="bg-background border-border text-foreground "
               />
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+              <label className="block text-foreground font-medium mb-1.5">
                 {t('Edge Backup Frequency')}
               </label>
               <select
                 value={settings.backupFrequency}
                 onChange={(e) => setSettings({ ...settings, backupFrequency: e.target.value })}
-                className="w-full bg-[#0d0e12] border border-[#30363d] rounded-lg px-3 py-2 text-white"
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground"
               >
                 <option value="REALTIME">{t('Continuous Real-time Streaming')}</option>
                 <option value="HOURLY">{t('Hourly Batch Sync')}</option>
@@ -214,14 +214,14 @@ export const TenantSettingsPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+              <label className="block text-foreground font-medium mb-1.5">
                 {t('Event Retention (days)')}
               </label>
               <Input
                 type="number"
                 value={settings.retentionDays}
                 onChange={(e) => setSettings({ ...settings, retentionDays: e.target.value })}
-                className="bg-[#0d0e12] border-[#30363d] text-white font-mono"
+                className="bg-background border-border text-foreground "
               />
             </div>
           </div>
@@ -232,9 +232,9 @@ export const TenantSettingsPage: React.FC = () => {
                 type="checkbox"
                 checked={settings.autoOpenBarrier}
                 onChange={(e) => setSettings({ ...settings, autoOpenBarrier: e.target.checked })}
-                className="rounded border-[#30363d] text-[#58a6ff]"
+                className="rounded border-border text-primary"
               />
-              <span className="text-[#c9d1d9]">
+              <span className="text-foreground">
                 {t('Automatically trigger barrier relay open when registered plate matches whitelist')}
               </span>
             </label>
@@ -244,9 +244,9 @@ export const TenantSettingsPage: React.FC = () => {
                 type="checkbox"
                 checked={settings.alarmOnUnknownPlate}
                 onChange={(e) => setSettings({ ...settings, alarmOnUnknownPlate: e.target.checked })}
-                className="rounded border-[#30363d] text-[#58a6ff]"
+                className="rounded border-border text-primary"
               />
-              <span className="text-[#c9d1d9]">
+              <span className="text-foreground">
                 {t('Send operator alert push notification when unregistered or unknown vehicle approaches gate')}
               </span>
             </label>
@@ -256,9 +256,9 @@ export const TenantSettingsPage: React.FC = () => {
                 type="checkbox"
                 checked={settings.notifyOnCritical}
                 onChange={(e) => setSettings({ ...settings, notifyOnCritical: e.target.checked })}
-                className="rounded border-[#30363d] text-[#58a6ff]"
+                className="rounded border-border text-primary"
               />
-              <span className="text-[#c9d1d9]">
+              <span className="text-foreground">
                 {t('Push critical-severity incidents to webhook + Telegram')}
               </span>
             </label>
@@ -266,33 +266,33 @@ export const TenantSettingsPage: React.FC = () => {
         </div>
 
         {/* Webhooks */}
-        <div className="p-5 rounded-2xl bg-[#161b22] border border-[#30363d] space-y-4">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <Radio className="w-4 h-4 text-[#a371f7]" />
+        <div className="p-5 rounded-2xl bg-card border border-border space-y-4">
+          <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+            <Radio className="w-4 h-4 text-chart-5" />
             {t('Outbound Webhook Dispatch')}
           </h3>
 
           <div>
-            <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Webhook Endpoint URL')}</label>
+            <label className="block text-foreground font-medium mb-1.5">{t('Webhook Endpoint URL')}</label>
             <Input
               value={settings.webhookUrl}
               onChange={(e) => setSettings({ ...settings, webhookUrl: e.target.value })}
-              className="bg-[#0d0e12] border-[#30363d] text-white font-mono"
+              className="bg-background border-border text-foreground "
             />
-            <p className="text-[11px] text-[#8b949e] mt-1">
+            <p className="text-[11px] text-muted-foreground mt-1">
               {t('Events will be dispatched in JSON payload upon every gate open, denied, or manual override event.')}
             </p>
           </div>
 
           <div>
-            <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Telegram Chat ID')}</label>
+            <label className="block text-foreground font-medium mb-1.5">{t('Telegram Chat ID')}</label>
             <Input
               value={settings.telegramChatId}
               onChange={(e) => setSettings({ ...settings, telegramChatId: e.target.value })}
               placeholder="-100xxxxxxxxxx"
-              className="bg-[#0d0e12] border-[#30363d] text-white font-mono"
+              className="bg-background border-border text-foreground "
             />
-            <p className="text-[11px] text-[#8b949e] mt-1">
+            <p className="text-[11px] text-muted-foreground mt-1">
               {t('Target chat/channel for critical incident alerts via the platform notification dispatcher.')}
             </p>
           </div>
@@ -305,7 +305,7 @@ export const TenantSettingsPage: React.FC = () => {
               type="submit"
               variant="primary"
               disabled={isSaving}
-              className="bg-[#238636] hover:bg-[#2ea043] text-white gap-2"
+              className="bg-primary hover:bg-primary/90 text-[#fff] gap-2"
             >
               <Save className="w-4 h-4" />
               {isSaving ? t('Saving…') : t('Save Changes')}

@@ -49,44 +49,44 @@ export const UpdatePlateModal: React.FC<UpdatePlateModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/75 backdrop-blur-xs" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/75 " onClick={onClose} />
 
-      <div className="relative w-full max-w-md bg-[#0d0e12] border border-[#30363d] rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200">
-        <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between bg-[#161b22]">
+      <div className="relative w-full max-w-md bg-background border border-border rounded-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-[330ms]">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-card">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 text-primary flex items-center justify-center">
               <Tag className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">{t('Replace License Plate')}</h3>
-              <p className="text-xs text-[#8b949e]">{t('Update active plate for {{name}}', { name: vehicle.name })}</p>
+              <h3 className="text-base font-medium text-foreground tracking-tight">{t('Replace License Plate')}</h3>
+              <p className="text-xs text-muted-foreground">{t('Update active plate for {{name}}', { name: vehicle.name })}</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white hover:bg-[#30363d] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground hover:bg-border flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
-          <div className="p-3 rounded-xl bg-[#161b22] border border-[#30363d]">
-            <span className="text-[#8b949e] text-[11px] block">{t('Current Active Plate')}</span>
+          <div className="p-3 rounded-xl bg-card border border-border">
+            <span className="text-muted-foreground text-[11px] block">{t('Current Active Plate')}</span>
             <div className="flex items-center gap-2 mt-1">
-              <span className="font-mono font-bold text-white text-sm px-2.5 py-0.5 rounded bg-[#0d0e12] border border-[#30363d]">
+              <span className=" font-medium text-foreground text-sm px-2.5 py-0.5 rounded bg-background border border-border">
                 {vehicle.currentPlate.number}
               </span>
-              <span className="text-[11px] text-[#8b949e]">
+              <span className="text-[11px] text-muted-foreground">
                 {t('(Will be archived into historical records)')}
               </span>
             </div>
           </div>
 
           <div>
-            <label className="block text-[#c9d1d9] font-medium mb-1.5">
-              {t('New License Plate Number')} <span className="text-[#f85149]">*</span>
+            <label className="block text-foreground font-medium mb-1.5">
+              {t('New License Plate Number')} <span className="text-destructive">*</span>
             </label>
             <Input
               placeholder={t('e.g. 51H-999.88 or 30E-12345')}
@@ -96,41 +96,41 @@ export const UpdatePlateModal: React.FC<UpdatePlateModalProps> = ({
                 setErrorMessage(null);
               }}
               required
-              className="bg-[#161b22] border-[#30363d] text-white font-mono text-base tracking-wider"
+              className="bg-card border-border text-foreground text-base tracking-wider"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+              <label className="block text-foreground font-medium mb-1.5">
                 {t('Province / City')}
               </label>
               <Input
                 value={province}
                 onChange={(e) => setProvince(e.target.value)}
-                className="bg-[#161b22] border-[#30363d] text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+              <label className="block text-foreground font-medium mb-1.5">
                 {t('Country')}
               </label>
               <Input
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
-                className="bg-[#161b22] border-[#30363d] text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
           </div>
 
           {errorMessage && (
-            <div className="p-3 rounded-lg bg-[#da3633]/15 border border-[#da3633]/30 text-[#f85149] flex items-center gap-2">
+            <div className="p-3 rounded-lg bg-destructive/15 border border-destructive/30 text-destructive flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMessage}</span>
             </div>
           )}
 
-          <div className="pt-3 border-t border-[#30363d] flex items-center justify-end gap-3">
+          <div className="pt-3 border-t border-border flex items-center justify-end gap-3">
             <Button
               type="button"
               variant="outline"
@@ -142,7 +142,7 @@ export const UpdatePlateModal: React.FC<UpdatePlateModalProps> = ({
             <Button
               type="submit"
               variant="primary"
-              className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
+              className="text-xs bg-primary hover:bg-primary/90 text-[#fff] gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
               {t('Update Plate')}

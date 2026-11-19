@@ -7,41 +7,41 @@
 
 @layer base {
   :root {
-    /* ParkVision light semantic palette */
-    --background: #f6f8fa;
-    --foreground: #1f2328;
+    /* ParkVision light palette: the Tesla system (design-md/tesla) */
+    --background: #ffffff;
+    --foreground: #171a20;
     --card: #ffffff;
-    --card-foreground: #1f2328;
+    --card-foreground: #171a20;
     --popover: #ffffff;
-    --popover-foreground: #1f2328;
-    --primary: #0969da;
+    --popover-foreground: #171a20;
+    --primary: #3e6ae1;
     --primary-foreground: #ffffff;
-    --secondary: #eaeef2;
-    --secondary-foreground: #1f2328;
-    --muted: #f3f4f6;
-    --muted-foreground: #57606a;
-    --accent: #ddf4ff;
-    --accent-foreground: #0969da;
-    --destructive: #cf222e;
-    --border: #d0d7de;
-    --input: #d0d7de;
-    --ring: #0969da;
+    --secondary: #f4f4f4;
+    --secondary-foreground: #171a20;
+    --muted: #f4f4f4;
+    --muted-foreground: #5c5e62;
+    --accent: #eef2fd;
+    --accent-foreground: #3e6ae1;
+    --destructive: #c0392b;
+    --border: #e4e5e6;
+    --input: #d0d1d2;
+    --ring: #3e6ae1;
     --surface-elevated: #ffffff;
-    --surface-hover: #f3f4f6;
-    --success: #1a7f37;
-    --warning: #9a6700;
-    --radius: 0.75rem;
+    --surface-hover: #f4f4f4;
+    --success: #1e7d4f;
+    --warning: #9a6200;
+    --radius: 0.25rem;
 
     /* Backward-compatible aliases for existing screens */
-    --bg-main: #f6f8fa;
+    --bg-main: #ffffff;
     --bg-card: #ffffff;
-    --border-color: #d0d7de;
-    --text-primary: #1f2328;
-    --text-secondary: #57606a;
-    --accent-blue: #0969da;
-    --accent-danger: #cf222e;
-    --accent-success: #1a7f37;
-    --accent-warning: #9a6700;
+    --border-color: #e4e5e6;
+    --text-primary: #171a20;
+    --text-secondary: #5c5e62;
+    --accent-blue: #3e6ae1;
+    --accent-danger: #c0392b;
+    --accent-success: #1e7d4f;
+    --accent-warning: #9a6200;
   }
 
   .light {
@@ -50,39 +50,39 @@
 
   .dark {
     color-scheme: dark;
-    /* ParkVision dark semantic palette */
-    --background: #0d0e12;
-    --foreground: #c9d1d9;
-    --card: #161b22;
-    --card-foreground: #c9d1d9;
-    --popover: #161b22;
-    --popover-foreground: #c9d1d9;
-    --primary: #58a6ff;
-    --primary-foreground: #0d0e12;
-    --secondary: #21262d;
-    --secondary-foreground: #c9d1d9;
-    --muted: #21262d;
-    --muted-foreground: #8b949e;
-    --accent: #1f6feb33;
-    --accent-foreground: #58a6ff;
-    --destructive: #f85149;
-    --border: #30363d;
-    --input: #30363d;
-    --ring: #58a6ff;
-    --surface-elevated: #1c2128;
-    --surface-hover: #1c2128;
-    --success: #3fb950;
-    --warning: #d29922;
+    /* Carbon Dark surface of the same system */
+    --background: #171a20;
+    --foreground: #f4f4f4;
+    --card: #1f232b;
+    --card-foreground: #f4f4f4;
+    --popover: #1f232b;
+    --popover-foreground: #f4f4f4;
+    --primary: #4d78e8;
+    --primary-foreground: #ffffff;
+    --secondary: #272b34;
+    --secondary-foreground: #f4f4f4;
+    --muted: #272b34;
+    --muted-foreground: #9a9da3;
+    --accent: #4d78e826;
+    --accent-foreground: #8aa9f5;
+    --destructive: #ff7a6b;
+    --border: #2f343d;
+    --input: #3a3f48;
+    --ring: #4d78e8;
+    --surface-elevated: #272b34;
+    --surface-hover: #272b34;
+    --success: #4cc38a;
+    --warning: #e0a93b;
 
-    --bg-main: #0d0e12;
-    --bg-card: #161b22;
-    --border-color: #30363d;
-    --text-primary: #c9d1d9;
-    --text-secondary: #8b949e;
-    --accent-blue: #58a6ff;
-    --accent-danger: #f85149;
-    --accent-success: #3fb950;
-    --accent-warning: #d29922;
+    --bg-main: #171a20;
+    --bg-card: #1f232b;
+    --border-color: #2f343d;
+    --text-primary: #f4f4f4;
+    --text-secondary: #9a9da3;
+    --accent-blue: #4d78e8;
+    --accent-danger: #ff7a6b;
+    --accent-success: #4cc38a;
+    --accent-warning: #e0a93b;
   }
 
   body {
@@ -339,61 +339,58 @@ html.light body,
 .light select,
 .light textarea {
   background-color: #ffffff !important;
-  color: #1f2328 !important;
-  border-color: #d0d7de !important;
+  color: #171a20 !important;
+  border-color: #d0d1d2 !important;
 }
 
 .light input:focus,
 .light select:focus,
 .light textarea:focus {
-  border-color: #0969da !important;
-  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.15) !important;
+  border-color: #3e6ae1 !important;
+  box-shadow: 0 0 0 1px #3e6ae1 !important;
 }
 
 .light input::placeholder {
-  color: #8c959f !important;
+  color: #8e8e8e !important;
 }
 
 /* Header & Sidebar in Light Mode */
 .light header:not(.tesla) {
   background-color: #ffffff !important;
-  border-bottom-color: #d0d7de !important;
-  box-shadow: 0 1px 2px rgba(31, 35, 40, 0.04);
+  border-bottom-color: #e4e5e6 !important;
 }
 
 .light aside {
   background-color: #ffffff !important;
-  border-right-color: #d0d7de !important;
+  border-right-color: #e4e5e6 !important;
 }
 
 /* Scrollbar adaptation for light mode */
 html.light ::-webkit-scrollbar-track,
 .light ::-webkit-scrollbar-track {
-  background: #f6f8fa;
+  background: #ffffff;
 }
 
 html.light ::-webkit-scrollbar-thumb,
 .light ::-webkit-scrollbar-thumb {
-  background: #d0d7de;
+  background: #d0d1d2;
 }
 
 html.light ::-webkit-scrollbar-thumb:hover,
 .light ::-webkit-scrollbar-thumb:hover {
-  background: #afb8c1;
+  background: #8e8e8e;
 }
 
 /* Shared surface and bento helpers */
 .bento-card {
   background-color: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 5%, transparent);
-  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  border-radius: 8px;
+  transition: border-color 0.33s var(--ease-tesla, ease);
 }
 
 .bento-card:hover {
-  border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--foreground) 9%, transparent);
+  border-color: color-mix(in srgb, var(--foreground) 30%, var(--border));
 }
 
 .bento-card-title {
@@ -422,12 +419,11 @@ html.light ::-webkit-scrollbar-thumb:hover,
 }
 
 .surface-interactive {
-  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  transition: border-color 0.33s var(--ease-tesla, ease);
 }
 
 .surface-interactive:hover {
-  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--foreground) 8%, transparent);
+  border-color: color-mix(in srgb, var(--foreground) 30%, var(--border));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -443,14 +439,14 @@ html.light ::-webkit-scrollbar-thumb:hover,
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0d0e12;
+  background: #171a20;
 }
 ::-webkit-scrollbar-thumb {
-  background: #30363d;
+  background: #3a3f48;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #484f58;
+  background: #5c5e62;
 }
 
 @theme inline {
@@ -488,45 +484,57 @@ html.light ::-webkit-scrollbar-thumb:hover,
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-warning: var(--warning);
+  /* barely-rounded: 4px controls, 8px at most for panels */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+  --radius-2xl: 8px;
+  --radius-3xl: 8px;
+  --radius-4xl: 8px;
+  /* no shadows anywhere: separation comes from tone and hairlines */
+  --shadow-2xs: none;
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+  --shadow-2xl: none;
+  --ease-tesla: cubic-bezier(0.5, 0, 0, 0.75);
 }
 
 :root {
-  --chart-1: #58a6ff;
-  --chart-2: #3fb950;
-  --chart-3: #d29922;
-  --chart-4: #f85149;
-  --chart-5: #a371f7;
+  --chart-1: #3e6ae1;
+  --chart-2: #1e7d4f;
+  --chart-3: #9a6200;
+  --chart-4: #c0392b;
+  --chart-5: #7c4dbd;
   --sidebar: #ffffff;
-  --sidebar-foreground: #1f2328;
-  --sidebar-primary: #0969da;
+  --sidebar-foreground: #171a20;
+  --sidebar-primary: #3e6ae1;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ddf4ff;
-  --sidebar-accent-foreground: #0969da;
-  --sidebar-border: #d0d7de;
-  --sidebar-ring: #0969da;
+  --sidebar-accent: #f4f4f4;
+  --sidebar-accent-foreground: #171a20;
+  --sidebar-border: #e4e5e6;
+  --sidebar-ring: #3e6ae1;
 }
 
 .dark {
-  --chart-1: #58a6ff;
-  --chart-2: #3fb950;
-  --chart-3: #d29922;
-  --chart-4: #f85149;
-  --chart-5: #a371f7;
-  --sidebar: #0d0e12;
-  --sidebar-foreground: #c9d1d9;
-  --sidebar-primary: #58a6ff;
-  --sidebar-primary-foreground: #0d0e12;
-  --sidebar-accent: #1f6feb33;
-  --sidebar-accent-foreground: #58a6ff;
-  --sidebar-border: #30363d;
-  --sidebar-ring: #58a6ff;
+  --chart-1: #4d78e8;
+  --chart-2: #4cc38a;
+  --chart-3: #e0a93b;
+  --chart-4: #ff7a6b;
+  --chart-5: #b18cf0;
+  --sidebar: #171a20;
+  --sidebar-foreground: #f4f4f4;
+  --sidebar-primary: #4d78e8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #272b34;
+  --sidebar-accent-foreground: #f4f4f4;
+  --sidebar-border: #2f343d;
+  --sidebar-ring: #4d78e8;
 }
 /*
  * Landing page ("Tesla" system from design-md/tesla): white canvas, carbon ink, one blue for

@@ -74,7 +74,7 @@ export const Button: React.FC<ButtonProps> = ({
     <ShadButton
       variant={buttonVariantMap[variant]}
       size={buttonSizeMap[size]}
-      className={`active:scale-[0.98] ${variant === 'success' ? 'bg-[color:var(--success)] text-white hover:bg-[color:var(--success)]/90 active:bg-[color:var(--success)]/95' : ''} ${className}`}
+      className={`${variant === 'success' ? 'bg-success text-[#fff] hover:bg-success/90' : ''} ${className}`}
       disabled={disabled || isSpinnerActive}
       {...props}
     >
@@ -102,23 +102,23 @@ export interface BadgeProps {
 }
 
 const badgeVariantStyles: Record<BadgeVariant, string> = {
-  emerald: 'border-[#3fb950]/30 bg-[#238636]/20 text-[#3fb950]',
-  amber: 'border-[#d29922]/30 bg-[#9e6a03]/20 text-[#d29922]',
-  red: 'border-[#f85149]/30 bg-[#da3633]/20 text-[#f85149]',
-  blue: 'border-[#58a6ff]/30 bg-[#388bfd]/20 text-[#58a6ff]',
-  purple: 'border-[#a371f7]/30 bg-[#8957e5]/20 text-[#a371f7]',
-  indigo: 'border-[#58a6ff]/30 bg-[#1f6feb]/20 text-[#58a6ff]',
-  slate: 'border-[#30363d] bg-[#21262d] text-[#8b949e]',
+  emerald: 'border-transparent bg-success/10 text-success',
+  amber: 'border-transparent bg-warning/10 text-warning',
+  red: 'border-transparent bg-destructive/10 text-destructive',
+  blue: 'border-transparent bg-primary/10 text-primary',
+  purple: 'border-transparent bg-chart-5/10 text-chart-5',
+  indigo: 'border-transparent bg-primary/10 text-primary',
+  slate: 'border-border bg-muted text-muted-foreground',
 };
 
 const badgeDotColors: Record<BadgeVariant, string> = {
-  emerald: 'bg-[#3fb950]',
-  amber: 'bg-[#d29922]',
-  red: 'bg-[#f85149]',
-  blue: 'bg-[#58a6ff]',
-  purple: 'bg-[#a371f7]',
-  indigo: 'bg-[#58a6ff]',
-  slate: 'bg-[#8b949e]',
+  emerald: 'bg-success',
+  amber: 'bg-warning',
+  red: 'bg-destructive',
+  blue: 'bg-primary',
+  purple: 'bg-chart-5',
+  indigo: 'bg-primary',
+  slate: 'bg-muted-foreground',
 };
 
 export const Badge: React.FC<BadgeProps> = ({
@@ -130,7 +130,7 @@ export const Badge: React.FC<BadgeProps> = ({
 }) => (
   <ShadBadge
     variant="outline"
-    className={`h-auto rounded-full ${size === 'sm' ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs'} ${badgeVariantStyles[variant]} ${className}`}
+    className={`h-auto rounded-[4px] ${size === 'sm' ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs'} ${badgeVariantStyles[variant]} ${className}`}
   >
     {dot && <span className={`size-1.5 rounded-full ${badgeDotColors[variant]}`} />}
     {children}
@@ -149,7 +149,7 @@ export interface CardProps {
 export const Card: React.FC<CardProps> = ({ children, className = '', onClick }) => (
   <ShadCard
     onClick={onClick}
-    className={`gap-0 bg-card py-0 text-card-foreground ring-border/80 shadow-sm transition-[box-shadow,transform,ring-color] duration-200 ease-out has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/40 ${onClick ? 'cursor-pointer active:scale-[0.98] hover:shadow-md hover:ring-primary/30' : ''} ${className}`}
+    className={`gap-0 bg-card py-0 text-card-foreground ring-border transition-[box-shadow] duration-[330ms] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/40 ${onClick ? 'cursor-pointer hover:ring-foreground/30' : ''} ${className}`}
   >
     {children}
   </ShadCard>
@@ -161,10 +161,10 @@ export const CardHeader: React.FC<{
   action?: ReactNode;
   className?: string;
 }> = ({ title, subtitle, action, className = '' }) => (
-  <ShadCardHeader className={`border-b border-[#30363d] px-5 py-5 ${className}`}>
+  <ShadCardHeader className={`border-b border-border px-5 py-5 ${className}`}>
     <div>
-      <CardTitle className="text-[11px] font-semibold tracking-wide text-[#8b949e] uppercase">{title}</CardTitle>
-      {subtitle && <CardDescription className="mt-0.5 text-xs text-[#8b949e]">{subtitle}</CardDescription>}
+      <CardTitle className="text-sm font-medium text-foreground">{title}</CardTitle>
+      {subtitle && <CardDescription className="mt-0.5 text-xs text-muted-foreground">{subtitle}</CardDescription>}
     </div>
     {action && <CardAction className="shrink-0">{action}</CardAction>}
   </ShadCardHeader>
@@ -199,21 +199,21 @@ export const StatCard: React.FC<StatCardProps> = ({
   accentColor: _accentColor = 'indigo',
 }) => {
   const changeColors = {
-    positive: 'text-[#3fb950]',
-    negative: 'text-[#f85149]',
-    neutral: 'text-[#8b949e]',
+    positive: 'text-success',
+    negative: 'text-destructive',
+    neutral: 'text-muted-foreground',
   };
 
   return (
-    <Card onClick={onClick} className="group relative overflow-hidden p-5 hover:ring-[#484f58]">
+    <Card onClick={onClick} className="group relative overflow-hidden p-5">
       <div className="flex items-start justify-between">
         <div>
-          <span className="block text-[11px] font-semibold tracking-wider text-[#8b949e] uppercase">{title}</span>
-          <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-white lg:text-3xl">{value}</div>
+          <span className="block text-xs text-muted-foreground">{title}</span>
+          <div className="mt-2 text-2xl font-medium tabular-nums text-foreground lg:text-3xl">{value}</div>
         </div>
         <div className="flex flex-col items-end gap-2">
           {Icon && (
-            <div className="rounded-lg border border-border bg-muted p-2.5 text-primary transition-[border-color,background-color,transform] duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/50 group-hover:bg-primary/10">
+            <div className="rounded-[4px] bg-muted p-2.5 text-foreground">
               <Icon className="size-5" />
             </div>
           )}
@@ -222,9 +222,9 @@ export const StatCard: React.FC<StatCardProps> = ({
       </div>
 
       {(change || subtitle) && (
-        <div className="mt-3 flex items-center justify-between border-t border-[#30363d] pt-3 text-xs">
-          {change && <span className={`font-semibold ${changeColors[changeType]}`}>{change}</span>}
-          {subtitle && <span className="text-[#8b949e]">{subtitle}</span>}
+        <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-xs">
+          {change && <span className={`font-medium ${changeColors[changeType]}`}>{change}</span>}
+          {subtitle && <span className="text-muted-foreground">{subtitle}</span>}
         </div>
       )}
     </Card>
@@ -266,10 +266,10 @@ export const Modal: React.FC<ModalProps> = ({
     <DialogContent
       showCloseButton
       from="bottom"
-      className={`flex max-h-[90vh] flex-col gap-0 overflow-hidden bg-card p-0 text-card-foreground ring-border shadow-lg ${modalWidthClasses[maxWidth]}`}
+      className={`flex max-h-[90vh] flex-col gap-0 overflow-hidden bg-card p-0 text-card-foreground ring-border ${modalWidthClasses[maxWidth]}`}
     >
       <DialogHeader className="shrink-0 border-b border-border px-6 py-4">
-        <DialogTitle className="text-base font-semibold text-foreground">{title}</DialogTitle>
+        <DialogTitle className="text-base font-medium text-foreground">{title}</DialogTitle>
         {subtitle && <DialogDescription className="text-xs text-muted-foreground">{subtitle}</DialogDescription>}
       </DialogHeader>
       <div className="flex-1 space-y-4 overflow-y-auto p-6">{children}</div>
@@ -306,25 +306,25 @@ export const Input: React.FC<InputProps> = ({
   return (
     <div className="w-full space-y-1.5">
       {label && (
-        <label htmlFor={inputId} className="block text-xs font-semibold tracking-wider text-[#8b949e] uppercase">
+        <label htmlFor={inputId} className="block text-xs font-medium text-foreground">
           {label}
         </label>
       )}
       <div className="relative">
         {Icon && (
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#8b949e]">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
             <Icon className="size-4" />
           </div>
         )}
         <ShadInput
           id={inputId}
           aria-invalid={error ? true : undefined}
-          className={`h-auto border-border bg-background py-2 text-foreground transition-colors duration-150 placeholder:text-muted-foreground hover:border-ring/60 ${Icon ? 'pl-9' : ''} ${className}`}
+          className={`h-9 border-input bg-background py-2 text-foreground placeholder:text-muted-foreground ${Icon ? 'pl-9' : ''} ${className}`}
           {...props}
         />
       </div>
-      {error && <p className="text-xs font-medium text-[#f85149]">{error}</p>}
-      {helperText && !error && <p className="text-[11px] text-[#8b949e]">{helperText}</p>}
+      {error && <p className="text-xs font-medium text-destructive">{error}</p>}
+      {helperText && !error && <p className="text-[11px] text-muted-foreground">{helperText}</p>}
     </div>
   );
 };
@@ -359,7 +359,7 @@ export const Select: React.FC<SelectProps> = ({
   return (
     <div className="w-full space-y-1.5">
       {label && (
-        <label htmlFor={selectId} className="block text-xs font-semibold tracking-wider text-[#8b949e] uppercase">
+        <label htmlFor={selectId} className="block text-xs font-medium text-foreground">
           {label}
         </label>
       )}
@@ -373,7 +373,7 @@ export const Select: React.FC<SelectProps> = ({
         <SelectTrigger
           id={selectId}
           aria-invalid={error ? true : undefined}
-          className={`h-auto w-full border-border bg-background py-2 text-foreground transition-colors duration-150 hover:border-ring/60 ${className}`}
+          className={`h-9 w-full border-input bg-background py-2 text-foreground ${className}`}
         >
           <SelectValue />
         </SelectTrigger>
@@ -385,8 +385,8 @@ export const Select: React.FC<SelectProps> = ({
           ))}
         </SelectContent>
       </ShadSelect>
-      {error && <p className="text-xs font-medium text-[#f85149]">{error}</p>}
-      {helperText && !error && <p className="text-[11px] text-[#8b949e]">{helperText}</p>}
+      {error && <p className="text-xs font-medium text-destructive">{error}</p>}
+      {helperText && !error && <p className="text-[11px] text-muted-foreground">{helperText}</p>}
     </div>
   );
 };
@@ -409,8 +409,8 @@ export const Switch: React.FC<SwitchProps> = ({
   <div className="flex items-center justify-between gap-4 py-2">
     {(label || description) && (
       <div className="space-y-0.5">
-        {label && <span className="block text-sm font-medium text-[#c9d1d9]">{label}</span>}
-        {description && <span className="block text-xs text-[#8b949e]">{description}</span>}
+        {label && <span className="block text-sm font-medium text-foreground">{label}</span>}
+        {description && <span className="block text-xs text-muted-foreground">{description}</span>}
       </div>
     )}
     <ShadSwitch checked={checked} onCheckedChange={onChange} disabled={disabled} />
@@ -445,7 +445,7 @@ export const Tabs: React.FC<TabsProps> = ({
   <ShadTabs value={activeTab} onValueChange={onChange} className={className}>
     <TabsList
       variant={variant === 'underline' ? 'line' : 'default'}
-      className={variant === 'underline' ? 'h-auto w-full justify-start gap-6 rounded-none border-b border-[#30363d] bg-transparent p-0' : 'h-auto gap-1 border border-[#30363d] bg-[#0d0e12] p-1'}
+      className={variant === 'underline' ? 'h-auto w-full justify-start gap-6 rounded-none border-b border-border bg-transparent p-0' : 'h-auto gap-1 border border-border bg-background p-1'}
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
@@ -454,7 +454,7 @@ export const Tabs: React.FC<TabsProps> = ({
             {Icon && <Icon className="size-3.5" />}
             {tab.label}
             {tab.badge !== undefined && (
-              <span className="rounded-full bg-[#21262d] px-1.5 py-0.5 text-[10px] text-[#8b949e]">{tab.badge}</span>
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">{tab.badge}</span>
             )}
           </TabsTrigger>
         );
@@ -501,24 +501,24 @@ export const Pagination: React.FC<PaginationProps> = ({
   };
 
   return (
-    <div className={`flex flex-col items-center justify-between gap-3 border-t border-[#30363d] bg-[#161b22] px-4 py-3 text-xs text-[#8b949e] sm:flex-row ${className}`}>
+    <div className={`flex flex-col items-center justify-between gap-3 border-t border-border bg-card px-4 py-3 text-xs text-muted-foreground sm:flex-row ${className}`}>
       <div className="flex flex-wrap items-center justify-center gap-4 sm:justify-start">
         {totalItems !== undefined ? (
           <span>
-            {t('Showing')} <strong className="text-[#c9d1d9]">{startItem}</strong> {t('to')}{' '}
-            <strong className="text-[#c9d1d9]">{endItem}</strong> {t('of')}{' '}
-            <strong className="text-[#c9d1d9]">{totalItems}</strong> {t('entries')}
+            {t('Showing')} <strong className="text-foreground">{startItem}</strong> {t('to')}{' '}
+            <strong className="text-foreground">{endItem}</strong> {t('of')}{' '}
+            <strong className="text-foreground">{totalItems}</strong> {t('entries')}
           </span>
         ) : (
           <span>
-            {t('Page')} <strong className="text-[#c9d1d9]">{currentPage}</strong> {t('of')}{' '}
-            <strong className="text-[#c9d1d9]">{safeTotalPages}</strong>
+            {t('Page')} <strong className="text-foreground">{currentPage}</strong> {t('of')}{' '}
+            <strong className="text-foreground">{safeTotalPages}</strong>
           </span>
         )}
 
         {onPageSizeChange && (
-          <div className="flex items-center gap-1.5 border-l border-[#30363d] pl-3">
-            <span className="text-[11px] text-[#8b949e]">{t('Per page:')}</span>
+          <div className="flex items-center gap-1.5 border-l border-border pl-3">
+            <span className="text-[11px] text-muted-foreground">{t('Per page:')}</span>
             <ShadSelect
               value={String(pageSize)}
               onValueChange={(next) => {
@@ -526,7 +526,7 @@ export const Pagination: React.FC<PaginationProps> = ({
                 onPageChange(1);
               }}
             >
-              <SelectTrigger className="h-7 border-[#30363d] bg-[#0d0e12] text-xs text-[#c9d1d9]">
+              <SelectTrigger className="h-7 border-border bg-background text-xs text-foreground">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -545,7 +545,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           size="sm"
           disabled={currentPage <= 1}
           onClick={() => onPageChange(currentPage - 1)}
-          className="h-7 border-[#30363d] bg-[#0d0e12] px-2.5 py-1 text-xs text-[#c9d1d9] hover:border-[#58a6ff] disabled:opacity-40"
+          className="h-7 border-border bg-background px-2.5 py-1 text-xs text-foreground hover:border-primary disabled:opacity-40"
         >
           {t('Previous')}
         </Button>
@@ -554,7 +554,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           <div className="mx-1 hidden items-center gap-1 sm:flex">
             {getPageNumbers().map((p, idx) => {
               if (p === '...') {
-                return <span key={`ellipsis-${idx}`} className="px-1.5 text-[#8b949e] select-none">...</span>;
+                return <span key={`ellipsis-${idx}`} className="px-1.5 text-muted-foreground select-none">...</span>;
               }
               const pageNum = Number(p);
               const isActive = pageNum === currentPage;
@@ -562,10 +562,10 @@ export const Pagination: React.FC<PaginationProps> = ({
                 <button
                   key={`page-${pageNum}`}
                   onClick={() => onPageChange(pageNum)}
-                  className={`h-7 min-w-[28px] cursor-pointer rounded-md px-2 text-xs font-semibold transition-colors ${
+                  className={`h-7 min-w-[28px] cursor-pointer rounded-md px-2 text-xs font-medium transition-colors ${
                     isActive
-                      ? 'bg-[#58a6ff] font-bold text-slate-950 shadow-xs'
-                      : 'border border-[#30363d] bg-[#0d0e12] text-[#8b949e] hover:border-[#484f58] hover:text-[#c9d1d9]'
+                      ? 'bg-primary font-medium text-[#fff] '
+                      : 'border border-border bg-background text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground'
                   }`}
                 >
                   {pageNum}
@@ -575,7 +575,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           </div>
         )}
 
-        <span className="rounded-md border border-[#30363d] bg-[#0d0e12] px-2 py-1 font-mono text-[11px] text-[#c9d1d9] sm:hidden">
+        <span className="rounded-md border border-border bg-background px-2 py-1 font-mono text-[11px] text-foreground sm:hidden">
           {currentPage} / {safeTotalPages}
         </span>
 
@@ -584,7 +584,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           size="sm"
           disabled={currentPage >= safeTotalPages}
           onClick={() => onPageChange(currentPage + 1)}
-          className="h-7 border-[#30363d] bg-[#0d0e12] px-2.5 py-1 text-xs text-[#c9d1d9] hover:border-[#58a6ff] disabled:opacity-40"
+          className="h-7 border-border bg-background px-2.5 py-1 text-xs text-foreground hover:border-primary disabled:opacity-40"
         >
           {t('Next')}
         </Button>
@@ -597,9 +597,9 @@ export const Pagination: React.FC<PaginationProps> = ({
 // 7. CODE & DIFF VIEWER
 // ==========================================
 export const JsonViewer: React.FC<{ data: unknown; title?: string }> = ({ data, title }) => (
-  <div className="overflow-hidden rounded-xl border border-[#30363d] bg-[#0d0e12] text-xs">
-    {title && <div className="border-b border-[#30363d] bg-[#161b22] px-3 py-1.5 font-mono text-[10px] tracking-wider text-[#8b949e] uppercase">{title}</div>}
-    <pre className="overflow-x-auto p-3 font-mono leading-relaxed whitespace-pre-wrap text-[#3fb950]">
+  <div className="overflow-hidden rounded-xl border border-border bg-background text-xs">
+    {title && <div className="border-b border-border bg-card px-3 py-1.5 text-[11px] text-muted-foreground ">{title}</div>}
+    <pre className="overflow-x-auto p-3 font-mono leading-relaxed whitespace-pre-wrap text-success">
       {JSON.stringify(data, null, 2)}
     </pre>
   </div>
@@ -608,20 +608,20 @@ export const JsonViewer: React.FC<{ data: unknown; title?: string }> = ({ data, 
 export const DiffViewer: React.FC<{ changes: { field: string; before: unknown; after: unknown }[] }> = ({ changes }) => {
   const { t } = useTranslation('common');
   if (!changes || changes.length === 0) {
-    return <p className="text-xs text-[#8b949e] italic">{t('No specific before/after field changes recorded.')}</p>;
+    return <p className="text-xs text-muted-foreground italic">{t('No specific before/after field changes recorded.')}</p>;
   }
 
   return (
     <div className="space-y-2 font-mono text-xs">
       {changes.map((c, idx) => (
-        <div key={idx} className="space-y-1 rounded-lg border border-[#30363d] bg-[#0d0e12] p-2.5">
-          <div className="font-semibold text-[#c9d1d9]">{c.field}</div>
-          <div className="flex items-center gap-2 rounded border border-[#da3633]/20 bg-[#da3633]/10 px-2 py-1 text-[#f85149]">
-            <span className="text-[10px] font-bold tracking-wider text-[#f85149] uppercase">- {t('BEFORE:')}</span>
+        <div key={idx} className="space-y-1 rounded-lg border border-border bg-background p-2.5">
+          <div className="font-medium text-foreground">{c.field}</div>
+          <div className="flex items-center gap-2 rounded border border-destructive/20 bg-destructive/10 px-2 py-1 text-destructive">
+            <span className="text-[11px] font-medium text-destructive ">- {t('BEFORE:')}</span>
             <span>{JSON.stringify(c.before)}</span>
           </div>
-          <div className="flex items-center gap-2 rounded border border-[#238636]/20 bg-[#238636]/10 px-2 py-1 text-[#3fb950]">
-            <span className="text-[10px] font-bold tracking-wider text-[#3fb950] uppercase">+ {t('AFTER:')}</span>
+          <div className="flex items-center gap-2 rounded border border-success/20 bg-success/10 px-2 py-1 text-success">
+            <span className="text-[11px] font-medium text-success ">+ {t('AFTER:')}</span>
             <span>{JSON.stringify(c.after)}</span>
           </div>
         </div>

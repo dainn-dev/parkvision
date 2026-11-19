@@ -83,7 +83,7 @@ export const EdgeSetupWizard: React.FC<EdgeSetupWizardProps> = ({ isOpen, onClos
       isOpen={isOpen}
       onClose={close}
       maxWidth="md"
-      title={<span className="flex items-center gap-2"><Server className="h-5 w-5 text-[#58a6ff]" />{t('Set up Edge Client')}</span>}
+      title={<span className="flex items-center gap-2"><Server className="h-5 w-5 text-primary" />{t('Set up Edge Client')}</span>}
       subtitle={t('A guided setup for your gatehouse computer')}
       footer={step === 2 ? (
         <div className="flex justify-end"><Button variant="primary" onClick={close}>{t('Done')}</Button></div>
@@ -103,14 +103,14 @@ export const EdgeSetupWizard: React.FC<EdgeSetupWizardProps> = ({ isOpen, onClos
             const isComplete = step === 2 && number === 1;
             const isCurrent = step === number;
             return (
-              <div key={number} className={`rounded-lg border px-3 py-2 ${isCurrent ? 'border-primary bg-primary/10' : isComplete ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-border bg-background'}`}>
-                <div className="flex items-center gap-2 text-xs font-semibold">
-                  <span className={`flex size-5 items-center justify-center rounded-full text-[10px] ${isCurrent ? 'bg-primary text-primary-foreground' : isComplete ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'}`}>
+              <div key={number} className={`rounded-lg border px-3 py-2 ${isCurrent ? 'border-primary bg-primary/10' : isComplete ? 'border-success/40 bg-success/10' : 'border-border bg-background'}`}>
+                <div className="flex items-center gap-2 text-xs font-medium">
+                  <span className={`flex size-5 items-center justify-center rounded-full text-[11px] ${isCurrent ? 'bg-primary text-primary-foreground' : isComplete ? 'bg-success text-[#fff]' : 'bg-muted text-muted-foreground'}`}>
                     {isComplete ? <Check className="size-3" /> : number}
                   </span>
                   <span>{title}</span>
                 </div>
-                <p className="mt-1 pl-7 text-[10px] text-muted-foreground">{description}</p>
+                <p className="mt-1 pl-7 text-[11px] text-muted-foreground">{description}</p>
               </div>
             );
           })}
@@ -118,16 +118,16 @@ export const EdgeSetupWizard: React.FC<EdgeSetupWizardProps> = ({ isOpen, onClos
         {error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">{error}</div>}
         {step === 1 && (
           <div className="space-y-4">
-            <div><h3 className="font-semibold">{t('Name your gatehouse')}</h3><p className="mt-1 text-xs text-muted-foreground">{t('Use names your team will recognize. Technical settings can be added later.')}</p></div>
+            <div><h3 className="font-medium">{t('Name your gatehouse')}</h3><p className="mt-1 text-xs text-muted-foreground">{t('Use names your team will recognize. Technical settings can be added later.')}</p></div>
             <Input label={t('Edge PC name')} value={deviceName} onChange={(event) => setDeviceName(event.target.value)} placeholder={t('e.g. Main gate computer')} required />
-            {gates.map((gate, index) => <div key={index} className="space-y-2 rounded-lg border border-border p-3"><div className="flex items-center justify-between text-xs font-semibold"><span>{t('Gate {{number}}', { number: index + 1 })}</span>{gates.length > 1 && <Button variant="outline" type="button" onClick={() => setGates((current) => current.filter((_, i) => i !== index))}>{t('Remove')}</Button>}</div><Input label={t('Gate name')} value={gate.name} onChange={(event) => setGates(gates.map((item, i) => i === index ? { ...item, name: event.target.value } : item))} placeholder={t('e.g. Main entrance')} required /><Select label={t('Gate direction')} value={gate.direction} onChange={(event) => setGates(gates.map((item, i) => i === index ? { ...item, direction: event.target.value } : item))} options={[{ value: 'entry', label: t('Entry') }, { value: 'exit', label: t('Exit') }]} /></div>)}
+            {gates.map((gate, index) => <div key={index} className="space-y-2 rounded-lg border border-border p-3"><div className="flex items-center justify-between text-xs font-medium"><span>{t('Gate {{number}}', { number: index + 1 })}</span>{gates.length > 1 && <Button variant="outline" type="button" onClick={() => setGates((current) => current.filter((_, i) => i !== index))}>{t('Remove')}</Button>}</div><Input label={t('Gate name')} value={gate.name} onChange={(event) => setGates(gates.map((item, i) => i === index ? { ...item, name: event.target.value } : item))} placeholder={t('e.g. Main entrance')} required /><Select label={t('Gate direction')} value={gate.direction} onChange={(event) => setGates(gates.map((item, i) => i === index ? { ...item, direction: event.target.value } : item))} options={[{ value: 'entry', label: t('Entry') }, { value: 'exit', label: t('Exit') }]} /></div>)}
             <Button variant="outline" type="button" onClick={() => setGates((current) => [...current, { name: '', direction: 'exit' }])}>{t('Add another gate')}</Button>
           </div>
         )}
         {step === 2 && activation && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4"><ShieldCheck className="h-6 w-6 text-emerald-400" /><div><h3 className="font-semibold">{t('Ready to activate')}</h3><p className="text-xs text-muted-foreground">{activation.device.name} · {activation.gate.name}</p></div></div>
-            <div><p className="text-xs text-muted-foreground">{t('Enter this one-time code in ParkVision Edge on the gatehouse PC.')}</p><div className="mt-2 flex items-center gap-2"><code className="flex-1 rounded-lg bg-background px-4 py-3 text-center font-mono text-lg font-bold tracking-widest">{activation.activation.code}</code><Button variant="outline" aria-label={t('Copy activation code')} onClick={() => void copyCode()}>{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</Button></div>{copyError && <p className="mt-1 text-xs text-destructive">{t('Copy failed, select the code manually')}</p>}<p className="mt-2 text-[11px] text-muted-foreground">{t('This code expires at {{time}}.', { time: new Date(activation.activation.expiresAt).toLocaleString() })}</p></div>
+            <div className="flex items-center gap-3 rounded-lg border border-success/30 bg-success/10 p-4"><ShieldCheck className="h-6 w-6 text-success" /><div><h3 className="font-medium">{t('Ready to activate')}</h3><p className="text-xs text-muted-foreground">{activation.device.name} · {activation.gate.name}</p></div></div>
+            <div><p className="text-xs text-muted-foreground">{t('Enter this one-time code in ParkVision Edge on the gatehouse PC.')}</p><div className="mt-2 flex items-center gap-2"><code className="flex-1 rounded-lg bg-background px-4 py-3 text-center font-mono text-lg font-medium tracking-widest">{activation.activation.code}</code><Button variant="outline" aria-label={t('Copy activation code')} onClick={() => void copyCode()}>{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</Button></div>{copyError && <p className="mt-1 text-xs text-destructive">{t('Copy failed, select the code manually')}</p>}<p className="mt-2 text-[11px] text-muted-foreground">{t('This code expires at {{time}}.', { time: new Date(activation.activation.expiresAt).toLocaleString() })}</p></div>
             <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">{activation.nextSteps.map((nextStep) => <li key={nextStep}>{t(nextStep)}</li>)}</ol>
           </div>
         )}

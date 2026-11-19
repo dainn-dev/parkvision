@@ -13,7 +13,7 @@ interface GateFormModalProps {
 }
 
 const SELECT_CLS =
-  'w-full bg-[#161b22] border border-[#30363d] text-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#58a6ff]';
+  'w-full bg-card border border-border text-foreground rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary';
 
 const GATE_TYPES = ['barrier', 'turnstile', 'speed-gate', 'chain-gate'] as const;
 
@@ -79,27 +79,27 @@ export const GateFormModal: React.FC<GateFormModalProps> = ({ site, gate, isOpen
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-xs" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/70 " onClick={onClose} />
 
       {/* Modal Card */}
-      <div className="relative w-full max-w-xl bg-[#0d0e12] border border-[#30363d] rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-xl bg-background border border-border rounded-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-[330ms]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between bg-[#161b22]">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-card">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#3fb950]/10 border border-[#3fb950]/30 text-[#3fb950] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-success/10 border border-success/30 text-success flex items-center justify-center">
               <DoorOpen className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">
+              <h3 className="text-base font-medium text-foreground tracking-tight">
                 {isEdit ? t('Edit Gate') : t('Add Barrier Gate')}
               </h3>
-              <p className="text-xs text-[#8b949e]">{t('{{site}} — lane assignment & edge gateway binding', { site: site.name })}</p>
+              <p className="text-xs text-muted-foreground">{t('{{site}} — lane assignment & edge gateway binding', { site: site.name })}</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white hover:bg-[#30363d] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground hover:bg-border flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -109,31 +109,31 @@ export const GateFormModal: React.FC<GateFormModalProps> = ({ site, gate, isOpen
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                {t('Gate Name')} <span className="text-[#f85149]">*</span>
+              <label className="block text-foreground font-medium mb-1.5">
+                {t('Gate Name')} <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder={t('e.g. Main Entrance')}
-                className="w-full bg-[#161b22] border border-[#30363d] text-white rounded-lg px-3 py-2 focus:outline-none focus:border-[#58a6ff]"
+                className="w-full bg-card border border-border text-foreground rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
               />
             </div>
             {!isEdit && (
               <div>
-                <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Gate Code')}</label>
+                <label className="block text-foreground font-medium mb-1.5">{t('Gate Code')}</label>
                 <input
                   type="text"
                   value={formData.code}
                   onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                   placeholder={t('e.g. GATE-02')}
-                  className="w-full bg-[#161b22] border border-[#30363d] text-white rounded-lg px-3 py-2 font-mono focus:outline-none focus:border-[#58a6ff]"
+                  className="w-full bg-card border border-border text-foreground rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
                 />
               </div>
             )}
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Gate Type')}</label>
+              <label className="block text-foreground font-medium mb-1.5">{t('Gate Type')}</label>
               <select
                 value={formData.gateType}
                 onChange={(e) => setFormData({ ...formData, gateType: e.target.value })}
@@ -146,13 +146,13 @@ export const GateFormModal: React.FC<GateFormModalProps> = ({ site, gate, isOpen
             </div>
             {!isEdit && (
               <div>
-                <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Model / Hardware')}</label>
+                <label className="block text-foreground font-medium mb-1.5">{t('Model / Hardware')}</label>
                 <input
                   type="text"
                   value={formData.modelType}
                   onChange={(e) => setFormData({ ...formData, modelType: e.target.value })}
                   placeholder={t('e.g. barrier-arm-4m')}
-                  className="w-full bg-[#161b22] border border-[#30363d] text-white rounded-lg px-3 py-2 focus:outline-none focus:border-[#58a6ff]"
+                  className="w-full bg-card border border-border text-foreground rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
                 />
               </div>
             )}
@@ -160,7 +160,7 @@ export const GateFormModal: React.FC<GateFormModalProps> = ({ site, gate, isOpen
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Lane')}</label>
+              <label className="block text-foreground font-medium mb-1.5">{t('Lane')}</label>
               <select
                 value={formData.laneId}
                 onChange={(e) => setFormData({ ...formData, laneId: e.target.value })}
@@ -175,7 +175,7 @@ export const GateFormModal: React.FC<GateFormModalProps> = ({ site, gate, isOpen
               </select>
             </div>
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Edge Gateway')}</label>
+              <label className="block text-foreground font-medium mb-1.5">{t('Edge Gateway')}</label>
               <select
                 value={formData.edgeDeviceId}
                 onChange={(e) => setFormData({ ...formData, edgeDeviceId: e.target.value })}
@@ -186,25 +186,25 @@ export const GateFormModal: React.FC<GateFormModalProps> = ({ site, gate, isOpen
                   <option key={d.id} value={d.id}>{d.deviceName}</option>
                 ))}
               </select>
-              <p className="text-[10px] text-[#8b949e] mt-1.5">
+              <p className="text-[11px] text-muted-foreground mt-1.5">
                 {t('The gateway drives the barrier relay; bind one so commands reach the board.')}
               </p>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#30363d]">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg bg-[#21262d] border border-[#30363d] text-[#c9d1d9] hover:text-white hover:bg-[#30363d] transition-colors cursor-pointer font-semibold"
+              className="px-4 py-2 rounded-lg bg-muted border border-border text-foreground hover:text-foreground hover:bg-border transition-colors cursor-pointer font-medium"
             >
               {t('Cancel')}
             </button>
             <button
               type="submit"
               disabled={!formData.name.trim() || isLoading}
-              className="px-4 py-2 rounded-lg bg-[#58a6ff] text-[#0d1117] hover:bg-[#79b8ff] transition-colors font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-lg bg-primary text-[#fff] hover:bg-primary/90 transition-colors font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isEdit ? t('Save Gate') : t('Create Gate')}
             </button>

@@ -106,14 +106,14 @@ export const PlatformAdminsPage: React.FC = () => {
   const adminAuditLogs = selectedAdmin ? auditLogs.filter((a) => a.actorEmail === selectedAdmin.email) : [];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-[330ms]">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            <Users className="w-5 h-5 text-purple-400" /> {t('Platform Administrators')}
+          <h2 className="text-xl font-medium text-foreground tracking-tight flex items-center gap-2">
+            <Users className="w-5 h-5 text-chart-5" /> {t('Platform Administrators')}
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {t('Manage high-privilege governance personnel with administrative access to the platform console.')}
           </p>
         </div>
@@ -123,7 +123,7 @@ export const PlatformAdminsPage: React.FC = () => {
             variant="primary"
             icon={Plus}
             onClick={() => setIsAddModalOpen(true)}
-            className="shadow-md shadow-indigo-600/30"
+            className=" "
           >
             {t('Add Administrator')}
           </Button>
@@ -144,7 +144,7 @@ export const PlatformAdminsPage: React.FC = () => {
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+            <thead className="bg-background border-b border-border text-muted-foreground font-medium">
               <tr>
                 <th className="py-3.5 px-4">{t('Administrator')}</th>
                 <th className="py-3.5 px-4">{t('Role')}</th>
@@ -154,10 +154,10 @@ export const PlatformAdminsPage: React.FC = () => {
                 <th className="py-3.5 px-4 text-right">{t('Actions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/80 text-slate-200">
+            <tbody className="divide-y divide-border/80 text-foreground">
               {filteredAdmins.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500">
+                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
                     {searchQuery ? t('No administrators match this search.') : t('No platform administrators found.')}
                   </td>
                 </tr>
@@ -165,13 +165,13 @@ export const PlatformAdminsPage: React.FC = () => {
               {filteredAdmins.map((admin) => (
                 <tr
                   key={admin.id}
-                  className="hover:bg-slate-800/50 transition-colors cursor-pointer"
+                  className="hover:bg-muted/50 transition-colors cursor-pointer"
                   onClick={() => setSelectedAdmin(admin)}
                 >
                   <td className="py-3.5 px-4">
                     <div>
-                      <span className="font-bold text-slate-100 block text-sm">{admin.name}</span>
-                      <span className="text-[11px] text-slate-400">{admin.email}</span>
+                      <span className="font-medium text-foreground block text-sm">{admin.name}</span>
+                      <span className="text-[11px] text-muted-foreground">{admin.email}</span>
                     </div>
                   </td>
 
@@ -189,17 +189,17 @@ export const PlatformAdminsPage: React.FC = () => {
 
                   <td className="py-3.5 px-4">
                     {admin.mfaEnabled ? (
-                      <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold text-[11px]">
+                      <span className="inline-flex items-center gap-1 text-success font-medium text-[11px]">
                         <UserCheck className="w-3.5 h-3.5" /> {t('Enrolled')}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-amber-400 font-semibold text-[11px]">
+                      <span className="inline-flex items-center gap-1 text-warning font-medium text-[11px]">
                         <ShieldAlert className="w-3.5 h-3.5" /> {t('Pending')}
                       </span>
                     )}
                   </td>
 
-                  <td className="py-3.5 px-4 text-slate-400 font-mono">
+                  <td className="py-3.5 px-4 text-muted-foreground ">
                     {admin.lastLoginAt === 'Never' ? t('Never') : new Date(admin.lastLoginAt).toLocaleString()}
                   </td>
 
@@ -216,7 +216,7 @@ export const PlatformAdminsPage: React.FC = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-red-400 hover:bg-red-950/50 hover:border-red-800"
+                          className="text-destructive hover:bg-destructive/10 hover:border-destructive/30"
                           onClick={() => disableAdmin(admin.id, t('Administrative override'))}
                         >
                           {t('Disable')}
@@ -254,14 +254,14 @@ export const PlatformAdminsPage: React.FC = () => {
 
           {detailTab === 'overview' && (
             <div className="space-y-4 text-xs pt-3">
-              <div className="grid grid-cols-2 gap-3 p-4 bg-slate-950 rounded-xl border border-slate-800">
-                <div><span className="text-slate-500">ID:</span> <code className="text-slate-200 font-mono">{selectedAdmin.id}</code></div>
-                <div><span className="text-slate-500">{t('Role:')}</span> {selectedAdmin.role}</div>
-                <div><span className="text-slate-500">{t('Status:')}</span> {selectedAdmin.status}</div>
-                <div><span className="text-slate-500">{t('Created:')}</span> {new Date(selectedAdmin.createdAt).toLocaleDateString()}</div>
-                <div><span className="text-slate-500">{t('Failed Logins:')}</span> {selectedAdmin.failedLoginAttempts}</div>
+              <div className="grid grid-cols-2 gap-3 p-4 bg-background rounded-xl border border-border">
+                <div><span className="text-muted-foreground">ID:</span> <code className="text-foreground font-mono">{selectedAdmin.id}</code></div>
+                <div><span className="text-muted-foreground">{t('Role:')}</span> {selectedAdmin.role}</div>
+                <div><span className="text-muted-foreground">{t('Status:')}</span> {selectedAdmin.status}</div>
+                <div><span className="text-muted-foreground">{t('Created:')}</span> {new Date(selectedAdmin.createdAt).toLocaleDateString()}</div>
+                <div><span className="text-muted-foreground">{t('Failed Logins:')}</span> {selectedAdmin.failedLoginAttempts}</div>
                 <div>
-                  <span className="text-slate-500">{t('Last Active:')}</span>{' '}
+                  <span className="text-muted-foreground">{t('Last Active:')}</span>{' '}
                   {selectedAdmin.lastLoginAt && selectedAdmin.lastLoginAt !== 'Never'
                     ? new Date(selectedAdmin.lastLoginAt).toLocaleString()
                     : t('Never')}
@@ -272,10 +272,10 @@ export const PlatformAdminsPage: React.FC = () => {
 
           {detailTab === 'security' && (
             <div className="space-y-4 text-xs pt-3">
-              <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div className="p-4 bg-background rounded-xl border border-border flex items-center justify-between">
                 <div>
-                  <h4 className="font-bold text-white">{t('Multi-Factor Authentication (MFA)')}</h4>
-                  <p className="text-slate-400 mt-0.5">
+                  <h4 className="font-medium text-foreground">{t('Multi-Factor Authentication (MFA)')}</h4>
+                  <p className="text-muted-foreground mt-0.5">
                     {selectedAdmin.mfaEnabled ? t('Enrolled with Time-Based One-Time Password (TOTP)') : t('MFA is currently pending setup.')}
                   </p>
                 </div>
@@ -295,8 +295,8 @@ export const PlatformAdminsPage: React.FC = () => {
 
           {detailTab === 'sessions' && (
             <div className="space-y-3 text-xs pt-3">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                <span className="text-slate-400">{t('Active Device Sessions')}</span>
+              <div className="flex items-center justify-between pb-2 border-b border-border">
+                <span className="text-muted-foreground">{t('Active Device Sessions')}</span>
                 {canRevoke && (
                   <Button
                     variant="danger"
@@ -309,13 +309,13 @@ export const PlatformAdminsPage: React.FC = () => {
               </div>
 
               {adminSessions.length === 0 ? (
-                <p className="py-6 text-center text-slate-500">{t('No active device sessions for this administrator.')}</p>
+                <p className="py-6 text-center text-muted-foreground">{t('No active device sessions for this administrator.')}</p>
               ) : (
                 adminSessions.map((sess) => (
-                  <div key={sess.id} className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
+                  <div key={sess.id} className="p-3 bg-background rounded-xl border border-border flex items-center justify-between">
                     <div>
-                      <span className="font-bold text-white block">{sess.device} • {sess.browser}</span>
-                      <span className="text-slate-400 font-mono">
+                      <span className="font-medium text-foreground block">{sess.device} • {sess.browser}</span>
+                      <span className="text-muted-foreground ">
                         IP: {sess.ipAddress || '—'}
                         {sess.location ? ` (${sess.location})` : ''}
                       </span>
@@ -334,15 +334,15 @@ export const PlatformAdminsPage: React.FC = () => {
           {detailTab === 'activity' && (
             <div className="space-y-2 text-xs pt-3">
               {adminAuditLogs.length === 0 ? (
-                <p className="py-6 text-center text-slate-500">{t('No audit activity logged for this administrator.')}</p>
+                <p className="py-6 text-center text-muted-foreground">{t('No audit activity logged for this administrator.')}</p>
               ) : (
                 adminAuditLogs.map((log) => (
-                  <div key={log.id} className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
+                  <div key={log.id} className="p-2.5 bg-background rounded-xl border border-border flex items-center justify-between">
                     <div>
-                      <span className="font-bold text-slate-200 block">{log.action}</span>
-                      <span className="text-slate-400">{log.resourceType}: {log.resourceId}</span>
+                      <span className="font-medium text-foreground block">{log.action}</span>
+                      <span className="text-muted-foreground">{log.resourceType}: {log.resourceId}</span>
                     </div>
-                    <span className="text-[10px] text-slate-500 font-mono">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                    <span className="text-[11px] text-muted-foreground ">{new Date(log.timestamp).toLocaleTimeString()}</span>
                   </div>
                 ))
               )}
@@ -396,7 +396,7 @@ export const PlatformAdminsPage: React.FC = () => {
             error={formErrors.password}
           />
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="ghost" size="sm" onClick={() => setIsAddModalOpen(false)}>
               {t('Cancel')}
             </Button>

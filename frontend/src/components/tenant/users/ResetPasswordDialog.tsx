@@ -23,22 +23,22 @@ export const ResetPasswordDialog: React.FC<ResetPasswordDialogProps> = ({ isOpen
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-[#161b22] border border-[#30363d] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-[330ms]">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-md overflow-hidden">
         {/* Header */}
-        <div className="p-5 border-b border-[#30363d] flex items-center justify-between bg-[#0d0e12]/60">
+        <div className="p-5 border-b border-border flex items-center justify-between bg-background/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/15 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 text-primary flex items-center justify-center">
               <Key className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white tracking-tight">{t('Reset Password')}</h2>
-              <p className="text-xs text-[#8b949e]">{t('Send password reset instructions to user')}</p>
+              <h2 className="text-base font-medium text-foreground tracking-tight">{t('Reset Password')}</h2>
+              <p className="text-xs text-muted-foreground">{t('Send password reset instructions to user')}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-[#8b949e] hover:text-white p-1.5 rounded-lg hover:bg-[#21262d] transition-colors"
+            className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -46,27 +46,27 @@ export const ResetPasswordDialog: React.FC<ResetPasswordDialogProps> = ({ isOpen
 
         {/* Content Body */}
         <div className="p-5 space-y-4 text-xs">
-          <p className="text-[#c9d1d9] leading-relaxed">
-            {t('Are you sure you want to trigger a password reset for')} <strong className="text-white">{user.name}</strong>?
+          <p className="text-foreground leading-relaxed">
+            {t('Are you sure you want to trigger a password reset for')} <strong className="text-foreground">{user.name}</strong>?
           </p>
 
-          <div className="p-3.5 bg-[#0d0e12] border border-[#30363d] rounded-xl flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#21262d] border border-[#30363d] text-[#58a6ff] flex items-center justify-center font-bold text-xs">
+          <div className="p-3.5 bg-background border border-border rounded-xl flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-muted border border-border text-primary flex items-center justify-center font-medium text-xs">
               {user.name.charAt(0)}
             </div>
             <div className="overflow-hidden">
-              <div className="font-bold text-white truncate">{user.name}</div>
-              <div className="text-[11px] font-mono text-[#8b949e] truncate">{user.email}</div>
+              <div className="font-medium text-foreground truncate">{user.name}</div>
+              <div className="text-[11px] text-muted-foreground truncate">{user.email}</div>
             </div>
           </div>
 
-          <div className="p-3.5 bg-[#161b22] border border-[#30363d] rounded-xl text-[#8b949e] text-[11px] leading-relaxed">
-            {t('An automated email containing a single-use secure reset link will be dispatched to')} <span className="font-mono text-white">{user.email}</span>. {t('Their existing sessions will be revoked immediately.')}
+          <div className="p-3.5 bg-card border border-border rounded-xl text-muted-foreground text-[11px] leading-relaxed">
+            {t('An automated email containing a single-use secure reset link will be dispatched to')} <span className=" text-foreground">{user.email}</span>. {t('Their existing sessions will be revoked immediately.')}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-[#30363d] bg-[#0d0e12]/80 flex items-center justify-end gap-2.5">
+        <div className="p-4 border-t border-border bg-background/80 flex items-center justify-end gap-2.5">
           <Button variant="secondary" onClick={onClose} className="text-xs">
             {t('Cancel')}
           </Button>
@@ -74,7 +74,7 @@ export const ResetPasswordDialog: React.FC<ResetPasswordDialogProps> = ({ isOpen
             type="button"
             variant="primary"
             onClick={handleConfirm}
-            className="text-xs bg-[#58a6ff] hover:bg-[#79b8ff] text-black font-bold gap-1.5 shadow-sm"
+            className="text-xs bg-primary hover:bg-primary/90 text-black font-medium gap-1.5 "
           >
             <Send className="w-3.5 h-3.5" />
             {t('Send Reset Link')}

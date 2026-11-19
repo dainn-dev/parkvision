@@ -122,23 +122,23 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/75 backdrop-blur-xs transition-opacity animate-in fade-in"
+        className="fixed inset-0 bg-black/75 transition-opacity animate-in fade-in"
         onClick={onClose}
       />
 
       {/* Modal Card */}
-      <div className="relative w-full max-w-xl bg-[#161b22] border border-[#30363d] rounded-2xl shadow-2xl overflow-hidden z-10 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-xl bg-card border border-border rounded-2xl overflow-hidden z-10 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-[330ms]">
         {/* Header */}
-        <div className="p-5 border-b border-[#30363d] bg-[#0d0e12] flex items-center justify-between">
+        <div className="p-5 border-b border-border bg-background flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#3fb950]/15 border border-[#3fb950]/30 text-[#3fb950] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-success/15 border border-success/30 text-success flex items-center justify-center">
               <Clock className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">
+              <h3 className="text-base font-medium text-foreground tracking-tight">
                 {t('Manage Operating Hours')}
               </h3>
-              <p className="text-xs text-[#8b949e]">
+              <p className="text-xs text-muted-foreground">
                 {t('Set opening schedule for ANPR access gates and tenant facilities')}
               </p>
             </div>
@@ -146,7 +146,7 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[#8b949e] hover:text-white hover:bg-[#21262d] transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -155,18 +155,18 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
         {/* Modal Content */}
         <div className="p-6 space-y-5 overflow-y-auto flex-1 text-xs">
           {/* Quick Presets & 24/7 Mode */}
-          <div className="bg-[#0d0e12] border border-[#30363d] rounded-xl p-4 space-y-3">
+          <div className="bg-background border border-border rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-white font-semibold text-xs flex items-center gap-2">
+                <div className="text-foreground font-medium text-xs flex items-center gap-2">
                   <span>{t('24/7 Continuous Operations')}</span>
                   {isOpen24_7 && (
-                    <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40 font-mono">
+                    <span className="px-1.5 py-0.5 rounded-full text-[11px] bg-success/20 text-success border border-success/40 ">
                       {t('Active')}
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-[#8b949e] mt-0.5">
+                <p className="text-[11px] text-muted-foreground mt-0.5">
                   {t('Gates remain operational 24 hours every day without time-window restriction')}
                 </p>
               </div>
@@ -174,12 +174,12 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
               <button
                 type="button"
                 onClick={() => setIsOpen24_7(!isOpen24_7)}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                  isOpen24_7 ? 'bg-[#238636]' : 'bg-[#30363d]'
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-[330ms] ease-in-out focus:outline-hidden ${
+                  isOpen24_7 ? 'bg-success' : 'bg-border'
                 }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white ring-0 transition duration-[330ms] ease-in-out ${
                     isOpen24_7 ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
@@ -187,17 +187,17 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
             </div>
 
             {!isOpen24_7 && (
-              <div className="pt-2 border-t border-[#21262d] flex items-center justify-between">
-                <span className="text-[11px] text-[#8b949e]">
+              <div className="pt-2 border-t border-muted flex items-center justify-between">
+                <span className="text-[11px] text-muted-foreground">
                   {t('Timezone:')}{' '}
-                  <span className="text-white font-mono">
+                  <span className="text-foreground ">
                     {schedule.timezone || 'Asia/Ho_Chi_Minh (UTC+07:00)'}
                   </span>
                 </span>
                 <button
                   type="button"
                   onClick={handleCopyMondayToWeekdays}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-[#58a6ff] hover:text-white transition-colors text-[11px] font-medium"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted hover:bg-border text-primary hover:text-foreground transition-colors text-[11px] font-medium"
                 >
                   <Copy className="w-3.5 h-3.5" />
                   {t('Apply Mon to Fri')}
@@ -209,7 +209,7 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
           {/* Daily Schedule List (when not 24/7) */}
           {!isOpen24_7 ? (
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-[11px] text-[#8b949e] px-1 font-medium">
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1 font-medium">
                 <span>{t('Day of Week')}</span>
                 <span>{t('Operating Time Window')}</span>
               </div>
@@ -225,10 +225,10 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
                 return (
                   <div
                     key={day}
-                    className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                    className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${
                       dayConfig.enabled
-                        ? 'bg-[#0d0e12] border-[#30363d]'
-                        : 'bg-[#0d0e12]/40 border-[#30363d]/50 opacity-60'
+                        ? 'bg-background border-border'
+                        : 'bg-background/40 border-border/50 opacity-60'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -237,12 +237,12 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
                         id={`check-${day}`}
                         checked={dayConfig.enabled}
                         onChange={() => handleToggleDay(day)}
-                        className="rounded border-[#30363d] bg-[#161b22] text-[#238636] focus:ring-0 w-4 h-4 cursor-pointer"
+                        className="rounded border-border bg-card text-success focus:ring-0 w-4 h-4 cursor-pointer"
                       />
                       <label
                         htmlFor={`check-${day}`}
-                        className={`text-xs font-semibold cursor-pointer ${
-                          dayConfig.enabled ? 'text-white' : 'text-[#8b949e]'
+                        className={`text-xs font-medium cursor-pointer ${
+                          dayConfig.enabled ? 'text-foreground' : 'text-muted-foreground'
                         }`}
                       >
                         {t(label)}
@@ -250,23 +250,23 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
                     </div>
 
                     {dayConfig.enabled ? (
-                      <div className="flex items-center gap-2 font-mono text-xs">
+                      <div className="flex items-center gap-2 text-xs">
                         <input
                           type="time"
                           value={dayConfig.open || '07:00'}
                           onChange={(e) => handleTimeChange(day, 'open', e.target.value)}
-                          className="bg-[#161b22] border border-[#30363d] rounded-lg px-2 py-1 text-white text-xs focus:border-[#58a6ff] focus:outline-hidden"
+                          className="bg-card border border-border rounded-lg px-2 py-1 text-foreground text-xs focus:border-primary focus:outline-hidden"
                         />
-                        <span className="text-[#8b949e]">{t('to')}</span>
+                        <span className="text-muted-foreground">{t('to')}</span>
                         <input
                           type="time"
                           value={dayConfig.close || '22:00'}
                           onChange={(e) => handleTimeChange(day, 'close', e.target.value)}
-                          className="bg-[#161b22] border border-[#30363d] rounded-lg px-2 py-1 text-white text-xs focus:border-[#58a6ff] focus:outline-hidden"
+                          className="bg-card border border-border rounded-lg px-2 py-1 text-foreground text-xs focus:border-primary focus:outline-hidden"
                         />
                       </div>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-md bg-[#21262d] text-[#8b949e] text-[11px] font-medium">
+                      <span className="px-2 py-0.5 rounded-md bg-muted text-muted-foreground text-[11px] font-medium">
                         {t('Closed / Inactive')}
                       </span>
                     )}
@@ -275,12 +275,12 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
               })}
             </div>
           ) : (
-            <div className="p-8 text-center bg-[#0d0e12]/50 border border-dashed border-[#238636]/40 rounded-xl space-y-2">
-              <div className="w-12 h-12 rounded-full bg-[#238636]/15 text-[#3fb950] flex items-center justify-center mx-auto">
+            <div className="p-8 text-center bg-background/50 border border-dashed border-success/40 rounded-xl space-y-2">
+              <div className="w-12 h-12 rounded-full bg-success/15 text-success flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
-              <h4 className="text-white font-semibold text-sm">{t('24/7 Mode Enabled')}</h4>
-              <p className="text-xs text-[#8b949e] max-w-sm mx-auto">
+              <h4 className="text-foreground font-medium text-sm">{t('24/7 Mode Enabled')}</h4>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                 {t('This location is designated for round-the-clock automatic ANPR vehicle entry and exit operations.')}
               </p>
             </div>
@@ -288,13 +288,13 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-[#30363d] bg-[#0d0e12] flex items-center justify-between">
+        <div className="p-4 border-t border-border bg-background flex items-center justify-between">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={onClose}
-            className="text-xs border-[#30363d] text-[#8b949e] hover:text-white"
+            className="text-xs border-border text-muted-foreground hover:text-foreground"
           >
             {t('Cancel')}
           </Button>
@@ -305,7 +305,7 @@ export const EditOperatingHoursDialog: React.FC<EditOperatingHoursDialogProps> =
             size="sm"
             isLoading={isSaving}
             onClick={handleSave}
-            className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 font-semibold"
+            className="text-xs bg-primary hover:bg-primary/90 text-[#fff] gap-1.5 font-medium"
           >
             <Save className="w-3.5 h-3.5" />
             {t('Save Operating Hours')}

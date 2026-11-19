@@ -121,24 +121,24 @@ export const CreateTenantModal: React.FC<{
       maxWidth="2xl"
     >
       {/* Step Stepper Indicator */}
-      <div className="grid grid-cols-3 gap-2 mb-6 border-b border-slate-800 pb-4">
-        <div className={`p-2.5 rounded-xl border text-center transition-all ${step === 1 ? 'bg-indigo-950/80 border-indigo-500 text-indigo-300' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
-          <span className="text-[10px] font-bold block uppercase tracking-wider">{t('Step 1')}</span>
-          <span className="text-xs font-semibold flex items-center justify-center gap-1 mt-0.5">
+      <div className="grid grid-cols-3 gap-2 mb-6 border-b border-border pb-4">
+        <div className={`p-2.5 rounded-xl border text-center transition-colors ${step === 1 ? 'bg-primary/10 border-primary text-primary' : 'bg-background border-border text-muted-foreground'}`}>
+          <span className="text-[11px] font-medium block ">{t('Step 1')}</span>
+          <span className="text-xs font-medium flex items-center justify-center gap-1 mt-0.5">
             <Building2 className="w-3.5 h-3.5" /> {t('Organization')}
           </span>
         </div>
 
-        <div className={`p-2.5 rounded-xl border text-center transition-all ${step === 2 ? 'bg-indigo-950/80 border-indigo-500 text-indigo-300' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
-          <span className="text-[10px] font-bold block uppercase tracking-wider">{t('Step 2')}</span>
-          <span className="text-xs font-semibold flex items-center justify-center gap-1 mt-0.5">
+        <div className={`p-2.5 rounded-xl border text-center transition-colors ${step === 2 ? 'bg-primary/10 border-primary text-primary' : 'bg-background border-border text-muted-foreground'}`}>
+          <span className="text-[11px] font-medium block ">{t('Step 2')}</span>
+          <span className="text-xs font-medium flex items-center justify-center gap-1 mt-0.5">
             <UserCheck className="w-3.5 h-3.5" /> {t('Tenant Admin')}
           </span>
         </div>
 
-        <div className={`p-2.5 rounded-xl border text-center transition-all ${step === 3 ? 'bg-indigo-950/80 border-indigo-500 text-indigo-300' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
-          <span className="text-[10px] font-bold block uppercase tracking-wider">{t('Step 3')}</span>
-          <span className="text-xs font-semibold flex items-center justify-center gap-1 mt-0.5">
+        <div className={`p-2.5 rounded-xl border text-center transition-colors ${step === 3 ? 'bg-primary/10 border-primary text-primary' : 'bg-background border-border text-muted-foreground'}`}>
+          <span className="text-[11px] font-medium block ">{t('Step 3')}</span>
+          <span className="text-xs font-medium flex items-center justify-center gap-1 mt-0.5">
             <ShieldCheck className="w-3.5 h-3.5" /> {t('Confirm & Provision')}
           </span>
         </div>
@@ -201,7 +201,7 @@ export const CreateTenantModal: React.FC<{
       {/* Step 2: Tenant Admin Account */}
       {step === 2 && (
         <div className="space-y-4">
-          <div className="p-3 bg-indigo-950/40 border border-indigo-800/50 rounded-xl text-xs text-indigo-200">
+          <div className="p-3 bg-primary/10 border border-primary/50 rounded-xl text-xs text-primary">
             {t('This account will be assigned')} <strong>TENANT_ADMIN</strong> {t('role for governance over this tenant organization.')}
           </div>
 
@@ -244,40 +244,40 @@ export const CreateTenantModal: React.FC<{
       {/* Step 3: Review & Provision */}
       {step === 3 && (
         <div className="space-y-4 text-xs">
-          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-            <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
+          <div className="p-4 rounded-xl bg-background border border-border space-y-3">
+            <h4 className="text-xs font-medium text-primary ">
               {t('Organization Summary')}
             </h4>
-            <div className="grid grid-cols-2 gap-2 text-slate-300">
-              <div><span className="text-slate-500">{t('Name:')}</span> {orgName}</div>
-              <div><span className="text-slate-500">{t('Code:')}</span> <code className="text-amber-300">{orgCode}</code></div>
-              <div><span className="text-slate-500">{t('Email:')}</span> {orgEmail}</div>
-              <div><span className="text-slate-500">{t('Timezone:')}</span> {timezone}</div>
+            <div className="grid grid-cols-2 gap-2 text-foreground">
+              <div><span className="text-muted-foreground">{t('Name:')}</span> {orgName}</div>
+              <div><span className="text-muted-foreground">{t('Code:')}</span> <code className="text-warning">{orgCode}</code></div>
+              <div><span className="text-muted-foreground">{t('Email:')}</span> {orgEmail}</div>
+              <div><span className="text-muted-foreground">{t('Timezone:')}</span> {timezone}</div>
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-            <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
+          <div className="p-4 rounded-xl bg-background border border-border space-y-3">
+            <h4 className="text-xs font-medium text-primary ">
               {t('Primary Administrator Summary')}
             </h4>
-            <div className="grid grid-cols-2 gap-2 text-slate-300">
-              <div><span className="text-slate-500">{t('Full Name:')}</span> {adminName}</div>
-              <div><span className="text-slate-500">{t('Email:')}</span> {adminEmail}</div>
-              <div><span className="text-slate-500">{t('Role:')}</span> TENANT_ADMIN</div>
-              <div><span className="text-slate-500">{t('Force Password Reset:')}</span> {forcePasswordChange ? t('Yes') : t('No')}</div>
+            <div className="grid grid-cols-2 gap-2 text-foreground">
+              <div><span className="text-muted-foreground">{t('Full Name:')}</span> {adminName}</div>
+              <div><span className="text-muted-foreground">{t('Email:')}</span> {adminEmail}</div>
+              <div><span className="text-muted-foreground">{t('Role:')}</span> TENANT_ADMIN</div>
+              <div><span className="text-muted-foreground">{t('Force Password Reset:')}</span> {forcePasswordChange ? t('Yes') : t('No')}</div>
             </div>
           </div>
         </div>
       )}
 
       {submitError && step === 1 && (
-        <div className="mt-4 p-3 rounded-xl bg-red-950/40 border border-red-800/60 text-xs text-red-300">
+        <div className="mt-4 p-3 rounded-xl bg-destructive/10 border border-destructive/60 text-xs text-destructive">
           {submitError}
         </div>
       )}
 
       {/* Modal Actions */}
-      <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+      <div className="flex items-center justify-between pt-4 border-t border-border">
         {step > 1 ? (
           <Button variant="outline" size="sm" onClick={() => setStep((step - 1) as any)}>
             {t('Back')}

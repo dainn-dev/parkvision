@@ -103,14 +103,14 @@ export const TenantsListPage: React.FC<{
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-[330ms]">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-amber-400" /> {t('Organization Tenants')}
+          <h2 className="text-xl font-medium text-foreground tracking-tight flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-warning" /> {t('Organization Tenants')}
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {t('Enterprise multi-tenant directory, usage tracking, and administrative lifecycle.')}
           </p>
         </div>
@@ -120,7 +120,7 @@ export const TenantsListPage: React.FC<{
             variant="primary"
             icon={Plus}
             onClick={onOpenCreateModal}
-            className="shadow-md shadow-indigo-600/30"
+            className=" "
           >
             {t('Provision Tenant')}
           </Button>
@@ -185,7 +185,7 @@ export const TenantsListPage: React.FC<{
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+            <thead className="bg-background border-b border-border text-muted-foreground font-medium">
               <tr>
                 <th className="py-3.5 px-4">{t('Organization & Code')}</th>
                 <th className="py-3.5 px-4">{t('Status')}</th>
@@ -197,10 +197,10 @@ export const TenantsListPage: React.FC<{
                 <th className="py-3.5 px-4 text-right">{t('Actions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/80 text-slate-200">
+            <tbody className="divide-y divide-border/80 text-foreground">
               {paginatedTenants.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500">
+                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
                     {t('No enterprise tenants matching query parameters.')}
                   </td>
                 </tr>
@@ -208,16 +208,16 @@ export const TenantsListPage: React.FC<{
                 paginatedTenants.map((tenant) => (
                   <tr
                     key={tenant.id}
-                    className="hover:bg-slate-800/50 transition-colors group cursor-pointer"
+                    className="hover:bg-muted/50 transition-colors group cursor-pointer"
                     onClick={() => setSelectedTenantId(tenant.id)}
                   >
                     {/* Name & Code */}
                     <td className="py-3.5 px-4">
                       <div>
-                        <span className="font-bold text-slate-100 group-hover:text-indigo-400 transition-colors block text-sm">
+                        <span className="font-medium text-foreground group-hover:text-primary transition-colors block text-sm">
                           {tenant.name}
                         </span>
-                        <code className="text-[10px] text-amber-300/90 font-mono">
+                        <code className="text-[11px] text-warning font-mono">
                           {tenant.code}
                         </code>
                       </div>
@@ -244,32 +244,32 @@ export const TenantsListPage: React.FC<{
                     {/* Tenant Admin */}
                     <td className="py-3.5 px-4">
                       <div>
-                        <span className="font-semibold text-slate-200 block">
+                        <span className="font-medium text-foreground block">
                           {tenant.administrator.name}
                         </span>
-                        <span className="text-[11px] text-slate-400">
+                        <span className="text-[11px] text-muted-foreground">
                           {tenant.administrator.email}
                         </span>
                       </div>
                     </td>
 
                     {/* Users Count */}
-                    <td className="py-3.5 px-4 text-center font-mono font-medium">
+                    <td className="py-3.5 px-4 text-center font-medium">
                       {tenant.statistics.usersCount}
                     </td>
 
                     {/* Cameras */}
-                    <td className="py-3.5 px-4 text-center font-mono font-medium">
+                    <td className="py-3.5 px-4 text-center font-medium">
                       {tenant.statistics.camerasCount}
                     </td>
 
                     {/* Events */}
-                    <td className="py-3.5 px-4 text-center font-mono text-indigo-300 font-semibold">
+                    <td className="py-3.5 px-4 text-center text-primary font-medium">
                       {formatCount(tenant.statistics.eventsCount)}
                     </td>
 
                     {/* Created */}
-                    <td className="py-3.5 px-4 text-slate-400">
+                    <td className="py-3.5 px-4 text-muted-foreground">
                       {new Date(tenant.createdAt).toLocaleDateString()}
                     </td>
 
@@ -291,7 +291,7 @@ export const TenantsListPage: React.FC<{
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-red-400 hover:bg-red-950/50 hover:border-red-800"
+                            className="text-destructive hover:bg-destructive/10 hover:border-destructive/30"
                             onClick={() => handleOpenAction(tenant, 'SUSPENDED')}
                           >
                             {t('Suspend')}
@@ -302,7 +302,7 @@ export const TenantsListPage: React.FC<{
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-emerald-400 hover:bg-emerald-950/50 hover:border-emerald-800"
+                            className="text-success hover:bg-success/10 hover:border-success/30"
                             onClick={() => handleOpenAction(tenant, 'ACTIVE')}
                           >
                             {t('Activate')}
@@ -334,7 +334,7 @@ export const TenantsListPage: React.FC<{
         subtitle={t('Organization: {{name}} ({{code}})', { name: actionModal.tenant?.name, code: actionModal.tenant?.code })}
       >
         <div className="space-y-4 text-xs">
-          <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-800/50 text-amber-200">
+          <div className="p-3.5 rounded-xl bg-warning/10 border border-warning/50 text-warning">
             {t("Modifying a tenant's lifecycle status will alter access permissions for all enrolled users and cameras.")}
           </div>
 

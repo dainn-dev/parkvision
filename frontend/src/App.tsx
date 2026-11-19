@@ -105,17 +105,17 @@ const PlatformAppContent: React.FC = () => {
   // Helper to render public pages
   const renderPublicContent = (isAuthPreview: boolean = false) => {
     return (
-      <div className="min-h-screen bg-[#0d0e12] text-[#c9d1d9] flex flex-col justify-between selection:bg-[#58a6ff] selection:text-slate-950">
+      <div className="min-h-screen bg-background text-foreground flex flex-col justify-between selection:bg-primary selection:text-[#fff]">
         {/* Floating Top Banner when Authenticated Admin is previewing Landing */}
         {isAuthPreview && (
-          <div className="bg-[#161b22] border-b border-[#30363d] px-4 py-2 flex items-center justify-between text-xs z-50 sticky top-0">
-            <span className="text-[#8b949e] flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-ping" />
+          <div className="bg-card border-b border-border px-4 py-2 flex items-center justify-between text-xs z-50 sticky top-0">
+            <span className="text-muted-foreground flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-success animate-ping" />
               <span>{t('Landing Page Preview Mode (For Tenants & Customers)')}</span>
             </span>
             <button
               onClick={() => setIsPreviewingLandingAsAuth(false)}
-              className="px-3 py-1 rounded-lg bg-[#58a6ff] hover:bg-[#388bfd] text-slate-950 font-bold flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-1 rounded-lg bg-primary hover:bg-primary/90 text-[#fff] font-medium flex items-center gap-1.5 cursor-pointer"
             >
               <LayoutDashboard className="w-3.5 h-3.5" />
               <span>{t('Back to Admin Dashboard')}</span>
@@ -220,7 +220,7 @@ const PlatformAppContent: React.FC = () => {
 
   // 3. AUTHENTICATED STATE: Render Platform Admin & Tenant Portal Workspaces
   return (
-    <div className="flex h-screen w-screen bg-[#0d0e12] text-[#c9d1d9] font-sans overflow-hidden antialiased selection:bg-[#58a6ff] selection:text-slate-950">
+    <div className="flex h-screen w-screen bg-background text-foreground font-sans overflow-hidden antialiased selection:bg-primary selection:text-[#fff]">
       {/* Shared Navigation Sidebar */}
       <PlatformSidebar />
 
@@ -237,15 +237,15 @@ const PlatformAppContent: React.FC = () => {
 
         {/* Impersonation banner — shown while a platform admin browses a tenant's portal */}
         {impersonation && (
-          <div className="bg-amber-500/15 border-b border-amber-500/40 px-6 py-2 flex items-center justify-between gap-4 shrink-0">
-            <div className="flex items-center gap-2 text-amber-300 text-xs font-semibold">
+          <div className="bg-warning/15 border-b border-warning/40 px-6 py-2 flex items-center justify-between gap-4 shrink-0">
+            <div className="flex items-center gap-2 text-warning text-xs font-medium">
               <UserCog className="w-4 h-4" />
               {t('Impersonating tenant')} <span className="font-mono">{impersonation.tenantName}</span>
               {' — '}{t('session expires in {{minutes}} minutes', { minutes: Math.round(impersonation.expiresIn / 60) })}
             </div>
             <button
               onClick={() => exitImpersonation()}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/20 border border-amber-500/50 text-amber-200 text-[11px] font-bold hover:bg-amber-500/30 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-warning/20 border border-warning/50 text-warning text-[11px] font-medium hover:bg-warning/30 transition-colors cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
               {t('Exit impersonation')}
@@ -274,12 +274,12 @@ const PlatformAppContent: React.FC = () => {
               {(tenantNavTab === 'location' || tenantNavTab === 'sites') && <TenantLocationPage />}
               {tenantNavTab === 'gates' && (
                 <div className="space-y-6 animate-in fade-in duration-200">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161b22] p-6 rounded-2xl border border-[#30363d]">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-6 rounded-2xl border border-border">
                     <div>
-                      <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                      <h2 className="text-xl font-medium text-foreground tracking-tight flex items-center gap-2">
                         {tMonitoring('Barrier Monitoring Map & Station Locations')}
                       </h2>
-                      <p className="text-xs text-[#8b949e] mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         {tMonitoring('Visualize real-time barrier arm status on the D3.js vector map and telemetry dashboard.')}
                       </p>
                     </div>

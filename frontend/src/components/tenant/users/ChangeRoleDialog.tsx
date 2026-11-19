@@ -64,42 +64,42 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-[#161b22] border border-[#30363d] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-[330ms]">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-lg overflow-hidden">
         {/* Header */}
-        <div className="p-5 border-b border-[#30363d] flex items-center justify-between bg-[#0d0e12]/60">
+        <div className="p-5 border-b border-border flex items-center justify-between bg-background/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/15 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 text-primary flex items-center justify-center">
               <Shield className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white tracking-tight">{t('Change User Role')}</h2>
-              <p className="text-xs text-[#8b949e]">{t('Modify organization permissions and access level')}</p>
+              <h2 className="text-base font-medium text-foreground tracking-tight">{t('Change User Role')}</h2>
+              <p className="text-xs text-muted-foreground">{t('Modify organization permissions and access level')}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-[#8b949e] hover:text-white p-1.5 rounded-lg hover:bg-[#21262d] transition-colors"
+            className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* User Card */}
-        <div className="p-5 border-b border-[#30363d]/60 bg-[#0d0e12]/30 flex items-center justify-between">
+        <div className="p-5 border-b border-border/60 bg-background/30 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-[#21262d] border border-[#30363d] text-[#58a6ff] font-bold flex items-center justify-center text-xs">
+            <div className="w-9 h-9 rounded-full bg-muted border border-border text-primary font-medium flex items-center justify-center text-xs">
               {user.name.charAt(0)}
             </div>
             <div>
-              <div className="font-bold text-white text-xs">{user.name}</div>
-              <div className="text-[11px] font-mono text-[#8b949e]">{user.email}</div>
+              <div className="font-medium text-foreground text-xs">{user.name}</div>
+              <div className="text-[11px] text-muted-foreground">{user.email}</div>
             </div>
           </div>
 
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-[#8b949e]">{t('Current:')}</span>
-            <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[#21262d] border border-[#30363d] text-[#58a6ff]">
+            <span className="text-muted-foreground">{t('Current:')}</span>
+            <span className=" text-[11px] font-medium px-2 py-0.5 rounded bg-muted border border-border text-primary">
               {getRoleLabel(user.role)}
             </span>
           </div>
@@ -108,7 +108,7 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
           {errorMessage && (
-            <div className="p-3 bg-[#f85149]/15 border border-[#f85149]/30 rounded-xl text-[#ff7b72] flex items-start gap-2 font-medium">
+            <div className="p-3 bg-destructive/15 border border-destructive/30 rounded-xl text-destructive flex items-start gap-2 font-medium">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>{errorMessage}</span>
             </div>
@@ -116,11 +116,11 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
 
           {/* Last Admin Guard Warning */}
           {isOnlyActiveAdmin && (
-            <div className="p-3.5 bg-[#d29922]/15 border border-[#d29922]/30 rounded-xl text-[#e3b341] flex items-start gap-2.5">
-              <Lock className="w-4 h-4 shrink-0 mt-0.5 text-[#e3b341]" />
+            <div className="p-3.5 bg-warning/15 border border-warning/30 rounded-xl text-warning flex items-start gap-2.5">
+              <Lock className="w-4 h-4 shrink-0 mt-0.5 text-warning" />
               <div>
-                <div className="font-bold">{t('Sole Active Tenant Administrator')}</div>
-                <div className="text-[11px] text-[#e3b341]/90 mt-0.5 leading-relaxed">
+                <div className="font-medium">{t('Sole Active Tenant Administrator')}</div>
+                <div className="text-[11px] text-warning/90 mt-0.5 leading-relaxed">
                   {t('This user is currently the only active Tenant Admin in your organization. To change their role, you must first promote another active member to Tenant Admin.')}
                 </div>
               </div>
@@ -128,14 +128,14 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
           )}
 
           <div className="space-y-2.5">
-            <label className="block text-[#8b949e] font-semibold">{t('Select New Role')}</label>
+            <label className="block text-muted-foreground font-medium">{t('Select New Role')}</label>
 
             {/* Member Option */}
             <label
-              className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+              className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
                 selectedRole === 'MEMBER'
-                  ? 'bg-[#58a6ff]/10 border-[#58a6ff] text-white'
-                  : 'bg-[#0d0e12] border-[#30363d] text-[#8b949e] hover:border-[#8b949e]'
+                  ? 'bg-primary/10 border-primary text-foreground'
+                  : 'bg-background border-border text-muted-foreground hover:border-muted-foreground'
               }`}
             >
               <input
@@ -144,11 +144,11 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
                 value="MEMBER"
                 checked={selectedRole === 'MEMBER'}
                 onChange={() => setSelectedRole('MEMBER')}
-                className="mt-0.5 text-[#58a6ff] focus:ring-0"
+                className="mt-0.5 text-primary focus:ring-0"
               />
               <div className="flex-1">
-                <div className="font-bold text-white text-xs">{t('Member')}</div>
-                <div className="text-[11px] text-[#8b949e] mt-0.5">
+                <div className="font-medium text-foreground text-xs">{t('Member')}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">
                   {t('Business member profile, personal vehicle registration, and automatic whitelist gate entry passes.')}
                 </div>
               </div>
@@ -156,10 +156,10 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
 
             {/* Site Manager Option */}
             <label
-              className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+              className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
                 selectedRole === 'SITE_MANAGER'
-                  ? 'bg-[#d29922]/10 border-[#d29922] text-white'
-                  : 'bg-[#0d0e12] border-[#30363d] text-[#8b949e] hover:border-[#8b949e]'
+                  ? 'bg-warning/10 border-warning text-foreground'
+                  : 'bg-background border-border text-muted-foreground hover:border-muted-foreground'
               }`}
             >
               <input
@@ -168,11 +168,11 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
                 value="SITE_MANAGER"
                 checked={selectedRole === 'SITE_MANAGER'}
                 onChange={() => setSelectedRole('SITE_MANAGER')}
-                className="mt-0.5 text-[#d29922] focus:ring-0"
+                className="mt-0.5 text-warning focus:ring-0"
               />
               <div className="flex-1">
-                <div className="font-bold text-[#d29922] text-xs">{t('Site Manager')}</div>
-                <div className="text-[11px] text-[#8b949e] mt-0.5">
+                <div className="font-medium text-warning text-xs">{t('Site Manager')}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">
                   {t('Operational supervision of location gates, lanes, live monitoring, gate overrides, and camera alerts.')}
                 </div>
               </div>
@@ -180,10 +180,10 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
 
             {/* Tenant Admin Option */}
             <label
-              className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+              className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
                 selectedRole === 'TENANT_ADMIN'
-                  ? 'bg-[#f85149]/10 border-[#f85149] text-white'
-                  : 'bg-[#0d0e12] border-[#30363d] text-[#8b949e] hover:border-[#8b949e]'
+                  ? 'bg-destructive/10 border-destructive text-foreground'
+                  : 'bg-background border-border text-muted-foreground hover:border-muted-foreground'
               }`}
             >
               <input
@@ -192,11 +192,11 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
                 value="TENANT_ADMIN"
                 checked={selectedRole === 'TENANT_ADMIN'}
                 onChange={() => setSelectedRole('TENANT_ADMIN')}
-                className="mt-0.5 text-[#f85149] focus:ring-0"
+                className="mt-0.5 text-destructive focus:ring-0"
               />
               <div className="flex-1">
-                <div className="font-bold text-[#f85149] text-xs">{t('Tenant Admin')}</div>
-                <div className="text-[11px] text-[#8b949e] mt-0.5">
+                <div className="font-medium text-destructive text-xs">{t('Tenant Admin')}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">
                   {t('Unrestricted access across all organization settings, location configurations, user accounts, and billing.')}
                 </div>
               </div>
@@ -205,18 +205,18 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
 
           {/* Promotion / Demotion Summary Callout */}
           {user.role !== selectedRole && (
-            <div className="p-3 bg-[#161b22] border border-[#30363d] rounded-xl flex items-center justify-between text-xs">
+            <div className="p-3 bg-card border border-border rounded-xl flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
-                <span className="text-[#8b949e]">{getRoleLabel(user.role)}</span>
-                <ArrowRight className="w-3.5 h-3.5 text-[#58a6ff]" />
-                <span className="font-bold text-white">{getRoleLabel(selectedRole)}</span>
+                <span className="text-muted-foreground">{getRoleLabel(user.role)}</span>
+                <ArrowRight className="w-3.5 h-3.5 text-primary" />
+                <span className="font-medium text-foreground">{getRoleLabel(selectedRole)}</span>
               </div>
-              <span className="text-[11px] font-mono text-[#8b949e]">{t('Audit log will record this change')}</span>
+              <span className="text-[11px] text-muted-foreground">{t('Audit log will record this change')}</span>
             </div>
           )}
 
           {/* Footer */}
-          <div className="pt-3 border-t border-[#30363d] flex items-center justify-end gap-2.5">
+          <div className="pt-3 border-t border-border flex items-center justify-end gap-2.5">
             <Button variant="secondary" onClick={onClose} className="text-xs">
               {t('Cancel')}
             </Button>
@@ -224,7 +224,7 @@ export const ChangeRoleDialog: React.FC<ChangeRoleDialogProps> = ({ isOpen, onCl
               type="submit"
               variant="primary"
               disabled={user.role === selectedRole || (isOnlyActiveAdmin && selectedRole !== 'TENANT_ADMIN')}
-              className="text-xs bg-[#58a6ff] hover:bg-[#79b8ff] text-black font-bold gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-xs bg-primary hover:bg-primary/90 text-black font-medium gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               {t('Confirm Role Change')}

@@ -125,20 +125,20 @@ export const TenantVehiclesPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-12 animate-in fade-in duration-300">
+    <div className="space-y-6 pb-12 animate-in fade-in duration-[330ms]">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161b22]/70 p-5 rounded-2xl border border-[#30363d] backdrop-blur-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card/70 p-5 rounded-2xl border border-border ">
         <div>
           <div className="flex items-center gap-2.5">
-            <Car className="w-6 h-6 text-[#58a6ff]" />
-            <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
+            <Car className="w-6 h-6 text-primary" />
+            <h1 className="text-xl md:text-2xl font-medium text-foreground tracking-tight">
               {t('Vehicle Whitelist & Registry')}
             </h1>
-            <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#21262d] border border-[#30363d] text-[#58a6ff]">
+            <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-muted border border-border text-primary">
               {t('{{count}} Enrolled Vehicles', { count: tenantVehicles.length })}
             </span>
           </div>
-          <p className="text-xs text-[#8b949e] mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {t('Manage authorized vehicles, license plate updates, member vehicle assignments, and ANPR barrier policies')}
           </p>
         </div>
@@ -148,7 +148,7 @@ export const TenantVehiclesPage: React.FC = () => {
             <Button
               variant="outline"
               onClick={() => setIsImportModalOpen(true)}
-              className="text-xs h-9 gap-1.5 border-[#30363d] bg-[#161b22] text-[#c9d1d9] hover:text-white"
+              className="text-xs h-9 gap-1.5 border-border bg-card text-foreground hover:text-foreground"
             >
               <UploadCloud className="w-4 h-4" />
               {t('Bulk CSV Import')}
@@ -156,7 +156,7 @@ export const TenantVehiclesPage: React.FC = () => {
             <Button
               variant="primary"
               onClick={() => setIsAddModalOpen(true)}
-              className="text-xs h-9 bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm"
+              className="text-xs h-9 bg-primary hover:bg-primary/90 text-[#fff] gap-1.5 "
             >
               <Plus className="w-4 h-4" />
               {t('Enroll Vehicle')}
@@ -167,61 +167,61 @@ export const TenantVehiclesPage: React.FC = () => {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
+        <div className="p-4 rounded-xl bg-card border border-border flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Total Enrolled')}</span>
-            <div className="text-xl font-bold text-white mt-1">{metrics.total}</div>
-            <span className="text-[10px] text-[#8b949e]">{t('Registered in whitelist')}</span>
+            <span className="text-[11px] text-muted-foreground font-medium block ">{t('Total Enrolled')}</span>
+            <div className="text-xl font-medium text-foreground mt-1">{metrics.total}</div>
+            <span className="text-[11px] text-muted-foreground">{t('Registered in whitelist')}</span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 text-primary flex items-center justify-center">
             <Car className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
+        <div className="p-4 rounded-xl bg-card border border-border flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Gate Allowed')}</span>
-            <div className="text-xl font-bold text-[#3fb950] mt-1">{metrics.allowed}</div>
-            <span className="text-[10px] text-[#8b949e]">{t('Active whitelist pass')}</span>
+            <span className="text-[11px] text-muted-foreground font-medium block ">{t('Gate Allowed')}</span>
+            <div className="text-xl font-medium text-success mt-1">{metrics.allowed}</div>
+            <span className="text-[11px] text-muted-foreground">{t('Active whitelist pass')}</span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-[#238636]/10 border border-[#238636]/30 text-[#3fb950] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-success/10 border border-success/30 text-success flex items-center justify-center">
             <ShieldCheck className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
+        <div className="p-4 rounded-xl bg-card border border-border flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Suspended')}</span>
-            <div className="text-xl font-bold text-[#e3b341] mt-1">{metrics.suspended}</div>
-            <span className="text-[10px] text-[#8b949e]">{t('Access blocked')}</span>
+            <span className="text-[11px] text-muted-foreground font-medium block ">{t('Suspended')}</span>
+            <div className="text-xl font-medium text-warning mt-1">{metrics.suspended}</div>
+            <span className="text-[11px] text-muted-foreground">{t('Access blocked')}</span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-[#d29922]/10 border border-[#d29922]/30 text-[#e3b341] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-warning/10 border border-warning/30 text-warning flex items-center justify-center">
             <Ban className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
+        <div className="p-4 rounded-xl bg-card border border-border flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Member Assigned')}</span>
-            <div className="text-xl font-bold text-[#58a6ff] mt-1">{metrics.assigned}</div>
-            <span className="text-[10px] text-[#8b949e]">{t('{{count}} unassigned fleet', { count: metrics.unassigned })}</span>
+            <span className="text-[11px] text-muted-foreground font-medium block ">{t('Member Assigned')}</span>
+            <div className="text-xl font-medium text-primary mt-1">{metrics.assigned}</div>
+            <span className="text-[11px] text-muted-foreground">{t('{{count}} unassigned fleet', { count: metrics.unassigned })}</span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 text-primary flex items-center justify-center">
             <UserCheck className="w-5 h-5" />
           </div>
         </div>
       </div>
 
       {/* Filter & Toolbar */}
-      <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="p-4 rounded-xl bg-card border border-border flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-[#8b949e] absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none" />
           <Input
             placeholder={t('Search by license plate, make, model, VIN, or owner name...')}
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-9 bg-[#0d0e12] border-[#30363d] text-white text-xs h-9"
+            className="pl-9 bg-background border-border text-foreground text-xs h-9"
           />
         </div>
 
@@ -234,7 +234,7 @@ export const TenantVehiclesPage: React.FC = () => {
               setStatusFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
+            className="bg-background border border-border rounded-lg px-2.5 py-2 text-xs text-foreground focus:outline-hidden"
           >
             <option value="ALL">{t('Status: All')}</option>
             <option value="ACTIVE">{t('Status: Active')}</option>
@@ -250,7 +250,7 @@ export const TenantVehiclesPage: React.FC = () => {
               setTypeFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
+            className="bg-background border border-border rounded-lg px-2.5 py-2 text-xs text-foreground focus:outline-hidden"
           >
             <option value="ALL">{t('Category: All')}</option>
             <option value="CAR">{t('Car / SUV')}</option>
@@ -267,7 +267,7 @@ export const TenantVehiclesPage: React.FC = () => {
               setAccessFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
+            className="bg-background border border-border rounded-lg px-2.5 py-2 text-xs text-foreground focus:outline-hidden"
           >
             <option value="ALL">{t('Gate Access: All')}</option>
             <option value="ALLOWED">{t('Gate Allowed')}</option>
@@ -281,7 +281,7 @@ export const TenantVehiclesPage: React.FC = () => {
               setAssignmentFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
+            className="bg-background border border-border rounded-lg px-2.5 py-2 text-xs text-foreground focus:outline-hidden"
           >
             <option value="ALL">{t('Ownership: All')}</option>
             <option value="ASSIGNED">{t('Member Assigned')}</option>
@@ -300,7 +300,7 @@ export const TenantVehiclesPage: React.FC = () => {
                 setAssignmentFilter('ALL');
                 setCurrentPage(1);
               }}
-              className="text-[11px] h-8 text-[#8b949e] hover:text-white"
+              className="text-[11px] h-8 text-muted-foreground hover:text-foreground"
             >
               {t('Reset Filters')}
             </Button>
@@ -309,10 +309,10 @@ export const TenantVehiclesPage: React.FC = () => {
       </div>
 
       {/* Main Table */}
-      <div className="rounded-2xl bg-[#161b22] border border-[#30363d] overflow-hidden">
+      <div className="rounded-2xl bg-card border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px]">
+            <thead className="bg-background text-muted-foreground border-b border-border font-medium text-[11px]">
               <tr>
                 <th className="py-3 px-4">{t('License Plate')}</th>
                 <th className="py-3 px-4">{t('Vehicle Specs')}</th>
@@ -323,12 +323,12 @@ export const TenantVehiclesPage: React.FC = () => {
                 <th className="py-3 px-4 text-right">{t('Actions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#30363d]/60 font-medium">
+            <tbody className="divide-y divide-border/60 font-medium">
               {filteredVehicles.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-[#8b949e]">
-                    <Car className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/50" />
-                    <p className="font-semibold text-white">{t('No vehicles match your search')}</p>
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                    <Car className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
+                    <p className="font-medium text-foreground">{t('No vehicles match your search')}</p>
                     <p className="text-xs mt-1">{t('Try resetting your search query or filters')}</p>
                   </td>
                 </tr>
@@ -339,25 +339,25 @@ export const TenantVehiclesPage: React.FC = () => {
                   return (
                     <tr
                       key={vehicle.id}
-                      className="hover:bg-[#21262d]/60 transition-colors cursor-pointer"
+                      className="hover:bg-muted/60 transition-colors cursor-pointer"
                       onClick={() => setSelectedVehicleForDetails(vehicle)}
                     >
                       {/* Plate */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-white px-2.5 py-1 rounded bg-[#0d0e12] border border-[#30363d] text-xs tracking-wider">
+                          <span className=" font-medium text-foreground px-2.5 py-1 rounded bg-background border border-border text-xs tracking-wider">
                             {vehicle.currentPlate.number}
                           </span>
                         </div>
-                        <span className="text-[10px] text-[#8b949e] block mt-0.5">
+                        <span className="text-[11px] text-muted-foreground block mt-0.5">
                           {vehicle.currentPlate.province || t('Ho Chi Minh City')} ({vehicle.currentPlate.country})
                         </span>
                       </td>
 
                       {/* Specs */}
-                      <td className="py-3.5 px-4 text-white">
-                        <div className="font-semibold text-white">{vehicle.name}</div>
-                        <div className="text-[11px] text-[#8b949e]">
+                      <td className="py-3.5 px-4 text-foreground">
+                        <div className="font-medium text-foreground">{vehicle.name}</div>
+                        <div className="text-[11px] text-muted-foreground">
                           {t(vehicle.type)} · {vehicle.color || t('White')} {vehicle.year ? `· ${vehicle.year}` : ''}
                         </div>
                       </td>
@@ -366,18 +366,18 @@ export const TenantVehiclesPage: React.FC = () => {
                       <td className="py-3.5 px-4">
                         {vehicle.member ? (
                           <div>
-                            <div className="flex items-center gap-1.5 font-semibold text-white">
+                            <div className="flex items-center gap-1.5 font-medium text-foreground">
                               <span>{vehicle.member.name}</span>
-                              <span className="text-[10px] font-mono text-[#58a6ff] px-1 py-0.2 rounded bg-[#58a6ff]/10">
+                              <span className="text-[11px] text-primary px-1 py-0.2 rounded bg-primary/10">
                                 {vehicle.member.code}
                               </span>
                             </div>
-                            <span className="text-[10px] text-[#8b949e] block mt-0.5">
+                            <span className="text-[11px] text-muted-foreground block mt-0.5">
                               {vehicle.member.department || vehicle.member.type}
                             </span>
                           </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[#21262d] text-[#8b949e]">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-muted text-muted-foreground">
                             <User className="w-3 h-3" />
                             {t('Unassigned Fleet')}
                           </span>
@@ -387,10 +387,10 @@ export const TenantVehiclesPage: React.FC = () => {
                       {/* Access Decision */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold ${
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-medium ${
                             vehicle.accessStatus === 'ALLOWED'
-                              ? 'bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30'
-                              : 'bg-[#da3633]/15 text-[#f85149] border border-[#da3633]/30'
+                              ? 'bg-success/15 text-success border border-success/30'
+                              : 'bg-destructive/15 text-destructive border border-destructive/30'
                           }`}
                           title={vehicle.accessStatusReason}
                         >
@@ -406,14 +406,14 @@ export const TenantVehiclesPage: React.FC = () => {
                       {/* Status */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold ${
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium ${
                             vehicle.status === 'ACTIVE'
-                              ? 'bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30'
+                              ? 'bg-success/15 text-success border border-success/30'
                               : vehicle.status === 'SUSPENDED'
-                              ? 'bg-[#d29922]/15 text-[#e3b341] border border-[#d29922]/30'
+                              ? 'bg-warning/15 text-warning border border-warning/30'
                               : vehicle.status === 'ARCHIVED'
-                              ? 'bg-[#8b949e]/15 text-[#8b949e] border border-[#8b949e]/30'
-                              : 'bg-[#da3633]/15 text-[#f85149] border border-[#da3633]/30'
+                              ? 'bg-muted-foreground/15 text-muted-foreground border border-muted-foreground/30'
+                              : 'bg-destructive/15 text-destructive border border-destructive/30'
                           }`}
                         >
                           {t(vehicle.status)}
@@ -421,12 +421,12 @@ export const TenantVehiclesPage: React.FC = () => {
                       </td>
 
                       {/* Plate history count */}
-                      <td className="py-3.5 px-4 text-[#8b949e] text-[11px]">
-                        <span className="font-mono">
+                      <td className="py-3.5 px-4 text-muted-foreground text-[11px]">
+                        <span className="">
                           {t('{{count}} plates', { count: 1 + (vehicle.previousPlates?.length || 0) })}
                         </span>
                         {vehicle.previousPlates && vehicle.previousPlates.length > 0 && (
-                          <span className="text-[10px] text-[#58a6ff] block">
+                          <span className="text-[11px] text-primary block">
                             ({t('{{count}} previous', { count: vehicle.previousPlates.length })})
                           </span>
                         )}
@@ -437,7 +437,7 @@ export const TenantVehiclesPage: React.FC = () => {
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => setSelectedVehicleForDetails(vehicle)}
-                            className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
+                            className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                             title={t('View Details & History')}
                           >
                             <Eye className="w-4 h-4" />
@@ -446,21 +446,21 @@ export const TenantVehiclesPage: React.FC = () => {
                             <>
                               <button
                                 onClick={() => setSelectedVehicleForEdit(vehicle)}
-                                className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
+                                className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                                 title={t('Edit Vehicle Specs')}
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => setSelectedVehicleForPlate(vehicle)}
-                                className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
+                                className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors cursor-pointer"
                                 title={t('Update License Plate')}
                               >
                                 <Tag className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => setSelectedVehicleForAssign(vehicle)}
-                                className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
+                                className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors cursor-pointer"
                                 title={t('Assign / Reassign Member')}
                               >
                                 <UserCheck className="w-4 h-4" />
@@ -468,7 +468,7 @@ export const TenantVehiclesPage: React.FC = () => {
                               {isSuspended ? (
                                 <button
                                   onClick={() => activateTenantVehicle(vehicle.id)}
-                                  className="p-1.5 rounded hover:bg-[#238636]/20 text-[#3fb950] transition-colors cursor-pointer"
+                                  className="p-1.5 rounded hover:bg-success/20 text-success transition-colors cursor-pointer"
                                   title={t('Reactivate Vehicle')}
                                 >
                                   <CheckCircle2 className="w-4 h-4" />
@@ -476,7 +476,7 @@ export const TenantVehiclesPage: React.FC = () => {
                               ) : (
                                 <button
                                   onClick={() => setSelectedVehicleForSuspend(vehicle)}
-                                  className="p-1.5 rounded hover:bg-[#d29922]/20 text-[#8b949e] hover:text-[#e3b341] transition-colors cursor-pointer"
+                                  className="p-1.5 rounded hover:bg-warning/20 text-muted-foreground hover:text-warning transition-colors cursor-pointer"
                                   title={t('Suspend Access')}
                                 >
                                   <Ban className="w-4 h-4" />

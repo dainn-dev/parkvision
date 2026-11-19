@@ -55,20 +55,20 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/75 backdrop-blur-xs" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/75 " onClick={onClose} />
 
-      <div className="relative w-full max-w-2xl bg-[#0d0e12] border border-[#30363d] rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]">
+      <div className="relative w-full max-w-2xl bg-background border border-border rounded-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-[330ms] flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[#30363d] bg-[#161b22] flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-border bg-card flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/15 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 text-primary flex items-center justify-center">
               <Layers className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">
+              <h3 className="text-base font-medium text-foreground tracking-tight">
                 {t('Reorder Rule Evaluation Priorities')}
               </h3>
-              <p className="text-xs text-[#8b949e]">
+              <p className="text-xs text-muted-foreground">
                 {t('Higher positions in the list are evaluated first by edge controllers')}
               </p>
             </div>
@@ -76,14 +76,14 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white hover:bg-[#30363d] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground hover:bg-border flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Notice */}
-        <div className="px-6 py-2.5 bg-[#1f6feb]/10 border-b border-[#1f6feb]/20 flex items-center gap-2 text-xs text-[#58a6ff]">
+        <div className="px-6 py-2.5 bg-primary/10 border-b border-primary/20 flex items-center gap-2 text-xs text-primary">
           <Info className="w-4 h-4 shrink-0" />
           <span>
             {t('Evaluation occurs sequentially from position #1 downwards. The first matched rule determines gate action.')}
@@ -97,25 +97,25 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
             return (
               <div
                 key={rule.id}
-                className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between gap-3 hover:border-[#58a6ff]/40 transition-colors"
+                className="p-3 rounded-xl bg-card border border-border flex items-center justify-between gap-3 hover:border-primary/40 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
-                    <GripVertical className="w-4 h-4 text-[#8b949e]" />
-                    <span className="w-8 h-8 rounded-lg bg-[#21262d] border border-[#30363d] flex items-center justify-center font-mono font-bold text-white text-xs">
+                    <GripVertical className="w-4 h-4 text-muted-foreground" />
+                    <span className="w-8 h-8 rounded-lg bg-muted border border-border flex items-center justify-center font-medium text-foreground text-xs">
                       #{simulatedNewPriority}
                     </span>
                   </div>
 
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-white">{rule.name}</span>
-                      <span className="font-mono text-[11px] text-[#8b949e]">({rule.code})</span>
+                      <span className="font-medium text-foreground">{rule.name}</span>
+                      <span className="font-mono text-[11px] text-muted-foreground">({rule.code})</span>
                       <span
-                        className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${
                           rule.action === 'ALLOW'
-                            ? 'bg-[#238636]/20 text-[#3fb950]'
-                            : 'bg-[#da3633]/20 text-[#f85149]'
+                            ? 'bg-success/20 text-success'
+                            : 'bg-destructive/20 text-destructive'
                         }`}
                       >
                         {rule.action === 'ALLOW' ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
@@ -123,9 +123,9 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
                       </span>
                     </div>
 
-                    <div className="text-[11px] text-[#8b949e] mt-0.5">
-                      {t('Target:')} <span className="text-[#c9d1d9]">{rule.target?.type || rule.type}</span> · {t('Status:')}{' '}
-                      <span className={rule.status === 'ACTIVE' ? 'text-[#3fb950]' : 'text-[#8b949e]'}>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                      {t('Target:')} <span className="text-foreground">{rule.target?.type || rule.type}</span> · {t('Status:')}{' '}
+                      <span className={rule.status === 'ACTIVE' ? 'text-success' : 'text-muted-foreground'}>
                         {t(rule.status)}
                       </span>
                     </div>
@@ -137,7 +137,7 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
                     type="button"
                     disabled={idx === 0}
                     onClick={() => moveRule(idx, 'up')}
-                    className="p-1.5 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                    className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     title={t('Move higher priority')}
                   >
                     <ArrowUp className="w-4 h-4" />
@@ -146,7 +146,7 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
                     type="button"
                     disabled={idx === rules.length - 1}
                     onClick={() => moveRule(idx, 'down')}
-                    className="p-1.5 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                    className="p-1.5 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     title={t('Move lower priority')}
                   >
                     <ArrowDown className="w-4 h-4" />
@@ -158,8 +158,8 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-[#30363d] bg-[#161b22] flex items-center justify-between">
-          <span className="text-xs text-[#8b949e]">
+        <div className="px-6 py-4 border-t border-border bg-card flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
             {t('Priorities will automatically re-index in intervals of 10 (#10, #20, #30...)')}
           </span>
 
@@ -168,7 +168,7 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
               variant="outline"
               size="sm"
               onClick={onClose}
-              className="text-xs border-[#30363d] text-[#8b949e] hover:text-white"
+              className="text-xs border-border text-muted-foreground hover:text-foreground"
             >
               {t('Cancel')}
             </Button>
@@ -176,7 +176,7 @@ export const RulePriorityReorderModal: React.FC<RulePriorityReorderModalProps> =
               variant="primary"
               size="sm"
               onClick={handleSave}
-              className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
+              className="text-xs bg-primary hover:bg-primary/90 text-[#fff] gap-1.5"
             >
               <Check className="w-4 h-4" />
               {t('Save Evaluation Sequence')}

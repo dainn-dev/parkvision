@@ -101,20 +101,20 @@ export const ParkingMapCanvas: React.FC<ParkingMapCanvasProps> = ({
           <button
             key={lv.id}
             onClick={() => onSelectLevel(lv.id)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border ${
               (level?.id === lv.id)
-                ? 'bg-[#58a6ff]/15 text-[#58a6ff] border-[#58a6ff]/40'
-                : 'text-[#8b949e] border-[#30363d] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                ? 'bg-primary/15 text-primary border-primary/40'
+                : 'text-muted-foreground border-border hover:bg-card hover:text-foreground'
             }`}
           >
             {lv.name}
-            {lv.code && <span className="ml-1.5 text-[10px] font-mono opacity-70">{lv.code}</span>}
+            {lv.code && <span className="ml-1.5 text-[11px] font-mono opacity-70">{lv.code}</span>}
           </button>
         ))}
       </div>
 
       {/* Map surface: level image (or grid fallback) + zone rects in a 0..100 box */}
-      <div className="relative flex-1 min-h-[320px] rounded-xl overflow-hidden border border-[#30363d] bg-[#0d0e12]">
+      <div className="relative flex-1 min-h-[320px] rounded-xl overflow-hidden border border-border bg-background">
         {level?.mapImageUrl ? (
           <img
             src={level.mapImageUrl}
@@ -163,7 +163,7 @@ export const ParkingMapCanvas: React.FC<ParkingMapCanvasProps> = ({
                     stroke={isHi ? '#58a6ff' : 'rgba(201,209,217,0.5)'}
                     strokeWidth={isHi ? 0.6 : 0.25}
                     vectorEffect="non-scaling-stroke"
-                    className={isHi ? 'animate-pulse' : ''}
+                    className={isHi ? '' : ''}
                   />
                   <text
                     x={(b.x + b.w / 2) * 100}
@@ -214,10 +214,10 @@ export const ParkingMapCanvas: React.FC<ParkingMapCanvasProps> = ({
             <button
               key={z.id}
               onClick={() => onZoneClick?.(z)}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-mono border transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-md text-[11px] border transition-colors cursor-pointer ${
                 z.id === highlightZoneId
-                  ? 'border-[#58a6ff] text-[#58a6ff] bg-[#58a6ff]/10'
-                  : 'border-[#30363d] text-[#8b949e] hover:text-[#c9d1d9]'
+                  ? 'border-primary text-primary bg-primary/10'
+                  : 'border-border text-muted-foreground hover:text-foreground'
               }`}
             >
               {z.code ?? z.name} · {z.occupiedCount}{z.capacity ? `/${z.capacity}` : ''}

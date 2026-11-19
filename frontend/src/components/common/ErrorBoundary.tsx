@@ -46,21 +46,21 @@ export class ErrorBoundary extends React.Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="p-8 my-6 max-w-3xl mx-auto rounded-2xl bg-[#161b22] border border-[#f85149]/40 shadow-2xl text-center space-y-4 animate-in fade-in">
-          <div className="w-12 h-12 mx-auto rounded-2xl bg-[#f85149]/15 border border-[#f85149]/30 text-[#f85149] flex items-center justify-center">
+        <div className="p-8 my-6 max-w-3xl mx-auto rounded-2xl bg-card border border-destructive/40 text-center space-y-4 animate-in fade-in">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-destructive/15 border border-destructive/30 text-destructive flex items-center justify-center">
             <AlertOctagon className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white tracking-tight">
+            <h2 className="text-lg font-medium text-foreground tracking-tight">
               {this.props.fallbackTitle || i18n.t('Something went wrong (View Render Error)', { ns: 'common' })}
             </h2>
-            <p className="text-xs text-[#8b949e] mt-1 max-w-md mx-auto">
+            <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
               {this.state.error?.message || i18n.t('An unexpected error occurred while rendering this view.', { ns: 'common' })}
             </p>
           </div>
 
           {this.state.error && (
-            <div className="text-left bg-[#0d0e12] border border-[#30363d] p-3 rounded-xl max-h-36 overflow-y-auto font-mono text-[11px] text-[#f85149]/90">
+            <div className="text-left bg-background border border-border p-3 rounded-xl max-h-36 overflow-y-auto text-[11px] text-destructive/90">
               {this.state.error.stack || this.state.error.message}
             </div>
           )}
@@ -71,7 +71,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               size="sm"
               icon={RotateCcw}
               onClick={this.handleReload}
-              className="text-xs border-[#30363d] text-white hover:border-[#58a6ff]"
+              className="text-xs border-border text-foreground hover:border-primary"
             >
               {i18n.t('Reload View', { ns: 'common' })}
             </Button>

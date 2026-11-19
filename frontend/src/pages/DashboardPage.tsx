@@ -102,20 +102,20 @@ export const DashboardPage: React.FC<{
   }));
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-[330ms]">
       {/* 1. Header & Welcome Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161b22] p-6 rounded-xl border border-[#30363d] shadow-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-6 rounded-xl border border-border ">
         <div>
           <div className="flex items-center gap-2">
             <Badge variant="blue" size="sm">
               {t('GLOBAL PLATFORM GOVERNANCE')}
             </Badge>
-            <span className="text-xs text-[#8b949e] font-mono">{t('Region: ap-southeast-1')}</span>
+            <span className="text-xs text-muted-foreground ">{t('Region: ap-southeast-1')}</span>
           </div>
-          <h2 className="text-2xl font-extrabold text-white mt-2 tracking-tight">
+          <h2 className="text-2xl font-medium text-foreground mt-2 tracking-tight">
             {t('Vehicle Platform Operational Center')}
           </h2>
-          <p className="text-xs text-[#8b949e] mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {t('Real-time multi-tenant health, high-precision edge telemetry, and security oversight.')}
           </p>
         </div>
@@ -126,7 +126,7 @@ export const DashboardPage: React.FC<{
               variant="primary"
               icon={Plus}
               onClick={onOpenCreateTenantModal}
-              className="shadow-sm"
+              className=""
             >
               {t('Provision Tenant')}
             </Button>
@@ -213,24 +213,24 @@ export const DashboardPage: React.FC<{
             {services.map((srv) => (
               <div
                 key={srv.id}
-                className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between hover:border-slate-700 transition-all"
+                className="p-3.5 rounded-xl bg-background/80 border border-border/80 flex items-center justify-between hover:border-border transition-colors"
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span
                       className={`w-2 h-2 rounded-full ${
-                        srv.status === 'HEALTHY' ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'
+                        srv.status === 'HEALTHY' ? 'bg-success ' : 'bg-destructive'
                       }`}
                     />
-                    <span className="text-xs font-bold text-slate-100">{srv.name}</span>
+                    <span className="text-xs font-medium text-foreground">{srv.name}</span>
                   </div>
-                  <p className="text-[11px] text-slate-400">{srv.details}</p>
+                  <p className="text-[11px] text-muted-foreground">{srv.details}</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs font-mono font-bold text-indigo-300 block">
+                  <span className="text-xs font-medium text-primary block">
                     {srv.responseTimeMs} ms
                   </span>
-                  <span className="text-[10px] text-emerald-400 font-medium">
+                  <span className="text-[11px] text-success font-medium">
                     {srv.uptimePercent != null ? `${srv.uptimePercent}% ${t('uptime')}` : t('uptime n/a')}
                   </span>
                 </div>
@@ -246,14 +246,14 @@ export const DashboardPage: React.FC<{
             subtitle={t('Aggregate Edge hardware & camera status')}
           />
           <CardContent className="space-y-4">
-            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+            <div className="p-3.5 rounded-xl bg-background border border-border flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-emerald-950/80 text-emerald-400 border border-emerald-800/50">
+                <div className="p-2.5 rounded-lg bg-success/10 text-success border border-success/50">
                   <Video className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white">{t('Cameras Fleet')}</h4>
-                  <p className="text-[11px] text-slate-400">{onlineCameras} / {totalCameras} {t('Online')}</p>
+                  <h4 className="text-xs font-medium text-foreground">{t('Cameras Fleet')}</h4>
+                  <p className="text-[11px] text-muted-foreground">{onlineCameras} / {totalCameras} {t('Online')}</p>
                 </div>
               </div>
               <Badge variant={offlineCameras > 0 ? 'amber' : 'emerald'} size="sm">
@@ -263,31 +263,31 @@ export const DashboardPage: React.FC<{
 
             <div
               onClick={() => navigateTo('monitoring', 'gates')}
-              className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-sky-500/50 transition-colors cursor-pointer flex items-center justify-between group"
+              className="p-3.5 rounded-xl bg-background border border-border hover:border-primary/50 transition-colors cursor-pointer flex items-center justify-between group"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-sky-950/80 text-sky-400 border border-sky-800/50 group-hover:scale-105 transition-transform">
+                <div className="p-2.5 rounded-lg bg-primary/10 text-primary border border-primary/50 transition-transform">
                   <DoorOpen className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h4 className="text-xs font-bold text-white group-hover:text-sky-300 transition-colors">{t('Gate Controllers & Barriers')}</h4>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <h4 className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">{t('Gate Controllers & Barriers')}</h4>
+                    <span className="w-1.5 h-1.5 rounded-full bg-success " />
                   </div>
-                  <p className="text-[11px] text-slate-400">{onlineGates} / {totalGates} {t('Active')} · {t('View D3 Map')} →</p>
+                  <p className="text-[11px] text-muted-foreground">{onlineGates} / {totalGates} {t('Active')} · {t('View D3 Map')} →</p>
                 </div>
               </div>
               <Badge variant="emerald" size="sm">{totalGates ? `${((onlineGates / totalGates) * 100).toFixed(1)}%` : '—'}</Badge>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+            <div className="p-3.5 rounded-xl bg-background border border-border flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-indigo-950/80 text-indigo-400 border border-indigo-800/50">
+                <div className="p-2.5 rounded-lg bg-primary/10 text-primary border border-primary/50">
                   <Radio className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white">{t('Edge Processing Nodes')}</h4>
-                  <p className="text-[11px] text-slate-400">{onlineEdge} / {totalEdge} {t('Connected')}</p>
+                  <h4 className="text-xs font-medium text-foreground">{t('Edge Processing Nodes')}</h4>
+                  <p className="text-[11px] text-muted-foreground">{onlineEdge} / {totalEdge} {t('Connected')}</p>
                 </div>
               </div>
               <Badge variant="emerald" size="sm">{totalEdge ? `${((onlineEdge / totalEdge) * 100).toFixed(1)}%` : '—'}</Badge>
@@ -369,8 +369,8 @@ export const DashboardPage: React.FC<{
           />
           <CardContent className="space-y-3">
             {securityAlerts.length === 0 ? (
-              <div className="py-8 text-center text-slate-500 text-xs">
-                <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+              <div className="py-8 text-center text-muted-foreground text-xs">
+                <CheckCircle2 className="w-8 h-8 text-success mx-auto mb-2" />
                 {t('No unresolved security alerts.')}
               </div>
             ) : (
@@ -378,21 +378,21 @@ export const DashboardPage: React.FC<{
                 <div
                   key={alert.id}
                   onClick={() => navigateTo('security', 'alerts')}
-                  className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer flex items-start justify-between gap-3"
+                  className="p-3.5 rounded-xl bg-background border border-border hover:border-border transition-colors cursor-pointer flex items-start justify-between gap-3"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <Badge variant={alert.severity === 'CRITICAL' ? 'red' : 'amber'} size="sm">
                         {alert.severity}
                       </Badge>
-                      <span className="text-xs font-bold text-slate-100">{alert.type}</span>
+                      <span className="text-xs font-medium text-foreground">{alert.type}</span>
                     </div>
-                    <p className="text-xs text-slate-400">{alert.evidence.details}</p>
-                    <div className="text-[10px] text-slate-500 font-mono">
+                    <p className="text-xs text-muted-foreground">{alert.evidence.details}</p>
+                    <div className="text-[11px] text-muted-foreground ">
                       {t('Subject:')} {alert.subjectEmail} • IP: {alert.sourceIp}
                     </div>
                   </div>
-                  <span className="text-[10px] text-slate-500 whitespace-nowrap">
+                  <span className="text-[11px] text-muted-foreground whitespace-nowrap">
                     {new Date(alert.detectedAt).toLocaleTimeString()}
                   </span>
                 </div>
@@ -417,13 +417,13 @@ export const DashboardPage: React.FC<{
               <div
                 key={log.id}
                 onClick={() => navigateTo('audit')}
-                className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 hover:border-slate-700 transition-all cursor-pointer flex items-center justify-between text-xs"
+                className="p-3 rounded-xl bg-background border border-border/80 hover:border-border transition-colors cursor-pointer flex items-center justify-between text-xs"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-indigo-400" />
+                  <div className="w-2 h-2 rounded-full bg-primary" />
                   <div>
-                    <span className="font-bold text-slate-200 block">{log.action}</span>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="font-medium text-foreground block">{log.action}</span>
+                    <span className="text-[11px] text-muted-foreground">
                       {t('by')} {log.actorName}
                       {log.actorEmail && log.actorEmail !== log.actorName ? ` (${log.actorEmail})` : ''}
                     </span>
@@ -431,7 +431,7 @@ export const DashboardPage: React.FC<{
                 </div>
                 <div className="text-right">
                   <Badge variant="slate" size="sm">{log.resourceType}</Badge>
-                  <span className="text-[10px] text-slate-500 block mt-0.5">
+                  <span className="text-[11px] text-muted-foreground block mt-0.5">
                     {new Date(log.timestamp).toLocaleTimeString()}
                   </span>
                 </div>

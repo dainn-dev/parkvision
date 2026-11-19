@@ -22,29 +22,29 @@ export const RuleDeleteConfirmDialog: React.FC<RuleDeleteConfirmDialogProps> = (
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/75 backdrop-blur-xs" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/75 " onClick={onClose} />
 
-      <div className="relative w-full max-w-md bg-[#0d0e12] border border-[#30363d] rounded-2xl shadow-2xl p-6 z-10 animate-in zoom-in-95 duration-150 space-y-4">
+      <div className="relative w-full max-w-md bg-background border border-border rounded-2xl p-6 z-10 animate-in zoom-in-95 duration-[330ms] space-y-4">
         <div className="flex items-start justify-between">
-          <div className="w-10 h-10 rounded-xl bg-[#da3633]/15 border border-[#da3633]/30 text-[#f85149] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-destructive/15 border border-destructive/30 text-destructive flex items-center justify-center">
             <Trash2 className="w-5 h-5" />
           </div>
           <button
             onClick={onClose}
-            className="text-[#8b949e] hover:text-white transition-colors cursor-pointer"
+            className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div>
-          <h3 className="text-base font-bold text-white">{t('Delete Access Policy Rule?')}</h3>
-          <p className="text-xs text-[#8b949e] mt-1.5 leading-relaxed">
-            {t('Are you sure you want to permanently delete rule')} <strong className="text-white">"{rule.name}"</strong> (<span className="font-mono text-[#58a6ff]">{rule.code}</span>)?
+          <h3 className="text-base font-medium text-foreground">{t('Delete Access Policy Rule?')}</h3>
+          <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+            {t('Are you sure you want to permanently delete rule')} <strong className="text-foreground">"{rule.name}"</strong> (<span className="font-mono text-primary">{rule.code}</span>)?
           </p>
         </div>
 
-        <div className="p-3 rounded-lg bg-[#da3633]/10 border border-[#da3633]/30 text-xs text-[#f85149] flex items-start gap-2">
+        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-xs text-destructive flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <div>
             {t('Edge controllers will immediately purge this rule. Vehicles evaluated previously by this rule will fall back to default tenant access policies.')}
@@ -56,7 +56,7 @@ export const RuleDeleteConfirmDialog: React.FC<RuleDeleteConfirmDialogProps> = (
             variant="outline"
             size="sm"
             onClick={onClose}
-            className="text-xs border-[#30363d] text-[#8b949e] hover:text-white"
+            className="text-xs border-border text-muted-foreground hover:text-foreground"
           >
             {t('Cancel')}
           </Button>
@@ -67,7 +67,7 @@ export const RuleDeleteConfirmDialog: React.FC<RuleDeleteConfirmDialogProps> = (
               onConfirm(rule.id);
               onClose();
             }}
-            className="text-xs bg-[#da3633] hover:bg-[#b62324] text-white border-transparent gap-1.5 font-bold"
+            className="text-xs bg-destructive hover:bg-destructive/90 text-[#fff] border-transparent gap-1.5 font-medium"
           >
             <Trash2 className="w-3.5 h-3.5" />
             {t('Delete Rule')}

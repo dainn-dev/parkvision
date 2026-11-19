@@ -160,22 +160,22 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-[#161b22] border border-[#30363d] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-[330ms]">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-lg overflow-hidden">
         {/* Header */}
-        <div className="p-5 border-b border-[#30363d] flex items-center justify-between bg-[#0d0e12]/60">
+        <div className="p-5 border-b border-border flex items-center justify-between bg-background/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/15 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 text-primary flex items-center justify-center">
               <UploadCloud className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white tracking-tight">{t('Bulk Import Users & Members')}</h2>
-              <p className="text-xs text-[#8b949e]">{t('Upload CSV spreadsheet to batch invite or provision')}</p>
+              <h2 className="text-base font-medium text-foreground tracking-tight">{t('Bulk Import Users & Members')}</h2>
+              <p className="text-xs text-muted-foreground">{t('Upload CSV spreadsheet to batch invite or provision')}</p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="text-[#8b949e] hover:text-white p-1.5 rounded-lg hover:bg-[#21262d] transition-colors"
+            className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -195,20 +195,20 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
               setDragOver(false);
               pickFile(e.dataTransfer.files?.[0]);
             }}
-            className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+            className={`border border-dashed rounded-2xl p-6 text-center transition-colors ${
               dragOver
-                ? 'border-[#58a6ff] bg-[#58a6ff]/10'
-                : 'border-[#30363d] bg-[#0d0e12] hover:border-[#8b949e]'
+                ? 'border-primary bg-primary/10'
+                : 'border-border bg-background hover:border-muted-foreground'
             }`}
           >
-            <UploadCloud className="w-8 h-8 text-[#58a6ff] mx-auto mb-2" />
-            <p className="font-bold text-white text-xs">
+            <UploadCloud className="w-8 h-8 text-primary mx-auto mb-2" />
+            <p className="font-medium text-foreground text-xs">
               {file ? file.name : t('Drag and drop your CSV file here')}
             </p>
-            <p className="text-[11px] text-[#8b949e] mt-1">{t('Supports UTF-8 CSV with standard header mapping')}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{t('Supports UTF-8 CSV with standard header mapping')}</p>
 
             <label className="mt-3 inline-block">
-              <span className="px-3 py-1.5 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-white text-xs font-semibold cursor-pointer border border-[#30363d] transition-colors">
+              <span className="px-3 py-1.5 rounded-lg bg-muted hover:bg-border text-foreground text-xs font-medium cursor-pointer border border-border transition-colors">
                 {t('Browse File')}
               </span>
               <input type="file" accept=".csv" onChange={(e) => pickFile(e.target.files?.[0])} className="hidden" />
@@ -217,12 +217,12 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
 
           {/* Result summary */}
           {result && (
-            <div className="p-3.5 bg-[#0d0e12] border border-[#30363d] rounded-xl space-y-1.5">
-              <div className="flex items-center gap-2 font-semibold text-white">
+            <div className="p-3.5 bg-background border border-border rounded-xl space-y-1.5">
+              <div className="flex items-center gap-2 font-medium text-foreground">
                 {result.failedCount === 0 ? (
-                  <CheckCircle2 className="w-4 h-4 text-[#3fb950]" />
+                  <CheckCircle2 className="w-4 h-4 text-success" />
                 ) : (
-                  <AlertTriangle className="w-4 h-4 text-[#d29922]" />
+                  <AlertTriangle className="w-4 h-4 text-warning" />
                 )}
                 {t('{{imported}} invited · {{failed}} failed · {{skipped}} skipped', {
                   imported: result.importedCount,
@@ -231,7 +231,7 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
                 })}
               </div>
               {result.errors.length > 0 && (
-                <ul className="max-h-28 overflow-y-auto text-[11px] text-[#8b949e] font-mono space-y-0.5 pt-1">
+                <ul className="max-h-28 overflow-y-auto text-[11px] text-muted-foreground space-y-0.5 pt-1">
                   {result.errors.slice(0, 20).map((err, i) => (
                     <li key={i} className="truncate">{err}</li>
                   ))}
@@ -244,18 +244,18 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
           )}
 
           {/* Template Download */}
-          <div className="p-3.5 bg-[#0d0e12] border border-[#30363d] rounded-xl flex items-center justify-between">
+          <div className="p-3.5 bg-background border border-border rounded-xl flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <FileText className="w-4 h-4 text-[#58a6ff]" />
+              <FileText className="w-4 h-4 text-primary" />
               <div>
-                <div className="font-semibold text-white">{t('Download Sample CSV Template')}</div>
-                <div className="text-[11px] text-[#8b949e]">{t('Includes columns for Name, Email, Role, Plates')}</div>
+                <div className="font-medium text-foreground">{t('Download Sample CSV Template')}</div>
+                <div className="text-[11px] text-muted-foreground">{t('Includes columns for Name, Email, Role, Plates')}</div>
               </div>
             </div>
             <Button
               variant="secondary"
               onClick={downloadSampleCsv}
-              className="text-[11px] py-1 px-2.5 bg-[#21262d] hover:bg-[#30363d] text-white gap-1 border border-[#30363d]"
+              className="text-[11px] py-1 px-2.5 bg-muted hover:bg-border text-foreground gap-1 border border-border"
             >
               <Download className="w-3 h-3" />
               {t('Template')}
@@ -264,7 +264,7 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-[#30363d] bg-[#0d0e12]/80 flex items-center justify-end gap-2.5">
+        <div className="p-4 border-t border-border bg-background/80 flex items-center justify-end gap-2.5">
           <Button variant="secondary" onClick={handleClose} className="text-xs">
             {result ? t('Close') : t('Cancel')}
           </Button>
@@ -273,7 +273,7 @@ export const ImportUsersModal: React.FC<ImportUsersModalProps> = ({ isOpen, onCl
             variant="primary"
             disabled={!file || isProcessing}
             onClick={handleImport}
-            className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white font-bold gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-xs bg-primary hover:bg-primary/90 text-[#fff] font-medium gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
             {isProcessing ? t('Processing CSV...') : t('Process Import')}

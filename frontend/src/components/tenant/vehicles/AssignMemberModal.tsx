@@ -43,23 +43,23 @@ export const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/75 backdrop-blur-xs" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/75 " onClick={onClose} />
 
-      <div className="relative w-full max-w-lg bg-[#0d0e12] border border-[#30363d] rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200">
-        <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between bg-[#161b22]">
+      <div className="relative w-full max-w-lg bg-background border border-border rounded-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-[330ms]">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-card">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 text-primary flex items-center justify-center">
               <UserCheck className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">{t('Assign Vehicle Member')}</h3>
-              <p className="text-xs text-[#8b949e]">{t('Link {{name}} ({{plate}}) to an authorized member', { name: vehicle.name, plate: vehicle.currentPlate.number })}</p>
+              <h3 className="text-base font-medium text-foreground tracking-tight">{t('Assign Vehicle Member')}</h3>
+              <p className="text-xs text-muted-foreground">{t('Link {{name}} ({{plate}}) to an authorized member', { name: vehicle.name, plate: vehicle.currentPlate.number })}</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white hover:bg-[#30363d] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground hover:bg-border flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -69,32 +69,32 @@ export const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
           {/* Unassigned Pool Option */}
           <div
             onClick={() => setSelectedMemberId(null)}
-            className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center gap-3 ${
+            className={`p-3 rounded-xl border cursor-pointer transition-colors flex items-center gap-3 ${
               selectedMemberId === null
-                ? 'bg-[#58a6ff]/10 border-[#58a6ff] text-white'
-                : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:border-[#58a6ff]/50'
+                ? 'bg-primary/10 border-primary text-foreground'
+                : 'bg-card border-border text-muted-foreground hover:border-primary/50'
             }`}
           >
-            <div className="w-8 h-8 rounded-lg bg-[#21262d] flex items-center justify-center text-[#8b949e]">
+            <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
               <User className="w-4 h-4" />
             </div>
             <div className="flex-1">
-              <span className="font-bold text-white block">{t('Unassigned Organization Fleet')}</span>
-              <span className="text-[11px] text-[#8b949e]">{t('Not associated with any specific member profile')}</span>
+              <span className="font-medium text-foreground block">{t('Unassigned Organization Fleet')}</span>
+              <span className="text-[11px] text-muted-foreground">{t('Not associated with any specific member profile')}</span>
             </div>
             {selectedMemberId === null && (
-              <Check className="w-4 h-4 text-[#58a6ff]" />
+              <Check className="w-4 h-4 text-primary" />
             )}
           </div>
 
           {/* Search Box */}
           <div className="relative">
-            <Search className="w-4 h-4 text-[#8b949e] absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none" />
             <Input
               placeholder={t('Search members by name, email, or member code...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-[#161b22] border-[#30363d] text-white text-xs"
+              className="pl-9 bg-card border-border text-foreground text-xs"
             />
           </div>
 
@@ -110,40 +110,40 @@ export const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
                 <div
                   key={u.id}
                   onClick={() => setSelectedMemberId(memId)}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center gap-3 ${
+                  className={`p-3 rounded-xl border cursor-pointer transition-colors flex items-center gap-3 ${
                     isSelected
-                      ? 'bg-[#58a6ff]/10 border-[#58a6ff]'
-                      : 'bg-[#161b22] border-[#30363d] hover:border-[#58a6ff]/40'
+                      ? 'bg-primary/10 border-primary'
+                      : 'bg-card border-border hover:border-primary/40'
                   }`}
                 >
-                  <div className="w-8 h-8 rounded-lg bg-[#21262d] flex items-center justify-center text-[#58a6ff] font-bold text-xs">
+                  <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-primary font-medium text-xs">
                     {u.name.charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-white truncate">{u.name}</span>
+                      <span className="font-medium text-foreground truncate">{u.name}</span>
                       {mem?.memberCode && (
-                        <span className="text-[10px] font-mono text-[#58a6ff] px-1.5 py-0.2 rounded bg-[#58a6ff]/10">
+                        <span className="text-[11px] text-primary px-1.5 py-0.2 rounded bg-primary/10">
                           {mem.memberCode}
                         </span>
                       )}
                       {isSuspended && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#da3633]/15 text-[#f85149]">
+                        <span className="text-[11px] font-medium px-1.5 py-0.2 rounded bg-destructive/15 text-destructive">
                           {t('SUSPENDED')}
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-[#8b949e] truncate mt-0.5">
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                       {u.email} {mem?.department ? `· ${mem.department}` : ''}
                     </p>
                   </div>
-                  {isSelected && <Check className="w-4 h-4 text-[#58a6ff] shrink-0" />}
+                  {isSelected && <Check className="w-4 h-4 text-primary shrink-0" />}
                 </div>
               );
             })}
           </div>
 
-          <div className="pt-3 border-t border-[#30363d] flex items-center justify-end gap-3">
+          <div className="pt-3 border-t border-border flex items-center justify-end gap-3">
             <Button
               type="button"
               variant="outline"
@@ -155,7 +155,7 @@ export const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
             <Button
               type="submit"
               variant="primary"
-              className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
+              className="text-xs bg-primary hover:bg-primary/90 text-[#fff] gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
               {t('Confirm Assignment')}

@@ -173,39 +173,39 @@ export const TenantDashboardPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-6 pb-12 animate-in fade-in duration-300">
+    <div className="space-y-6 pb-12 animate-in fade-in duration-[330ms]">
       {/* 1. TOP HEADER & SINGLE-FACILITY BANNER */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#161b22]/80 p-4 md:p-5 rounded-2xl border border-[#30363d] backdrop-blur-xs shadow-sm">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-card/80 p-4 md:p-5 rounded-2xl border border-border ">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1f6feb]/30 to-[#58a6ff]/10 border border-[#58a6ff]/30 flex items-center justify-center text-[#58a6ff] shrink-0 shadow-sm">
+          <div className="w-12 h-12 rounded-xl bg-card border border-primary/30 flex items-center justify-center text-primary shrink-0 ">
             <Building2 className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
+              <h1 className="text-xl md:text-2xl font-medium text-foreground tracking-tight">
                 {site.name}
               </h1>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#21262d] border border-[#30363d] text-[#58a6ff]">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted border border-border text-primary">
                 {site.code}
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-success/15 text-success border border-success/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-success " />
                 {t('Dedicated Facility · 100% Operational')}
               </span>
             </div>
-            <div className="flex items-center gap-4 text-xs text-[#8b949e] mt-1 flex-wrap">
+            <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1 flex-wrap">
               <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-[#8b949e]" />
+                <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
                 {site.address}
               </span>
-              <span className="hidden sm:inline-block text-[#30363d]">•</span>
-              <span className="flex items-center gap-1 font-mono text-[#c9d1d9]">
-                <Clock className="w-3.5 h-3.5 text-[#58a6ff]" />
+              <span className="hidden sm:inline-block text-border">•</span>
+              <span className="flex items-center gap-1 text-foreground">
+                <Clock className="w-3.5 h-3.5 text-primary" />
                 {site.operatingHours}
               </span>
-              <span className="hidden sm:inline-block text-[#30363d]">•</span>
-              <span className="flex items-center gap-1 text-[#8b949e]">
-                <User className="w-3.5 h-3.5 text-[#8b949e]" />
+              <span className="hidden sm:inline-block text-border">•</span>
+              <span className="flex items-center gap-1 text-muted-foreground">
+                <User className="w-3.5 h-3.5 text-muted-foreground" />
                 {t('Manager:')} {site.managerName} ({site.managerPhone})
               </span>
             </div>
@@ -221,9 +221,9 @@ export const TenantDashboardPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => simulateNewAccessEvent()}
-              className="text-xs bg-[#0d0e12] border-[#30363d] text-[#58a6ff] hover:bg-[#58a6ff]/10 hover:border-[#58a6ff]/50 gap-1.5 font-medium"
+              className="text-xs bg-background border-border text-primary hover:bg-primary/10 hover:border-primary/50 gap-1.5 font-medium"
             >
-              <Sparkles className="w-3.5 h-3.5 text-[#58a6ff]" />
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
               {t('Simulate Event')}
             </Button>
           )}
@@ -233,14 +233,14 @@ export const TenantDashboardPage: React.FC = () => {
             <select
               value={tenantDateFilter}
               onChange={(e) => setTenantDateFilter(e.target.value)}
-              className="appearance-none bg-[#0d0e12] border border-[#30363d] hover:border-[#58a6ff]/50 rounded-xl px-3.5 py-2 pr-8 text-xs font-medium text-[#c9d1d9] focus:outline-hidden focus:border-[#58a6ff] cursor-pointer transition-colors"
+              className="appearance-none bg-background border border-border hover:border-primary/50 rounded-xl px-3.5 py-2 pr-8 text-xs font-medium text-foreground focus:outline-hidden focus:border-primary cursor-pointer transition-colors"
             >
               <option value="today">{t('Today (Live)')}</option>
               <option value="yesterday">{t('Yesterday')}</option>
               <option value="7d">{t('Last 7 days')}</option>
               <option value="30d">{t('Last 30 days')}</option>
             </select>
-            <ChevronDown className="w-3.5 h-3.5 text-[#8b949e] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
           {/* Refresh Action */}
@@ -250,12 +250,12 @@ export const TenantDashboardPage: React.FC = () => {
               size="sm"
               isLoading={isTenantRefreshing}
               onClick={refreshTenantDashboard}
-              className="text-xs bg-[#0d0e12] border-[#30363d] text-[#c9d1d9] hover:text-white hover:border-[#58a6ff]/50 gap-1.5"
+              className="text-xs bg-background border-border text-foreground hover:text-foreground hover:border-primary/50 gap-1.5"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isTenantRefreshing ? 'animate-spin' : ''}`} />
               {t('Refresh')}
             </Button>
-            <span className="text-[11px] text-[#8b949e] hidden xl:inline-block font-mono">
+            <span className="text-[11px] text-muted-foreground hidden xl:inline-block ">
               {t('Sync:')} {lastUpdatedTime}
             </span>
           </div>
@@ -264,19 +264,19 @@ export const TenantDashboardPage: React.FC = () => {
 
       {/* 2. ACTIVE ALERT NOTIFICATION (IF ANY) */}
       {activeAlert && (
-        <div className="p-4 rounded-xl bg-[#161b22] border border-[#d29922]/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in slide-in-from-top duration-300">
+        <div className="p-4 rounded-xl bg-card border border-warning/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in slide-in-from-top duration-[330ms]">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#d29922]/20 border border-[#d29922]/30 text-[#e3b341] flex items-center justify-center shrink-0 mt-0.5">
+            <div className="w-8 h-8 rounded-lg bg-warning/20 border border-warning/30 text-warning flex items-center justify-center shrink-0 mt-0.5">
               <AlertTriangle className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-[#e3b341] uppercase tracking-wider">
+                <span className="text-xs font-medium text-warning ">
                   {activeAlert.title}
                 </span>
-                <span className="text-[10px] text-[#8b949e] font-mono">({activeAlert.timeAgo})</span>
+                <span className="text-[11px] text-muted-foreground ">({activeAlert.timeAgo})</span>
               </div>
-              <p className="text-xs text-[#c9d1d9] mt-0.5">
+              <p className="text-xs text-foreground mt-0.5">
                 {activeAlert.message}
               </p>
             </div>
@@ -288,7 +288,7 @@ export const TenantDashboardPage: React.FC = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => resolveTenantAlert(activeAlert.id)}
-                className="text-xs text-[#8b949e] hover:text-white border-[#30363d]"
+                className="text-xs text-muted-foreground hover:text-foreground border-border"
               >
                 {t('Dismiss')}
               </Button>
@@ -302,24 +302,24 @@ export const TenantDashboardPage: React.FC = () => {
         {/* Card 1: Facility & Lane Status */}
         <div
           onClick={handleOpenSite}
-          className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] hover:border-[#58a6ff]/50 transition-all cursor-pointer group flex flex-col justify-between"
+          className="p-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-colors cursor-pointer group flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#8b949e]">{t('Facility Status')}</span>
-            <div className="w-7 h-7 rounded-lg bg-[#21262d] text-[#3fb950] flex items-center justify-center group-hover:scale-110 transition-transform">
+            <span className="text-xs font-medium text-muted-foreground">{t('Facility Status')}</span>
+            <div className="w-7 h-7 rounded-lg bg-muted text-success flex items-center justify-center transition-transform">
               <Building2 className="w-4 h-4" />
             </div>
           </div>
 
           <div className="my-2">
-            <div className="text-xl font-bold text-white flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#3fb950]" />
+            <div className="text-xl font-medium text-foreground flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-success" />
               {t('OPERATIONAL')}
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] text-[#8b949e] pt-2 border-t border-[#30363d]/60">
-            <span className="text-[#3fb950] font-medium">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-2 border-t border-border/60">
+            <span className="text-success font-medium">
               {tenantLanes.length > 0
                 ? t('{{live}}/{{total}} Lanes Live', {
                     live: tenantLanes.filter((l) => (l.status ?? '').toLowerCase() === 'active').length,
@@ -327,107 +327,107 @@ export const TenantDashboardPage: React.FC = () => {
                   })
                 : t('Lanes not configured')}
             </span>
-            <span className="text-[#58a6ff]">{t('{{count}} Site(s)', { count: tenantSites.length })}</span>
+            <span className="text-primary">{t('{{count}} Site(s)', { count: tenantSites.length })}</span>
           </div>
         </div>
 
         {/* Card 2: Parking Occupancy */}
-        <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex flex-col justify-between">
+        <div className="p-4 rounded-xl bg-card border border-border flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#8b949e]">{t('Occupancy')}</span>
-            <div className="w-7 h-7 rounded-lg bg-[#21262d] text-[#58a6ff] flex items-center justify-center">
+            <span className="text-xs font-medium text-muted-foreground">{t('Occupancy')}</span>
+            <div className="w-7 h-7 rounded-lg bg-muted text-primary flex items-center justify-center">
               <Car className="w-4 h-4" />
             </div>
           </div>
 
           <div className="my-1.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-black text-white font-mono">{site.currentOccupancy}</span>
-              <span className="text-xs text-[#8b949e] font-mono">/ {site.capacity} {t('slots')}</span>
+              <span className="text-2xl font-medium text-foreground ">{site.currentOccupancy}</span>
+              <span className="text-xs text-muted-foreground ">/ {site.capacity} {t('slots')}</span>
             </div>
             {/* Visual occupancy bar */}
-            <div className="w-full h-1.5 rounded-full bg-[#0d0e12] overflow-hidden mt-1.5 border border-[#30363d]">
+            <div className="w-full h-1.5 rounded-full bg-background overflow-hidden mt-1.5 border border-border">
               <div
-                className={`h-full rounded-full ${occupancyPercent > 80 ? 'bg-[#f85149]' : occupancyPercent > 60 ? 'bg-[#58a6ff]' : 'bg-[#3fb950]'}`}
+                className={`h-full rounded-full ${occupancyPercent > 80 ? 'bg-destructive' : occupancyPercent > 60 ? 'bg-primary' : 'bg-success'}`}
                 style={{ width: `${occupancyPercent}%` }}
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#30363d]/60">
-            <span className="text-[#58a6ff] font-medium">{t('{{pct}}% Filled', { pct: occupancyPercent })}</span>
-            <span className="text-[#3fb950] font-medium">{t('{{count}} Free', { count: (site.capacity || 0) - (site.currentOccupancy || 0) })}</span>
+          <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-border/60">
+            <span className="text-primary font-medium">{t('{{pct}}% Filled', { pct: occupancyPercent })}</span>
+            <span className="text-success font-medium">{t('{{count}} Free', { count: (site.capacity || 0) - (site.currentOccupancy || 0) })}</span>
           </div>
         </div>
 
         {/* Card 3: ANPR Cameras & Hardware */}
-        <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex flex-col justify-between">
+        <div className="p-4 rounded-xl bg-card border border-border flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#8b949e]">{t('ANPR & Gates')}</span>
-            <div className="w-7 h-7 rounded-lg bg-[#21262d] text-[#58a6ff] flex items-center justify-center">
+            <span className="text-xs font-medium text-muted-foreground">{t('ANPR & Gates')}</span>
+            <div className="w-7 h-7 rounded-lg bg-muted text-primary flex items-center justify-center">
               <Camera className="w-4 h-4" />
             </div>
           </div>
 
           <div className="my-2">
-            <div className="text-2xl font-extrabold text-white font-mono">
+            <div className="text-2xl font-medium text-foreground ">
               {site.onlineCameraCount} / {site.cameraCount}
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] pt-2 border-t border-[#30363d]/60">
-            <span className="text-[#3fb950] font-medium">{t('{{count}} Gates Online', { count: site.onlineGateCount })}</span>
-            <span className="text-[#58a6ff] font-medium">{t('{{count}} Edge Nodes', { count: site.onlineEdgeDeviceCount })}</span>
+          <div className="flex items-center justify-between text-[11px] pt-2 border-t border-border/60">
+            <span className="text-success font-medium">{t('{{count}} Gates Online', { count: site.onlineGateCount })}</span>
+            <span className="text-primary font-medium">{t('{{count}} Edge Nodes', { count: site.onlineEdgeDeviceCount })}</span>
           </div>
         </div>
 
         {/* Card 4: Registered Fleet */}
         <div
           onClick={() => setTenantNavTab('vehicles')}
-          className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] hover:border-[#58a6ff]/50 transition-all cursor-pointer group flex flex-col justify-between"
+          className="p-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-colors cursor-pointer group flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#8b949e]">{t('Registered Fleet')}</span>
-            <div className="w-7 h-7 rounded-lg bg-[#21262d] text-[#58a6ff] flex items-center justify-center group-hover:scale-110 transition-transform">
+            <span className="text-xs font-medium text-muted-foreground">{t('Registered Fleet')}</span>
+            <div className="w-7 h-7 rounded-lg bg-muted text-primary flex items-center justify-center transition-transform">
               <Car className="w-4 h-4" />
             </div>
           </div>
 
           <div className="my-2">
-            <div className="text-2xl font-extrabold text-white font-mono">
+            <div className="text-2xl font-medium text-foreground ">
               {tenantSummary.vehicles.total.toLocaleString()}
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] pt-2 border-t border-[#30363d]/60">
-            <span className="text-[#3fb950] font-medium">{t('{{count}} Active', { count: tenantSummary.vehicles.active })}</span>
-            <span className="text-[#58a6ff] font-medium">{t('+{{count}} this mo', { count: tenantSummary.vehicles.newThisMonth })}</span>
+          <div className="flex items-center justify-between text-[11px] pt-2 border-t border-border/60">
+            <span className="text-success font-medium">{t('{{count}} Active', { count: tenantSummary.vehicles.active })}</span>
+            <span className="text-primary font-medium">{t('+{{count}} this mo', { count: tenantSummary.vehicles.newThisMonth })}</span>
           </div>
         </div>
 
         {/* Card 5: Access Today (Most Prominent) */}
-        <div className="p-4 rounded-xl bg-gradient-to-br from-[#161b22] to-[#1f6feb]/15 border-2 border-[#58a6ff]/40 flex flex-col justify-between shadow-lg">
+        <div className="p-4 rounded-xl bg-card border border-primary/40 flex flex-col justify-between ">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-white flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-[#58a6ff]" />
+            <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
+              <Activity className="w-3.5 h-3.5 text-primary" />
               {t("Today's Passes")}
             </span>
-            <span className="text-[10px] font-mono text-[#3fb950] font-bold flex items-center gap-0.5">
+            <span className="text-[11px] text-success font-medium flex items-center gap-0.5">
               <TrendingUp className="w-3 h-3" /> +{tenantSummary.accessToday.percentChange}%
             </span>
           </div>
 
           <div className="my-2">
-            <div className="text-2xl font-black text-white font-mono tracking-tight">
+            <div className="text-2xl font-medium text-foreground tracking-tight">
               {tenantSummary.accessToday.total.toLocaleString()}
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] pt-2 border-t border-[#30363d]/60">
-            <span className="text-[#3fb950] font-bold">
+          <div className="flex items-center justify-between text-[11px] pt-2 border-t border-border/60">
+            <span className="text-success font-medium">
               ✓ {tenantSummary.accessToday.total ? ((tenantSummary.accessToday.allowed / tenantSummary.accessToday.total) * 100).toFixed(1) : '0.0'}%
             </span>
-            <span className="text-[#f85149] font-bold">
+            <span className="text-destructive font-medium">
               ✕ {tenantSummary.accessToday.total ? ((tenantSummary.accessToday.denied / tenantSummary.accessToday.total) * 100).toFixed(1) : '0.0'}%
             </span>
           </div>
@@ -435,28 +435,28 @@ export const TenantDashboardPage: React.FC = () => {
       </div>
 
       {/* 4. REAL-TIME PHYSICAL LANES & BARRIER GATE CONTROLLER */}
-      <div className="p-5 rounded-2xl bg-[#161b22] border border-[#30363d] space-y-4">
+      <div className="p-5 rounded-2xl bg-card border border-border space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#58a6ff]/15 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-lg bg-primary/15 border border-primary/30 text-primary flex items-center justify-center font-medium">
               <DoorOpen className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+              <h3 className="text-sm font-medium text-foreground tracking-tight flex items-center gap-2">
                 {t('Facility Lanes & Barrier Gate Controllers')}
-                <span className="text-[10px] font-mono font-bold px-2 py-0.2 rounded-full bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
+                <span className="text-[11px] font-medium px-2 py-0.2 rounded-full bg-success/15 text-success border border-success/30">
                   {t('{{count}} Active', { count: lanes.length })}
                 </span>
               </h3>
-              <p className="text-xs text-[#8b949e] mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {t('Direct hardware telemetry and automated ANPR barrier relay trigger commands')}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[#8b949e]">{t('Interlock Protocol:')}</span>
-            <span className="text-xs font-mono font-bold text-[#3fb950] bg-[#0d0e12] px-2.5 py-1 rounded-lg border border-[#30363d]">
+            <span className="text-xs text-muted-foreground">{t('Interlock Protocol:')}</span>
+            <span className="text-xs font-medium text-success bg-background px-2.5 py-1 rounded-lg border border-border">
               {t('Safety Loop Armed')}
             </span>
           </div>
@@ -467,57 +467,57 @@ export const TenantDashboardPage: React.FC = () => {
           {lanes.map((lane) => (
             <div
               key={lane.id}
-              className="p-4 rounded-xl bg-[#0d0e12] border border-[#30363d] hover:border-[#58a6ff]/40 transition-all flex flex-col justify-between space-y-3"
+              className="p-4 rounded-xl bg-background border border-border hover:border-primary/40 transition-colors flex flex-col justify-between space-y-3"
             >
               {/* Lane Header */}
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded ${
-                      lane.direction === 'IN' ? 'bg-[#58a6ff]/20 text-[#58a6ff]' : 'bg-[#a371f7]/20 text-[#a371f7]'
+                    <span className={`text-[11px] font-medium px-1.5 py-0.2 rounded ${
+                      lane.direction === 'IN' ? 'bg-primary/20 text-primary' : 'bg-chart-5/20 text-chart-5'
                     }`}>
                       {lane.direction === 'IN' ? t('↓ INBOUND') : t('↑ OUTBOUND')}
                     </span>
-                    <h4 className="text-xs font-bold text-white">{lane.name.split('(')[0]}</h4>
+                    <h4 className="text-xs font-medium text-foreground">{lane.name.split('(')[0]}</h4>
                   </div>
-                  <span className="text-[11px] text-[#8b949e] block mt-0.5">{lane.gateName}</span>
+                  <span className="text-[11px] text-muted-foreground block mt-0.5">{lane.gateName}</span>
                 </div>
 
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950]" />
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded bg-success/15 text-success border border-success/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-success" />
                   {t(lane.barrierState)}
                 </span>
               </div>
 
               {/* Hardware & ANPR Status */}
-              <div className="space-y-1.5 text-xs bg-[#161b22] p-2.5 rounded-lg border border-[#30363d]/60">
+              <div className="space-y-1.5 text-xs bg-card p-2.5 rounded-lg border border-border/60">
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-[#8b949e] flex items-center gap-1">
-                    <Camera className="w-3 h-3 text-[#58a6ff]" />
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Camera className="w-3 h-3 text-primary" />
                     {lane.cameraName}
                   </span>
-                  <span className="text-[#3fb950] font-mono font-semibold">{lane.ocrAccuracy} OCR</span>
+                  <span className="text-success font-medium">{lane.ocrAccuracy} OCR</span>
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-[#8b949e] flex items-center gap-1">
-                    <HardDrive className="w-3 h-3 text-[#8b949e]" />
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <HardDrive className="w-3 h-3 text-muted-foreground" />
                     {lane.edgeNode}
                   </span>
-                  <span className="text-[#8b949e] font-mono">18ms {t('Latency')}</span>
+                  <span className="text-muted-foreground ">18ms {t('Latency')}</span>
                 </div>
               </div>
 
               {/* Last Vehicle Throughput */}
               <div className="space-y-1 text-xs">
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-[#8b949e]">{t('Last Vehicle:')}</span>
-                  <span className="text-[10px] text-[#8b949e] font-mono">{lane.lastTime}</span>
+                  <span className="text-muted-foreground">{t('Last Vehicle:')}</span>
+                  <span className="text-[11px] text-muted-foreground ">{lane.lastTime}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="font-mono font-bold text-white text-xs px-2 py-0.5 rounded bg-[#161b22] border border-[#30363d]">
+                  <span className=" font-medium text-foreground text-xs px-2 py-0.5 rounded bg-card border border-border">
                     {lane.lastPlate}
                   </span>
-                  <span className="text-[11px] text-[#3fb950] font-bold">
+                  <span className="text-[11px] text-success font-medium">
                     ✓ {t('Allowed')}
                   </span>
                 </div>
@@ -525,14 +525,14 @@ export const TenantDashboardPage: React.FC = () => {
 
               {/* Manual Override Action Controls */}
               {canManage ? (
-                <div className="pt-2 border-t border-[#30363d] flex items-center gap-1.5">
+                <div className="pt-2 border-t border-border flex items-center gap-1.5">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
                       triggerGateCommand(lane.gateId, 'OPEN');
                     }}
-                    className="flex-1 text-[11px] py-1.5 bg-[#238636]/15 hover:bg-[#238636]/30 text-[#3fb950] border-[#238636]/40 gap-1 justify-center"
+                    className="flex-1 text-[11px] py-1.5 bg-success/15 hover:bg-success/30 text-success border-success/40 gap-1 justify-center"
                   >
                     <Unlock className="w-3 h-3" />
                     {t('Open Barrier')}
@@ -543,14 +543,14 @@ export const TenantDashboardPage: React.FC = () => {
                     onClick={() => {
                       triggerGateCommand(lane.gateId, 'RESET');
                     }}
-                    className="text-[11px] py-1.5 px-2 bg-[#161b22] text-[#8b949e] hover:text-white border-[#30363d]"
+                    className="text-[11px] py-1.5 px-2 bg-card text-muted-foreground hover:text-foreground border-border"
                     title={t('Reset Controller')}
                   >
                     <RotateCcw className="w-3 h-3" />
                   </Button>
                 </div>
               ) : (
-                <div className="pt-2 border-t border-[#30363d] text-[11px] text-[#8b949e] italic text-center">
+                <div className="pt-2 border-t border-border text-[11px] text-muted-foreground italic text-center">
                   {t('View only')}
                 </div>
               )}
@@ -562,30 +562,30 @@ export const TenantDashboardPage: React.FC = () => {
       {/* 5. OPERATIONS & ANALYTICS SECTION (8/4 GRID) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Col 8: Access Activity Timeline Chart */}
-        <div className="lg:col-span-8 p-5 rounded-2xl bg-[#161b22] border border-[#30363d] flex flex-col justify-between space-y-4">
+        <div className="lg:col-span-8 p-5 rounded-2xl bg-card border border-border flex flex-col justify-between space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-white tracking-tight">{t('Facility Traffic & ANPR Throughput')}</h3>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#21262d] text-[#8b949e]">
+                <h3 className="text-sm font-medium text-foreground tracking-tight">{t('Facility Traffic & ANPR Throughput')}</h3>
+                <span className="text-[11px] px-2 py-0.5 rounded bg-muted text-muted-foreground">
                   {t('Hourly Distribution')}
                 </span>
               </div>
-              <p className="text-xs text-[#8b949e] mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {t('Real-time throughput comparison of Allowed vs. Denied vs. Unknown plates')}
               </p>
             </div>
 
             {/* Series Legend Indicators */}
             <div className="flex items-center gap-3 text-xs">
-              <span className="flex items-center gap-1.5 text-[#3fb950] font-medium">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#3fb950]" /> {t('Allowed')}
+              <span className="flex items-center gap-1.5 text-success font-medium">
+                <span className="w-2.5 h-2.5 rounded-full bg-success" /> {t('Allowed')}
               </span>
-              <span className="flex items-center gap-1.5 text-[#f85149] font-medium">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#f85149]" /> {t('Denied')}
+              <span className="flex items-center gap-1.5 text-destructive font-medium">
+                <span className="w-2.5 h-2.5 rounded-full bg-destructive" /> {t('Denied')}
               </span>
-              <span className="flex items-center gap-1.5 text-[#e3b341] font-medium">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#e3b341]" /> {t('Unknown')}
+              <span className="flex items-center gap-1.5 text-warning font-medium">
+                <span className="w-2.5 h-2.5 rounded-full bg-warning" /> {t('Unknown')}
               </span>
             </div>
           </div>
@@ -653,38 +653,38 @@ export const TenantDashboardPage: React.FC = () => {
           </div>
 
           {/* Access Summary Bar below Chart */}
-          <div className="grid grid-cols-3 gap-3 pt-3 border-t border-[#30363d]">
-            <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-              <span className="text-[10px] text-[#8b949e] uppercase font-semibold block">{t('Total Allowed')}</span>
+          <div className="grid grid-cols-3 gap-3 pt-3 border-t border-border">
+            <div className="p-2.5 rounded-lg bg-background border border-border">
+              <span className="text-[11px] text-muted-foreground font-medium block">{t('Total Allowed')}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="text-base font-bold text-white font-mono">
+                <span className="text-base font-medium text-foreground ">
                   {tenantSummary.accessToday.allowed.toLocaleString()}
                 </span>
-                <span className="text-[11px] text-[#3fb950] font-semibold">
+                <span className="text-[11px] text-success font-medium">
                   (96.3%)
                 </span>
               </div>
             </div>
 
-            <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-              <span className="text-[10px] text-[#8b949e] uppercase font-semibold block">{t('Total Denied')}</span>
+            <div className="p-2.5 rounded-lg bg-background border border-border">
+              <span className="text-[11px] text-muted-foreground font-medium block">{t('Total Denied')}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="text-base font-bold text-white font-mono">
+                <span className="text-base font-medium text-foreground ">
                   {tenantSummary.accessToday.denied.toLocaleString()}
                 </span>
-                <span className="text-[11px] text-[#f85149] font-semibold">
+                <span className="text-[11px] text-destructive font-medium">
                   (3.0%)
                 </span>
               </div>
             </div>
 
-            <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-              <span className="text-[10px] text-[#8b949e] uppercase font-semibold block">{t('OCR Flagged Review')}</span>
+            <div className="p-2.5 rounded-lg bg-background border border-border">
+              <span className="text-[11px] text-muted-foreground font-medium block">{t('OCR Flagged Review')}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="text-base font-bold text-white font-mono">
+                <span className="text-base font-medium text-foreground ">
                   {tenantSummary.accessToday.unknown.toLocaleString()}
                 </span>
-                <span className="text-[11px] text-[#e3b341] font-semibold">
+                <span className="text-[11px] text-warning font-medium">
                   (0.7%)
                 </span>
               </div>
@@ -693,14 +693,14 @@ export const TenantDashboardPage: React.FC = () => {
         </div>
 
         {/* Col 4: Facility Hardware & Edge Telemetry Health */}
-        <div className="lg:col-span-4 p-5 rounded-2xl bg-[#161b22] border border-[#30363d] flex flex-col justify-between space-y-4">
+        <div className="lg:col-span-4 p-5 rounded-2xl bg-card border border-border flex flex-col justify-between space-y-4">
           <div>
-            <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
+            <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-[#58a6ff]" />
-                <h3 className="text-sm font-bold text-white tracking-tight">{t('Edge AI & Telemetry')}</h3>
+                <Cpu className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-medium text-foreground tracking-tight">{t('Edge AI & Telemetry')}</h3>
               </div>
-              <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full font-bold bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
+              <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full font-medium bg-success/15 text-success border border-success/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-current" />
                 {t('100% HEALTHY')}
               </span>
@@ -711,80 +711,80 @@ export const TenantDashboardPage: React.FC = () => {
               {/* Cameras */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[#8b949e] flex items-center gap-1.5">
-                    <Camera className="w-3.5 h-3.5 text-[#58a6ff]" /> {t('ANPR Cameras')}
+                  <span className="text-muted-foreground flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-primary" /> {t('ANPR Cameras')}
                   </span>
-                  <span className="text-white font-mono font-semibold">
+                  <span className="text-foreground font-medium">
                     {site.onlineCameraCount} / {site.cameraCount} {t('Online')}
                   </span>
                 </div>
-                <div className="w-full h-1.5 rounded-full bg-[#0d0e12] overflow-hidden border border-[#30363d]">
-                  <div className="h-full rounded-full bg-[#3fb950] w-full" />
+                <div className="w-full h-1.5 rounded-full bg-background overflow-hidden border border-border">
+                  <div className="h-full rounded-full bg-success w-full" />
                 </div>
               </div>
 
               {/* Gates */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[#8b949e] flex items-center gap-1.5">
-                    <DoorOpen className="w-3.5 h-3.5 text-[#58a6ff]" /> {t('Automated Barriers')}
+                  <span className="text-muted-foreground flex items-center gap-1.5">
+                    <DoorOpen className="w-3.5 h-3.5 text-primary" /> {t('Automated Barriers')}
                   </span>
-                  <span className="text-white font-mono font-semibold">
+                  <span className="text-foreground font-medium">
                     {site.onlineGateCount} / {site.gateCount} {t('Online')}
                   </span>
                 </div>
-                <div className="w-full h-1.5 rounded-full bg-[#0d0e12] overflow-hidden border border-[#30363d]">
-                  <div className="h-full rounded-full bg-[#3fb950] w-full" />
+                <div className="w-full h-1.5 rounded-full bg-background overflow-hidden border border-border">
+                  <div className="h-full rounded-full bg-success w-full" />
                 </div>
               </div>
 
               {/* Edge Devices */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[#8b949e] flex items-center gap-1.5">
-                    <HardDrive className="w-3.5 h-3.5 text-[#58a6ff]" /> {t('Edge AI Gateways')}
+                  <span className="text-muted-foreground flex items-center gap-1.5">
+                    <HardDrive className="w-3.5 h-3.5 text-primary" /> {t('Edge AI Gateways')}
                   </span>
-                  <span className="text-white font-mono font-semibold">
+                  <span className="text-foreground font-medium">
                     {site.onlineEdgeDeviceCount} / {site.edgeDeviceCount} {t('Active')}
                   </span>
                 </div>
-                <div className="w-full h-1.5 rounded-full bg-[#0d0e12] overflow-hidden border border-[#30363d]">
-                  <div className="h-full rounded-full bg-[#58a6ff] w-full" />
+                <div className="w-full h-1.5 rounded-full bg-background overflow-hidden border border-border">
+                  <div className="h-full rounded-full bg-primary w-full" />
                 </div>
               </div>
             </div>
 
             {/* Edge Compute Metrics */}
             <div className="grid grid-cols-2 gap-2 mt-4 text-[11px]">
-              <div className="p-2 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                <span className="text-[#8b949e] block">{t('Edge CPU Load')}</span>
-                <span className="text-white font-mono font-bold text-xs mt-0.5 block">34% ({t('Normal')})</span>
+              <div className="p-2 rounded-lg bg-background border border-border">
+                <span className="text-muted-foreground block">{t('Edge CPU Load')}</span>
+                <span className="text-foreground font-medium text-xs mt-0.5 block">34% ({t('Normal')})</span>
               </div>
-              <div className="p-2 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                <span className="text-[#8b949e] block">{t('Avg OCR Speed')}</span>
-                <span className="text-[#3fb950] font-mono font-bold text-xs mt-0.5 block">380ms / {t('plate')}</span>
+              <div className="p-2 rounded-lg bg-background border border-border">
+                <span className="text-muted-foreground block">{t('Avg OCR Speed')}</span>
+                <span className="text-success font-mono font-medium text-xs mt-0.5 block">380ms / {t('plate')}</span>
               </div>
             </div>
           </div>
 
           {/* Infrastructure Connectivity Badges */}
-          <div className="pt-3 border-t border-[#30363d] space-y-2 text-xs">
-            <div className="flex items-center justify-between p-2 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-              <span className="text-[#8b949e] flex items-center gap-1.5">
-                <Server className="w-3.5 h-3.5 text-[#58a6ff]" /> Cloud REST Sync
+          <div className="pt-3 border-t border-border space-y-2 text-xs">
+            <div className="flex items-center justify-between p-2 rounded-lg bg-background border border-border">
+              <span className="text-muted-foreground flex items-center gap-1.5">
+                <Server className="w-3.5 h-3.5 text-primary" /> Cloud REST Sync
               </span>
-              <span className="text-[#3fb950] font-mono font-bold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950]" />
+              <span className="text-success font-medium flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-success" />
                 18ms {t('Latency')}
               </span>
             </div>
 
-            <div className="flex items-center justify-between p-2 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-              <span className="text-[#8b949e] flex items-center gap-1.5">
-                <Radio className="w-3.5 h-3.5 text-[#58a6ff]" /> WebSocket Telemetry
+            <div className="flex items-center justify-between p-2 rounded-lg bg-background border border-border">
+              <span className="text-muted-foreground flex items-center gap-1.5">
+                <Radio className="w-3.5 h-3.5 text-primary" /> WebSocket Telemetry
               </span>
-              <span className="text-[#3fb950] font-mono font-bold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
+              <span className="text-success font-medium flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-success " />
                 {t('Live Stream')}
               </span>
             </div>
@@ -795,12 +795,12 @@ export const TenantDashboardPage: React.FC = () => {
       {/* 6. MONITORING SECTION: RECENT ACCESS EVENTS + NEEDS ATTENTION (8/4 GRID) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Col 8: Recent Access Events Table */}
-        <div className="lg:col-span-8 p-5 rounded-2xl bg-[#161b22] border border-[#30363d] space-y-4">
+        <div className="lg:col-span-8 p-5 rounded-2xl bg-card border border-border space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <h3 className="text-sm font-bold text-white tracking-tight">{t('Live Facility Access Stream')}</h3>
-              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
+              <h3 className="text-sm font-medium text-foreground tracking-tight">{t('Live Facility Access Stream')}</h3>
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded bg-success/15 text-success border border-success/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-success " />
                 {t('Live ANPR Captures')}
               </span>
             </div>
@@ -810,7 +810,7 @@ export const TenantDashboardPage: React.FC = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => setTenantNavTab('access_events')}
-                className="text-xs bg-[#0d0e12] border-[#30363d] text-[#58a6ff] hover:text-white"
+                className="text-xs bg-background border-border text-primary hover:text-foreground"
               >
                 {t('View Full Log')} →
               </Button>
@@ -820,7 +820,7 @@ export const TenantDashboardPage: React.FC = () => {
           {/* Events Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#0d0e12] text-[#8b949e] border-y border-[#30363d] uppercase font-semibold text-[10px]">
+              <thead className="bg-background text-muted-foreground border-y border-border font-medium text-[11px]">
                 <tr>
                   <th className="py-2.5 px-3">{t('Time')}</th>
                   <th className="py-2.5 px-3">{t('Plate')}</th>
@@ -831,44 +831,44 @@ export const TenantDashboardPage: React.FC = () => {
                   <th className="py-2.5 px-3 text-right">{t('Inspect')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#30363d]/50 font-medium">
+              <tbody className="divide-y divide-border/50 font-medium">
                 {accessEvents.slice(0, 6).map((event) => (
                   <tr
                     key={event.id}
                     onClick={() => handleOpenEvent(event)}
-                    className="hover:bg-[#21262d]/60 transition-colors cursor-pointer group"
+                    className="hover:bg-muted/60 transition-colors cursor-pointer group"
                   >
-                    <td className="py-3 px-3 font-mono text-[#8b949e] text-[11px] whitespace-nowrap">
+                    <td className="py-3 px-3 text-muted-foreground text-[11px] whitespace-nowrap">
                       {event.timeFormatted}
                     </td>
 
                     <td className="py-3 px-3">
-                      <span className="font-mono font-bold text-white px-2 py-0.5 rounded bg-[#0d0e12] border border-[#30363d] group-hover:border-[#58a6ff]/40 transition-colors">
+                      <span className=" font-medium text-foreground px-2 py-0.5 rounded bg-background border border-border group-hover:border-primary/40 transition-colors">
                         {event.plate}
                       </span>
                     </td>
 
-                    <td className="py-3 px-3 text-[#8b949e] whitespace-nowrap">
-                      <span className="text-white">{event.gateName}</span>
-                      <span className="text-[10px] text-[#8b949e] block font-mono">
+                    <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">
+                      <span className="text-foreground">{event.gateName}</span>
+                      <span className="text-[11px] text-muted-foreground block ">
                         {event.direction === 'IN' ? t('↓ Inbound') : t('↑ Outbound')}
                       </span>
                     </td>
 
-                    <td className="py-3 px-3 text-[#c9d1d9] whitespace-nowrap">
+                    <td className="py-3 px-3 text-foreground whitespace-nowrap">
                       <div>{event.ownerName || t('Unregistered')}</div>
-                      <span className="text-[10px] text-[#8b949e] font-mono">{event.ownerType}</span>
+                      <span className="text-[11px] text-muted-foreground ">{event.ownerType}</span>
                     </td>
 
                     <td className="py-3 px-3 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold ${
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium ${
                         event.decision === 'ALLOWED'
-                          ? 'bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30'
+                          ? 'bg-success/15 text-success border border-success/30'
                           : event.decision === 'DENIED'
-                          ? 'bg-[#da3633]/15 text-[#f85149] border border-[#da3633]/30'
+                          ? 'bg-destructive/15 text-destructive border border-destructive/30'
                           : event.decision === 'BLOCKED'
-                          ? 'bg-[#da3633]/25 text-[#ff7b72] border border-[#da3633]/50'
-                          : 'bg-[#d29922]/15 text-[#e3b341] border border-[#d29922]/30'
+                          ? 'bg-destructive/25 text-destructive border border-destructive/50'
+                          : 'bg-warning/15 text-warning border border-warning/30'
                       }`}>
                         {event.decision === 'ALLOWED' && <CheckCircle2 className="w-3 h-3" />}
                         {event.decision === 'DENIED' && <XCircle className="w-3 h-3" />}
@@ -878,12 +878,12 @@ export const TenantDashboardPage: React.FC = () => {
                       </span>
                     </td>
 
-                    <td className="py-3 px-3 font-mono text-[#8b949e] text-[11px]">
+                    <td className="py-3 px-3 text-muted-foreground text-[11px]">
                       {(event.plateConfidence * 100).toFixed(1)}%
                     </td>
 
                     <td className="py-3 px-3 text-right">
-                      <ChevronRight className="w-4 h-4 text-[#8b949e] group-hover:text-white group-hover:translate-x-0.5 transition-all inline-block" />
+                      <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-colors inline-block" />
                     </td>
                   </tr>
                 ))}
@@ -893,65 +893,65 @@ export const TenantDashboardPage: React.FC = () => {
         </div>
 
         {/* Col 4: Facility Profile & Direct Actions Card */}
-        <div className="lg:col-span-4 p-5 rounded-2xl bg-[#161b22] border border-[#30363d] space-y-4 flex flex-col justify-between">
+        <div className="lg:col-span-4 p-5 rounded-2xl bg-card border border-border space-y-4 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
+            <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-[#58a6ff]" />
-                <h3 className="text-sm font-bold text-white tracking-tight">{t('Facility Details')}</h3>
+                <Building2 className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-medium text-foreground tracking-tight">{t('Facility Details')}</h3>
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleOpenSite}
-                className="text-[11px] py-1 px-2.5 bg-[#0d0e12] border-[#30363d] text-[#58a6ff] hover:text-white"
+                className="text-[11px] py-1 px-2.5 bg-background border-border text-primary hover:text-foreground"
               >
                 {t('Inspect')} →
               </Button>
             </div>
 
             <div className="space-y-3 mt-3 text-xs">
-              <div className="p-3 rounded-xl bg-[#0d0e12] border border-[#30363d] space-y-1.5">
-                <span className="text-[10px] text-[#8b949e] uppercase font-semibold block">{t('Facility Name & Code')}</span>
-                <div className="text-white font-bold text-sm">{site.name}</div>
-                <div className="text-xs text-[#8b949e] flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-[#8b949e]" />
+              <div className="p-3 rounded-xl bg-background border border-border space-y-1.5">
+                <span className="text-[11px] text-muted-foreground font-medium block">{t('Facility Name & Code')}</span>
+                <div className="text-foreground font-medium text-sm">{site.name}</div>
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
                   {site.address}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                  <span className="text-[#8b949e] block">{t('Operating Hours')}</span>
-                  <span className="text-white font-mono font-semibold mt-0.5 block">{site.operatingHours}</span>
+                <div className="p-2.5 rounded-lg bg-background border border-border">
+                  <span className="text-muted-foreground block">{t('Operating Hours')}</span>
+                  <span className="text-foreground font-medium mt-0.5 block">{site.operatingHours}</span>
                 </div>
-                <div className="p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                  <span className="text-[#8b949e] block">{t('Capacity')}</span>
-                  <span className="text-white font-mono font-semibold mt-0.5 block">{t('{{count}} Total Slots', { count: site.capacity })}</span>
+                <div className="p-2.5 rounded-lg bg-background border border-border">
+                  <span className="text-muted-foreground block">{t('Capacity')}</span>
+                  <span className="text-foreground font-medium mt-0.5 block">{t('{{count}} Total Slots', { count: site.capacity })}</span>
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#0d0e12] border border-[#30363d] space-y-1">
-                <span className="text-[10px] text-[#8b949e] uppercase font-semibold block">{t('Facility Manager Contact')}</span>
-                <div className="text-white font-semibold flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-[#58a6ff]" />
+              <div className="p-3 rounded-xl bg-background border border-border space-y-1">
+                <span className="text-[11px] text-muted-foreground font-medium block">{t('Facility Manager Contact')}</span>
+                <div className="text-foreground font-medium flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-primary" />
                   {site.managerName}
                 </div>
-                <div className="text-xs text-[#8b949e] font-mono flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-[#8b949e]" />
+                <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-muted-foreground" />
                   {site.managerPhone}
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="pt-3 border-t border-[#30363d]">
+          <div className="pt-3 border-t border-border">
             <Button
               variant="outline"
               onClick={() => setTenantNavTab('sites')}
-              className="w-full text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] justify-center py-2.5 gap-1.5"
+              className="w-full text-xs bg-background border-border text-foreground hover:border-primary justify-center py-2.5 gap-1.5"
             >
-              <Settings className="w-3.5 h-3.5 text-[#58a6ff]" />
+              <Settings className="w-3.5 h-3.5 text-primary" />
               {t('Manage Facility Hardware & Config')}
             </Button>
           </div>
@@ -959,16 +959,16 @@ export const TenantDashboardPage: React.FC = () => {
       </div>
 
       {/* 7. QUICK ADMINISTRATIVE ACTIONS */}
-      <div className="p-5 rounded-2xl bg-gradient-to-r from-[#161b22] via-[#161b22] to-[#1f6feb]/10 border border-[#30363d]">
-        <h3 className="text-sm font-bold text-white tracking-tight mb-3">{t('Quick Actions')}</h3>
+      <div className="p-5 rounded-2xl bg-card border border-border">
+        <h3 className="text-sm font-medium text-foreground tracking-tight mb-3">{t('Quick Actions')}</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {canManage && (
             <Button
               variant="outline"
               onClick={() => setIsAddVehicleOpen(true)}
-              className="text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] py-3 gap-2 justify-center"
+              className="text-xs bg-background border-border text-foreground hover:border-primary py-3 gap-2 justify-center"
             >
-              <Car className="w-4 h-4 text-[#58a6ff]" />
+              <Car className="w-4 h-4 text-primary" />
               {t('+ Register Vehicle')}
             </Button>
           )}
@@ -977,9 +977,9 @@ export const TenantDashboardPage: React.FC = () => {
             <Button
               variant="outline"
               onClick={() => setIsInviteMemberOpen(true)}
-              className="text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] py-3 gap-2 justify-center"
+              className="text-xs bg-background border-border text-foreground hover:border-primary py-3 gap-2 justify-center"
             >
-              <UserPlus className="w-4 h-4 text-[#3fb950]" />
+              <UserPlus className="w-4 h-4 text-success" />
               {t('+ Invite Operator')}
             </Button>
           )}
@@ -988,9 +988,9 @@ export const TenantDashboardPage: React.FC = () => {
             <Button
               variant="outline"
               onClick={() => setIsCreateRuleOpen(true)}
-              className="text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] py-3 gap-2 justify-center"
+              className="text-xs bg-background border-border text-foreground hover:border-primary py-3 gap-2 justify-center"
             >
-              <ShieldCheck className="w-4 h-4 text-[#e3b341]" />
+              <ShieldCheck className="w-4 h-4 text-warning" />
               {t('+ Add Access Rule')}
             </Button>
           )}
@@ -998,9 +998,9 @@ export const TenantDashboardPage: React.FC = () => {
           <Button
             variant="outline"
             onClick={handleOpenSite}
-            className="text-xs bg-[#0d0e12] border-[#30363d] text-white hover:border-[#58a6ff] py-3 gap-2 justify-center"
+            className="text-xs bg-background border-border text-foreground hover:border-primary py-3 gap-2 justify-center"
           >
-            <Building2 className="w-4 h-4 text-[#a371f7]" />
+            <Building2 className="w-4 h-4 text-chart-5" />
             {t('Facility Hardware Details')}
           </Button>
         </div>

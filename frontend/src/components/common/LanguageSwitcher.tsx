@@ -40,7 +40,7 @@ export const LanguageSwitcher: React.FC<{ className?: string; showIcon?: boolean
           aria-label={t('Switch language')}
           title={t('Switch language')}
           className={cn(
-            'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40',
+            'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40',
             className,
           )}
         >
@@ -64,7 +64,7 @@ export const LanguageSwitcher: React.FC<{ className?: string; showIcon?: boolean
             <DropdownMenuRadioItem key={option.code} value={option.code}>
               <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
                 <span className="truncate">{option.label}</span>
-                <span className="font-mono text-[10px] tracking-wider text-muted-foreground">
+                <span className=" text-[11px] tracking-wider text-muted-foreground">
                   {option.shortLabel}
                 </span>
               </span>

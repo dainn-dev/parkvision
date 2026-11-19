@@ -66,25 +66,16 @@ export const PlatformSidebar: React.FC = () => {
   const openAlertsCount = securityAlerts.filter((a) => a.status !== 'RESOLVED').length;
 
   return (
-    <aside className="w-64 bg-[#0d0e12] border-r border-[#30363d] flex flex-col shrink-0 select-none">
+    <aside className="w-64 bg-background border-r border-border flex flex-col shrink-0 select-none">
       {/* Brand Header */}
-      <div className="h-14 px-6 border-b border-[#30363d] flex items-center justify-between bg-[#0d0e12]">
-        <div className="flex items-center gap-2.5">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
-            appWorkspace === 'tenant'
-              ? 'bg-[#58a6ff]/15 text-[#58a6ff] border border-[#58a6ff]/30'
-              : 'bg-[#161b22] text-[#58a6ff] border border-[#30363d]'
-          }`}>
-            {appWorkspace === 'tenant' ? <Building2 className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
-          </div>
-          <div>
-            <h1 className="text-xs font-bold tracking-tight text-white flex items-center gap-1 font-mono">
-              {appWorkspace === 'tenant' ? (tenantLocation.tenantName || tenantLocation.name || 'TENANT').toUpperCase() : 'PLATFORM'} <span className="text-[#58a6ff]">{appWorkspace === 'tenant' ? 'PORTAL' : 'GOV'}</span>
-            </h1>
-            <p className="text-[9px] text-[#8b949e] font-semibold uppercase tracking-wider">
-              {appWorkspace === 'tenant' ? t('Tenant Site Management') : t('Superadmin Control')}
-            </p>
-          </div>
+      <div className="h-14 px-6 flex items-center shrink-0">
+        <div className="min-w-0">
+          <h1 className="truncate text-[15px] font-medium leading-5 tracking-[0.32em] text-foreground">
+            {appWorkspace === 'tenant' ? (tenantLocation.tenantName || tenantLocation.name || 'TENANT').toUpperCase() : 'PARKVISION'}
+          </h1>
+          <p className="truncate text-xs leading-4 text-muted-foreground">
+            {appWorkspace === 'tenant' ? t('Tenant Site Management') : t('Superadmin Control')}
+          </p>
         </div>
       </div>
 
@@ -98,36 +89,36 @@ export const PlatformSidebar: React.FC = () => {
             {/* Main Dashboard */}
             <button
               onClick={() => setTenantNavTab('dashboard')}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                 tenantNavTab === 'dashboard'
-                  ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
-                  : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                  ? 'bg-muted text-foreground font-medium'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
-              <LayoutDashboard className={`w-4 h-4 shrink-0 ${tenantNavTab === 'dashboard' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+              <LayoutDashboard className={`w-4 h-4 shrink-0 ${tenantNavTab === 'dashboard' ? 'text-foreground' : 'text-muted-foreground'}`} />
               <span>{t('Dashboard')}</span>
             </button>
 
             {/* ORGANIZATION GROUP */}
             <div className="space-y-1">
-              <div className="px-3 text-[10px] font-bold text-[#8b949e] uppercase tracking-wider font-mono">
+              <div className="px-3 text-[11px] font-medium text-muted-foreground ">
                 {t('Organization')}
               </div>
 
               {/* Location */}
               <button
                 onClick={() => setTenantNavTab('location')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                   tenantNavTab === 'location' || tenantNavTab === 'sites'
-                    ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
-                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                    ? 'bg-muted text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Building2 className={`w-4 h-4 shrink-0 ${tenantNavTab === 'location' || tenantNavTab === 'sites' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+                  <Building2 className={`w-4 h-4 shrink-0 ${tenantNavTab === 'location' || tenantNavTab === 'sites' ? 'text-foreground' : 'text-muted-foreground'}`} />
                   <span>{t('Location')}</span>
                 </div>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#21262d] border border-[#30363d] text-[#3fb950] font-mono">
+                <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted border border-border text-success ">
                   {t('Active')}
                 </span>
               </button>
@@ -135,37 +126,37 @@ export const PlatformSidebar: React.FC = () => {
               {/* Users & Members */}
               <button
                 onClick={() => setTenantNavTab('team')}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                   tenantNavTab === 'team' || tenantNavTab === 'users'
-                    ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
-                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                    ? 'bg-muted text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
-                <Users className={`w-4 h-4 shrink-0 ${tenantNavTab === 'team' || tenantNavTab === 'users' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+                <Users className={`w-4 h-4 shrink-0 ${tenantNavTab === 'team' || tenantNavTab === 'users' ? 'text-foreground' : 'text-muted-foreground'}`} />
                 <span>{t('Users & Members')}</span>
               </button>
             </div>
 
             {/* ACCESS MANAGEMENT GROUP */}
             <div className="space-y-1">
-              <div className="px-3 text-[10px] font-bold text-[#8b949e] uppercase tracking-wider font-mono">
+              <div className="px-3 text-[11px] font-medium text-muted-foreground ">
                 {t('Access Management')}
               </div>
 
               {/* Vehicles & Whitelist */}
               <button
                 onClick={() => setTenantNavTab('vehicles')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                   tenantNavTab === 'vehicles'
-                    ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
-                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                    ? 'bg-muted text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Car className={`w-4 h-4 shrink-0 ${tenantNavTab === 'vehicles' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+                  <Car className={`w-4 h-4 shrink-0 ${tenantNavTab === 'vehicles' ? 'text-foreground' : 'text-muted-foreground'}`} />
                   <span>{t('Vehicles & Whitelist')}</span>
                 </div>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#21262d] text-[#8b949e] font-mono">
+                <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground ">
                   {tenantVehicles.length}
                 </span>
               </button>
@@ -173,51 +164,51 @@ export const PlatformSidebar: React.FC = () => {
               {/* Access Rules */}
               <button
                 onClick={() => setTenantNavTab('access_rules')}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                   tenantNavTab === 'access_rules' || tenantNavTab === 'access-rules'
-                    ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
-                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                    ? 'bg-muted text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
-                <ShieldCheck className={`w-4 h-4 shrink-0 ${tenantNavTab === 'access_rules' || tenantNavTab === 'access-rules' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+                <ShieldCheck className={`w-4 h-4 shrink-0 ${tenantNavTab === 'access_rules' || tenantNavTab === 'access-rules' ? 'text-foreground' : 'text-muted-foreground'}`} />
                 <span>{t('Access Rules')}</span>
               </button>
 
               {/* Memberships */}
               <button
                 onClick={() => setTenantNavTab('memberships')}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                   tenantNavTab === 'memberships'
-                    ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
-                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                    ? 'bg-muted text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
-                <BadgeCheck className={`w-4 h-4 shrink-0 ${tenantNavTab === 'memberships' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+                <BadgeCheck className={`w-4 h-4 shrink-0 ${tenantNavTab === 'memberships' ? 'text-foreground' : 'text-muted-foreground'}`} />
                 <span>{t('Memberships')}</span>
               </button>
             </div>
 
             {/* MONITORING GROUP */}
             <div className="space-y-1">
-              <div className="px-3 text-[10px] font-bold text-[#8b949e] uppercase tracking-wider font-mono">
+              <div className="px-3 text-[11px] font-medium text-muted-foreground ">
                 {t('Monitoring')}
               </div>
 
               {/* Barrier Map */}
               <button
                 onClick={() => setTenantNavTab('gates')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                   tenantNavTab === 'gates'
-                    ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
-                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                    ? 'bg-muted text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <DoorOpen className={`w-4 h-4 shrink-0 ${tenantNavTab === 'gates' ? 'text-[#3fb950]' : 'text-[#8b949e]'}`} />
+                  <DoorOpen className={`w-4 h-4 shrink-0 ${tenantNavTab === 'gates' ? 'text-success' : 'text-muted-foreground'}`} />
                   <span>{t('Barrier Map')}</span>
                 </div>
-                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.2 bg-[#3fb950]/20 text-[#3fb950] rounded-full font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
+                <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.2 bg-success/20 text-success rounded-[4px] font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-success " />
                   {t('Live')}
                 </span>
               </button>
@@ -225,18 +216,18 @@ export const PlatformSidebar: React.FC = () => {
               {/* Parking Map */}
               <button
                 onClick={() => setTenantNavTab('parking-map')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                   tenantNavTab === 'parking-map'
-                    ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
-                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                    ? 'bg-muted text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <MapPinned className={`w-4 h-4 shrink-0 ${tenantNavTab === 'parking-map' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+                  <MapPinned className={`w-4 h-4 shrink-0 ${tenantNavTab === 'parking-map' ? 'text-foreground' : 'text-muted-foreground'}`} />
                   <span>{t('Parking Map')}</span>
                 </div>
-                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.2 bg-[#3fb950]/20 text-[#3fb950] rounded-full font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
+                <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.2 bg-success/20 text-success rounded-[4px] font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-success " />
                   {t('Live')}
                 </span>
               </button>
@@ -244,17 +235,17 @@ export const PlatformSidebar: React.FC = () => {
               {/* Edge Devices */}
               <button
                 onClick={() => setTenantNavTab('edge-devices')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                   tenantNavTab === 'edge-devices'
-                    ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
-                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                    ? 'bg-muted text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Server className={`w-4 h-4 shrink-0 ${tenantNavTab === 'edge-devices' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+                  <Server className={`w-4 h-4 shrink-0 ${tenantNavTab === 'edge-devices' ? 'text-foreground' : 'text-muted-foreground'}`} />
                   <span>{t('Edge Devices')}</span>
                 </div>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#21262d] text-[#8b949e] font-mono">
+                <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground ">
                   {tenantDevices.length}
                 </span>
               </button>
@@ -262,18 +253,18 @@ export const PlatformSidebar: React.FC = () => {
               {/* Access Events */}
               <button
                 onClick={() => setTenantNavTab('access_events')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                   tenantNavTab === 'access_events' || tenantNavTab === 'access-events'
-                    ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
-                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                    ? 'bg-muted text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Activity className={`w-4 h-4 shrink-0 ${tenantNavTab === 'access_events' || tenantNavTab === 'access-events' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+                  <Activity className={`w-4 h-4 shrink-0 ${tenantNavTab === 'access_events' || tenantNavTab === 'access-events' ? 'text-foreground' : 'text-muted-foreground'}`} />
                   <span>{t('Access Events')}</span>
                 </div>
-                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.2 bg-[#3fb950]/20 text-[#3fb950] rounded-full font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
+                <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.2 bg-success/20 text-success rounded-[4px] font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-success " />
                   {t('Live')}
                 </span>
               </button>
@@ -281,14 +272,14 @@ export const PlatformSidebar: React.FC = () => {
               {/* Walk-in vehicles */}
               <button
                 onClick={() => setTenantNavTab('walk-ins')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                   tenantNavTab === 'walk-ins'
-                    ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
-                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                    ? 'bg-muted text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Banknote className={`w-4 h-4 shrink-0 ${tenantNavTab === 'walk-ins' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+                  <Banknote className={`w-4 h-4 shrink-0 ${tenantNavTab === 'walk-ins' ? 'text-foreground' : 'text-muted-foreground'}`} />
                   <span>{t('Walk-in vehicles')}</span>
                 </div>
               </button>
@@ -296,20 +287,20 @@ export const PlatformSidebar: React.FC = () => {
 
             {/* ADMINISTRATION GROUP */}
             <div className="space-y-1">
-              <div className="px-3 text-[10px] font-bold text-[#8b949e] uppercase tracking-wider font-mono">
+              <div className="px-3 text-[11px] font-medium text-muted-foreground ">
                 {t('Administration')}
               </div>
 
               {/* Site Settings */}
               <button
                 onClick={() => setTenantNavTab('settings')}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                   tenantNavTab === 'settings'
-                    ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
-                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                    ? 'bg-muted text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
-                <Settings className={`w-4 h-4 shrink-0 ${tenantNavTab === 'settings' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+                <Settings className={`w-4 h-4 shrink-0 ${tenantNavTab === 'settings' ? 'text-foreground' : 'text-muted-foreground'}`} />
                 <span>{t('Site Settings')}</span>
               </button>
             </div>
@@ -325,13 +316,13 @@ export const PlatformSidebar: React.FC = () => {
                 setPrimaryTab('dashboard');
                 setSelectedTenantId(null);
               }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                 primaryTab === 'dashboard'
-                  ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
-                  : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                  ? 'bg-muted text-foreground font-medium'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
-              <LayoutDashboard className={`w-4 h-4 shrink-0 ${primaryTab === 'dashboard' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+              <LayoutDashboard className={`w-4 h-4 shrink-0 ${primaryTab === 'dashboard' ? 'text-foreground' : 'text-muted-foreground'}`} />
               <span>{t('Dashboard')}</span>
             </button>
 
@@ -341,17 +332,17 @@ export const PlatformSidebar: React.FC = () => {
                 setPrimaryTab('tenants');
                 setSelectedTenantId(null);
               }}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                 primaryTab === 'tenants'
-                  ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
-                  : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                  ? 'bg-muted text-foreground font-medium'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Building2 className={`w-4 h-4 shrink-0 ${primaryTab === 'tenants' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+                <Building2 className={`w-4 h-4 shrink-0 ${primaryTab === 'tenants' ? 'text-foreground' : 'text-muted-foreground'}`} />
                 <span>{t('Tenants')}</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#21262d] border border-[#30363d] text-[#8b949e] font-mono">
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted border border-border text-muted-foreground ">
                 {tenants.length}
               </span>
             </button>
@@ -363,21 +354,21 @@ export const PlatformSidebar: React.FC = () => {
                   setPrimaryTab('platform');
                   setIsPlatformOpen(!isPlatformOpen);
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                   primaryTab === 'platform'
-                    ? 'bg-[#161b22] text-[#58a6ff] font-semibold'
-                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                    ? 'text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Sliders className="w-4 h-4 shrink-0 text-[#8b949e]" />
+                  <Sliders className="w-4 h-4 shrink-0 text-muted-foreground" />
                   <span>{t('Platform')}</span>
                 </div>
                 {isPlatformOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
               </button>
 
               {isPlatformOpen && (
-                <div className="ml-7 mt-1 pl-2 border-l border-[#30363d] space-y-1">
+                <div className="ml-7 mt-1 pl-2 border-l border-border space-y-1">
                   <button
                     onClick={() => {
                       setPrimaryTab('platform');
@@ -385,8 +376,8 @@ export const PlatformSidebar: React.FC = () => {
                     }}
                     className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                       primaryTab === 'platform' && platformSubTab === 'settings'
-                        ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold'
-                        : 'text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#161b22]'
+                        ? 'bg-muted text-foreground font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                     }`}
                   >
                     <Settings className="w-3.5 h-3.5" />
@@ -400,11 +391,11 @@ export const PlatformSidebar: React.FC = () => {
                     }}
                     className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                       primaryTab === 'platform' && platformSubTab === 'feature-flags'
-                        ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold'
-                        : 'text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#161b22]'
+                        ? 'bg-muted text-foreground font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                     }`}
                   >
-                    <Flag className="w-3.5 h-3.5 text-[#3fb950]" />
+                    <Flag className="w-3.5 h-3.5 text-success" />
                     <span>{t('Feature Flags')}</span>
                   </button>
 
@@ -415,11 +406,11 @@ export const PlatformSidebar: React.FC = () => {
                     }}
                     className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                       primaryTab === 'platform' && platformSubTab === 'admins'
-                        ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold'
-                        : 'text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#161b22]'
+                        ? 'bg-muted text-foreground font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                     }`}
                   >
-                    <Users className="w-3.5 h-3.5 text-[#a371f7]" />
+                    <Users className="w-3.5 h-3.5 text-chart-5" />
                     <span>{t('Platform Admins')}</span>
                   </button>
                 </div>
@@ -433,21 +424,21 @@ export const PlatformSidebar: React.FC = () => {
                   setPrimaryTab('monitoring');
                   setIsMonitoringOpen(!isMonitoringOpen);
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                   primaryTab === 'monitoring'
-                    ? 'bg-[#161b22] text-[#58a6ff] font-semibold'
-                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                    ? 'text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Activity className="w-4 h-4 shrink-0 text-[#8b949e]" />
+                  <Activity className="w-4 h-4 shrink-0 text-muted-foreground" />
                   <span>{t('Monitoring')}</span>
                 </div>
                 {isMonitoringOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
               </button>
 
               {isMonitoringOpen && (
-                <div className="ml-7 mt-1 pl-2 border-l border-[#30363d] space-y-1">
+                <div className="ml-7 mt-1 pl-2 border-l border-border space-y-1">
                   <button
                     onClick={() => {
                       setPrimaryTab('monitoring');
@@ -455,16 +446,16 @@ export const PlatformSidebar: React.FC = () => {
                     }}
                     className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                       primaryTab === 'monitoring' && monitoringSubTab === 'gates'
-                        ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold'
-                        : 'text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#161b22]'
+                        ? 'bg-muted text-foreground font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <DoorOpen className="w-3.5 h-3.5 text-[#3fb950]" />
+                      <DoorOpen className="w-3.5 h-3.5 text-success" />
                       <span>{t('Barrier Map')}</span>
                     </div>
-                    <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.2 bg-[#3fb950]/20 text-[#3fb950] rounded-full font-bold">
-                      <span className="w-1 h-1 rounded-full bg-[#3fb950] animate-pulse" />
+                    <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.2 bg-success/20 text-success rounded-[4px] font-medium">
+                      <span className="w-1 h-1 rounded-full bg-success " />
                       {t('Live')}
                     </span>
                   </button>
@@ -476,8 +467,8 @@ export const PlatformSidebar: React.FC = () => {
                     }}
                     className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                       primaryTab === 'monitoring' && monitoringSubTab === 'services'
-                        ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold'
-                        : 'text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#161b22]'
+                        ? 'bg-muted text-foreground font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                     }`}
                   >
                     <Server className="w-3.5 h-3.5" />
@@ -491,16 +482,16 @@ export const PlatformSidebar: React.FC = () => {
                     }}
                     className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                       primaryTab === 'monitoring' && monitoringSubTab === 'incidents'
-                        ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold'
-                        : 'text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#161b22]'
+                        ? 'bg-muted text-foreground font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <ShieldAlert className="w-3.5 h-3.5 text-[#e3b341]" />
+                      <ShieldAlert className="w-3.5 h-3.5 text-warning" />
                       <span>{t('Incidents')}</span>
                     </div>
                     {openIncidentsCount > 0 && (
-                      <span className="text-[10px] px-1.5 py-0.2 bg-[#d29922]/20 text-[#e3b341] rounded-full font-bold">
+                      <span className="text-[11px] px-1.5 py-0.2 bg-warning/20 text-warning rounded-[4px] font-medium">
                         {openIncidentsCount}
                       </span>
                     )}
@@ -513,11 +504,11 @@ export const PlatformSidebar: React.FC = () => {
                     }}
                     className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                       primaryTab === 'monitoring' && monitoringSubTab === 'edge'
-                        ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold'
-                        : 'text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#161b22]'
+                        ? 'bg-muted text-foreground font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                     }`}
                   >
-                    <Radio className="w-3.5 h-3.5 text-[#58a6ff]" />
+                    <Radio className="w-3.5 h-3.5 text-primary" />
                     <span>{t('Edge Gateways')}</span>
                   </button>
                 </div>
@@ -531,21 +522,21 @@ export const PlatformSidebar: React.FC = () => {
                   setPrimaryTab('security');
                   setIsSecurityOpen(!isSecurityOpen);
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                   primaryTab === 'security'
-                    ? 'bg-[#161b22] text-[#58a6ff] font-semibold'
-                    : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                    ? 'text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Lock className="w-4 h-4 shrink-0 text-[#8b949e]" />
+                  <Lock className="w-4 h-4 shrink-0 text-muted-foreground" />
                   <span>{t('Security')}</span>
                 </div>
                 {isSecurityOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
               </button>
 
               {isSecurityOpen && (
-                <div className="ml-7 mt-1 pl-2 border-l border-[#30363d] space-y-1">
+                <div className="ml-7 mt-1 pl-2 border-l border-border space-y-1">
                   <button
                     onClick={() => {
                       setPrimaryTab('security');
@@ -553,11 +544,11 @@ export const PlatformSidebar: React.FC = () => {
                     }}
                     className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                       primaryTab === 'security' && securitySubTab === 'mfa'
-                        ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold'
-                        : 'text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#161b22]'
+                        ? 'bg-muted text-foreground font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                     }`}
                   >
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#3fb950]" />
+                    <ShieldCheck className="w-3.5 h-3.5 text-success" />
                     <span>{t('MFA Policies')}</span>
                   </button>
 
@@ -568,16 +559,16 @@ export const PlatformSidebar: React.FC = () => {
                     }}
                     className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                       primaryTab === 'security' && securitySubTab === 'alerts'
-                        ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold'
-                        : 'text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#161b22]'
+                        ? 'bg-muted text-foreground font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <ShieldAlert className="w-3.5 h-3.5 text-[#f85149]" />
+                      <ShieldAlert className="w-3.5 h-3.5 text-destructive" />
                       <span>{t('Security Alerts')}</span>
                     </div>
                     {openAlertsCount > 0 && (
-                      <span className="text-[10px] px-1.5 py-0.2 bg-[#da3633]/20 text-[#f85149] rounded-full font-bold">
+                      <span className="text-[11px] px-1.5 py-0.2 bg-destructive/20 text-destructive rounded-[4px] font-medium">
                         {openAlertsCount}
                       </span>
                     )}
@@ -590,11 +581,11 @@ export const PlatformSidebar: React.FC = () => {
                     }}
                     className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                       primaryTab === 'security' && securitySubTab === 'sessions'
-                        ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold'
-                        : 'text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#161b22]'
+                        ? 'bg-muted text-foreground font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                     }`}
                   >
-                    <Key className="w-3.5 h-3.5 text-[#d29922]" />
+                    <Key className="w-3.5 h-3.5 text-warning" />
                     <span>{t('Active Sessions')}</span>
                   </button>
                 </div>
@@ -607,13 +598,13 @@ export const PlatformSidebar: React.FC = () => {
                 setPrimaryTab('audit');
                 setSelectedTenantId(null);
               }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-200 cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-[background-color,color,border-color,box-shadow] duration-[330ms] cursor-pointer ${
                 primaryTab === 'audit'
-                  ? 'bg-[#58a6ff]/10 text-[#58a6ff] font-semibold border-l-2 border-[#58a6ff]'
-                  : 'text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9]'
+                  ? 'bg-muted text-foreground font-medium'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
-              <FileText className={`w-4 h-4 shrink-0 ${primaryTab === 'audit' ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
+              <FileText className={`w-4 h-4 shrink-0 ${primaryTab === 'audit' ? 'text-foreground' : 'text-muted-foreground'}`} />
               <span>{t('Audit Logs')}</span>
             </button>
           </>
@@ -621,18 +612,18 @@ export const PlatformSidebar: React.FC = () => {
       </nav>
 
       {/* Footer Profile Status */}
-      <div className="p-4 border-t border-[#30363d] bg-[#161b22] shrink-0">
+      <div className="p-4 border-t border-border bg-card shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[#58a6ff]/20 border border-[#58a6ff]/40 flex items-center justify-center font-bold text-[#58a6ff] text-xs font-mono">
+          <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center font-medium text-primary text-xs ">
             {(currentUser.name || 'U').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="text-xs font-semibold text-white truncate">{currentUser.name}</h4>
-            <p className="text-[10px] text-[#8b949e] truncate font-mono">
+            <h4 className="text-xs font-medium text-foreground truncate">{currentUser.name}</h4>
+            <p className="text-[11px] text-muted-foreground truncate ">
               {appWorkspace === 'tenant' ? currentUser.role : currentUser.email}
             </p>
           </div>
-          <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse shrink-0" title={t('Online & Connected')} />
+          <span className="w-2 h-2 rounded-full bg-success shrink-0" title={t('Online & Connected')} />
         </div>
       </div>
     </aside>

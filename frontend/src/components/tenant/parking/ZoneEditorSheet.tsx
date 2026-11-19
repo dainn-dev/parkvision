@@ -137,24 +137,24 @@ export const ZoneEditorSheet: React.FC<ZoneEditorSheetProps> = ({
 
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-xs" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/70 " onClick={onClose} />
 
-      <div className="relative w-full max-w-md bg-[#0d0e12] border border-[#30363d] rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200">
-        <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between bg-[#161b22]">
+      <div className="relative w-full max-w-md bg-background border border-border rounded-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-[330ms]">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-card">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#3fb950]/10 border border-[#3fb950]/30 text-[#3fb950] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-success/10 border border-success/30 text-success flex items-center justify-center">
               <Shapes className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">
+              <h3 className="text-base font-medium text-foreground tracking-tight">
                 {isEdit ? t('Edit zone') : t('Add parking zone')}
               </h3>
-              <p className="text-xs text-[#8b949e]">{level.name} — {t('parking zone on map')}</p>
+              <p className="text-xs text-muted-foreground">{level.name} — {t('parking zone on map')}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white hover:bg-[#30363d] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground hover:bg-border flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -163,52 +163,52 @@ export const ZoneEditorSheet: React.FC<ZoneEditorSheetProps> = ({
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                {t('Zone name')} <span className="text-[#f85149]">*</span>
+              <label className="block text-foreground font-medium mb-1.5">
+                {t('Zone name')} <span className="text-destructive">*</span>
               </label>
               <Input
                 placeholder={t('e.g. Zone A — near elevator')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="bg-[#161b22] border-[#30363d] text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Zone code')}</label>
+              <label className="block text-foreground font-medium mb-1.5">{t('Zone code')}</label>
               <Input
                 placeholder="e.g. A1"
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
-                className="bg-[#161b22] border-[#30363d] text-white font-mono"
+                className="bg-card border-border text-foreground "
               />
             </div>
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Capacity (vehicles)')}</label>
+              <label className="block text-foreground font-medium mb-1.5">{t('Capacity (vehicles)')}</label>
               <Input
                 type="number"
                 min={0}
                 value={capacity}
                 onChange={(e) => setCapacity(Number(e.target.value))}
-                className="bg-[#161b22] border-[#30363d] text-white font-mono"
+                className="bg-card border-border text-foreground "
               />
             </div>
           </div>
 
           {bounds && (
-            <p className="text-[10px] text-[#8b949e] font-mono">
+            <p className="text-[11px] text-muted-foreground ">
               bounds: x={bounds.x.toFixed(2)} y={bounds.y.toFixed(2)} w={bounds.w.toFixed(2)} h={bounds.h.toFixed(2)}
             </p>
           )}
 
           {/* Monitor camera coverage */}
-          <div className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] space-y-2">
-            <h4 className="text-white font-semibold text-xs flex items-center gap-2">
-              <Camera className="w-3.5 h-3.5 text-[#58a6ff]" />
+          <div className="p-3 rounded-xl bg-card border border-border space-y-2">
+            <h4 className="text-foreground font-medium text-xs flex items-center gap-2">
+              <Camera className="w-3.5 h-3.5 text-primary" />
               {t('Monitor cameras covering this zone')}
             </h4>
             {monitorCameras.length === 0 ? (
-              <p className="text-[11px] text-[#8b949e] italic">
+              <p className="text-[11px] text-muted-foreground italic">
                 {t('No monitor-purpose cameras at this site yet.')}
               </p>
             ) : (
@@ -216,7 +216,7 @@ export const ZoneEditorSheet: React.FC<ZoneEditorSheetProps> = ({
                 {monitorCameras.map((cam) => (
                   <label
                     key={cam.id}
-                    className="flex items-center gap-2 text-xs text-[#c9d1d9] cursor-pointer hover:text-white"
+                    className="flex items-center gap-2 text-xs text-foreground cursor-pointer hover:text-foreground"
                   >
                     <input
                       type="checkbox"
@@ -225,24 +225,24 @@ export const ZoneEditorSheet: React.FC<ZoneEditorSheetProps> = ({
                       className="accent-[#58a6ff]"
                     />
                     <span>{cam.cameraName}</span>
-                    {cam.code && <span className="text-[10px] text-[#8b949e] font-mono">{cam.code}</span>}
+                    {cam.code && <span className="text-[11px] text-muted-foreground font-mono">{cam.code}</span>}
                   </label>
                 ))}
               </div>
             )}
-            <p className="text-[10px] text-[#8b949e]">
+            <p className="text-[11px] text-muted-foreground">
               {t('Selected monitor cameras will record parked/moving vehicles in this zone.')}
             </p>
           </div>
 
-          <div className="pt-4 border-t border-[#30363d] flex items-center justify-between gap-3">
+          <div className="pt-4 border-t border-border flex items-center justify-between gap-3">
             <div>
               {isEdit && (
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleDelete}
-                  className="text-xs text-[#f85149] border-[#f85149]/40 hover:bg-[#f85149]/10 gap-1.5"
+                  className="text-xs text-destructive border-destructive/40 hover:bg-destructive/10 gap-1.5"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   {t('Delete')}
@@ -257,7 +257,7 @@ export const ZoneEditorSheet: React.FC<ZoneEditorSheetProps> = ({
                 type="submit"
                 variant="primary"
                 isLoading={isSaving}
-                className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
+                className="text-xs bg-primary hover:bg-primary/90 text-[#fff] gap-1.5"
               >
                 <Check className="w-3.5 h-3.5" />
                 {isEdit ? t('Save zone') : t('Create zone')}

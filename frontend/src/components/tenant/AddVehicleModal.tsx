@@ -86,24 +86,24 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/75 backdrop-blur-xs" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/75 " onClick={onClose} />
 
-      <div className="relative w-full max-w-lg bg-[#0d0e12] border border-[#30363d] rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-lg bg-background border border-border rounded-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-[330ms] flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between bg-[#161b22] shrink-0">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-card shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 text-primary flex items-center justify-center">
               <Car className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">{t('Register & Enroll Vehicle')}</h3>
-              <p className="text-xs text-[#8b949e]">{t('Add new vehicle to whitelist with ANPR automatic barrier access')}</p>
+              <h3 className="text-base font-medium text-foreground tracking-tight">{t('Register & Enroll Vehicle')}</h3>
+              <p className="text-xs text-muted-foreground">{t('Add new vehicle to whitelist with ANPR automatic barrier access')}</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white hover:bg-[#30363d] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground hover:bg-border flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -111,10 +111,10 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
           {/* License Plate Section */}
-          <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
+          <div className="p-4 rounded-xl bg-card border border-border space-y-3">
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                {t('License Plate Number')} <span className="text-[#f85149]">*</span>
+              <label className="block text-foreground font-medium mb-1.5">
+                {t('License Plate Number')} <span className="text-destructive">*</span>
               </label>
               <Input
                 placeholder={t('e.g. 51G-888.99, 29A-12345, 59P1-99882')}
@@ -124,29 +124,29 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
                   setErrorMessage(null);
                 }}
                 required
-                className="bg-[#0d0e12] border-[#30363d] text-white font-mono text-base tracking-wider"
+                className="bg-background border-border text-foreground text-base tracking-wider"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[#8b949e] text-[11px] mb-1">
+                <label className="block text-muted-foreground text-[11px] mb-1">
                   {t('Province / City')}
                 </label>
                 <Input
                   value={formData.province}
                   onChange={(e) => setFormData({ ...formData, province: e.target.value })}
-                  className="bg-[#0d0e12] border-[#30363d] text-white text-xs h-8"
+                  className="bg-background border-border text-foreground text-xs h-8"
                 />
               </div>
               <div>
-                <label className="block text-[#8b949e] text-[11px] mb-1">
+                <label className="block text-muted-foreground text-[11px] mb-1">
                   {t('Country')}
                 </label>
                 <Input
                   value={formData.country}
                   onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                  className="bg-[#0d0e12] border-[#30363d] text-white text-xs h-8"
+                  className="bg-background border-border text-foreground text-xs h-8"
                 />
               </div>
             </div>
@@ -155,41 +155,41 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
           {/* Vehicle Technical Specifications */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                {t('Make / Manufacturer')} <span className="text-[#f85149]">*</span>
+              <label className="block text-foreground font-medium mb-1.5">
+                {t('Make / Manufacturer')} <span className="text-destructive">*</span>
               </label>
               <Input
                 placeholder={t('e.g. Toyota, VinFast, Mazda')}
                 value={formData.make}
                 onChange={(e) => setFormData({ ...formData, make: e.target.value })}
                 required
-                className="bg-[#161b22] border-[#30363d] text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                {t('Model')} <span className="text-[#f85149]">*</span>
+              <label className="block text-foreground font-medium mb-1.5">
+                {t('Model')} <span className="text-destructive">*</span>
               </label>
               <Input
                 placeholder={t('e.g. Camry, VF8, CX-5')}
                 value={formData.model}
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                 required
-                className="bg-[#161b22] border-[#30363d] text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+              <label className="block text-foreground font-medium mb-1.5">
                 {t('Vehicle Type')}
               </label>
               <select
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value as VehicleType })}
-                className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-2.5 py-2 text-white focus:outline-hidden"
+                className="w-full bg-card border border-border rounded-lg px-2.5 py-2 text-foreground focus:outline-hidden"
               >
                 <option value="CAR">{t('Car / SUV')}</option>
                 <option value="MOTORCYCLE">{t('Motorcycle')}</option>
@@ -201,7 +201,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+              <label className="block text-foreground font-medium mb-1.5">
                 {t('Model Year')}
               </label>
               <Input
@@ -210,44 +210,44 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
                 max={new Date().getFullYear() + 1}
                 value={formData.year}
                 onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) })}
-                className="bg-[#161b22] border-[#30363d] text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+              <label className="block text-foreground font-medium mb-1.5">
                 {t('Exterior Color')}
               </label>
               <Input
                 placeholder={t('e.g. Black, White')}
                 value={formData.color}
                 onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                className="bg-[#161b22] border-[#30363d] text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[#c9d1d9] font-medium mb-1.5">
+            <label className="block text-foreground font-medium mb-1.5">
               {t('VIN / Chassis Number (Optional)')}
             </label>
             <Input
               placeholder={t('e.g. 1HGCR2F83HA001923')}
               value={formData.vin}
               onChange={(e) => setFormData({ ...formData, vin: e.target.value.toUpperCase() })}
-              className="bg-[#161b22] border-[#30363d] text-white font-mono"
+              className="bg-card border-border text-foreground "
             />
           </div>
 
           {/* Member Assignment Selector */}
           <div>
-            <label className="block text-[#c9d1d9] font-medium mb-1.5">
+            <label className="block text-foreground font-medium mb-1.5">
               {t('Assign to Member Profile (Optional)')}
             </label>
             <select
               value={formData.memberId}
               onChange={(e) => setFormData({ ...formData, memberId: e.target.value })}
-              className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-2 text-white focus:outline-hidden"
+              className="w-full bg-card border border-border rounded-lg px-3 py-2 text-foreground focus:outline-hidden"
             >
               <option value="">{t('-- Unassigned Organization / Pool Vehicle --')}</option>
               {tenantUsers.map((u) => (
@@ -259,20 +259,20 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
           </div>
 
           {errorMessage && (
-            <div className="p-3 rounded-lg bg-[#da3633]/15 border border-[#da3633]/30 text-[#f85149] flex items-center gap-2">
+            <div className="p-3 rounded-lg bg-destructive/15 border border-destructive/30 text-destructive flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMessage}</span>
             </div>
           )}
 
-          <div className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center gap-3">
-            <ShieldCheck className="w-5 h-5 text-[#3fb950] shrink-0" />
-            <div className="text-[11px] text-[#8b949e]">
+          <div className="p-3 rounded-xl bg-card border border-border flex items-center gap-3">
+            <ShieldCheck className="w-5 h-5 text-success shrink-0" />
+            <div className="text-[11px] text-muted-foreground">
               {t('Enrolled plate will instantly sync to all site edge cameras and open gates automatically upon 90%+ OCR match.')}
             </div>
           </div>
 
-          <div className="pt-3 border-t border-[#30363d] flex items-center justify-end gap-3">
+          <div className="pt-3 border-t border-border flex items-center justify-end gap-3">
             <Button
               type="button"
               variant="outline"
@@ -285,7 +285,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
               type="submit"
               variant="primary"
               isLoading={isLoading}
-              className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
+              className="text-xs bg-primary hover:bg-primary/90 text-[#fff] gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
               {t('Enroll Vehicle')}

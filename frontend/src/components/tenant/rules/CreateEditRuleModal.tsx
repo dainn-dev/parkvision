@@ -396,24 +396,24 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/75 backdrop-blur-xs" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/75 " onClick={onClose} />
 
-      <div className="relative w-full max-w-3xl bg-[#0d0e12] border border-[#30363d] rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]">
+      <div className="relative w-full max-w-3xl bg-background border border-border rounded-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-[330ms] flex flex-col max-h-[92vh]">
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-[#30363d] bg-[#161b22] flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-border bg-card flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
               action === 'ALLOW'
-                ? 'bg-[#238636]/15 border-[#238636]/30 text-[#3fb950]'
-                : 'bg-[#da3633]/15 border-[#da3633]/30 text-[#f85149]'
+                ? 'bg-success/15 border-success/30 text-success'
+                : 'bg-destructive/15 border-destructive/30 text-destructive'
             }`}>
               {action === 'ALLOW' ? <ShieldCheck className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">
+              <h3 className="text-base font-medium text-foreground tracking-tight">
                 {isEditing ? t('Edit Access Rule: {{code}}', { code: ruleToEdit?.code }) : t('Create Access Policy Rule')}
               </h3>
-              <p className="text-xs text-[#8b949e]">
+              <p className="text-xs text-muted-foreground">
                 {t('Configure automated ANPR camera barrier evaluation policies')}
               </p>
             </div>
@@ -421,14 +421,14 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white hover:bg-[#30363d] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground hover:bg-border flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Wizard Stepper Header */}
-        <div className="px-6 py-3 bg-[#161b22]/40 border-b border-[#30363d] flex items-center justify-between overflow-x-auto gap-2">
+        <div className="px-6 py-3 bg-card/40 border-b border-border flex items-center justify-between overflow-x-auto gap-2">
           {steps.map((s, idx) => (
             <button
               key={s.num}
@@ -437,20 +437,20 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                   setCurrentStep(s.num);
                 }
               }}
-              className={`flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+              className={`flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
                 currentStep === s.num
-                  ? 'bg-[#1f6feb] text-white shadow-xs'
+                  ? 'bg-primary text-[#fff] '
                   : currentStep > s.num
-                  ? 'text-[#3fb950] hover:bg-[#21262d]'
-                  : 'text-[#8b949e] hover:text-[#c9d1d9]'
+                  ? 'text-success hover:bg-muted'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-medium ${
                 currentStep === s.num
-                  ? 'bg-white text-[#1f6feb]'
+                  ? 'bg-white text-primary'
                   : currentStep > s.num
-                  ? 'bg-[#238636] text-white'
-                  : 'bg-[#21262d] text-[#8b949e]'
+                  ? 'bg-success text-[#fff]'
+                  : 'bg-muted text-muted-foreground'
               }`}>
                 {currentStep > s.num ? '✓' : s.num}
               </span>
@@ -463,11 +463,11 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
         <div className="p-6 overflow-y-auto flex-1 text-xs space-y-5">
           {/* STEP 1: Basic Information */}
           {currentStep === 1 && (
-            <div className="space-y-4 animate-in fade-in duration-150">
+            <div className="space-y-4 animate-in fade-in duration-[330ms]">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                    {t('Rule Name')} <span className="text-[#f85149]">*</span>
+                  <label className="block text-foreground font-medium mb-1.5">
+                    {t('Rule Name')} <span className="text-destructive">*</span>
                   </label>
                   <Input
                     placeholder={t('e.g. Employee Standard Parking Access')}
@@ -478,29 +478,29 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                         setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '-').slice(0, 24));
                       }
                     }}
-                    className={`bg-[#161b22] border-[#30363d] text-white ${errors.name ? 'border-[#f85149]' : ''}`}
+                    className={`bg-card border-border text-foreground ${errors.name ? 'border-destructive' : ''}`}
                   />
-                  {errors.name && <p className="text-[11px] text-[#f85149] mt-1">{errors.name}</p>}
+                  {errors.name && <p className="text-[11px] text-destructive mt-1">{errors.name}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                    {t('Rule Code')} <span className="text-[#f85149]">*</span>
+                  <label className="block text-foreground font-medium mb-1.5">
+                    {t('Rule Code')} <span className="text-destructive">*</span>
                   </label>
                   <Input
                     placeholder="e.g. EMPLOYEE-PARKING"
                     value={code}
                     onChange={(e) => setCode(e.target.value.toUpperCase().replace(/\s+/g, '-'))}
-                    className={`font-mono bg-[#161b22] border-[#30363d] text-white ${errors.code ? 'border-[#f85149]' : ''}`}
+                    className={`font-mono bg-card border-border text-foreground ${errors.code ? 'border-destructive' : ''}`}
                   />
-                  {errors.code && <p className="text-[11px] text-[#f85149] mt-1">{errors.code}</p>}
+                  {errors.code && <p className="text-[11px] text-destructive mt-1">{errors.code}</p>}
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[#c9d1d9] font-medium">{t('Description')}</label>
-                  <span className="text-[11px] text-[#8b949e]">{description.length}/500</span>
+                  <label className="text-foreground font-medium">{t('Description')}</label>
+                  <span className="text-[11px] text-muted-foreground">{description.length}/500</span>
                 </div>
                 <textarea
                   rows={3}
@@ -508,26 +508,26 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                   placeholder={t('Describe purpose of rule, edge trigger conditions, and authorized team members...')}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-3 text-white focus:outline-hidden focus:border-[#58a6ff]"
+                  className="w-full bg-card border border-border rounded-lg p-3 text-foreground focus:outline-hidden focus:border-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Initial Activation Status')}</label>
+                <label className="block text-foreground font-medium mb-1.5">{t('Initial Activation Status')}</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setStatus('ACTIVE')}
                     className={`p-3 rounded-xl border text-left flex items-center gap-3 transition-colors cursor-pointer ${
                       status === 'ACTIVE'
-                        ? 'bg-[#238636]/15 border-[#238636] text-white'
-                        : 'bg-[#161b22] border-[#30363d] text-[#8b949e]'
+                        ? 'bg-success/15 border-success text-foreground'
+                        : 'bg-card border-border text-muted-foreground'
                     }`}
                   >
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#3fb950]" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-success" />
                     <div>
-                      <div className="font-bold text-white">{t('Active (Enforced)')}</div>
-                      <div className="text-[11px] text-[#8b949e]">{t('Immediately deployed to camera edge controllers')}</div>
+                      <div className="font-medium text-foreground">{t('Active (Enforced)')}</div>
+                      <div className="text-[11px] text-muted-foreground">{t('Immediately deployed to camera edge controllers')}</div>
                     </div>
                   </button>
 
@@ -536,14 +536,14 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                     onClick={() => setStatus('DRAFT')}
                     className={`p-3 rounded-xl border text-left flex items-center gap-3 transition-colors cursor-pointer ${
                       status === 'DRAFT'
-                        ? 'bg-[#d29922]/15 border-[#d29922] text-white'
-                        : 'bg-[#161b22] border-[#30363d] text-[#8b949e]'
+                        ? 'bg-warning/15 border-warning text-foreground'
+                        : 'bg-card border-border text-muted-foreground'
                     }`}
                   >
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#e3b341]" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-warning" />
                     <div>
-                      <div className="font-bold text-white">{t('Draft Mode')}</div>
-                      <div className="text-[11px] text-[#8b949e]">{t('Save policy configuration without active gate enforcement')}</div>
+                      <div className="font-medium text-foreground">{t('Draft Mode')}</div>
+                      <div className="text-[11px] text-muted-foreground">{t('Save policy configuration without active gate enforcement')}</div>
                     </div>
                   </button>
                 </div>
@@ -553,8 +553,8 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
           {/* STEP 2: Target Entity */}
           {currentStep === 2 && (
-            <div className="space-y-4 animate-in fade-in duration-150">
-              <label className="block text-[#c9d1d9] font-medium">{t('Select Target Entity')}</label>
+            <div className="space-y-4 animate-in fade-in duration-[330ms]">
+              <label className="block text-foreground font-medium">{t('Select Target Entity')}</label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {[
                   { type: 'MEMBER_GROUP', label: t('Member Group'), icon: User, desc: t('Employees, VIP, Contractors') },
@@ -572,58 +572,58 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                       key={item.type}
                       type="button"
                       onClick={() => setTargetType(item.type as AccessRuleTargetType)}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      className={`p-3 rounded-xl border text-left transition-colors cursor-pointer flex flex-col justify-between ${
                         isSelected
-                          ? 'bg-[#1f6feb]/15 border-[#1f6feb] text-white shadow-xs'
-                          : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:border-[#58a6ff]/40'
+                          ? 'bg-primary/15 border-primary text-foreground '
+                          : 'bg-card border-border text-muted-foreground hover:border-primary/40'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1.5">
-                        <Icon className={`w-4 h-4 ${isSelected ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
-                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#58a6ff]" />}
+                        <Icon className={`w-4 h-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
                       </div>
-                      <div className="font-bold text-white text-xs">{item.label}</div>
-                      <div className="text-[10px] text-[#8b949e] mt-0.5">{item.desc}</div>
+                      <div className="font-medium text-foreground text-xs">{item.label}</div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">{item.desc}</div>
                     </button>
                   );
                 })}
               </div>
 
               {/* Dynamic Target Inputs */}
-              <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
+              <div className="p-4 rounded-xl bg-card border border-border space-y-3">
                 {targetType === 'ALL_VEHICLES' && (
-                  <div className="flex items-start gap-2.5 p-3 rounded-lg bg-[#d29922]/10 border border-[#d29922]/30 text-[#e3b341]">
+                  <div className="flex items-start gap-2.5 p-3 rounded-lg bg-warning/10 border border-warning/30 text-warning">
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold">{t('Broad Policy Notice:')}</span> {t('This rule will apply to every single detected vehicle entering matching gates. Ensure appropriate priority and schedule constraints.')}
+                      <span className="font-medium">{t('Broad Policy Notice:')}</span> {t('This rule will apply to every single detected vehicle entering matching gates. Ensure appropriate priority and schedule constraints.')}
                     </div>
                   </div>
                 )}
 
                 {targetType === 'LICENSE_PLATE' && (
                   <div>
-                    <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                      {t('Target License Plate')} <span className="text-[#f85149]">*</span>
+                    <label className="block text-foreground font-medium mb-1.5">
+                      {t('Target License Plate')} <span className="text-destructive">*</span>
                     </label>
                     <Input
                       placeholder="e.g. 51K-881.00"
                       value={targetLicensePlate}
                       onChange={(e) => setTargetLicensePlate(e.target.value.toUpperCase())}
-                      className="font-mono uppercase bg-[#0d0e12] border-[#30363d] text-white"
+                      className=" bg-background border-border text-foreground"
                     />
                     {errors.targetLicensePlate && (
-                      <p className="text-[11px] text-[#f85149] mt-1">{errors.targetLicensePlate}</p>
+                      <p className="text-[11px] text-destructive mt-1">{errors.targetLicensePlate}</p>
                     )}
                   </div>
                 )}
 
                 {targetType === 'MEMBER_GROUP' && (
                   <div>
-                    <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Member Group Category')}</label>
+                    <label className="block text-foreground font-medium mb-1.5">{t('Member Group Category')}</label>
                     <select
                       value={targetMemberGroup}
                       onChange={(e) => setTargetMemberGroup(e.target.value)}
-                      className="w-full bg-[#0d0e12] border border-[#30363d] rounded-lg p-2.5 text-white"
+                      className="w-full bg-background border border-border rounded-lg p-2.5 text-foreground"
                     >
                       <option value="EMPLOYEE">{t('Employees & Corporate Staff')}</option>
                       <option value="VIP">{t('Executive & VIP Priority Pass')}</option>
@@ -637,11 +637,11 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
                 {targetType === 'SPECIFIC_VEHICLE' && (
                   <div>
-                    <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Select Registered Vehicle')}</label>
+                    <label className="block text-foreground font-medium mb-1.5">{t('Select Registered Vehicle')}</label>
                     <select
                       value={targetVehicleId}
                       onChange={(e) => setTargetVehicleId(e.target.value)}
-                      className="w-full bg-[#0d0e12] border border-[#30363d] rounded-lg p-2.5 text-white"
+                      className="w-full bg-background border border-border rounded-lg p-2.5 text-foreground"
                     >
                       <option value="">{t('-- Choose a vehicle --')}</option>
                       {tenantVehicles.map(v => (
@@ -651,18 +651,18 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                       ))}
                     </select>
                     {errors.targetVehicleId && (
-                      <p className="text-[11px] text-[#f85149] mt-1">{errors.targetVehicleId}</p>
+                      <p className="text-[11px] text-destructive mt-1">{errors.targetVehicleId}</p>
                     )}
                   </div>
                 )}
 
                 {targetType === 'MEMBER' && (
                   <div>
-                    <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Select Member')}</label>
+                    <label className="block text-foreground font-medium mb-1.5">{t('Select Member')}</label>
                     <select
                       value={targetMemberId}
                       onChange={(e) => setTargetMemberId(e.target.value)}
-                      className="w-full bg-[#0d0e12] border border-[#30363d] rounded-lg p-2.5 text-white"
+                      className="w-full bg-background border border-border rounded-lg p-2.5 text-foreground"
                     >
                       <option value="">{t('-- Choose a member --')}</option>
                       {tenantUsers.map(u => (
@@ -672,18 +672,18 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                       ))}
                     </select>
                     {errors.targetMemberId && (
-                      <p className="text-[11px] text-[#f85149] mt-1">{errors.targetMemberId}</p>
+                      <p className="text-[11px] text-destructive mt-1">{errors.targetMemberId}</p>
                     )}
                   </div>
                 )}
 
                 {targetType === 'VEHICLE_GROUP' && (
                   <div>
-                    <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Vehicle Group')}</label>
+                    <label className="block text-foreground font-medium mb-1.5">{t('Vehicle Group')}</label>
                     <select
                       value={targetVehicleGroup}
                       onChange={(e) => setTargetVehicleGroup(e.target.value)}
-                      className="w-full bg-[#0d0e12] border border-[#30363d] rounded-lg p-2.5 text-white"
+                      className="w-full bg-background border border-border rounded-lg p-2.5 text-foreground"
                     >
                       <option value="CAR">{t('Passenger Cars / Sedans')}</option>
                       <option value="SUV">{t('SUVs / Crossovers')}</option>
@@ -696,12 +696,12 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                 )}
 
                 <div>
-                  <label className="block text-[#8b949e] text-[11px] mb-1">{t('Target Notes / Audit Reason (Optional)')}</label>
+                  <label className="block text-muted-foreground text-[11px] mb-1">{t('Target Notes / Audit Reason (Optional)')}</label>
                   <Input
                     placeholder={t('e.g. Flagged for tailgating #SEC-9921 or Executive VIP fast-lane privilege')}
                     value={targetNotes}
                     onChange={(e) => setTargetNotes(e.target.value)}
-                    className="bg-[#0d0e12] border-[#30363d] text-white"
+                    className="bg-background border-border text-foreground"
                   />
                 </div>
               </div>
@@ -710,27 +710,27 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
           {/* STEP 3: Scope (Facilities & Gates) */}
           {currentStep === 3 && (
-            <div className="space-y-4 animate-in fade-in duration-150">
+            <div className="space-y-4 animate-in fade-in duration-[330ms]">
               {/* Facilities */}
-              <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
+              <div className="p-4 rounded-xl bg-card border border-border space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-bold text-white">
-                    <Building2 className="w-4 h-4 text-[#58a6ff]" />
+                  <div className="flex items-center gap-2 font-medium text-foreground">
+                    <Building2 className="w-4 h-4 text-primary" />
                     <span>{t('Target Facilities (Sites)')}</span>
                   </div>
-                  <label className="flex items-center gap-2 text-[#c9d1d9] cursor-pointer">
+                  <label className="flex items-center gap-2 text-foreground cursor-pointer">
                     <input
                       type="checkbox"
                       checked={allSites}
                       onChange={(e) => setAllSites(e.target.checked)}
-                      className="rounded border-[#30363d] bg-[#0d0e12] text-[#1f6feb] focus:ring-0"
+                      className="rounded border-border bg-background text-primary focus:ring-0"
                     />
                     <span>{t('Apply to All Facilities')}</span>
                   </label>
                 </div>
 
                 {!allSites && (
-                  <div className="space-y-2 pt-2 border-t border-[#30363d]/60">
+                  <div className="space-y-2 pt-2 border-t border-border/60">
                     {tenantSites.map(s => {
                       const isChecked = selectedSiteIds.includes(s.id);
                       return (
@@ -738,8 +738,8 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                           key={s.id}
                           className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition-colors ${
                             isChecked
-                              ? 'bg-[#1f6feb]/10 border-[#1f6feb]/40 text-white'
-                              : 'bg-[#0d0e12] border-[#30363d] text-[#8b949e]'
+                              ? 'bg-primary/10 border-primary/40 text-foreground'
+                              : 'bg-background border-border text-muted-foreground'
                           }`}
                         >
                           <div className="flex items-center gap-2.5">
@@ -753,39 +753,39 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                                   setSelectedSiteIds(selectedSiteIds.filter(id => id !== s.id));
                                 }
                               }}
-                              className="rounded border-[#30363d] bg-[#0d0e12] text-[#1f6feb] focus:ring-0"
+                              className="rounded border-border bg-background text-primary focus:ring-0"
                             />
-                            <span className="font-semibold text-white">{s.name}</span>
+                            <span className="font-medium text-foreground">{s.name}</span>
                           </div>
-                          <span className="text-[11px] text-[#8b949e]">{s.address}</span>
+                          <span className="text-[11px] text-muted-foreground">{s.address}</span>
                         </label>
                       );
                     })}
-                    {errors.sites && <p className="text-[11px] text-[#f85149] mt-1">{errors.sites}</p>}
+                    {errors.sites && <p className="text-[11px] text-destructive mt-1">{errors.sites}</p>}
                   </div>
                 )}
               </div>
 
               {/* Gates & Lanes */}
-              <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
+              <div className="p-4 rounded-xl bg-card border border-border space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-bold text-white">
-                    <ShieldCheck className="w-4 h-4 text-[#3fb950]" />
+                  <div className="flex items-center gap-2 font-medium text-foreground">
+                    <ShieldCheck className="w-4 h-4 text-success" />
                     <span>{t('Target Gates & Lanes')}</span>
                   </div>
-                  <label className="flex items-center gap-2 text-[#c9d1d9] cursor-pointer">
+                  <label className="flex items-center gap-2 text-foreground cursor-pointer">
                     <input
                       type="checkbox"
                       checked={allGates}
                       onChange={(e) => setAllGates(e.target.checked)}
-                      className="rounded border-[#30363d] bg-[#0d0e12] text-[#1f6feb] focus:ring-0"
+                      className="rounded border-border bg-background text-primary focus:ring-0"
                     />
                     <span>{t('Apply to All Gates')}</span>
                   </label>
                 </div>
 
                 {!allGates && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-[#30363d]/60">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-border/60">
                     {[
                       { id: 'gate-mc-01', name: t('Entrance Gate 01 (Inbound Main)') },
                       { id: 'gate-mc-02', name: t('Entrance Gate 02 VIP (FastTrack)') },
@@ -798,8 +798,8 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                           key={g.id}
                           className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${
                             isChecked
-                              ? 'bg-[#3fb950]/10 border-[#3fb950]/40 text-white'
-                              : 'bg-[#0d0e12] border-[#30363d] text-[#8b949e]'
+                              ? 'bg-success/10 border-success/40 text-foreground'
+                              : 'bg-background border-border text-muted-foreground'
                           }`}
                         >
                           <input
@@ -812,13 +812,13 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                                 setSelectedGateIds(selectedGateIds.filter(id => id !== g.id));
                               }
                             }}
-                            className="rounded border-[#30363d] bg-[#0d0e12] text-[#3fb950] focus:ring-0"
+                            className="rounded border-border bg-background text-success focus:ring-0"
                           />
-                          <span className="font-semibold text-white">{g.name}</span>
+                          <span className="font-medium text-foreground">{g.name}</span>
                         </label>
                       );
                     })}
-                    {errors.gates && <p className="text-[11px] text-[#f85149] mt-1">{errors.gates}</p>}
+                    {errors.gates && <p className="text-[11px] text-destructive mt-1">{errors.gates}</p>}
                   </div>
                 )}
               </div>
@@ -827,7 +827,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
           {/* STEP 4: Operating Schedule */}
           {currentStep === 4 && (
-            <div className="space-y-4 animate-in fade-in duration-150">
+            <div className="space-y-4 animate-in fade-in duration-[330ms]">
               <div className="grid grid-cols-3 gap-3">
                 {[
                   { type: 'ALWAYS', label: t('Always (24/7)'), desc: t('Continuous unlimited access'), icon: Clock },
@@ -841,30 +841,30 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                       key={item.type}
                       type="button"
                       onClick={() => setScheduleType(item.type as AccessRuleScheduleType)}
-                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                      className={`p-3 rounded-xl border text-left cursor-pointer transition-colors ${
                         isSelected
-                          ? 'bg-[#1f6feb]/15 border-[#1f6feb] text-white shadow-xs'
-                          : 'bg-[#161b22] border-[#30363d] text-[#8b949e] hover:border-[#58a6ff]/40'
+                          ? 'bg-primary/15 border-primary text-foreground '
+                          : 'bg-card border-border text-muted-foreground hover:border-primary/40'
                       }`}
                     >
-                      <Icon className={`w-4 h-4 mb-1.5 ${isSelected ? 'text-[#58a6ff]' : 'text-[#8b949e]'}`} />
-                      <div className="font-bold text-white text-xs">{item.label}</div>
-                      <div className="text-[10px] text-[#8b949e] mt-0.5">{item.desc}</div>
+                      <Icon className={`w-4 h-4 mb-1.5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <div className="font-medium text-foreground text-xs">{item.label}</div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">{item.desc}</div>
                     </button>
                   );
                 })}
               </div>
 
               {scheduleType === 'WEEKLY' && (
-                <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
+                <div className="p-4 rounded-xl bg-card border border-border space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white">{t('Daily Operating Windows')}</span>
+                    <span className="font-medium text-foreground">{t('Daily Operating Windows')}</span>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={applyMondayToAllDays}
-                      className="text-[11px] border-[#30363d] text-[#58a6ff] hover:bg-[#21262d]"
+                      className="text-[11px] border-border text-primary hover:bg-muted"
                     >
                       {t('Apply Monday Hours to Weekdays')}
                     </Button>
@@ -876,8 +876,8 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                         key={d.day}
                         className={`p-2.5 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
                           d.enabled
-                            ? 'bg-[#0d0e12] border-[#30363d]'
-                            : 'bg-[#161b22]/50 border-[#30363d]/40 opacity-60'
+                            ? 'bg-background border-border'
+                            : 'bg-card/50 border-border/40 opacity-60'
                         }`}
                       >
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -885,9 +885,9 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                             type="checkbox"
                             checked={d.enabled}
                             onChange={() => handleWeeklyDayToggle(d.day)}
-                            className="rounded border-[#30363d] bg-[#0d0e12] text-[#1f6feb] focus:ring-0"
+                            className="rounded border-border bg-background text-primary focus:ring-0"
                           />
-                          <span className="font-bold text-white w-28">{t(d.day)}</span>
+                          <span className="font-medium text-foreground w-28">{t(d.day)}</span>
                         </label>
 
                         {d.enabled ? (
@@ -896,66 +896,66 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                               type="time"
                               value={d.windows[0]?.start || '06:00'}
                               onChange={(e) => handleWeeklyTimeChange(d.day, 'start', e.target.value)}
-                              className="bg-[#161b22] border border-[#30363d] rounded px-2 py-1 text-white font-mono text-xs"
+                              className="bg-card border border-border rounded px-2 py-1 text-foreground text-xs"
                             />
-                            <span className="text-[#8b949e]">{t('to')}</span>
+                            <span className="text-muted-foreground">{t('to')}</span>
                             <input
                               type="time"
                               value={d.windows[0]?.end || '21:00'}
                               onChange={(e) => handleWeeklyTimeChange(d.day, 'end', e.target.value)}
-                              className="bg-[#161b22] border border-[#30363d] rounded px-2 py-1 text-white font-mono text-xs"
+                              className="bg-card border border-border rounded px-2 py-1 text-foreground text-xs"
                             />
                           </div>
                         ) : (
-                          <span className="text-xs text-[#8b949e] italic">{t('Access Prohibited')}</span>
+                          <span className="text-xs text-muted-foreground italic">{t('Access Prohibited')}</span>
                         )}
                       </div>
                     ))}
                   </div>
-                  {errors.weeklyDays && <p className="text-[11px] text-[#f85149] mt-1">{errors.weeklyDays}</p>}
+                  {errors.weeklyDays && <p className="text-[11px] text-destructive mt-1">{errors.weeklyDays}</p>}
                 </div>
               )}
 
               {scheduleType === 'DATE_RANGE' && (
-                <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
-                  <div className="font-bold text-white">{t('Temporary Access Validity Window')}</div>
+                <div className="p-4 rounded-xl bg-card border border-border space-y-3">
+                  <div className="font-medium text-foreground">{t('Temporary Access Validity Window')}</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[#8b949e] mb-1">{t('Start Date & Time')}</label>
+                      <label className="block text-muted-foreground mb-1">{t('Start Date & Time')}</label>
                       <div className="flex gap-2">
                         <Input
                           type="date"
                           value={startDate}
                           onChange={(e) => setStartDate(e.target.value)}
-                          className="bg-[#0d0e12] border-[#30363d] text-white"
+                          className="bg-background border-border text-foreground"
                         />
                         <Input
                           type="time"
                           value={startTime}
                           onChange={(e) => setStartTime(e.target.value)}
-                          className="bg-[#0d0e12] border-[#30363d] text-white w-28"
+                          className="bg-background border-border text-foreground w-28"
                         />
                       </div>
-                      {errors.startDate && <p className="text-[11px] text-[#f85149] mt-1">{errors.startDate}</p>}
+                      {errors.startDate && <p className="text-[11px] text-destructive mt-1">{errors.startDate}</p>}
                     </div>
 
                     <div>
-                      <label className="block text-[#8b949e] mb-1">{t('End Date & Time')}</label>
+                      <label className="block text-muted-foreground mb-1">{t('End Date & Time')}</label>
                       <div className="flex gap-2">
                         <Input
                           type="date"
                           value={endDate}
                           onChange={(e) => setEndDate(e.target.value)}
-                          className="bg-[#0d0e12] border-[#30363d] text-white"
+                          className="bg-background border-border text-foreground"
                         />
                         <Input
                           type="time"
                           value={endTime}
                           onChange={(e) => setEndTime(e.target.value)}
-                          className="bg-[#0d0e12] border-[#30363d] text-white w-28"
+                          className="bg-background border-border text-foreground w-28"
                         />
                       </div>
-                      {errors.endDate && <p className="text-[11px] text-[#f85149] mt-1">{errors.endDate}</p>}
+                      {errors.endDate && <p className="text-[11px] text-destructive mt-1">{errors.endDate}</p>}
                     </div>
                   </div>
                 </div>
@@ -965,24 +965,24 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
           {/* STEP 5: Action & Priority */}
           {currentStep === 5 && (
-            <div className="space-y-4 animate-in fade-in duration-150">
+            <div className="space-y-4 animate-in fade-in duration-[330ms]">
               <div>
-                <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Access Decision Action')}</label>
+                <label className="block text-foreground font-medium mb-1.5">{t('Access Decision Action')}</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setAction('ALLOW')}
-                    className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
+                    className={`p-4 rounded-xl border text-left cursor-pointer transition-colors ${
                       action === 'ALLOW'
-                        ? 'bg-[#238636]/15 border-[#238636] text-white'
-                        : 'bg-[#161b22] border-[#30363d] text-[#8b949e]'
+                        ? 'bg-success/15 border-success text-foreground'
+                        : 'bg-card border-border text-muted-foreground'
                     }`}
                   >
-                    <div className="flex items-center gap-2 font-bold text-[#3fb950] text-sm">
+                    <div className="flex items-center gap-2 font-medium text-success text-sm">
                       <ShieldCheck className="w-5 h-5" />
                       {t('ALLOW (Permit Entry)')}
                     </div>
-                    <p className="text-[11px] text-[#8b949e] mt-1">
+                    <p className="text-[11px] text-muted-foreground mt-1">
                       {t('Barrier lifts automatically and access event is logged as ALLOWED.')}
                     </p>
                   </button>
@@ -990,17 +990,17 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setAction('DENY')}
-                    className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
+                    className={`p-4 rounded-xl border text-left cursor-pointer transition-colors ${
                       action === 'DENY'
-                        ? 'bg-[#da3633]/15 border-[#da3633] text-white'
-                        : 'bg-[#161b22] border-[#30363d] text-[#8b949e]'
+                        ? 'bg-destructive/15 border-destructive text-foreground'
+                        : 'bg-card border-border text-muted-foreground'
                     }`}
                   >
-                    <div className="flex items-center gap-2 font-bold text-[#f85149] text-sm">
+                    <div className="flex items-center gap-2 font-medium text-destructive text-sm">
                       <ShieldAlert className="w-5 h-5" />
                       {t('DENY (Block Entry)')}
                     </div>
-                    <p className="text-[11px] text-[#8b949e] mt-1">
+                    <p className="text-[11px] text-muted-foreground mt-1">
                       {t('Barrier remains closed; security guard receives immediate infraction alert.')}
                     </p>
                   </button>
@@ -1008,11 +1008,11 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
               </div>
 
               {/* Priority */}
-              <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
+              <div className="p-4 rounded-xl bg-card border border-border space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="font-bold text-white text-xs">{t('Evaluation Priority #')}</div>
-                    <div className="text-[11px] text-[#8b949e]">
+                    <div className="font-medium text-foreground text-xs">{t('Evaluation Priority #')}</div>
+                    <div className="text-[11px] text-muted-foreground">
                       {t('Lower numbers execute first. Priority 1 overrides Priority 50.')}
                     </div>
                   </div>
@@ -1023,28 +1023,28 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                       max={9999}
                       value={priority}
                       onChange={(e) => setPriority(Number(e.target.value))}
-                      className="text-center font-mono font-bold text-white bg-[#0d0e12] border-[#30363d]"
+                      className="text-center font-medium text-foreground bg-background border-border"
                     />
                   </div>
                 </div>
-                {errors.priority && <p className="text-[11px] text-[#f85149]">{errors.priority}</p>}
+                {errors.priority && <p className="text-[11px] text-destructive">{errors.priority}</p>}
 
-                <div className="flex items-center gap-2 text-[11px] text-[#8b949e] pt-2 border-t border-[#30363d]/60">
-                  <Info className="w-3.5 h-3.5 text-[#58a6ff]" />
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground pt-2 border-t border-border/60">
+                  <Info className="w-3.5 h-3.5 text-primary" />
                   <span>{t('Recommendation: Security Blocklists = 1–9 · VIP Passes = 10–29 · Staff = 30–60 · General = 70+')}</span>
                 </div>
               </div>
 
               {/* Advanced Parameters */}
-              <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
-                <div className="font-bold text-white text-xs">{t('Edge Engine Verification Parameters')}</div>
+              <div className="p-4 rounded-xl bg-card border border-border space-y-3">
+                <div className="font-medium text-foreground text-xs">{t('Edge Engine Verification Parameters')}</div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-[#8b949e] text-[11px] mb-1">{t('Min OCR Confidence')}</label>
+                    <label className="block text-muted-foreground text-[11px] mb-1">{t('Min OCR Confidence')}</label>
                     <select
                       value={minConfidence}
                       onChange={(e) => setMinConfidence(Number(e.target.value))}
-                      className="w-full bg-[#0d0e12] border border-[#30363d] rounded p-2 text-white font-mono"
+                      className="w-full bg-background border border-border rounded p-2 text-foreground "
                     >
                       <option value={80}>80% ({t('Lenient')})</option>
                       <option value={85}>85% ({t('Balanced')})</option>
@@ -1054,11 +1054,11 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[#8b949e] text-[11px] mb-1">{t('De-dup Window (sec)')}</label>
+                    <label className="block text-muted-foreground text-[11px] mb-1">{t('De-dup Window (sec)')}</label>
                     <select
                       value={duplicateWindowSeconds}
                       onChange={(e) => setDuplicateWindowSeconds(Number(e.target.value))}
-                      className="w-full bg-[#0d0e12] border border-[#30363d] rounded p-2 text-white font-mono"
+                      className="w-full bg-background border border-border rounded p-2 text-foreground "
                     >
                       <option value={3}>3 {t('seconds')}</option>
                       <option value={5}>5 {t('seconds')} ({t('Default')})</option>
@@ -1068,11 +1068,11 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[#8b949e] text-[11px] mb-1">{t('Offline Fail Behavior')}</label>
+                    <label className="block text-muted-foreground text-[11px] mb-1">{t('Offline Fail Behavior')}</label>
                     <select
                       value={failBehavior}
                       onChange={(e) => setFailBehavior(e.target.value as any)}
-                      className="w-full bg-[#0d0e12] border border-[#30363d] rounded p-2 text-white font-mono"
+                      className="w-full bg-background border border-border rounded p-2 text-foreground "
                     >
                       <option value="DENY">DENY ({t('Secure')})</option>
                       <option value="SAFE_FALLBACK">SAFE_FALLBACK</option>
@@ -1085,15 +1085,15 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
           {/* STEP 6: Review & Confirmation */}
           {currentStep === 6 && (
-            <div className="space-y-4 animate-in fade-in duration-150">
+            <div className="space-y-4 animate-in fade-in duration-[330ms]">
               {/* Conflict Warnings */}
               {conflicts.length > 0 && (
-                <div className="p-4 rounded-xl bg-[#d29922]/15 border border-[#d29922]/40 space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-[#e3b341]">
+                <div className="p-4 rounded-xl bg-warning/15 border border-warning/40 space-y-2">
+                  <div className="flex items-center gap-2 font-medium text-warning">
                     <AlertTriangle className="w-4 h-4" />
                     <span>{t('Rule Evaluation Conflict Warnings')} ({conflicts.length})</span>
                   </div>
-                  <ul className="space-y-1 text-xs text-[#c9d1d9] pl-6 list-disc">
+                  <ul className="space-y-1 text-xs text-foreground pl-6 list-disc">
                     {conflicts.map((c, i) => (
                       <li key={i}>{c}</li>
                     ))}
@@ -1102,21 +1102,21 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
               )}
 
               {/* Summary Card */}
-              <div className="p-5 rounded-xl bg-[#161b22] border border-[#30363d] space-y-4">
-                <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
+              <div className="p-5 rounded-xl bg-card border border-border space-y-4">
+                <div className="flex items-center justify-between border-b border-border pb-3">
                   <div>
-                    <div className="text-sm font-bold text-white">{name}</div>
-                    <div className="text-xs text-[#8b949e] font-mono mt-0.5">{code}</div>
+                    <div className="text-sm font-medium text-foreground">{name}</div>
+                    <div className="text-xs text-muted-foreground font-mono mt-0.5">{code}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-xs ${
+                    <span className={`px-2.5 py-0.5 rounded-full font-medium text-xs ${
                       action === 'ALLOW'
-                        ? 'bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40'
-                        : 'bg-[#da3633]/20 text-[#f85149] border border-[#da3633]/40'
+                        ? 'bg-success/20 text-success border border-success/40'
+                        : 'bg-destructive/20 text-destructive border border-destructive/40'
                     }`}>
                       {t(action)}
                     </span>
-                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#21262d] text-[#58a6ff]">
+                    <span className=" text-xs font-medium px-2 py-0.5 rounded bg-muted text-primary">
                       {t('Priority')} #{priority}
                     </span>
                   </div>
@@ -1124,30 +1124,30 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
 
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
-                    <span className="text-[#8b949e] block text-[11px]">{t('Target Entity')}</span>
-                    <span className="font-semibold text-white">
+                    <span className="text-muted-foreground block text-[11px]">{t('Target Entity')}</span>
+                    <span className="font-medium text-foreground">
                       {t(targetType)} {targetLicensePlate ? `(${targetLicensePlate})` : ''}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[#8b949e] block text-[11px]">{t('Facility & Gate Scope')}</span>
-                    <span className="font-semibold text-white">
+                    <span className="text-muted-foreground block text-[11px]">{t('Facility & Gate Scope')}</span>
+                    <span className="font-medium text-foreground">
                       {allSites ? t('All Facilities') : `${selectedSiteIds.length} ${t('Site(s)')}`} ·{' '}
                       {allGates ? t('All Gates') : `${selectedGateIds.length} ${t('Gate(s)')}`}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[#8b949e] block text-[11px]">{t('Schedule Mode')}</span>
-                    <span className="font-semibold text-white">{t(scheduleType)}</span>
+                    <span className="text-muted-foreground block text-[11px]">{t('Schedule Mode')}</span>
+                    <span className="font-medium text-foreground">{t(scheduleType)}</span>
                   </div>
                   <div>
-                    <span className="text-[#8b949e] block text-[11px]">{t('Enforcement Status')}</span>
-                    <span className="font-semibold text-[#3fb950]">{t(status)}</span>
+                    <span className="text-muted-foreground block text-[11px]">{t('Enforcement Status')}</span>
+                    <span className="font-medium text-success">{t(status)}</span>
                   </div>
                 </div>
 
                 {description && (
-                  <div className="pt-3 border-t border-[#30363d]/60 text-xs text-[#8b949e]">
+                  <div className="pt-3 border-t border-border/60 text-xs text-muted-foreground">
                     {description}
                   </div>
                 )}
@@ -1157,7 +1157,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-[#30363d] bg-[#161b22] flex items-center justify-between">
+        <div className="px-6 py-4 border-t border-border bg-card flex items-center justify-between">
           <div>
             {currentStep > 1 && (
               <Button
@@ -1165,7 +1165,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                 size="sm"
                 onClick={handleBack}
                 disabled={isSubmitting}
-                className="text-xs border-[#30363d] text-[#c9d1d9] hover:bg-[#21262d] gap-1.5"
+                className="text-xs border-border text-foreground hover:bg-muted gap-1.5"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 {t('Back')}
@@ -1179,7 +1179,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
               size="sm"
               onClick={onClose}
               disabled={isSubmitting}
-              className="text-xs border-[#30363d] text-[#8b949e] hover:text-white"
+              className="text-xs border-border text-muted-foreground hover:text-foreground"
             >
               {t('Cancel')}
             </Button>
@@ -1189,7 +1189,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                 variant="primary"
                 size="sm"
                 onClick={handleNext}
-                className="text-xs bg-[#1f6feb] hover:bg-[#388bfd] text-white gap-1.5"
+                className="text-xs bg-primary hover:bg-primary/90 text-[#fff] gap-1.5"
               >
                 {t('Continue')}
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -1201,7 +1201,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                   size="sm"
                   onClick={() => handleSubmit('DRAFT')}
                   disabled={isSubmitting}
-                  className="text-xs border-[#d29922]/40 text-[#e3b341] hover:bg-[#d29922]/15"
+                  className="text-xs border-warning/40 text-warning hover:bg-warning/15"
                 >
                   {t('Save as Draft')}
                 </Button>
@@ -1210,7 +1210,7 @@ export const CreateEditRuleModal: React.FC<CreateEditRuleModalProps> = ({
                   size="sm"
                   onClick={() => handleSubmit('ACTIVE')}
                   disabled={isSubmitting}
-                  className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm"
+                  className="text-xs bg-primary hover:bg-primary/90 text-[#fff] gap-1.5 "
                 >
                   <Check className="w-4 h-4" />
                   {isEditing ? t('Save & Synchronize') : t('Create & Activate')}

@@ -69,22 +69,22 @@ export const ParkingLevelEditor: React.FC<ParkingLevelEditorProps> = ({ site, is
 
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-xs" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/70 " onClick={onClose} />
 
-      <div className="relative w-full max-w-lg bg-[#0d0e12] border border-[#30363d] rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200">
-        <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between bg-[#161b22]">
+      <div className="relative w-full max-w-lg bg-background border border-border rounded-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-[330ms]">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-card">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 text-primary flex items-center justify-center">
               <Layers className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">{t('Manage Levels')}</h3>
-              <p className="text-xs text-[#8b949e]">{site.name} — {t('add, reorder, map images')}</p>
+              <h3 className="text-base font-medium text-foreground tracking-tight">{t('Manage Levels')}</h3>
+              <p className="text-xs text-muted-foreground">{site.name} — {t('add, reorder, map images')}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white hover:bg-[#30363d] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground hover:bg-border flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -94,25 +94,25 @@ export const ParkingLevelEditor: React.FC<ParkingLevelEditorProps> = ({ site, is
           {/* Existing levels */}
           <div className="space-y-2">
             {levels.length === 0 && (
-              <p className="text-[11px] text-[#8b949e] italic">{t('No levels yet — add one below.')}</p>
+              <p className="text-[11px] text-muted-foreground italic">{t('No levels yet — add one below.')}</p>
             )}
             {levels.map((lv, idx) => (
               <div
                 key={lv.id}
-                className="flex items-center gap-2 p-2.5 rounded-xl bg-[#161b22] border border-[#30363d]"
+                className="flex items-center gap-2 p-2.5 rounded-xl bg-card border border-border"
               >
                 <div className="flex flex-col">
                   <button
                     onClick={() => move(lv, -1)}
                     disabled={idx === 0}
-                    className="text-[#8b949e] hover:text-white disabled:opacity-30 cursor-pointer"
+                    className="text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                   >
                     <ArrowUp className="w-3 h-3" />
                   </button>
                   <button
                     onClick={() => move(lv, 1)}
                     disabled={idx === levels.length - 1}
-                    className="text-[#8b949e] hover:text-white disabled:opacity-30 cursor-pointer"
+                    className="text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                   >
                     <ArrowDown className="w-3 h-3" />
                   </button>
@@ -120,9 +120,9 @@ export const ParkingLevelEditor: React.FC<ParkingLevelEditorProps> = ({ site, is
                 <Input
                   value={lv.name}
                   onChange={(e) => upsertParkingLevel(lv.id, { name: e.target.value })}
-                  className="bg-[#0d0e12] border-[#30363d] text-white flex-1"
+                  className="bg-background border-border text-foreground flex-1"
                 />
-                <span className="text-[10px] text-[#8b949e] font-mono w-14 truncate">{lv.code ?? '—'}</span>
+                <span className="text-[11px] text-muted-foreground font-mono w-14 truncate">{lv.code ?? '—'}</span>
                 <input
                   ref={(el) => { fileInputs.current[lv.id] = el; }}
                   type="file"
@@ -140,8 +140,8 @@ export const ParkingLevelEditor: React.FC<ParkingLevelEditorProps> = ({ site, is
                   title={lv.mapImageUrl ? t('Replace map image') : t('Upload map image')}
                   className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-colors cursor-pointer ${
                     lv.mapImageUrl
-                      ? 'border-[#3fb950]/40 text-[#3fb950] hover:bg-[#3fb950]/10'
-                      : 'border-[#30363d] text-[#8b949e] hover:text-white'
+                      ? 'border-success/40 text-success hover:bg-success/10'
+                      : 'border-border text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   <ImagePlus className="w-3.5 h-3.5" />
@@ -149,7 +149,7 @@ export const ParkingLevelEditor: React.FC<ParkingLevelEditorProps> = ({ site, is
                 <button
                   onClick={() => removeParkingLevel(lv.id)}
                   title={t('Delete level')}
-                  className="w-7 h-7 rounded-lg border border-[#f85149]/40 text-[#f85149] hover:bg-[#f85149]/10 flex items-center justify-center transition-colors cursor-pointer"
+                  className="w-7 h-7 rounded-lg border border-destructive/40 text-destructive hover:bg-destructive/10 flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -158,23 +158,23 @@ export const ParkingLevelEditor: React.FC<ParkingLevelEditorProps> = ({ site, is
           </div>
 
           {/* Add level */}
-          <form onSubmit={handleAdd} className="pt-3 border-t border-[#30363d] flex items-end gap-2">
+          <form onSubmit={handleAdd} className="pt-3 border-t border-border flex items-end gap-2">
             <div className="flex-1">
-              <label className="block text-[#8b949e] text-[11px] mb-1">{t('New level name')}</label>
+              <label className="block text-muted-foreground text-[11px] mb-1">{t('New level name')}</label>
               <Input
                 placeholder={t('e.g. Basement B1')}
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                className="bg-[#161b22] border-[#30363d] text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
             <div className="w-24">
-              <label className="block text-[#8b949e] text-[11px] mb-1">{t('Code')}</label>
+              <label className="block text-muted-foreground text-[11px] mb-1">{t('Code')}</label>
               <Input
                 placeholder="B1"
                 value={newCode}
                 onChange={(e) => setNewCode(e.target.value.toUpperCase())}
-                className="bg-[#161b22] border-[#30363d] text-white font-mono"
+                className="bg-card border-border text-foreground "
               />
             </div>
             <Button type="submit" variant="primary" className="text-xs gap-1.5" disabled={!newName.trim()}>

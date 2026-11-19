@@ -504,7 +504,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
         if (gate.status === 'OPEN' || gate.status === 'STUCK') {
           g.append('circle').attr('r', 22).attr('fill', 'none')
             .attr('stroke', color).attr('stroke-width', 2)
-            .attr('opacity', 0.7).attr('class', 'animate-ping origin-center');
+            .attr('opacity', 0.7).attr('class', ' origin-center');
         }
         g.append('text').attr('x', 0).attr('y', -26)
           .text(gate.name)
@@ -707,7 +707,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
         node.append('circle')
           .attr('r', 36)
           .attr('fill', 'url(#anomaly-aura-gradient)')
-          .attr('class', 'animate-pulse');
+          .attr('class', '');
 
         // Spinning dashed cyber reticle ring
         node.append('circle')
@@ -727,7 +727,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
           .attr('stroke', '#a855f7')
           .attr('stroke-width', 2)
           .attr('opacity', 0.8)
-          .attr('class', 'animate-ping origin-center');
+          .attr('class', ' origin-center');
       } else if (hasStuck || hasOffline) {
         // Animated pulse ring if stuck, offline, or open
         node.append('circle')
@@ -736,7 +736,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
           .attr('stroke', hasStuck ? '#f85149' : '#e3b341')
           .attr('stroke-width', 2)
           .attr('opacity', 0.8)
-          .attr('class', 'animate-ping origin-center');
+          .attr('class', ' origin-center');
       } else if (hasOpenGates) {
         node.append('circle')
           .attr('r', 18)
@@ -744,7 +744,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
           .attr('stroke', statusColor)
           .attr('stroke-width', 1.5)
           .attr('opacity', 0.6)
-          .attr('class', 'animate-ping origin-center');
+          .attr('class', ' origin-center');
       }
 
       // Outer focus glow if selected
@@ -1189,12 +1189,12 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             return (
               <div
                 key={toast.id}
-                className={`pointer-events-auto rounded-2xl p-4 shadow-2xl backdrop-blur-md border transition-all ${
+                className={`pointer-events-auto rounded-2xl p-4 border transition-colors ${
                   isMlAnomaly
-                    ? 'bg-[#161b22]/95 border-purple-500/60 shadow-purple-950/40 text-white'
+                    ? 'bg-card/95 border-chart-5/60 text-foreground'
                     : isStuck
-                    ? 'bg-[#161b22]/95 border-[#f85149]/50 shadow-red-950/40 text-white'
-                    : 'bg-[#161b22]/95 border-[#e3b341]/50 shadow-amber-950/40 text-white'
+                    ? 'bg-card/95 border-destructive/50 text-foreground'
+                    : 'bg-card/95 border-warning/50 text-foreground'
                 }`}
               >
                 {/* Toast Header */}
@@ -1202,63 +1202,63 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                   <div className="flex items-center gap-2.5">
                     <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                       isMlAnomaly
-                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-inner'
+                        ? 'bg-chart-5/20 text-chart-5 border border-chart-5/40 '
                         : isStuck
-                        ? 'bg-[#f85149]/20 text-[#f85149]'
-                        : 'bg-[#e3b341]/20 text-[#e3b341]'
+                        ? 'bg-destructive/20 text-destructive'
+                        : 'bg-warning/20 text-warning'
                     }`}>
                       {isMlAnomaly ? (
-                        <Activity className="w-5 h-5 animate-pulse text-purple-400" />
+                        <Activity className="w-5 h-5 text-chart-5" />
                       ) : isStuck ? (
-                        <AlertOctagon className="w-5 h-5 animate-pulse" />
+                        <AlertOctagon className="w-5 h-5 " />
                       ) : (
-                        <WifiOff className="w-5 h-5 animate-pulse" />
+                        <WifiOff className="w-5 h-5 " />
                       )}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className={`text-[11px] font-bold uppercase tracking-wider ${
-                          isMlAnomaly ? 'text-purple-300' : isStuck ? 'text-[#f85149]' : 'text-[#e3b341]'
+                        <span className={`text-[11px] font-medium ${
+                          isMlAnomaly ? 'text-chart-5' : isStuck ? 'text-destructive' : 'text-warning'
                         }`}>
                           {toast.title}
                         </span>
                         {isMlAnomaly && (
-                          <span className="text-[10px] font-mono text-purple-200 bg-purple-950/80 px-1.5 py-0.2 rounded border border-purple-700/60 font-bold">
+                          <span className="text-[11px] text-chart-5 bg-chart-5/10 px-1.5 py-0.2 rounded border border-chart-5/60 font-medium">
                             {t('Score')} {toast.anomalyScore}
                           </span>
                         )}
-                        <span className="text-[10px] text-[#8b949e] font-mono">{toast.timestamp}</span>
+                        <span className="text-[11px] text-muted-foreground ">{toast.timestamp}</span>
                       </div>
-                      <h4 className="text-sm font-bold text-white mt-0.5">{toast.gateName}</h4>
+                      <h4 className="text-sm font-medium text-foreground mt-0.5">{toast.gateName}</h4>
                     </div>
                   </div>
 
                   <button
                     onClick={() => dismissInAppToast(toast.id)}
-                    className="p-1 rounded-lg text-[#8b949e] hover:text-white hover:bg-[#21262d] transition-colors cursor-pointer"
+                    className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
                 {/* Toast Message Body */}
-                <p className="text-xs text-[#c9d1d9] mt-2 leading-relaxed">
+                <p className="text-xs text-foreground mt-2 leading-relaxed">
                   {toast.message}
                 </p>
-                <div className="text-[11px] text-[#8b949e] mt-1 font-mono">
+                <div className="text-[11px] text-muted-foreground mt-1 ">
                   {toast.siteName} · {toast.gateCode}
                 </div>
 
                 {/* Action CTAs */}
-                <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-[#30363d]/60">
+                <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-border/60">
                   <button
                     onClick={() => {
                       focusSiteOnMap(toast.siteId, toast.gateId);
                       dismissInAppToast(toast.id);
                     }}
-                    className="py-1 px-2.5 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
+                    className="py-1 px-2.5 rounded-lg bg-muted hover:bg-border text-foreground text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
                   >
-                    <MapPin className="w-3.5 h-3.5 text-[#58a6ff]" />
+                    <MapPin className="w-3.5 h-3.5 text-primary" />
                     <span>{t('View on Map')}</span>
                   </button>
 
@@ -1272,7 +1272,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                             setIsAnomalyInspectorOpen(true);
                             dismissInAppToast(toast.id);
                           }}
-                          className="py-1 px-2.5 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/50 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                          className="py-1 px-2.5 rounded-lg bg-chart-5/30 hover:bg-chart-5/50 text-chart-5 border border-chart-5/50 text-xs font-medium flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           <Activity className="w-3.5 h-3.5" />
                           <span>{t('Analyze ML')}</span>
@@ -1282,7 +1282,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                             handleMitigateAnomaly(toast.gateId, t('Auto edge rate-limiting activated'));
                             dismissInAppToast(toast.id);
                           }}
-                          className="py-1 px-2.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                          className="py-1 px-2.5 rounded-lg bg-success/20 hover:bg-success/30 text-success border border-success/30 text-xs font-medium flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           <Zap className="w-3.5 h-3.5" />
                           <span>{t('Mitigate')}</span>
@@ -1294,7 +1294,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                           resolveBarrierIncident(toast.alertId, 'REBOOT');
                           dismissInAppToast(toast.id);
                         }}
-                        className="py-1 px-2.5 rounded-lg bg-[#3fb950]/20 hover:bg-[#3fb950]/30 text-[#3fb950] border border-[#3fb950]/30 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                        className="py-1 px-2.5 rounded-lg bg-success/20 hover:bg-success/30 text-success border border-success/30 text-xs font-medium flex items-center gap-1 cursor-pointer transition-colors"
                       >
                         <Zap className="w-3.5 h-3.5" />
                         <span>{t('Quick Fix')}</span>
@@ -1312,24 +1312,24 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
       {/* INCIDENTS & ALERT RESOLUTION CENTER MODAL/DRAWER */}
       {/* ========================================================================= */}
       {isIncidentsDrawerOpen && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex justify-end">
-          <div className="bg-[#161b22] border-l border-[#30363d] w-full max-w-xl h-full flex flex-col justify-between shadow-2xl p-6 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/75 flex justify-end">
+          <div className="bg-card border-l border-border w-full max-w-xl h-full flex flex-col justify-between p-6 overflow-y-auto">
             {/* Header */}
-            <div className="space-y-4 border-b border-[#30363d] pb-4">
+            <div className="space-y-4 border-b border-border pb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-[#f85149]">
+                  <div className="w-10 h-10 rounded-xl bg-destructive/15 border border-destructive/30 flex items-center justify-center text-destructive">
                     <ShieldAlert className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white">{t('Alert & Incident Resolution Center')}</h3>
-                    <p className="text-xs text-[#8b949e]">{t('Real-time monitoring of mechanical arm jams & telemetry loss')}</p>
+                    <h3 className="text-base font-medium text-foreground">{t('Alert & Incident Resolution Center')}</h3>
+                    <p className="text-xs text-muted-foreground">{t('Real-time monitoring of mechanical arm jams & telemetry loss')}</p>
                   </div>
                 </div>
 
                 <button
                   onClick={() => setIsIncidentsDrawerOpen(false)}
-                  className="p-1.5 rounded-xl text-[#8b949e] hover:text-white hover:bg-[#21262d] transition-colors cursor-pointer"
+                  className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1337,19 +1337,19 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
 
               {/* Stats strip */}
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="bg-[#0d1117] p-2.5 rounded-xl border border-[#30363d]">
-                  <span className="text-[#8b949e] text-[10px] block uppercase font-semibold">{t('Total Incidents')}</span>
-                  <span className="text-white font-mono font-bold text-base tabular-nums mt-0.5 block">{alerts.length}</span>
+                <div className="bg-background p-2.5 rounded-xl border border-border">
+                  <span className="text-muted-foreground text-[11px] block font-medium">{t('Total Incidents')}</span>
+                  <span className="text-foreground font-medium text-base tabular-nums mt-0.5 block">{alerts.length}</span>
                 </div>
-                <div className="bg-[#0d1117] p-2.5 rounded-xl border border-[#30363d]">
-                  <span className="text-[#f85149] text-[10px] block uppercase font-semibold">{t('Arm Stuck')}</span>
-                  <span className="text-[#f85149] font-mono font-bold text-base tabular-nums mt-0.5 block">
+                <div className="bg-background p-2.5 rounded-xl border border-border">
+                  <span className="text-destructive text-[11px] block font-medium">{t('Arm Stuck')}</span>
+                  <span className="text-destructive font-medium text-base tabular-nums mt-0.5 block">
                     {alerts.filter(a => a.type === 'STUCK').length}
                   </span>
                 </div>
-                <div className="bg-[#0d1117] p-2.5 rounded-xl border border-[#30363d]">
-                  <span className="text-[#e3b341] text-[10px] block uppercase font-semibold">{t('Offline')}</span>
-                  <span className="text-[#e3b341] font-mono font-bold text-base tabular-nums mt-0.5 block">
+                <div className="bg-background p-2.5 rounded-xl border border-border">
+                  <span className="text-warning text-[11px] block font-medium">{t('Offline')}</span>
+                  <span className="text-warning font-medium text-base tabular-nums mt-0.5 block">
                     {alerts.filter(a => a.type === 'OFFLINE').length}
                   </span>
                 </div>
@@ -1360,12 +1360,12 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             <div className="flex-1 py-4 space-y-3 overflow-y-auto">
               {alerts.length === 0 ? (
                 <div className="text-center py-16 space-y-3">
-                  <div className="w-12 h-12 rounded-full bg-[#3fb950]/15 border border-[#3fb950]/30 flex items-center justify-center text-[#3fb950] mx-auto">
+                  <div className="w-12 h-12 rounded-full bg-success/15 border border-success/30 flex items-center justify-center text-success mx-auto">
                     <CheckCircle2 className="w-6 h-6" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-white text-sm">{t('System Operating Normally')}</h4>
-                    <p className="text-xs text-[#8b949e] mt-1 max-w-xs mx-auto">
+                    <h4 className="font-medium text-foreground text-sm">{t('System Operating Normally')}</h4>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
                       {t('No stuck barriers or telemetry signal loss detected across all sites.')}
                     </p>
                   </div>
@@ -1377,8 +1377,8 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                   return (
                     <div
                       key={alert.id}
-                      className={`bg-[#0d1117] rounded-xl p-4 border space-y-3 ${
-                        isStuck ? 'border-[#f85149]/50' : 'border-[#e3b341]/50'
+                      className={`bg-background rounded-xl p-4 border space-y-3 ${
+                        isStuck ? 'border-destructive/50' : 'border-warning/50'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -1386,29 +1386,29 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                           <Badge variant={isStuck ? 'red' : 'amber'} size="sm" dot>
                             {isStuck ? t('ARM STUCK') : t('OFFLINE')}
                           </Badge>
-                          <span className="text-[11px] text-[#8b949e] font-mono">{alert.timestamp}</span>
+                          <span className="text-[11px] text-muted-foreground ">{alert.timestamp}</span>
                         </div>
-                        <span className="text-[10px] font-mono text-[#58a6ff] bg-[#161b22] px-2 py-0.5 rounded border border-[#30363d]">
+                        <span className="text-[11px] text-primary bg-card px-2 py-0.5 rounded border border-border">
                           {alert.gateCode}
                         </span>
                       </div>
 
                       <div>
-                        <h4 className="font-bold text-white text-sm">{alert.gateName}</h4>
-                        <div className="text-xs text-[#8b949e] mt-0.5">
+                        <h4 className="font-medium text-foreground text-sm">{alert.gateName}</h4>
+                        <div className="text-xs text-muted-foreground mt-0.5">
                           {alert.siteName} · {alert.tenantName}
                         </div>
                       </div>
 
-                      <div className="text-xs p-2.5 rounded-lg bg-[#161b22] border border-[#30363d]/60 text-[#c9d1d9] space-y-1">
+                      <div className="text-xs p-2.5 rounded-lg bg-card border border-border/60 text-foreground space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-[#8b949e]">{t('Status:')}</span>
-                          <span className={`font-mono font-bold ${isStuck ? 'text-[#f85149]' : 'text-[#e3b341]'}`}>
+                          <span className="text-muted-foreground">{t('Status:')}</span>
+                          <span className={` font-medium ${isStuck ? 'text-destructive' : 'text-warning'}`}>
                             {isStuck ? t('Stuck at {{angle}}° · Motor {{temp}}°C', { angle: alert.armAngleDeg || 42, temp: alert.motorTempC || 54.8 }) : t('Telemetry heartbeat timeout')}
                           </span>
                         </div>
-                        <div className="text-[11px] text-[#8b949e] pt-1 border-t border-[#30363d]/40">
-                          <span className="font-semibold text-white">{t('Recommended:')}</span> {alert.suggestedAction}
+                        <div className="text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+                          <span className="font-medium text-foreground">{t('Recommended:')}</span> {alert.suggestedAction}
                         </div>
                       </div>
 
@@ -1416,7 +1416,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                       <div className="grid grid-cols-3 gap-2 pt-1">
                         <button
                           onClick={() => resolveBarrierIncident(alert.id, 'REBOOT')}
-                          className="py-1.5 px-2 rounded-lg bg-[#3fb950]/20 hover:bg-[#3fb950]/30 text-[#3fb950] border border-[#3fb950]/30 text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                          className="py-1.5 px-2 rounded-lg bg-success/20 hover:bg-success/30 text-success border border-success/30 text-xs font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                         >
                           <Power className="w-3.5 h-3.5" />
                           <span>{t('Reset Relay')}</span>
@@ -1424,7 +1424,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
 
                         <button
                           onClick={() => resolveBarrierIncident(alert.id, 'FORCE_OPEN')}
-                          className="py-1.5 px-2 rounded-lg bg-[#58a6ff]/20 hover:bg-[#58a6ff]/30 text-[#58a6ff] border border-[#58a6ff]/30 text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                          className="py-1.5 px-2 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 text-xs font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                         >
                           <ArrowUpRight className="w-3.5 h-3.5" />
                           <span>{t('Force Raise')}</span>
@@ -1435,9 +1435,9 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                             focusSiteOnMap(alert.siteId, alert.gateId);
                             setIsIncidentsDrawerOpen(false);
                           }}
-                          className="py-1.5 px-2 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-white text-xs font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                          className="py-1.5 px-2 rounded-lg bg-muted hover:bg-border text-foreground text-xs font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                         >
-                          <MapPin className="w-3.5 h-3.5 text-[#58a6ff]" />
+                          <MapPin className="w-3.5 h-3.5 text-primary" />
                           <span>{t('Locate on Map')}</span>
                         </button>
                       </div>
@@ -1448,10 +1448,10 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             </div>
 
             {/* Drawer Footer */}
-            <div className="border-t border-[#30363d] pt-4 flex items-center justify-between gap-3">
+            <div className="border-t border-border pt-4 flex items-center justify-between gap-3">
               <button
                 onClick={() => setIsIncidentsDrawerOpen(false)}
-                className="px-4 py-2 rounded-xl bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-xs font-semibold cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-muted hover:bg-border text-foreground text-xs font-medium cursor-pointer"
               >
                 {t('Close')}
               </button>
@@ -1459,7 +1459,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
               {alerts.length > 0 && (
                 <button
                   onClick={() => resolveAllIncidents()}
-                  className="px-4 py-2 rounded-xl bg-[#3fb950] hover:bg-[#2ea043] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-950/40"
+                  className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-[#fff] text-xs font-medium flex items-center gap-1.5 cursor-pointer "
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{t('Resolve All')} ({alerts.length})</span>
@@ -1474,38 +1474,38 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
       {/* 1. TOP METRICS & STATS RIBBON */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3">
-          <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">{t('Total Sites / Stations')}</div>
+        <div className="bg-card border border-border rounded-xl p-3">
+          <div className="text-[11px] text-muted-foreground font-medium ">{t('Total Sites / Stations')}</div>
           <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-bold font-mono text-white tabular-nums">{metrics.totalSites}</span>
-            <span className="text-[10px] text-[#58a6ff] font-mono">{t('Nationwide')}</span>
+            <span className="text-xl font-medium text-foreground tabular-nums">{metrics.totalSites}</span>
+            <span className="text-[11px] text-primary ">{t('Nationwide')}</span>
           </div>
         </div>
 
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3">
-          <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">{t('Total Barrier Gates')}</div>
+        <div className="bg-card border border-border rounded-xl p-3">
+          <div className="text-[11px] text-muted-foreground font-medium ">{t('Total Barrier Gates')}</div>
           <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-bold font-mono text-[#58a6ff] tabular-nums">{metrics.totalGates}</span>
-            <span className="text-[10px] text-[#8b949e]">{t('gate lanes')}</span>
+            <span className="text-xl font-medium text-primary tabular-nums">{metrics.totalGates}</span>
+            <span className="text-[11px] text-muted-foreground">{t('gate lanes')}</span>
           </div>
         </div>
 
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3">
-          <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">{t('Barriers Raised (Open)')}</div>
+        <div className="bg-card border border-border rounded-xl p-3">
+          <div className="text-[11px] text-muted-foreground font-medium ">{t('Barriers Raised (Open)')}</div>
           <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-bold font-mono text-[#3fb950] tabular-nums">{metrics.openGates}</span>
-            <span className="inline-flex items-center gap-1 text-[10px] text-[#3fb950]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-ping" />
+            <span className="text-xl font-medium text-success tabular-nums">{metrics.openGates}</span>
+            <span className="inline-flex items-center gap-1 text-[11px] text-success">
+              <span className="w-1.5 h-1.5 rounded-full bg-success " />
               {t('Flowing')}
             </span>
           </div>
         </div>
 
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3">
-          <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">{t('Barriers Lowered (Nominal)')}</div>
+        <div className="bg-card border border-border rounded-xl p-3">
+          <div className="text-[11px] text-muted-foreground font-medium ">{t('Barriers Lowered (Nominal)')}</div>
           <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-bold font-mono text-white tabular-nums">{metrics.closedGates}</span>
-            <span className="text-[10px] text-[#8b949e]">{t('ready')}</span>
+            <span className="text-xl font-medium text-foreground tabular-nums">{metrics.closedGates}</span>
+            <span className="text-[11px] text-muted-foreground">{t('ready')}</span>
           </div>
         </div>
 
@@ -1516,28 +1516,28 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
           return (
             <div
               onClick={() => setIsIncidentsDrawerOpen(true)}
-              className={`rounded-xl p-3 border cursor-pointer transition-all ${
+              className={`rounded-xl p-3 border cursor-pointer transition-colors ${
                 criticalAlerts > 0
-                  ? 'bg-[#f85149]/10 border-[#f85149]/40 hover:bg-[#f85149]/15'
+                  ? 'bg-destructive/10 border-destructive/40 hover:bg-destructive/15'
                   : warningAlerts > 0
-                  ? 'bg-[#161b22] border-[#30363d] hover:border-[#d29922]/50'
-                  : 'bg-[#161b22] border-[#30363d]'
+                  ? 'bg-card border-border hover:border-warning/50'
+                  : 'bg-card border-border'
               }`}
             >
               <div className="flex items-center justify-between">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-[#8b949e]">{t('Incidents & Alerts')}</div>
-                {criticalAlerts > 0 && <span className="w-2 h-2 rounded-full bg-[#f85149] animate-ping" />}
+                <div className="text-[11px] font-medium text-muted-foreground">{t('Incidents & Alerts')}</div>
+                {criticalAlerts > 0 && <span className="w-2 h-2 rounded-full bg-destructive " />}
               </div>
               <div className="mt-1 flex items-baseline justify-between">
                 <span
-                  className={`text-xl font-bold font-mono tabular-nums ${
-                    criticalAlerts > 0 ? 'text-[#f85149]' : warningAlerts > 0 ? 'text-[#e3b341]' : 'text-white'
+                  className={`text-xl font-medium tabular-nums ${
+                    criticalAlerts > 0 ? 'text-destructive' : warningAlerts > 0 ? 'text-warning' : 'text-foreground'
                   }`}
                 >
                   {alerts.length}
                 </span>
                 <span
-                  className={`text-[10px] font-mono ${criticalAlerts > 0 ? 'text-[#f85149]' : warningAlerts > 0 ? 'text-[#e3b341]' : 'text-[#3fb950]'}`}
+                  className={`text-[11px] ${criticalAlerts > 0 ? 'text-destructive' : warningAlerts > 0 ? 'text-warning' : 'text-success'}`}
                 >
                   {criticalAlerts > 0 ? `${criticalAlerts} ${t('critical')}` : ''}
                   {criticalAlerts > 0 && warningAlerts > 0 ? ' · ' : ''}
@@ -1557,38 +1557,38 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
               setIsAnomalyInspectorOpen(true);
             }
           }}
-          className={`rounded-xl p-3 border cursor-pointer transition-all ${
+          className={`rounded-xl p-3 border cursor-pointer transition-colors ${
             anomalies.length > 0
-              ? 'bg-purple-950/30 border-purple-500/60 hover:bg-purple-950/40 shadow-lg shadow-purple-950/30'
-              : 'bg-[#161b22] border-[#30363d] hover:border-purple-500/40'
+              ? 'bg-chart-5/10 border-chart-5/60 hover:bg-chart-5/10 '
+              : 'bg-card border-border hover:border-chart-5/40'
           }`}
         >
           <div className="flex items-center justify-between">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-purple-300 flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-purple-400" />
+            <div className="text-[11px] font-medium text-chart-5 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-chart-5" />
               ML Heuristic
             </div>
             {anomalies.length > 0 ? (
-              <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+              <span className="w-2 h-2 rounded-full bg-chart-5 " />
             ) : (
-              <span className="text-[10px] text-emerald-400 font-mono">Nominal</span>
+              <span className="text-[11px] text-success ">Nominal</span>
             )}
           </div>
           <div className="mt-1 flex items-baseline justify-between">
-            <span className={`text-xl font-bold font-mono tabular-nums ${anomalies.length > 0 ? 'text-purple-300' : 'text-slate-200'}`}>
+            <span className={`text-xl font-medium tabular-nums ${anomalies.length > 0 ? 'text-chart-5' : 'text-foreground'}`}>
               {anomalies.length} {t('Anomalies')}
             </span>
-            <span className="text-[10px] font-mono text-purple-400">
+            <span className="text-[11px] text-chart-5">
               {anomalies.length > 0 ? `${anomalies[0].features.currentReqPerMin} req/m` : t('AI ML')}
             </span>
           </div>
         </div>
 
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-3">
-          <div className="text-[10px] text-[#8b949e] font-semibold uppercase tracking-wider">{t('Parking Occupancy')}</div>
+        <div className="bg-card border border-border rounded-xl p-3">
+          <div className="text-[11px] text-muted-foreground font-medium ">{t('Parking Occupancy')}</div>
           <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-bold font-mono text-[#e6edf3] tabular-nums">{metrics.occupancyRate}%</span>
-            <span className="text-[10px] text-[#8b949e] font-mono">{metrics.totalOccupancy}/{metrics.totalCapacity}</span>
+            <span className="text-xl font-medium text-foreground tabular-nums">{metrics.occupancyRate}%</span>
+            <span className="text-[11px] text-muted-foreground ">{metrics.totalOccupancy}/{metrics.totalCapacity}</span>
           </div>
         </div>
       </div>
@@ -1596,17 +1596,17 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
       {/* ========================================================================= */}
       {/* 2. CONTROL TOOLBAR & FILTER BAR */}
       {/* ========================================================================= */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-4 space-y-3">
+      <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* View Mode Toggle & ML Overlay Toggle */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5 bg-[#0d1117] p-1 rounded-xl border border-[#30363d]">
+            <div className="flex items-center gap-1.5 bg-background p-1 rounded-xl border border-border">
               <button
                 onClick={() => setViewMode('d3-map')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 transition-colors cursor-pointer ${
                   viewMode === 'd3-map'
-                    ? 'bg-[#21262d] text-[#58a6ff] shadow-xs'
-                    : 'text-[#8b949e] hover:text-[#c9d1d9]'
+                    ? 'bg-muted text-primary '
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <MapIcon className="w-3.5 h-3.5" />
@@ -1615,10 +1615,10 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
 
               <button
                 onClick={() => setViewMode('grid')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 transition-colors cursor-pointer ${
                   viewMode === 'grid'
-                    ? 'bg-[#21262d] text-[#58a6ff] shadow-xs'
-                    : 'text-[#8b949e] hover:text-[#c9d1d9]'
+                    ? 'bg-muted text-primary '
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
@@ -1629,17 +1629,17 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             {/* ML Anomaly Overlay Toggle */}
             <button
               onClick={() => setIsMlAnomalyOverlayEnabled(!isMlAnomalyOverlayEnabled)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 cursor-pointer transition-all ${
+              className={`px-3 py-1.5 rounded-xl border text-xs font-medium flex items-center gap-2 cursor-pointer transition-colors ${
                 isMlAnomalyOverlayEnabled
-                  ? 'bg-purple-600/20 border-purple-500/60 text-purple-300 shadow-md shadow-purple-950/30'
-                  : 'bg-[#0d1117] border-[#30363d] text-[#8b949e] hover:text-[#c9d1d9]'
+                  ? 'bg-chart-5/20 border-chart-5/60 text-chart-5 '
+                  : 'bg-background border-border text-muted-foreground hover:text-foreground'
               }`}
               title={t('Toggle ML heuristic anomaly overlay')}
             >
-              <Activity className="w-3.5 h-3.5 text-purple-400" />
+              <Activity className="w-3.5 h-3.5 text-chart-5" />
               <span>{t('ML Anomaly Overlay')}</span>
               {anomalies.length > 0 && (
-                <span className="px-1.5 py-0.2 bg-purple-500 text-white rounded-full text-[10px] font-bold">
+                <span className="px-1.5 py-0.2 bg-chart-5 text-[#fff] rounded-full text-[11px] font-medium">
                   {anomalies.length}
                 </span>
               )}
@@ -1651,23 +1651,23 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             {/* Incident Notification Badge Button */}
             <button
               onClick={() => setIsIncidentsDrawerOpen(true)}
-              className={`relative flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+              className={`relative flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium cursor-pointer transition-colors ${
                 metrics.stuckGates > 0 || metrics.offlineGates > 0
-                  ? 'bg-[#f85149]/15 hover:bg-[#f85149]/25 border-[#f85149]/40 text-white shadow-md shadow-red-950/20'
-                  : 'bg-[#0d1117] hover:bg-[#21262d] border-[#30363d] text-[#8b949e] hover:text-[#c9d1d9]'
+                  ? 'bg-destructive/15 hover:bg-destructive/25 border-destructive/40 text-foreground '
+                  : 'bg-background hover:bg-muted border-border text-muted-foreground hover:text-foreground'
               }`}
             >
               {metrics.stuckGates > 0 || metrics.offlineGates > 0 ? (
                 <>
                   <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f85149] opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#f85149]"></span>
+                    <span className=" absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive"></span>
                   </span>
-                  <ShieldAlert className="w-3.5 h-3.5 text-[#f85149]" />
-                  <span className="font-mono tabular-nums font-bold text-red-300">
+                  <ShieldAlert className="w-3.5 h-3.5 text-destructive" />
+                  <span className=" tabular-nums font-medium text-destructive">
                     {metrics.stuckGates + metrics.offlineGates} {t('Alerts')}
                   </span>
-                  <span className="text-[10px] text-red-200/70 font-normal hidden sm:inline">
+                  <span className="text-[11px] text-destructive font-normal hidden sm:inline">
                     ({metrics.stuckGates > 0 ? `${metrics.stuckGates} ${t('Stuck')}` : ''}
                     {metrics.stuckGates > 0 && metrics.offlineGates > 0 ? ' · ' : ''}
                     {metrics.offlineGates > 0 ? `${metrics.offlineGates} ${t('Off')}` : ''})
@@ -1675,7 +1675,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#3fb950]" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-success" />
                   <span>{t('0 Incident Alerts')}</span>
                 </>
               )}
@@ -1693,8 +1693,8 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
               title={isAudioMuted ? t('Enable alert chime') : t('Mute alert chime')}
               className={`p-1.5 rounded-xl border transition-colors cursor-pointer text-xs ${
                 isAudioMuted
-                  ? 'bg-[#0d1117] border-[#30363d] text-[#8b949e] hover:text-white'
-                  : 'bg-[#58a6ff]/15 border-[#58a6ff]/30 text-[#58a6ff] hover:bg-[#58a6ff]/25'
+                  ? 'bg-background border-border text-muted-foreground hover:text-foreground'
+                  : 'bg-primary/15 border-primary/30 text-primary hover:bg-primary/25'
               }`}
             >
               {isAudioMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
@@ -1705,7 +1705,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
               <button
                 onClick={() => resolveAllIncidents()}
                 title={t('Resolve all stuck and offline incidents')}
-                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-[#3fb950]/15 hover:bg-[#3fb950]/25 text-[#3fb950] border border-[#3fb950]/30 transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-success/15 hover:bg-success/25 text-success border border-success/30 transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>{t('Resolve')} ({alerts.filter(a => !a.resolved).length})</span>
@@ -1714,7 +1714,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
 
             {/* Sync indicator */}
             {isTenantRefreshing && (
-              <span className="flex items-center gap-1.5 text-[11px] text-[#8b949e] font-mono">
+              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground ">
                 <RefreshCw className="w-3 h-3 animate-spin" />
                 {t('Syncing…')}
               </span>
@@ -1734,16 +1734,16 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
         </div>
 
         {/* Filter Rows */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 pt-2 border-t border-[#30363d]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 pt-2 border-t border-border">
           {/* Search box */}
           <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               placeholder={t('Search by site name, gate code, address...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg pl-8 pr-3 py-1.5 text-xs text-[#c9d1d9] placeholder-[#8b949e] focus:outline-hidden focus:border-[#58a6ff]"
+              className="w-full bg-background border border-border rounded-lg pl-8 pr-3 py-1.5 text-xs text-foreground placeholder-muted-foreground focus:outline-hidden focus:border-primary"
             />
           </div>
 
@@ -1751,7 +1751,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
           <select
             value={tenantFilter}
             onChange={(e) => setTenantFilter(e.target.value)}
-            className="bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-1.5 text-xs text-[#c9d1d9] focus:outline-hidden focus:border-[#58a6ff] cursor-pointer"
+            className="bg-background border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus:outline-hidden focus:border-primary cursor-pointer"
           >
             <option value="ALL">{t('All Tenants')}</option>
             {tenantOptions.map(t => (
@@ -1763,7 +1763,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-1.5 text-xs text-[#c9d1d9] focus:outline-hidden focus:border-[#58a6ff] cursor-pointer"
+            className="bg-background border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus:outline-hidden focus:border-primary cursor-pointer"
           >
             <option value="ALL">{t('All Barrier Statuses')}</option>
             <option value="STUCK">{t('Barrier arm stuck (STUCK)')}</option>
@@ -1780,32 +1780,32 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
           <div className="flex items-center gap-1">
             <button
               onClick={() => handleRegionJump('ALL')}
-              className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition-colors cursor-pointer text-center ${
-                regionFilter === 'ALL' ? 'bg-[#58a6ff]/20 text-[#58a6ff] border border-[#58a6ff]/30' : 'bg-[#0d1117] text-[#8b949e] hover:text-[#c9d1d9]'
+              className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg transition-colors cursor-pointer text-center ${
+                regionFilter === 'ALL' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-background text-muted-foreground hover:text-foreground'
               }`}
             >
               {t('Nationwide')}
             </button>
             <button
               onClick={() => handleRegionJump('NORTH')}
-              className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition-colors cursor-pointer text-center ${
-                regionFilter === 'NORTH' ? 'bg-[#58a6ff]/20 text-[#58a6ff] border border-[#58a6ff]/30' : 'bg-[#0d1117] text-[#8b949e] hover:text-[#c9d1d9]'
+              className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg transition-colors cursor-pointer text-center ${
+                regionFilter === 'NORTH' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-background text-muted-foreground hover:text-foreground'
               }`}
             >
               {t('North')}
             </button>
             <button
               onClick={() => handleRegionJump('CENTRAL')}
-              className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition-colors cursor-pointer text-center ${
-                regionFilter === 'CENTRAL' ? 'bg-[#58a6ff]/20 text-[#58a6ff] border border-[#58a6ff]/30' : 'bg-[#0d1117] text-[#8b949e] hover:text-[#c9d1d9]'
+              className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg transition-colors cursor-pointer text-center ${
+                regionFilter === 'CENTRAL' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-background text-muted-foreground hover:text-foreground'
               }`}
             >
               {t('Central')}
             </button>
             <button
               onClick={() => handleRegionJump('SOUTH')}
-              className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition-colors cursor-pointer text-center ${
-                regionFilter === 'SOUTH' ? 'bg-[#58a6ff]/20 text-[#58a6ff] border border-[#58a6ff]/30' : 'bg-[#0d1117] text-[#8b949e] hover:text-[#c9d1d9]'
+              className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg transition-colors cursor-pointer text-center ${
+                regionFilter === 'SOUTH' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-background text-muted-foreground hover:text-foreground'
               }`}
             >
               {t('South')}
@@ -1821,16 +1821,16 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
       {viewMode === 'd3-map' ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           {/* Left/Center: Interactive D3.js SVG Map Canvas */}
-          <div className="lg:col-span-8 bg-[#0d1117] border border-[#30363d] rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between min-h-[580px]">
+          <div className="lg:col-span-8 bg-background border border-border rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between min-h-[580px]">
             {/* Map Floating Controls */}
-            <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-[#161b22]/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-[#30363d] text-xs shadow-lg">
-              <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse" />
-              <span className="font-semibold text-white">{t('Tactical Telemetry Map')}</span>
-              <span className="text-[#8b949e]">· D3 Vector Engine</span>
+            <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-card/90 px-3 py-1.5 rounded-xl border border-border text-xs ">
+              <span className="w-2 h-2 rounded-full bg-success " />
+              <span className="font-medium text-foreground">{t('Tactical Telemetry Map')}</span>
+              <span className="text-muted-foreground">· D3 Vector Engine</span>
               {focus.mode === 'local' && (
                 <button
                   onClick={() => setNationalOverride((v) => !v)}
-                  className="ml-2 px-2 py-0.5 rounded-lg border border-[#58a6ff]/40 text-[#58a6ff] hover:bg-[#58a6ff]/10 transition-colors cursor-pointer text-[11px] font-semibold"
+                  className="ml-2 px-2 py-0.5 rounded-lg border border-primary/40 text-primary hover:bg-primary/10 transition-colors cursor-pointer text-[11px] font-medium"
                 >
                   {nationalOverride ? t('Facility view') : t('View nationwide map')}
                 </button>
@@ -1838,25 +1838,25 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             </div>
 
             {/* Zoom Controls */}
-            <div className="absolute top-4 right-4 z-10 flex flex-col gap-1 bg-[#161b22]/90 backdrop-blur-md p-1 rounded-xl border border-[#30363d] shadow-lg">
+            <div className="absolute top-4 right-4 z-10 flex flex-col gap-1 bg-card/90 p-1 rounded-xl border border-border ">
               <button
                 onClick={handleZoomIn}
                 title={t('Zoom in')}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-[#c9d1d9] hover:bg-[#21262d] hover:text-white transition-colors cursor-pointer"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
               >
                 <ZoomIn className="w-4 h-4" />
               </button>
               <button
                 onClick={handleZoomOut}
                 title={t('Zoom out')}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-[#c9d1d9] hover:bg-[#21262d] hover:text-white transition-colors cursor-pointer"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
               >
                 <ZoomOut className="w-4 h-4" />
               </button>
               <button
                 onClick={handleResetZoom}
                 title={t('Reset view')}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-[#c9d1d9] hover:bg-[#21262d] hover:text-white transition-colors cursor-pointer"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
@@ -1872,34 +1872,34 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             </div>
 
             {/* Map Legend */}
-            <div className="border-t border-[#30363d] pt-3 mt-2 flex flex-wrap items-center justify-between gap-3 text-[11px] text-[#8b949e]">
+            <div className="border-t border-border pt-3 mt-2 flex flex-wrap items-center justify-between gap-3 text-[11px] text-muted-foreground">
               <div className="flex items-center gap-4">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#3fb950]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-success" />
                   <span>{t('Operating normally')}</span>
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#e3b341]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-warning" />
                   <span>{t('Warning / High latency')}</span>
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#f85149]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-destructive" />
                   <span>{t('Emergency lock / Offline')}</span>
                 </span>
               </div>
-              <span className="text-[10px] font-mono">{t('Use mouse wheel to zoom, hold left click to pan')}</span>
+              <span className="text-[11px] ">{t('Use mouse wheel to zoom, hold left click to pan')}</span>
             </div>
           </div>
 
           {/* Right: Selected Site Detailed Barrier Gates & Telemetry Drawer */}
           <div className="lg:col-span-4 space-y-4">
             {activeSelectedSite ? (
-              <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4 animate-in fade-in duration-200">
+              <div className="bg-card border border-border rounded-2xl p-5 space-y-4 animate-in fade-in duration-[330ms]">
                 {/* Header */}
-                <div className="flex items-start justify-between gap-2 border-b border-[#30363d] pb-3">
+                <div className="flex items-start justify-between gap-2 border-b border-border pb-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-white text-sm">{activeSelectedSite.name}</h3>
+                      <h3 className="font-medium text-foreground text-sm">{activeSelectedSite.name}</h3>
                       <Badge
                         variant={activeSelectedSite.overallHealth === 'HEALTHY' ? 'emerald' : activeSelectedSite.overallHealth === 'WARNING' ? 'amber' : 'red'}
                         size="sm"
@@ -1907,15 +1907,15 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                         {t(activeSelectedSite.overallHealth)}
                       </Badge>
                     </div>
-                    <p className="text-xs text-[#8b949e] mt-0.5">{activeSelectedSite.address}</p>
-                    <div className="text-[10px] text-[#58a6ff] font-medium mt-1">
+                    <p className="text-xs text-muted-foreground mt-0.5">{activeSelectedSite.address}</p>
+                    <div className="text-[11px] text-primary font-medium mt-1">
                       {activeSelectedSite.tenantName} · Gateway: {activeSelectedSite.edgeGatewayId} ({activeSelectedSite.edgeLatencyMs}ms)
                     </div>
                   </div>
 
                   <button
                     onClick={() => setSelectedSiteId(null)}
-                    className="p-1 rounded-lg text-[#8b949e] hover:text-white hover:bg-[#21262d] transition-colors cursor-pointer"
+                    className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1924,8 +1924,8 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                 {/* Gates Overview for this site */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-[#e6edf3]">{t('Barrier List')} ({activeSelectedSite.gates.length} {t('lanes')})</span>
-                    <span className="font-mono text-[#3fb950] font-bold">
+                    <span className="font-medium text-foreground">{t('Barrier List')} ({activeSelectedSite.gates.length} {t('lanes')})</span>
+                    <span className=" text-success font-medium">
                       {activeSelectedSite.openGateCount} {t('Raised')}
                     </span>
                   </div>
@@ -1937,21 +1937,21 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                     return (
                       <div
                         key={gate.id}
-                        className={`bg-[#0d1117] border rounded-xl p-3.5 space-y-3 transition-colors ${
+                        className={`bg-background border rounded-xl p-3.5 space-y-3 transition-colors ${
                           isStuck
-                            ? 'border-[#f85149]/60 shadow-xs shadow-red-950/30'
+                            ? 'border-destructive/60 '
                             : isOffline
-                            ? 'border-[#e3b341]/60'
-                            : 'border-[#30363d] hover:border-[#58a6ff]/40'
+                            ? 'border-warning/60'
+                            : 'border-border hover:border-primary/40'
                         }`}
                       >
                         {/* Gate Top Info */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className={`w-2.5 h-2.5 rounded-full ${
-                              isStuck ? 'bg-[#f85149] animate-ping' : isOffline ? 'bg-[#e3b341]' : gate.status === 'OPEN' ? 'bg-[#3fb950] animate-ping' : gate.status === 'LOCKED' ? 'bg-[#f85149]' : 'bg-[#58a6ff]'
+                              isStuck ? 'bg-destructive ' : isOffline ? 'bg-warning' : gate.status === 'OPEN' ? 'bg-success ' : gate.status === 'LOCKED' ? 'bg-destructive' : 'bg-primary'
                             }`} />
-                            <span className="font-bold text-xs text-white">{gate.name}</span>
+                            <span className="font-medium text-xs text-foreground">{gate.name}</span>
                           </div>
                           <Badge
                             variant={isStuck ? 'red' : isOffline ? 'amber' : gate.status === 'OPEN' ? 'emerald' : gate.status === 'LOCKED' ? 'red' : 'blue'}
@@ -1963,14 +1963,14 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                         </div>
 
                         {/* Barrier Visual Arm Diagram */}
-                        <div className="bg-[#161b22] rounded-lg p-2.5 flex items-center justify-between border border-[#30363d]/60">
+                        <div className="bg-card rounded-lg p-2.5 flex items-center justify-between border border-border/60">
                           {/* Mechanical Arm Schema */}
                           <div className="flex items-center gap-3">
-                            <div className="relative w-12 h-10 bg-[#0d1117] rounded-md border border-[#30363d] flex items-end justify-center pb-1">
+                            <div className="relative w-12 h-10 bg-background rounded-md border border-border flex items-end justify-center pb-1">
                               {/* Motor base */}
-                              <div className="w-3.5 h-6 bg-slate-600 rounded-t-sm relative">
+                              <div className="w-3.5 h-6 bg-muted rounded-t-sm relative">
                                 <span className={`w-1.5 h-1.5 rounded-full absolute -top-1 left-1 ${
-                                  isStuck ? 'bg-[#f85149] animate-ping' : gate.status === 'OPEN' ? 'bg-[#3fb950]' : gate.status === 'LOCKED' ? 'bg-[#f85149]' : 'bg-[#e3b341]'
+                                  isStuck ? 'bg-destructive ' : gate.status === 'OPEN' ? 'bg-success' : gate.status === 'LOCKED' ? 'bg-destructive' : 'bg-warning'
                                 }`} />
                               </div>
                               {/* Barrier Arm */}
@@ -1988,43 +1988,43 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                             </div>
 
                             <div className="text-[11px] space-y-0.5">
-                              <div className="text-[#8b949e]">{t('Arm angle:')} <span className={`font-mono font-bold ${isStuck ? 'text-[#f85149]' : 'text-white'}`}>{gate.armAngleDeg}°</span></div>
-                              <div className="text-[#8b949e]">{t('Cycles today:')} <span className="text-[#58a6ff] font-mono tabular-nums">{gate.dailyCycles}</span></div>
+                              <div className="text-muted-foreground">{t('Arm angle:')} <span className={` font-medium ${isStuck ? 'text-destructive' : 'text-foreground'}`}>{gate.armAngleDeg}°</span></div>
+                              <div className="text-muted-foreground">{t('Cycles today:')} <span className="text-primary tabular-nums">{gate.dailyCycles}</span></div>
                             </div>
                           </div>
 
                           {/* ANPR & Loop Detector indicators */}
-                          <div className="text-right text-[10px] space-y-1">
+                          <div className="text-right text-[11px] space-y-1">
                             <div className="flex items-center justify-end gap-1.5">
-                              <span className="text-[#8b949e]">{t('Loop detector:')}</span>
-                              <span className={`px-1.5 py-0.2 rounded font-mono ${gate.loopDetectorActive ? 'bg-[#3fb950]/20 text-[#3fb950]' : 'bg-[#21262d] text-[#8b949e]'}`}>
+                              <span className="text-muted-foreground">{t('Loop detector:')}</span>
+                              <span className={`px-1.5 py-0.2 rounded ${gate.loopDetectorActive ? 'bg-success/20 text-success' : 'bg-muted text-muted-foreground'}`}>
                                 {gate.loopDetectorActive ? t('VEHICLE') : t('CLEAR')}
                               </span>
                             </div>
                             <div className="flex items-center justify-end gap-1.5">
-                              <span className="text-[#8b949e]">{t('Last plate:')}</span>
-                              <span className="font-mono font-bold text-white">{gate.lastPlate}</span>
+                              <span className="text-muted-foreground">{t('Last plate:')}</span>
+                              <span className="font-mono font-medium text-foreground">{gate.lastPlate}</span>
                             </div>
                           </div>
                         </div>
 
                         {/* Warnings or Stuck Notes */}
                         {isStuck && (
-                          <div className="text-[10px] p-2 rounded bg-red-500/10 border border-red-500/30 text-red-300 flex items-start gap-1.5">
-                            <AlertOctagon className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#f85149]" />
+                          <div className="text-[11px] p-2 rounded bg-destructive/10 border border-destructive/30 text-destructive flex items-start gap-1.5">
+                            <AlertOctagon className="w-3.5 h-3.5 shrink-0 mt-0.5 text-destructive" />
                             <span>{t('Arm stopped at {{angle}}°. Relay motor tripped on overcurrent. Press Reset Relay or Force Raise.', { angle: gate.armAngleDeg })}</span>
                           </div>
                         )}
 
                         {isOffline && (
-                          <div className="text-[10px] p-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-start gap-1.5">
-                            <WifiOff className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#e3b341]" />
+                          <div className="text-[11px] p-2 rounded bg-warning/10 border border-warning/30 text-warning flex items-start gap-1.5">
+                            <WifiOff className="w-3.5 h-3.5 shrink-0 mt-0.5 text-warning" />
                             <span>{t('Telemetry signal lost from Edge Gateway. Retrying heartbeat...')}</span>
                           </div>
                         )}
 
                         {!isStuck && !isOffline && gate.warningNote && (
-                          <div className="text-[10px] p-2 rounded bg-[#d29922]/10 border border-[#d29922]/30 text-[#e3b341] flex items-start gap-1.5">
+                          <div className="text-[11px] p-2 rounded bg-warning/10 border border-warning/30 text-warning flex items-start gap-1.5">
                             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                             <span>{t(gate.warningNote)}</span>
                           </div>
@@ -2040,7 +2040,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                   if (matching) resolveBarrierIncident(matching.id, 'REBOOT');
                                   else handleToggleBarrierArm(activeSelectedSite.id, gate.id, 'CLOSE');
                                 }}
-                                className="py-1 px-2 rounded-lg bg-[#3fb950]/20 hover:bg-[#3fb950]/30 text-[#3fb950] border border-[#3fb950]/30 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                className="py-1 px-2 rounded-lg bg-success/20 hover:bg-success/30 text-success border border-success/30 text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                               >
                                 <Power className="w-3.5 h-3.5" />
                                 <span>{t('Reset Relay')}</span>
@@ -2052,7 +2052,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                   if (matching) resolveBarrierIncident(matching.id, 'FORCE_OPEN');
                                   else handleToggleBarrierArm(activeSelectedSite.id, gate.id, 'OPEN');
                                 }}
-                                className="py-1 px-2 rounded-lg bg-[#58a6ff]/20 hover:bg-[#58a6ff]/30 text-[#58a6ff] border border-[#58a6ff]/30 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                className="py-1 px-2 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                               >
                                 <ArrowUpRight className="w-3.5 h-3.5" />
                                 <span>{t('Force Up')}</span>
@@ -2066,7 +2066,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                   if (matching) resolveBarrierIncident(matching.id, 'REBOOT');
                                   else handleToggleBarrierArm(activeSelectedSite.id, gate.id, 'OPEN');
                                 }}
-                                className="py-1 px-2 rounded-lg bg-[#58a6ff]/20 hover:bg-[#58a6ff]/30 text-[#58a6ff] border border-[#58a6ff]/30 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                className="py-1 px-2 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                               >
                                 <RefreshCw className="w-3.5 h-3.5" />
                                 <span>{t('Re-link')}</span>
@@ -2074,7 +2074,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
 
                               <button
                                 onClick={() => handleEmergencyLock(activeSelectedSite.id, gate.id)}
-                                className="py-1 px-2 rounded-lg bg-[#f85149]/20 hover:bg-[#f85149]/30 text-[#f85149] border border-[#f85149]/30 text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                className="py-1 px-2 rounded-lg bg-destructive/20 hover:bg-destructive/30 text-destructive border border-destructive/30 text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                               >
                                 <Lock className="w-3.5 h-3.5" />
                                 <span>{t('Lock')}</span>
@@ -2084,16 +2084,16 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                             <button
                               onClick={() => handleToggleBarrierArm(activeSelectedSite.id, gate.id, 'CLOSE')}
                               disabled={!!pendingCommands[gate.id]}
-                              className="py-1 px-2 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-white text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="py-1 px-2 rounded-lg bg-muted hover:bg-border text-foreground text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                              <ArrowDownRight className="w-3.5 h-3.5 text-[#58a6ff]" />
+                              <ArrowDownRight className="w-3.5 h-3.5 text-primary" />
                               <span>{pendingCommands[gate.id] ? t('Sending…') : t('Lower Arm')}</span>
                             </button>
                           ) : (
                             <button
                               onClick={() => handleToggleBarrierArm(activeSelectedSite.id, gate.id, 'OPEN')}
                               disabled={!!pendingCommands[gate.id]}
-                              className="py-1 px-2 rounded-lg bg-[#3fb950]/20 hover:bg-[#3fb950]/30 text-[#3fb950] border border-[#3fb950]/30 text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="py-1 px-2 rounded-lg bg-success/20 hover:bg-success/30 text-success border border-success/30 text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               <ArrowUpRight className="w-3.5 h-3.5" />
                               <span>{pendingCommands[gate.id] ? t('Sending…') : t('Raise Arm')}</span>
@@ -2104,10 +2104,10 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                             <button
                               onClick={() => handleEmergencyLock(activeSelectedSite.id, gate.id)}
                               disabled={!!pendingCommands[gate.id]}
-                              className={`py-1 px-2 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                              className={`py-1 px-2 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                                 gate.status === 'LOCKED'
-                                  ? 'bg-[#3fb950]/20 hover:bg-[#3fb950]/30 text-[#3fb950] border border-[#3fb950]/30'
-                                  : 'bg-[#f85149]/20 hover:bg-[#f85149]/30 text-[#f85149] border border-[#f85149]/30'
+                                  ? 'bg-success/20 hover:bg-success/30 text-success border border-success/30'
+                                  : 'bg-destructive/20 hover:bg-destructive/30 text-destructive border border-destructive/30'
                               }`}
                             >
                               {gate.status === 'LOCKED' ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
@@ -2117,7 +2117,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
 
                           <button
                             onClick={() => setSelectedGate(gate)}
-                            className="py-1 px-2 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] hover:text-white text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                            className="py-1 px-2 rounded-lg bg-muted hover:bg-border text-foreground hover:text-foreground text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             <span>{t('Details')}</span>
@@ -2129,13 +2129,13 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                 </div>
               </div>
             ) : (
-              <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-6 text-center space-y-3 flex flex-col items-center justify-center min-h-[380px]">
-                <div className="w-12 h-12 rounded-full bg-[#21262d] border border-[#30363d] flex items-center justify-center text-[#58a6ff]">
+              <div className="bg-card border border-border rounded-2xl p-6 text-center space-y-3 flex flex-col items-center justify-center min-h-[380px]">
+                <div className="w-12 h-12 rounded-full bg-muted border border-border flex items-center justify-center text-primary">
                   <MapPin className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-white text-sm">{t('No Site Selected')}</h4>
-                  <p className="text-xs text-[#8b949e] mt-1 max-w-xs">
+                  <h4 className="font-medium text-foreground text-sm">{t('No Site Selected')}</h4>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xs">
                     {t('Click a pin on the D3.js map on the left or the list below to visualize barriers and send commands.')}
                   </p>
                 </div>
@@ -2165,16 +2165,16 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             return (
               <div
                 key={site.id}
-                className={`bg-[#161b22] border rounded-2xl p-5 space-y-4 transition-all flex flex-col justify-between ${
+                className={`bg-card border rounded-2xl p-5 space-y-4 transition-colors flex flex-col justify-between ${
                   siteHasStuck
-                    ? 'border-[#f85149]/60 shadow-lg shadow-red-950/20'
+                    ? 'border-destructive/60 '
                     : siteHasOffline
-                    ? 'border-[#e3b341]/60 shadow-lg shadow-amber-950/20'
-                    : 'border-[#30363d] hover:border-[#58a6ff]/40'
+                    ? 'border-warning/60 '
+                    : 'border-border hover:border-primary/40'
                 }`}
               >
                 {/* Site Card Header */}
-                <div className="space-y-1.5 border-b border-[#30363d] pb-3">
+                <div className="space-y-1.5 border-b border-border pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <Badge
@@ -2185,27 +2185,27 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                         {siteHasStuck ? t('STUCK INCIDENT') : siteHasOffline ? t('OFFLINE') : t(site.overallHealth)}
                       </Badge>
                       {siteHasStuck && (
-                        <span className="text-[10px] text-[#f85149] font-mono animate-pulse">{t('🚨 ACTION REQUIRED')}</span>
+                        <span className="text-[11px] text-destructive ">{t('🚨 ACTION REQUIRED')}</span>
                       )}
                     </div>
-                    <span className="text-[10px] text-[#58a6ff] font-mono bg-[#21262d] px-2 py-0.5 rounded-md border border-[#30363d]">
+                    <span className="text-[11px] text-primary bg-muted px-2 py-0.5 rounded-md border border-border">
                       {site.city}
                     </span>
                   </div>
 
-                  <h3 className="font-bold text-white text-sm tracking-tight">{site.name}</h3>
-                  <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
+                  <h3 className="font-medium text-foreground text-sm tracking-tight">{site.name}</h3>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <span>{site.tenantName}</span>
                     <span>·</span>
-                    <span className="font-mono text-[#e6edf3]">{site.currentOccupancy}/{site.capacity} {t('vehicles')}</span>
+                    <span className=" text-foreground">{site.currentOccupancy}/{site.capacity} {t('vehicles')}</span>
                   </div>
                 </div>
 
                 {/* Barrier Gates Grid inside this Site */}
                 <div className="space-y-2.5 flex-1">
-                  <div className="text-[11px] font-semibold text-[#8b949e] uppercase tracking-wider flex items-center justify-between">
+                  <div className="text-[11px] font-medium text-muted-foreground flex items-center justify-between">
                     <span>{t('Barrier Lane Status')}</span>
-                    <span className="font-mono text-[#3fb950] font-bold">{site.openGateCount}/{site.totalGateCount} {t('Open')}</span>
+                    <span className=" text-success font-medium">{site.openGateCount}/{site.totalGateCount} {t('Open')}</span>
                   </div>
 
                   <div className="space-y-2">
@@ -2216,20 +2216,20 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                       return (
                         <div
                           key={gate.id}
-                          className={`bg-[#0d1117] border rounded-xl p-3 space-y-2.5 transition-colors ${
+                          className={`bg-background border rounded-xl p-3 space-y-2.5 transition-colors ${
                             isStuck
-                              ? 'border-[#f85149]/60 shadow-xs shadow-red-950/30'
+                              ? 'border-destructive/60 '
                               : isOffline
-                              ? 'border-[#e3b341]/60'
-                              : 'border-[#30363d]'
+                              ? 'border-warning/60'
+                              : 'border-border'
                           }`}
                         >
                           <div className="flex items-center justify-between text-xs">
                             <div className="flex items-center gap-2">
                               <span className={`w-2 h-2 rounded-full ${
-                                isStuck ? 'bg-[#f85149] animate-ping' : isOffline ? 'bg-[#e3b341]' : gate.status === 'OPEN' ? 'bg-[#3fb950] animate-ping' : gate.status === 'LOCKED' ? 'bg-[#f85149]' : 'bg-[#58a6ff]'
+                                isStuck ? 'bg-destructive ' : isOffline ? 'bg-warning' : gate.status === 'OPEN' ? 'bg-success ' : gate.status === 'LOCKED' ? 'bg-destructive' : 'bg-primary'
                               }`} />
-                              <span className="font-bold text-white text-[11px]">{gate.name}</span>
+                              <span className="font-medium text-foreground text-[11px]">{gate.name}</span>
                             </div>
                             <Badge
                               variant={isStuck ? 'red' : isOffline ? 'amber' : gate.status === 'OPEN' ? 'emerald' : gate.status === 'LOCKED' ? 'red' : 'blue'}
@@ -2241,14 +2241,14 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                           </div>
 
                           {/* Micro Visual Status Bar */}
-                          <div className="flex items-center justify-between text-[10px] text-[#8b949e] bg-[#161b22] px-2.5 py-1.5 rounded-lg border border-[#30363d]/50">
+                          <div className="flex items-center justify-between text-[11px] text-muted-foreground bg-card px-2.5 py-1.5 rounded-lg border border-border/50">
                             <div className="flex items-center gap-1.5">
                               <span>{t('Arm angle:')}</span>
-                              <span className={`font-mono font-bold ${isStuck ? 'text-[#f85149]' : 'text-white'}`}>{gate.armAngleDeg}°</span>
+                              <span className={` font-medium ${isStuck ? 'text-destructive' : 'text-foreground'}`}>{gate.armAngleDeg}°</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span>{t('Last plate:')}</span>
-                              <span className="font-mono text-[#58a6ff] font-semibold">{gate.lastPlate}</span>
+                              <span className="font-mono text-primary font-medium">{gate.lastPlate}</span>
                             </div>
                           </div>
 
@@ -2262,7 +2262,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                     if (matching) resolveBarrierIncident(matching.id, 'REBOOT');
                                     else handleToggleBarrierArm(site.id, gate.id, 'CLOSE');
                                   }}
-                                  className="py-1 px-1.5 rounded-md bg-[#3fb950]/20 text-[#3fb950] hover:bg-[#3fb950]/30 border border-[#3fb950]/30 text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                  className="py-1 px-1.5 rounded-md bg-success/20 text-success hover:bg-success/30 border border-success/30 text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                                 >
                                   <Power className="w-3 h-3" />
                                   <span>{t('Reset')}</span>
@@ -2273,14 +2273,14 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                     if (matching) resolveBarrierIncident(matching.id, 'FORCE_OPEN');
                                     else handleToggleBarrierArm(site.id, gate.id, 'OPEN');
                                   }}
-                                  className="py-1 px-1.5 rounded-md bg-[#58a6ff]/20 text-[#58a6ff] hover:bg-[#58a6ff]/30 border border-[#58a6ff]/30 text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                  className="py-1 px-1.5 rounded-md bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30 text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                                 >
                                   <ArrowUpRight className="w-3 h-3" />
                                   <span>{t('Force Up')}</span>
                                 </button>
                                 <button
                                   onClick={() => setSelectedGate(gate)}
-                                  className="py-1 px-1.5 rounded-md bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-[10px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                  className="py-1 px-1.5 rounded-md bg-muted hover:bg-border text-foreground text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                                 >
                                   <Eye className="w-3 h-3" />
                                   <span>{t('View Error')}</span>
@@ -2294,21 +2294,21 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                     if (matching) resolveBarrierIncident(matching.id, 'REBOOT');
                                     else handleToggleBarrierArm(site.id, gate.id, 'OPEN');
                                   }}
-                                  className="py-1 px-1.5 rounded-md bg-[#58a6ff]/20 text-[#58a6ff] hover:bg-[#58a6ff]/30 border border-[#58a6ff]/30 text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                  className="py-1 px-1.5 rounded-md bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30 text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                                 >
                                   <RefreshCw className="w-3 h-3" />
                                   <span>{t('Re-link')}</span>
                                 </button>
                                 <button
                                   onClick={() => handleEmergencyLock(site.id, gate.id)}
-                                  className="py-1 px-1.5 rounded-md bg-[#f85149]/20 text-[#f85149] hover:bg-[#f85149]/30 border border-[#f85149]/30 text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                  className="py-1 px-1.5 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30 border border-destructive/30 text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                                 >
                                   <Lock className="w-3 h-3" />
                                   <span>{t('Lock')}</span>
                                 </button>
                                 <button
                                   onClick={() => setSelectedGate(gate)}
-                                  className="py-1 px-1.5 rounded-md bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-[10px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                  className="py-1 px-1.5 rounded-md bg-muted hover:bg-border text-foreground text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                                 >
                                   <Eye className="w-3 h-3" />
                                   <span>{t('Details')}</span>
@@ -2319,10 +2319,10 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                 <button
                                   onClick={() => handleToggleBarrierArm(site.id, gate.id, gate.status === 'OPEN' ? 'CLOSE' : 'OPEN')}
                                   disabled={!!pendingCommands[gate.id]}
-                                  className={`py-1 px-1.5 rounded-md text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                                  className={`py-1 px-1.5 rounded-md text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                                     gate.status === 'OPEN'
-                                      ? 'bg-[#21262d] text-white hover:bg-[#30363d]'
-                                      : 'bg-[#3fb950]/20 text-[#3fb950] hover:bg-[#3fb950]/30 border border-[#3fb950]/30'
+                                      ? 'bg-muted text-foreground hover:bg-border'
+                                      : 'bg-success/20 text-success hover:bg-success/30 border border-success/30'
                                   }`}
                                 >
                                   {pendingCommands[gate.id] ? t('Sending…') : gate.status === 'OPEN' ? t('Lower arm') : t('Raise arm')}
@@ -2331,10 +2331,10 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                                 <button
                                   onClick={() => handleEmergencyLock(site.id, gate.id)}
                                   disabled={!!pendingCommands[gate.id]}
-                                  className={`py-1 px-1.5 rounded-md text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                                  className={`py-1 px-1.5 rounded-md text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                                     gate.status === 'LOCKED'
-                                      ? 'bg-[#3fb950]/20 text-[#3fb950] hover:bg-[#3fb950]/30 border border-[#3fb950]/30'
-                                      : 'bg-[#f85149]/20 text-[#f85149] hover:bg-[#f85149]/30 border border-[#f85149]/30'
+                                      ? 'bg-success/20 text-success hover:bg-success/30 border border-success/30'
+                                      : 'bg-destructive/20 text-destructive hover:bg-destructive/30 border border-destructive/30'
                                   }`}
                                 >
                                   {gate.status === 'LOCKED' ? t('Unlock') : t('Lock')}
@@ -2342,9 +2342,9 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
 
                                 <button
                                   onClick={() => handleRecordTestPassage(site.id, gate.id)}
-                                  className="py-1 px-1.5 rounded-md bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-[10px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                  className="py-1 px-1.5 rounded-md bg-muted hover:bg-border text-foreground text-[11px] font-medium flex items-center justify-center gap-1 cursor-pointer transition-colors"
                                 >
-                                  <Car className="w-3 h-3 text-[#58a6ff]" />
+                                  <Car className="w-3 h-3 text-primary" />
                                   <span>{t('Record Vehicle (Test)')}</span>
                                 </button>
                               </>
@@ -2357,16 +2357,16 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                 </div>
 
               {/* Site Footer Actions */}
-              <div className="border-t border-[#30363d] pt-3 flex items-center justify-between text-xs">
-                <span className="text-[11px] text-[#8b949e]">
-                  Edge Gateway: <span className="font-mono text-[#58a6ff]">{site.edgeLatencyMs}ms</span>
+              <div className="border-t border-border pt-3 flex items-center justify-between text-xs">
+                <span className="text-[11px] text-muted-foreground">
+                  Edge Gateway: <span className=" text-primary">{site.edgeLatencyMs}ms</span>
                 </span>
                 <button
                   onClick={() => {
                     setSelectedSiteId(site.id);
                     setViewMode('d3-map');
                   }}
-                  className="text-xs text-[#58a6ff] hover:text-[#79c0ff] font-semibold flex items-center gap-1 cursor-pointer"
+                  className="text-xs text-primary hover:text-primary font-medium flex items-center gap-1 cursor-pointer"
                 >
                   <span>{t('View on Map')}</span>
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -2382,12 +2382,12 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
       {/* 5. INDIVIDUAL GATE HARDWARE DIAGNOSTICS MODAL */}
       {/* ========================================================================= */}
       {selectedGate && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-[#161b22] border border-[#30363d] rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl relative">
-            <div className="flex items-start justify-between border-b border-[#30363d] pb-4">
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 animate-in fade-in duration-[330ms]">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-lg p-6 space-y-5 relative">
+            <div className="flex items-start justify-between border-b border-border pb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-white">{selectedGate.name}</h3>
+                  <h3 className="text-base font-medium text-foreground">{selectedGate.name}</h3>
                   <Badge
                     variant={selectedGate.status === 'STUCK' ? 'red' : selectedGate.health === 'OFFLINE' ? 'amber' : selectedGate.status === 'OPEN' ? 'emerald' : selectedGate.status === 'LOCKED' ? 'red' : 'blue'}
                     dot={selectedGate.status === 'STUCK' || selectedGate.health === 'OFFLINE'}
@@ -2395,12 +2395,12 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                     {selectedGate.status === 'STUCK' ? t('ARM STUCK') : selectedGate.health === 'OFFLINE' ? t('OFFLINE') : t(selectedGate.status)}
                   </Badge>
                 </div>
-                <p className="text-xs text-[#8b949e] mt-1 font-mono">{selectedGate.code} · {selectedGate.siteName}</p>
+                <p className="text-xs text-muted-foreground mt-1 font-mono">{selectedGate.code} · {selectedGate.siteName}</p>
               </div>
 
               <button
                 onClick={() => setSelectedGate(null)}
-                className="p-1 rounded-lg text-[#8b949e] hover:text-white hover:bg-[#21262d] transition-colors cursor-pointer"
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2408,12 +2408,12 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
 
             {/* Incident Alert Callout if Stuck or Offline */}
             {selectedGate.status === 'STUCK' && (
-              <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-xs space-y-2">
-                <div className="flex items-center gap-2 text-[#f85149] font-bold">
-                  <AlertOctagon className="w-4 h-4 animate-pulse" />
+              <div className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/30 text-xs space-y-2">
+                <div className="flex items-center gap-2 text-destructive font-medium">
+                  <AlertOctagon className="w-4 h-4 " />
                   <span>{t('MECHANICAL INCIDENT: BARRIER ARM STUCK AT {{angle}}°', { angle: selectedGate.armAngleDeg })}</span>
                 </div>
-                <p className="text-red-200/90 text-[11px] leading-relaxed">
+                <p className="text-destructive text-[11px] leading-relaxed">
                   {t('Crankshaft position sensor detected abnormal arm stop while relay was engaged. Overload relay auto-tripped to protect the servo motor coil.')}
                 </p>
                 <div className="flex items-center gap-2 pt-1">
@@ -2423,7 +2423,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                       if (alert) resolveBarrierIncident(alert.id, 'REBOOT');
                       setSelectedGate(null);
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-[#3fb950] hover:bg-[#2ea043] text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-[#fff] font-medium text-xs flex items-center gap-1.5 cursor-pointer"
                   >
                     <Power className="w-3.5 h-3.5" />
                     <span>{t('Reset Relay & Realign Arm')}</span>
@@ -2434,7 +2434,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                       if (alert) resolveBarrierIncident(alert.id, 'FORCE_OPEN');
                       setSelectedGate(null);
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-[#58a6ff]/20 hover:bg-[#58a6ff]/30 text-[#58a6ff] border border-[#58a6ff]/30 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 font-medium text-xs flex items-center gap-1.5 cursor-pointer"
                   >
                     <ArrowUpRight className="w-3.5 h-3.5" />
                     <span>{t('Force Raise')}</span>
@@ -2444,12 +2444,12 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             )}
 
             {selectedGate.health === 'OFFLINE' && (
-              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
-                <div className="flex items-center gap-2 text-[#e3b341] font-bold">
-                  <WifiOff className="w-4 h-4 animate-pulse" />
+              <div className="p-3.5 rounded-xl bg-warning/10 border border-warning/30 text-xs space-y-2">
+                <div className="flex items-center gap-2 text-warning font-medium">
+                  <WifiOff className="w-4 h-4 " />
                   <span>{t('TELEMETRY SIGNAL LOST WARNING (EDGE OFFLINE)')}</span>
                 </div>
-                <p className="text-amber-200/90 text-[11px] leading-relaxed">
+                <p className="text-warning text-[11px] leading-relaxed">
                   {t('No MQTT telemetry packets or RTSP camera stream for over 15 seconds.')}
                 </p>
                 <div className="pt-1">
@@ -2459,7 +2459,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
                       if (alert) resolveBarrierIncident(alert.id, 'REBOOT');
                       setSelectedGate(null);
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-[#e3b341] hover:bg-[#d29922] text-slate-950 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-warning hover:bg-warning/90 text-[#fff] font-medium text-xs flex items-center gap-1.5 cursor-pointer"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     <span>{t('Restart Telemetry Socket')}</span>
@@ -2470,44 +2470,44 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
 
             {/* Hardware Telemetry Parameters */}
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="bg-[#0d1117] p-3 rounded-xl border border-[#30363d]">
-                <span className="text-[#8b949e] block text-[10px] uppercase font-semibold">{t('Drive Mechanism')}</span>
-                <span className="text-white font-bold font-mono text-sm mt-0.5 block">{selectedGate.barrierType}</span>
-                <span className="text-[10px] text-[#3fb950] mt-1 block">{t('Lift speed: 0.6s servo')}</span>
+              <div className="bg-background p-3 rounded-xl border border-border">
+                <span className="text-muted-foreground block text-[11px] font-medium">{t('Drive Mechanism')}</span>
+                <span className="text-foreground font-medium text-sm mt-0.5 block">{selectedGate.barrierType}</span>
+                <span className="text-[11px] text-success mt-1 block">{t('Lift speed: 0.6s servo')}</span>
               </div>
 
-              <div className="bg-[#0d1117] p-3 rounded-xl border border-[#30363d]">
-                <span className="text-[#8b949e] block text-[10px] uppercase font-semibold">{t('Motor Temperature')}</span>
-                <span className="text-white font-bold font-mono text-sm mt-0.5 block">{selectedGate.motorTempC} °C</span>
-                <span className="text-[10px] text-[#8b949e] mt-1 block">{t('Warning threshold: 65°C')}</span>
+              <div className="bg-background p-3 rounded-xl border border-border">
+                <span className="text-muted-foreground block text-[11px] font-medium">{t('Motor Temperature')}</span>
+                <span className="text-foreground font-medium text-sm mt-0.5 block">{selectedGate.motorTempC} °C</span>
+                <span className="text-[11px] text-muted-foreground mt-1 block">{t('Warning threshold: 65°C')}</span>
               </div>
 
-              <div className="bg-[#0d1117] p-3 rounded-xl border border-[#30363d]">
-                <span className="text-[#8b949e] block text-[10px] uppercase font-semibold">{t('Loop Coil Sensor')}</span>
-                <span className={`font-mono font-bold text-sm mt-0.5 block ${selectedGate.loopDetectorActive ? 'text-[#3fb950]' : 'text-[#8b949e]'}`}>
+              <div className="bg-background p-3 rounded-xl border border-border">
+                <span className="text-muted-foreground block text-[11px] font-medium">{t('Loop Coil Sensor')}</span>
+                <span className={` font-medium text-sm mt-0.5 block ${selectedGate.loopDetectorActive ? 'text-success' : 'text-muted-foreground'}`}>
                   {selectedGate.loopDetectorActive ? t('VEHICLE ON LOOP') : t('NO VEHICLE')}
                 </span>
-                <span className="text-[10px] text-[#8b949e] mt-1 block">{t('Frequency: 38.2 kHz (Nominal)')}</span>
+                <span className="text-[11px] text-muted-foreground mt-1 block">{t('Frequency: 38.2 kHz (Nominal)')}</span>
               </div>
 
-              <div className="bg-[#0d1117] p-3 rounded-xl border border-[#30363d]">
-                <span className="text-[#8b949e] block text-[10px] uppercase font-semibold">{t('Power Source')}</span>
-                <span className="text-white font-bold font-mono text-sm mt-0.5 block">{selectedGate.powerSource}</span>
-                <span className="text-[10px] text-[#58a6ff] mt-1 block">{t('UPS backup battery:')} {selectedGate.upsBatteryPercent}%</span>
+              <div className="bg-background p-3 rounded-xl border border-border">
+                <span className="text-muted-foreground block text-[11px] font-medium">{t('Power Source')}</span>
+                <span className="text-foreground font-medium text-sm mt-0.5 block">{selectedGate.powerSource}</span>
+                <span className="text-[11px] text-primary mt-1 block">{t('UPS backup battery:')} {selectedGate.upsBatteryPercent}%</span>
               </div>
             </div>
 
             {/* Last Vehicle Scan Preview */}
-            <div className="bg-[#0d1117] p-4 rounded-xl border border-[#30363d] space-y-2">
-              <span className="text-[10px] uppercase font-bold text-[#8b949e] tracking-wider block">{t('Last Vehicle Scan')}</span>
+            <div className="bg-background p-4 rounded-xl border border-border space-y-2">
+              <span className="text-[11px] font-medium text-muted-foreground block">{t('Last Vehicle Scan')}</span>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="px-3 py-1 bg-white text-slate-950 font-mono font-extrabold text-sm rounded border-2 border-slate-900 shadow-sm">
+                  <div className="px-3 py-1 bg-white text-foreground font-medium text-sm rounded border border-border ">
                     {selectedGate.lastPlate}
                   </div>
                   <div>
-                    <div className="text-xs text-[#e6edf3] font-medium">{t('OCR accuracy:')} <span className="font-mono text-[#3fb950] font-bold">{(selectedGate.lastConfidence * 100).toFixed(1)}%</span></div>
-                    <div className="text-[10px] text-[#8b949e]">{t('Time:')} {t(selectedGate.lastPassageTime)}</div>
+                    <div className="text-xs text-foreground font-medium">{t('OCR accuracy:')} <span className=" text-success font-medium">{(selectedGate.lastConfidence * 100).toFixed(1)}%</span></div>
+                    <div className="text-[11px] text-muted-foreground">{t('Time:')} {t(selectedGate.lastPassageTime)}</div>
                   </div>
                 </div>
                 <Badge variant="emerald" size="sm">{t('VALID')}</Badge>
@@ -2515,7 +2515,7 @@ export const BarrierMapVisualization: React.FC<BarrierMapVisualizationProps> = (
             </div>
 
             {/* Action Bar */}
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-[#30363d]">
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
               <Button
                 variant="outline"
                 size="sm"

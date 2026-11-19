@@ -14,7 +14,7 @@ interface CameraFormModalProps {
 }
 
 const SELECT_CLS =
-  'w-full bg-[#161b22] border border-[#30363d] text-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#58a6ff]';
+  'w-full bg-card border border-border text-foreground rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary';
 
 export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, isOpen, onClose }) => {
   const { createTenantCamera, updateTenantCamera, tenantLanes, edgeDevices, parkingMap, setCameraCoverage } = usePlatform();
@@ -130,27 +130,27 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-xs" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/70 " onClick={onClose} />
 
       {/* Modal Card */}
-      <div className="relative w-full max-w-xl bg-[#0d0e12] border border-[#30363d] rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-xl bg-background border border-border rounded-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-[330ms]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between bg-[#161b22]">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-card">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 text-primary flex items-center justify-center">
               <Camera className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">
+              <h3 className="text-base font-medium text-foreground tracking-tight">
                 {isEdit ? t('Edit Camera') : t('Register ANPR Camera')}
               </h3>
-              <p className="text-xs text-[#8b949e]">{t('{{site}} — video stream endpoint & lane assignment', { site: site.name })}</p>
+              <p className="text-xs text-muted-foreground">{t('{{site}} — video stream endpoint & lane assignment', { site: site.name })}</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white hover:bg-[#30363d] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground hover:bg-border flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -160,38 +160,38 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                {t('Camera Name')} <span className="text-[#f85149]">*</span>
+              <label className="block text-foreground font-medium mb-1.5">
+                {t('Camera Name')} <span className="text-destructive">*</span>
               </label>
               <Input
                 placeholder={t('e.g. Entry Lane A Plate Cam')}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
-                className="bg-[#161b22] border-[#30363d] text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Camera Code')}</label>
+              <label className="block text-foreground font-medium mb-1.5">{t('Camera Code')}</label>
               <Input
                 placeholder={t('e.g. CAM-IN-01')}
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                className="bg-[#161b22] border-[#30363d] text-white font-mono"
+                className="bg-card border-border text-foreground "
               />
             </div>
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-[#c9d1d9] font-medium">
-                {t('Stream URL')} <span className="text-[#f85149]">*</span>
+              <label className="block text-foreground font-medium">
+                {t('Stream URL')} <span className="text-destructive">*</span>
               </label>
               <select
                 value={sourcePreset}
                 onChange={(e) => setSourcePreset(e.target.value as typeof sourcePreset)}
-                className="bg-[#161b22] border border-[#30363d] text-[#8b949e] rounded-md px-2 py-0.5 text-[10px] focus:outline-none focus:border-[#58a6ff]"
+                className="bg-card border border-border text-muted-foreground rounded-md px-2 py-0.5 text-[11px] focus:outline-none focus:border-primary"
                 title={t('Connection type (fills in the example below — does not change what is saved)')}
               >
                 <option value="rtsp">{t('RTSP (IP camera)')}</option>
@@ -204,14 +204,14 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
               value={formData.streamUrl}
               onChange={(e) => setFormData({ ...formData, streamUrl: e.target.value })}
               required
-              className="bg-[#161b22] border-[#30363d] text-white font-mono"
+              className="bg-card border-border text-foreground "
             />
-            <p className="text-[10px] text-[#8b949e] mt-1">{sourcePresets[sourcePreset].hint}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{sourcePresets[sourcePreset].hint}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Purpose')}</label>
+              <label className="block text-foreground font-medium mb-1.5">{t('Purpose')}</label>
               <select
                 value={formData.purpose}
                 onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
@@ -224,7 +224,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Lane')}</label>
+              <label className="block text-foreground font-medium mb-1.5">{t('Lane')}</label>
               <select
                 value={formData.laneId}
                 onChange={(e) => setFormData({ ...formData, laneId: e.target.value })}
@@ -240,7 +240,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Edge Device')}</label>
+              <label className="block text-foreground font-medium mb-1.5">{t('Edge Device')}</label>
               <select
                 value={formData.edgeDeviceId}
                 onChange={(e) => setFormData({ ...formData, edgeDeviceId: e.target.value })}
@@ -258,7 +258,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
 
           {isEdit && (
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Status')}</label>
+              <label className="block text-foreground font-medium mb-1.5">{t('Status')}</label>
               <select
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
@@ -272,14 +272,14 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
           )}
 
           {formData.purpose === 'monitor' && (
-            <div className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] space-y-2">
-              <h4 className="text-white font-semibold text-xs">{t('Parking zone coverage')}</h4>
+            <div className="p-3 rounded-xl bg-card border border-border space-y-2">
+              <h4 className="text-foreground font-medium text-xs">{t('Parking zone coverage')}</h4>
               {siteZones.length === 0 ? (
-                <p className="text-[11px] text-[#8b949e] italic">
+                <p className="text-[11px] text-muted-foreground italic">
                   {t('This site has no parking zones yet — create them in the Parking Map first.')}
                 </p>
               ) : !isEdit ? (
-                <p className="text-[11px] text-[#8b949e] italic">
+                <p className="text-[11px] text-muted-foreground italic">
                   {t('Save the camera first, then reopen it to assign covered zones.')}
                 </p>
               ) : (
@@ -287,7 +287,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
                   {siteZones.map((z) => (
                     <label
                       key={z.id}
-                      className="flex items-center gap-2 text-xs text-[#c9d1d9] cursor-pointer hover:text-white"
+                      className="flex items-center gap-2 text-xs text-foreground cursor-pointer hover:text-foreground"
                     >
                       <input
                         type="checkbox"
@@ -296,7 +296,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
                         className="accent-[#58a6ff]"
                       />
                       <span className="font-mono">{z.code ?? z.name}</span>
-                      <span className="text-[10px] text-[#8b949e]">{z.levelName}</span>
+                      <span className="text-[11px] text-muted-foreground">{z.levelName}</span>
                     </label>
                   ))}
                 </div>
@@ -305,15 +305,15 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
           )}
 
           {isEdit && camera.lastSnapshotUrl && (
-            <div className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] space-y-2">
-              <h4 className="text-white font-semibold text-xs">{t('Latest snapshot')}</h4>
+            <div className="p-3 rounded-xl bg-card border border-border space-y-2">
+              <h4 className="text-foreground font-medium text-xs">{t('Latest snapshot')}</h4>
               <img
                 src={camera.lastSnapshotUrl}
                 alt="Last camera snapshot"
-                className="w-full max-h-40 object-contain rounded-lg border border-[#30363d] bg-black"
+                className="w-full max-h-40 object-contain rounded-lg border border-border bg-black"
               />
               {camera.snapshotCapturedAt && (
-                <p className="text-[10px] text-[#8b949e] font-mono">
+                <p className="text-[11px] text-muted-foreground ">
                   {t('Captured')}: {new Date(camera.snapshotCapturedAt).toLocaleString()}
                 </p>
               )}
@@ -321,17 +321,17 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
           )}
 
           <div>
-            <label className="block text-[#c9d1d9] font-medium mb-1.5">{t('Notes')}</label>
+            <label className="block text-foreground font-medium mb-1.5">{t('Notes')}</label>
             <Input
               placeholder={t('Mounting position, model, serial…')}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="bg-[#161b22] border-[#30363d] text-white"
+              className="bg-card border-border text-foreground"
             />
           </div>
 
           {/* Footer actions */}
-          <div className="pt-4 border-t border-[#30363d] flex items-center justify-end gap-3">
+          <div className="pt-4 border-t border-border flex items-center justify-end gap-3">
             <Button type="button" variant="outline" onClick={onClose} className="text-xs">
               {t('Cancel')}
             </Button>
@@ -339,7 +339,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({ site, camera, 
               type="submit"
               variant="primary"
               isLoading={isLoading}
-              className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
+              className="text-xs bg-primary hover:bg-primary/90 text-[#fff] gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
               {isEdit ? t('Save Camera') : t('Register Camera')}

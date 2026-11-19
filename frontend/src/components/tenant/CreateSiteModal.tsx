@@ -64,25 +64,25 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-xs" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/70 " onClick={onClose} />
 
       {/* Modal Card */}
-      <div className="relative w-full max-w-2xl bg-[#0d0e12] border border-[#30363d] rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-2xl bg-background border border-border rounded-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-[330ms]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between bg-[#161b22]">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-card">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 text-primary flex items-center justify-center">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">{t('Add New Site Facility')}</h3>
-              <p className="text-xs text-[#8b949e]">{t('Deploy ANPR access gates and edge controllers for a new location')}</p>
+              <h3 className="text-base font-medium text-foreground tracking-tight">{t('Add New Site Facility')}</h3>
+              <p className="text-xs text-muted-foreground">{t('Deploy ANPR access gates and edge controllers for a new location')}</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white hover:bg-[#30363d] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground hover:bg-border flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -92,59 +92,59 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
-                {t('Site Name')} <span className="text-[#f85149]">*</span>
+              <label className="block text-foreground font-medium mb-1.5">
+                {t('Site Name')} <span className="text-destructive">*</span>
               </label>
               <Input
                 placeholder={t('e.g. West Campus Innovation Hub')}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
-                className="bg-[#161b22] border-[#30363d] text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+              <label className="block text-foreground font-medium mb-1.5">
                 {t('Site Code Identifier')}
               </label>
               <Input
                 placeholder={t('e.g. SITE-WEST-01')}
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                className="bg-[#161b22] border-[#30363d] text-white font-mono"
+                className="bg-card border-border text-foreground "
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[#c9d1d9] font-medium mb-1.5">
-              {t('Physical Street Address')} <span className="text-[#f85149]">*</span>
+            <label className="block text-foreground font-medium mb-1.5">
+              {t('Physical Street Address')} <span className="text-destructive">*</span>
             </label>
             <Input
               placeholder={t('e.g. 88 Vo Van Kiet Blvd, District 5, Ho Chi Minh City')}
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               required
-              className="bg-[#161b22] border-[#30363d] text-white"
+              className="bg-card border-border text-foreground"
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+              <label className="block text-foreground font-medium mb-1.5">
                 {t('Operating Schedule')}
               </label>
               <Input
                 placeholder={t('e.g. 24/7 Operations')}
                 value={formData.operatingHours}
                 onChange={(e) => setFormData({ ...formData, operatingHours: e.target.value })}
-                className="bg-[#161b22] border-[#30363d] text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+              <label className="block text-foreground font-medium mb-1.5">
                 {t('Vehicle Capacity')}
               </label>
               <Input
@@ -152,12 +152,12 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
                 placeholder="500"
                 value={formData.capacity}
                 onChange={(e) => setFormData({ ...formData, capacity: Number(e.target.value) })}
-                className="bg-[#161b22] border-[#30363d] text-white font-mono"
+                className="bg-card border-border text-foreground "
               />
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+              <label className="block text-foreground font-medium mb-1.5">
                 {t('Number of Lanes')}
               </label>
               <Input
@@ -165,46 +165,46 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
                 placeholder="4"
                 value={formData.lanesCount}
                 onChange={(e) => setFormData({ ...formData, lanesCount: Number(e.target.value) })}
-                className="bg-[#161b22] border-[#30363d] text-white font-mono"
+                className="bg-card border-border text-foreground "
               />
             </div>
           </div>
 
           {/* Hardware Initial Provisioning */}
-          <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
-            <h4 className="text-white font-semibold text-xs flex items-center gap-2">
-              <HardDrive className="w-3.5 h-3.5 text-[#58a6ff]" />
+          <div className="p-4 rounded-xl bg-card border border-border space-y-3">
+            <h4 className="text-foreground font-medium text-xs flex items-center gap-2">
+              <HardDrive className="w-3.5 h-3.5 text-primary" />
               {t('Provisioned Hardware Gateways')}
             </h4>
 
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block text-[#8b949e] text-[11px] mb-1">{t('ANPR Cameras')}</label>
+                <label className="block text-muted-foreground text-[11px] mb-1">{t('ANPR Cameras')}</label>
                 <Input
                   type="number"
                   value={formData.cameraCount}
                   onChange={(e) => setFormData({ ...formData, cameraCount: Number(e.target.value) })}
-                  className="bg-[#0d0e12] border-[#30363d] text-white font-mono"
+                  className="bg-background border-border text-foreground "
                 />
               </div>
 
               <div>
-                <label className="block text-[#8b949e] text-[11px] mb-1">{t('Barrier Gates')}</label>
+                <label className="block text-muted-foreground text-[11px] mb-1">{t('Barrier Gates')}</label>
                 <Input
                   type="number"
                   value={formData.gateCount}
                   onChange={(e) => setFormData({ ...formData, gateCount: Number(e.target.value) })}
-                  className="bg-[#0d0e12] border-[#30363d] text-white font-mono"
+                  className="bg-background border-border text-foreground "
                 />
               </div>
 
               <div>
-                <label className="block text-[#8b949e] text-[11px] mb-1">{t('Edge Compute Nodes')}</label>
+                <label className="block text-muted-foreground text-[11px] mb-1">{t('Edge Compute Nodes')}</label>
                 <Input
                   type="number"
                   value={formData.edgeDeviceCount}
                   onChange={(e) => setFormData({ ...formData, edgeDeviceCount: Number(e.target.value) })}
-                  className="bg-[#0d0e12] border-[#30363d] text-white font-mono"
+                  className="bg-background border-border text-foreground "
                 />
               </div>
             </div>
@@ -212,32 +212,32 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+              <label className="block text-foreground font-medium mb-1.5">
                 {t('Site Manager Name')}
               </label>
               <Input
                 placeholder={t('e.g. Tran Van B')}
                 value={formData.managerName}
                 onChange={(e) => setFormData({ ...formData, managerName: e.target.value })}
-                className="bg-[#161b22] border-[#30363d] text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
 
             <div>
-              <label className="block text-[#c9d1d9] font-medium mb-1.5">
+              <label className="block text-foreground font-medium mb-1.5">
                 {t('Manager Contact Phone')}
               </label>
               <Input
                 placeholder="+84 90 123 4567"
                 value={formData.managerPhone}
                 onChange={(e) => setFormData({ ...formData, managerPhone: e.target.value })}
-                className="bg-[#161b22] border-[#30363d] text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
           </div>
 
           {/* Footer actions */}
-          <div className="pt-4 border-t border-[#30363d] flex items-center justify-end gap-3">
+          <div className="pt-4 border-t border-border flex items-center justify-end gap-3">
             <Button
               type="button"
               variant="outline"
@@ -250,7 +250,7 @@ export const CreateSiteModal: React.FC<CreateSiteModalProps> = ({ isOpen, onClos
               type="submit"
               variant="primary"
               isLoading={isLoading}
-              className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
+              className="text-xs bg-primary hover:bg-primary/90 text-[#fff] gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
               {t('Provision & Create Site')}

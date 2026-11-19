@@ -138,16 +138,16 @@ export const PlatformHeader: React.FC<{
   };
 
   return (
-    <header className="h-16 border-b border-[#30363d] bg-[#0d0e12] px-6 flex items-center justify-between gap-4 sticky top-0 z-30 select-none">
+    <header className="h-16 border-b border-border bg-background px-6 flex items-center justify-between gap-4 sticky top-0 z-30 select-none">
       {/* Search Input */}
       <form onSubmit={handleGlobalSearch} className="flex-1 max-w-md relative">
-        <Search className="w-4 h-4 text-[#8b949e] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t('Search tenants, admins, alerts, or audit logs... (Enter)')}
-          className="w-full bg-[#161b22] border border-[#30363d] hover:border-[#484f58] text-xs text-[#c9d1d9] placeholder-[#8b949e] rounded-xl pl-9 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#58a6ff] focus:border-[#58a6ff] transition-colors"
+          className="w-full bg-card border border-border hover:border-muted-foreground/50 text-xs text-foreground placeholder-muted-foreground rounded-xl pl-9 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
         />
       </form>
 
@@ -156,23 +156,23 @@ export const PlatformHeader: React.FC<{
         {/* Live Simulation Indicator Toggle */}
         <button
           onClick={() => setIsLiveSimulationActive(!isLiveSimulationActive)}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
             isLiveSimulationActive
-              ? 'bg-[#238636]/10 border-[#3fb950]/30 text-[#3fb950]'
-              : 'bg-[#161b22] border-[#30363d] text-[#8b949e]'
+              ? 'bg-success/10 border-success/30 text-success'
+              : 'bg-card border-border text-muted-foreground'
           }`}
           title={t('Click to toggle real-time live telemetry polling simulation')}
         >
-          <span className={`w-2 h-2 rounded-full ${isLiveSimulationActive ? 'bg-[#3fb950] animate-pulse' : 'bg-[#8b949e]'}`} />
+          <span className={`w-2 h-2 rounded-full ${isLiveSimulationActive ? 'bg-success ' : 'bg-muted-foreground'}`} />
           <span>{isLiveSimulationActive ? t('LIVE TELEMETRY') : t('PAUSED')}</span>
-          <span className="text-[10px] opacity-70 font-mono">({lastUpdatedTime})</span>
+          <span className="text-[11px] opacity-70 ">({lastUpdatedTime})</span>
         </button>
 
         {/* Manual Refresh Button */}
         <button
           onClick={handleManualRefresh}
           disabled={isRefreshing}
-          className="p-2 text-[#8b949e] hover:text-white bg-[#161b22] hover:bg-[#21262d] rounded-lg border border-[#30363d] transition-colors cursor-pointer disabled:opacity-60"
+          className="p-2 text-muted-foreground hover:text-foreground bg-card hover:bg-muted rounded-lg border border-border transition-colors cursor-pointer disabled:opacity-60"
           title={t('Force refresh platform metrics')}
         >
           <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -191,13 +191,13 @@ export const PlatformHeader: React.FC<{
               description: t('Switched to {{mode}} Mode.', { mode: theme === 'dark' ? t('Light') : t('Dark') })
             });
           }}
-          className="p-2 text-[#8b949e] hover:text-white bg-[#161b22] hover:bg-[#21262d] rounded-lg border border-[#30363d] transition-colors cursor-pointer flex items-center"
+          className="p-2 text-muted-foreground hover:text-foreground bg-card hover:bg-muted rounded-lg border border-border transition-colors cursor-pointer flex items-center"
           title={t('Switch to {{mode}} Mode', { mode: theme === 'dark' ? t('Light') : t('Dark') })}
         >
           {theme === 'dark' ? (
-            <Sun className="w-4 h-4 text-amber-400" />
+            <Sun className="w-4 h-4 text-warning" />
           ) : (
-            <Moon className="w-4 h-4 text-sky-500" />
+            <Moon className="w-4 h-4 text-primary" />
           )}
         </button>
 
@@ -221,7 +221,7 @@ export const PlatformHeader: React.FC<{
             size="sm"
             icon={Plus}
             onClick={onOpenQuickActionModal}
-            className="shadow-sm"
+            className=""
           >
             {t('Quick Action')}
           </Button>
@@ -234,11 +234,11 @@ export const PlatformHeader: React.FC<{
               setIsNotificationOpen(!isNotificationOpen);
               setIsProfileOpen(false);
             }}
-            className="p-2 text-[#8b949e] hover:text-white bg-[#161b22] hover:bg-[#21262d] rounded-lg border border-[#30363d] transition-colors relative cursor-pointer"
+            className="p-2 text-muted-foreground hover:text-foreground bg-card hover:bg-muted rounded-lg border border-border transition-colors relative cursor-pointer"
           >
             <Bell className="w-4 h-4" />
             {totalNotifications > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#f85149] text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-[#fff] text-[11px] font-medium flex items-center justify-center ">
                 {totalNotifications}
               </span>
             )}
@@ -246,26 +246,26 @@ export const PlatformHeader: React.FC<{
 
           {/* Notifications Popover */}
           {isNotificationOpen && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in duration-150">
-              <div className="p-4 border-b border-[#30363d] flex items-center justify-between bg-[#0d0e12]">
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-card border border-border rounded-xl z-50 overflow-hidden animate-in fade-in duration-[330ms]">
+              <div className="p-4 border-b border-border flex items-center justify-between bg-background">
                 <div className="flex items-center gap-2">
-                  <ShieldAlert className="w-4 h-4 text-[#f85149]" />
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                  <ShieldAlert className="w-4 h-4 text-destructive" />
+                  <h4 className="text-xs font-medium text-foreground ">
                     {t('Platform Notifications ({{count}})', { count: totalNotifications })}
                   </h4>
                 </div>
                 <button
                   onClick={() => setIsNotificationOpen(false)}
-                  className="text-[#8b949e] hover:text-white p-1 rounded"
+                  className="text-muted-foreground hover:text-foreground p-1 rounded"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="p-3 max-h-80 overflow-y-auto space-y-2 text-xs divide-y divide-[#30363d]">
+              <div className="p-3 max-h-80 overflow-y-auto space-y-2 text-xs divide-y divide-border">
                 {activeAlerts.length === 0 && activeIncidents.length === 0 ? (
-                  <div className="py-8 text-center text-[#8b949e]">
-                    <CheckCircle2 className="w-8 h-8 text-[#3fb950] mx-auto mb-2" />
+                  <div className="py-8 text-center text-muted-foreground">
+                    <CheckCircle2 className="w-8 h-8 text-success mx-auto mb-2" />
                     <p className="font-medium">{t('No unresolved platform alerts')}</p>
                   </div>
                 ) : (
@@ -277,19 +277,19 @@ export const PlatformHeader: React.FC<{
                           navigateTo('security', 'alerts');
                           setIsNotificationOpen(false);
                         }}
-                        className="pt-2.5 first:pt-0 hover:bg-[#21262d] p-2 rounded-lg cursor-pointer transition-colors"
+                        className="pt-2.5 first:pt-0 hover:bg-muted p-2 rounded-lg cursor-pointer transition-colors"
                       >
-                        <div className="flex items-center justify-between font-semibold text-[#c9d1d9]">
-                          <span className="text-[#f85149] flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#f85149]" />
+                        <div className="flex items-center justify-between font-medium text-foreground">
+                          <span className="text-destructive flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
                             {alert.type}
                           </span>
-                          <span className="text-[10px] text-[#8b949e] font-mono">
+                          <span className="text-[11px] text-muted-foreground ">
                             {new Date(alert.detectedAt).toLocaleTimeString()}
                           </span>
                         </div>
-                        <p className="text-[11px] text-[#8b949e] mt-1">{alert.evidence.details}</p>
-                        <p className="text-[10px] text-[#8b949e] mt-0.5">{t('Subject: {{email}}', { email: alert.subjectEmail })}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">{alert.evidence.details}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{t('Subject: {{email}}', { email: alert.subjectEmail })}</p>
                       </div>
                     ))}
 
@@ -300,31 +300,31 @@ export const PlatformHeader: React.FC<{
                           navigateTo('monitoring', 'incidents');
                           setIsNotificationOpen(false);
                         }}
-                        className="pt-2.5 hover:bg-slate-800/50 p-2 rounded-lg cursor-pointer transition-colors"
+                        className="pt-2.5 hover:bg-muted/50 p-2 rounded-lg cursor-pointer transition-colors"
                       >
-                        <div className="flex items-center justify-between font-semibold text-slate-200">
-                          <span className="text-amber-400 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#d29922]" />
+                        <div className="flex items-center justify-between font-medium text-foreground">
+                          <span className="text-warning flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-warning" />
                             {inc.title}
                           </span>
                           <Badge variant="red" size="sm">
                             {inc.severity}
                           </Badge>
                         </div>
-                        <p className="text-[11px] text-[#8b949e] mt-1">{inc.description}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">{inc.description}</p>
                       </div>
                     ))}
                   </>
                 )}
               </div>
 
-              <div className="p-3 bg-[#0d0e12] border-t border-[#30363d] text-center">
+              <div className="p-3 bg-background border-t border-border text-center">
                 <button
                   onClick={() => {
                     navigateTo('security', 'alerts');
                     setIsNotificationOpen(false);
                   }}
-                  className="text-xs text-[#58a6ff] hover:text-[#388bfd] font-semibold cursor-pointer"
+                  className="text-xs text-primary hover:text-primary font-medium cursor-pointer"
                 >
                   {t('View Security Control Center →')}
                 </button>
@@ -340,23 +340,23 @@ export const PlatformHeader: React.FC<{
               setIsProfileOpen(!isProfileOpen);
               setIsNotificationOpen(false);
             }}
-            className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] transition-colors cursor-pointer"
+            className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg bg-card hover:bg-muted border border-border transition-colors cursor-pointer"
           >
-            <div className="w-7 h-7 rounded-lg bg-[#58a6ff] text-slate-950 font-bold flex items-center justify-center text-xs font-mono uppercase">
+            <div className="w-7 h-7 rounded-lg bg-primary text-[#fff] font-medium flex items-center justify-center text-xs ">
               {currentUser?.name ? currentUser.name.slice(0, 2) : 'AN'}
             </div>
             <div className="text-left hidden sm:block">
-              <span className="text-xs font-bold text-white block leading-none">{currentUser?.name || 'Anthony N.'}</span>
-              <span className="text-[10px] text-[#58a6ff] block leading-tight font-semibold font-mono">{appWorkspace === 'platform' ? t('PLATFORM GOV') : t('TENANT PORTAL')}</span>
+              <span className="text-xs font-medium text-foreground block leading-none">{currentUser?.name || 'Anthony N.'}</span>
+              <span className="text-[11px] text-primary block leading-tight font-medium ">{appWorkspace === 'platform' ? t('PLATFORM GOV') : t('TENANT PORTAL')}</span>
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-[#8b949e]" />
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
 
           {isProfileOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl z-50 overflow-hidden py-1 text-xs">
-              <div className="px-4 py-3 border-b border-[#30363d] bg-[#0d0e12]">
-                <p className="font-bold text-white">{currentUser?.name || 'Anthony Nguyen'}</p>
-                <p className="text-[#8b949e] text-[11px] truncate font-mono">{currentUser?.email || 'anh.nh@kyanon.digital'}</p>
+            <div className="absolute right-0 mt-2 w-64 bg-card border border-border rounded-xl z-50 overflow-hidden py-1 text-xs">
+              <div className="px-4 py-3 border-b border-border bg-background">
+                <p className="font-medium text-foreground">{currentUser?.name || 'Anthony Nguyen'}</p>
+                <p className="text-muted-foreground text-[11px] truncate ">{currentUser?.email || 'anh.nh@kyanon.digital'}</p>
                 <div className="mt-2 flex items-center justify-between">
                   <button
                     onClick={() => {
@@ -365,17 +365,17 @@ export const PlatformHeader: React.FC<{
                       if (!currentUser?.mfaEnabled) openMfaModal('enroll');
                       setIsProfileOpen(false);
                     }}
-                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono hover:opacity-80 transition-all cursor-pointer ${
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] hover:opacity-80 transition-colors cursor-pointer ${
                       currentUser?.mfaEnabled
-                        ? 'bg-[#238636]/20 text-[#3fb950] border border-[#3fb950]/30'
-                        : 'bg-[#d29922]/20 text-[#d29922] border border-[#d29922]/30'
+                        ? 'bg-success/20 text-success border border-success/30'
+                        : 'bg-warning/20 text-warning border border-warning/30'
                     }`}
                     title={currentUser?.mfaEnabled ? t('TOTP Active') : t('Set up multi-factor authentication')}
                   >
                     <UserCheck className="w-3 h-3" />
                     {currentUser?.mfaEnabled ? t('MFA Verified') : t('MFA Off')}
                   </button>
-                  <span className="text-[10px] text-[#8b949e] font-mono">
+                  <span className="text-[11px] text-muted-foreground ">
                     {currentUser?.mfaEnabled ? t('TOTP Active') : t('Password Only')}
                   </span>
                 </div>
@@ -386,9 +386,9 @@ export const PlatformHeader: React.FC<{
                   openMfaModal('enroll');
                   setIsProfileOpen(false);
                 }}
-                className="w-full text-left px-4 py-2.5 text-[#c9d1d9] hover:bg-[#21262d] hover:text-white flex items-center gap-2 cursor-pointer"
+                className="w-full text-left px-4 py-2.5 text-foreground hover:bg-muted hover:text-foreground flex items-center gap-2 cursor-pointer"
               >
-                <ShieldCheck className="w-4 h-4 text-[#3fb950]" />
+                <ShieldCheck className="w-4 h-4 text-success" />
                 <span>{t('Configure MFA / TOTP')}</span>
               </button>
 
@@ -397,9 +397,9 @@ export const PlatformHeader: React.FC<{
                   navigateTo('platform', 'settings');
                   setIsProfileOpen(false);
                 }}
-                className="w-full text-left px-4 py-2.5 text-[#c9d1d9] hover:bg-[#21262d] hover:text-white flex items-center gap-2 cursor-pointer"
+                className="w-full text-left px-4 py-2.5 text-foreground hover:bg-muted hover:text-foreground flex items-center gap-2 cursor-pointer"
               >
-                <Sliders className="w-4 h-4 text-[#58a6ff]" />
+                <Sliders className="w-4 h-4 text-primary" />
                 <span>{t('Platform Settings')}</span>
               </button>
 
@@ -409,14 +409,14 @@ export const PlatformHeader: React.FC<{
                   navigateTo('security', 'sessions');
                   setIsProfileOpen(false);
                 }}
-                className="w-full text-left px-4 py-2.5 text-[#c9d1d9] hover:bg-[#21262d] hover:text-white flex items-center gap-2 cursor-pointer"
+                className="w-full text-left px-4 py-2.5 text-foreground hover:bg-muted hover:text-foreground flex items-center gap-2 cursor-pointer"
               >
-                <Zap className="w-4 h-4 text-[#d29922]" />
+                <Zap className="w-4 h-4 text-warning" />
                 <span>{t('My Active Sessions')}</span>
               </button>
               )}
 
-              <div className="border-t border-[#30363d] my-1" />
+              <div className="border-t border-border my-1" />
 
               <button
                 onClick={() => {
@@ -428,7 +428,7 @@ export const PlatformHeader: React.FC<{
                     description: t('Your session has ended. Please sign in again.')
                   });
                 }}
-                className="w-full text-left px-4 py-2.5 text-[#f85149] hover:bg-[#da3633]/20 flex items-center gap-2 cursor-pointer"
+                className="w-full text-left px-4 py-2.5 text-destructive hover:bg-destructive/20 flex items-center gap-2 cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
                 <span>{t('Sign Out')}</span>

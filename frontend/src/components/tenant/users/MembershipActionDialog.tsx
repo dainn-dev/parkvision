@@ -64,18 +64,18 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-[#161b22] border border-[#30363d] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-[330ms]">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-lg overflow-hidden">
         {/* Header */}
-        <div className="p-5 border-b border-[#30363d] flex items-center justify-between bg-[#0d0e12]/60">
+        <div className="p-5 border-b border-border flex items-center justify-between bg-background/60">
           <div className="flex items-center gap-3">
             <div
               className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                 actionType === 'SUSPEND'
-                  ? 'bg-[#d29922]/15 border border-[#d29922]/30 text-[#d29922]'
+                  ? 'bg-warning/15 border border-warning/30 text-warning'
                   : actionType === 'ACTIVATE'
-                  ? 'bg-[#238636]/15 border border-[#238636]/30 text-[#3fb950]'
-                  : 'bg-[#f85149]/15 border border-[#f85149]/30 text-[#f85149]'
+                  ? 'bg-success/15 border border-success/30 text-success'
+                  : 'bg-destructive/15 border border-destructive/30 text-destructive'
               }`}
             >
               {actionType === 'SUSPEND' && <Ban className="w-5 h-5" />}
@@ -83,8 +83,8 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
               {actionType === 'END' && <StopCircle className="w-5 h-5" />}
             </div>
             <div>
-              <h2 className="text-base font-bold text-white tracking-tight">{getTitle()}</h2>
-              <p className="text-xs text-[#8b949e]">
+              <h2 className="text-base font-medium text-foreground tracking-tight">{getTitle()}</h2>
+              <p className="text-xs text-muted-foreground">
                 {actionType === 'SUSPEND' && t('Temporarily block automatic gate access')}
                 {actionType === 'ACTIVATE' && t('Restore vehicle whitelist access privileges')}
                 {actionType === 'END' && t('Permanently retire membership and release passes')}
@@ -93,7 +93,7 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-[#8b949e] hover:text-white p-1.5 rounded-lg hover:bg-[#21262d] transition-colors"
+            className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -102,38 +102,38 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
         {/* Content Body */}
         <div className="p-5 space-y-4 text-xs">
           {formError && (
-            <div className="p-3 bg-[#f85149]/15 border border-[#f85149]/30 rounded-xl text-[#ff7b72] flex items-center gap-2 font-medium">
+            <div className="p-3 bg-destructive/15 border border-destructive/30 rounded-xl text-destructive flex items-center gap-2 font-medium">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{formError}</span>
             </div>
           )}
 
           {/* Member Profile Badge */}
-          <div className="p-3.5 bg-[#0d0e12] border border-[#30363d] rounded-xl flex items-center justify-between">
+          <div className="p-3.5 bg-background border border-border rounded-xl flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-[#58a6ff]/15 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center font-bold text-xs">
+              <div className="w-9 h-9 rounded-full bg-primary/15 border border-primary/30 text-primary flex items-center justify-center font-medium text-xs">
                 {user.membership.fullName.charAt(0)}
               </div>
               <div>
-                <div className="font-bold text-white text-xs">{user.membership.fullName}</div>
-                <div className="text-[11px] font-mono text-[#8b949e]">
+                <div className="font-medium text-foreground text-xs">{user.membership.fullName}</div>
+                <div className="text-[11px] text-muted-foreground">
                   {user.membership.memberCode} · {user.membership.department || user.membership.type}
                 </div>
               </div>
             </div>
 
             <div className="text-right">
-              <div className="text-[11px] text-[#8b949e] flex items-center gap-1 justify-end">
-                <Car className="w-3 h-3 text-[#58a6ff]" />
+              <div className="text-[11px] text-muted-foreground flex items-center gap-1 justify-end">
+                <Car className="w-3 h-3 text-primary" />
                 <span>{t('{{count}} Vehicles', { count: user.membership.vehicles.length })}</span>
               </div>
               <span
-                className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5 ${
+                className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full mt-0.5 ${
                   user.membership.status === 'ACTIVE'
-                    ? 'bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30'
+                    ? 'bg-success/15 text-success border border-success/30'
                     : user.membership.status === 'SUSPENDED'
-                    ? 'bg-[#d29922]/15 text-[#d29922] border border-[#d29922]/30'
-                    : 'bg-[#8b949e]/15 text-[#8b949e] border border-[#8b949e]/30'
+                    ? 'bg-warning/15 text-warning border border-warning/30'
+                    : 'bg-muted-foreground/15 text-muted-foreground border border-muted-foreground/30'
                 }`}
               >
                 {t(user.membership.status)}
@@ -144,8 +144,8 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
           {actionType === 'SUSPEND' && (
             <div className="space-y-3">
               <div>
-                <label className="block text-[#8b949e] font-semibold mb-1">
-                  {t('Reason for Suspension')} <span className="text-[#f85149]">*</span>
+                <label className="block text-muted-foreground font-medium mb-1">
+                  {t('Reason for Suspension')} <span className="text-destructive">*</span>
                 </label>
                 <textarea
                   rows={3}
@@ -153,14 +153,14 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
                   placeholder={t('Provide detailed explanation for this suspension...')}
                   value={suspendReason}
                   onChange={(e) => setSuspendReason(e.target.value)}
-                  className="w-full bg-[#0d0e12] border border-[#30363d] rounded-xl px-3 py-2 text-white placeholder-[#8b949e]/60 focus:border-[#d29922] focus:outline-hidden resize-none"
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2 text-foreground placeholder-muted-foreground/60 focus:border-warning focus:outline-hidden resize-none"
                 />
               </div>
 
-              <div className="p-3 bg-[#161b22] border border-[#30363d] rounded-xl text-[11px] text-[#8b949e] flex items-start gap-2">
-                <Info className="w-4 h-4 text-[#58a6ff] shrink-0 mt-0.5" />
+              <div className="p-3 bg-card border border-border rounded-xl text-[11px] text-muted-foreground flex items-start gap-2">
+                <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <span>
-                  {t('The user can still sign in to check their status, but their linked license plates will be rejected at all automated gates with a')} <strong className="text-white">&quot;MEMBERSHIP_SUSPENDED&quot;</strong> {t('notice.')}
+                  {t('The user can still sign in to check their status, but their linked license plates will be rejected at all automated gates with a')} <strong className="text-foreground">&quot;MEMBERSHIP_SUSPENDED&quot;</strong> {t('notice.')}
                 </span>
               </div>
             </div>
@@ -168,10 +168,10 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
 
           {actionType === 'ACTIVATE' && (
             <div className="space-y-3">
-              <p className="text-[#c9d1d9] leading-relaxed">
-                {t('Restore full access for')} <strong className="text-white">{user.membership.fullName}</strong>?
+              <p className="text-foreground leading-relaxed">
+                {t('Restore full access for')} <strong className="text-foreground">{user.membership.fullName}</strong>?
               </p>
-              <div className="p-3 bg-[#238636]/10 border border-[#238636]/30 rounded-xl text-[11px] text-[#3fb950] flex items-start gap-2">
+              <div className="p-3 bg-success/10 border border-success/30 rounded-xl text-[11px] text-success flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>
                   {t('All {{count}} registered vehicle plates will be immediately re-synced with the edge ANPR gateway policies.', { count: user.membership.vehicles.length })}
@@ -182,10 +182,10 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
 
           {actionType === 'END' && (
             <div className="space-y-3">
-              <p className="text-[#c9d1d9] leading-relaxed">
-                {t('Are you sure you want to end membership for')} <strong className="text-white">{user.membership.fullName}</strong>?
+              <p className="text-foreground leading-relaxed">
+                {t('Are you sure you want to end membership for')} <strong className="text-foreground">{user.membership.fullName}</strong>?
               </p>
-              <div className="p-3 bg-[#f85149]/10 border border-[#f85149]/30 rounded-xl text-[11px] text-[#ff7b72] flex items-start gap-2">
+              <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-[11px] text-destructive flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>
                   {t('This marks the membership as Ended and expires all linked vehicle gate passes. Historical logs will remain intact.')}
@@ -196,7 +196,7 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-[#30363d] bg-[#0d0e12]/80 flex items-center justify-end gap-2.5">
+        <div className="p-4 border-t border-border bg-background/80 flex items-center justify-end gap-2.5">
           <Button variant="secondary" onClick={onClose} className="text-xs">
             {t('Cancel')}
           </Button>
@@ -205,7 +205,7 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
               type="button"
               variant="primary"
               onClick={handleConfirm}
-              className="text-xs bg-[#d29922] hover:bg-[#e3b341] text-black font-bold gap-1.5 shadow-sm"
+              className="text-xs bg-warning hover:bg-warning/90 text-black font-medium gap-1.5 "
             >
               <Ban className="w-3.5 h-3.5" />
               {t('Confirm Suspension')}
@@ -216,7 +216,7 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
               type="button"
               variant="primary"
               onClick={handleConfirm}
-              className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white font-bold gap-1.5 shadow-sm"
+              className="text-xs bg-primary hover:bg-primary/90 text-[#fff] font-medium gap-1.5 "
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               {t('Reactivate Membership')}
@@ -227,7 +227,7 @@ export const MembershipActionDialog: React.FC<MembershipActionDialogProps> = ({
               type="button"
               variant="danger"
               onClick={handleConfirm}
-              className="text-xs bg-[#da3633] hover:bg-[#f85149] text-white font-bold gap-1.5 shadow-sm"
+              className="text-xs bg-destructive hover:bg-destructive/90 text-[#fff] font-medium gap-1.5 "
             >
               <StopCircle className="w-3.5 h-3.5" />
               {t('End Membership')}

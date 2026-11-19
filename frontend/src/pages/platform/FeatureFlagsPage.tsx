@@ -54,14 +54,14 @@ export const FeatureFlagsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-[330ms]">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            <Flag className="w-5 h-5 text-amber-400" /> {t('Feature Flags & Progressive Rollouts')}
+          <h2 className="text-xl font-medium text-foreground tracking-tight flex items-center gap-2">
+            <Flag className="w-5 h-5 text-warning" /> {t('Feature Flags & Progressive Rollouts')}
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {t('Safely roll out platform capabilities, AI models, and gate algorithms dynamically without redeploying code.')}
           </p>
         </div>
@@ -71,7 +71,7 @@ export const FeatureFlagsPage: React.FC = () => {
             variant="primary"
             icon={Plus}
             onClick={() => setIsAddModalOpen(true)}
-            className="shadow-md shadow-indigo-600/30"
+            className=" "
           >
             {t('New Feature Flag')}
           </Button>
@@ -98,7 +98,7 @@ export const FeatureFlagsPage: React.FC = () => {
                   <Badge variant={flag.enabled ? 'emerald' : 'slate'} dot>
                     {flag.enabled ? t('ENABLED') : t('DISABLED')}
                   </Badge>
-                  <code className="text-xs font-mono font-bold text-amber-300 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
+                  <code className="text-xs font-mono font-medium text-warning bg-warning/10 px-2 py-0.5 rounded border border-warning/40">
                     {flag.key}
                   </code>
                   <Badge variant={flag.environment === 'production' ? 'purple' : 'blue'} size="sm">
@@ -106,21 +106,21 @@ export const FeatureFlagsPage: React.FC = () => {
                   </Badge>
                 </div>
 
-                <h3 className="text-base font-bold text-white mt-1">{flag.name}</h3>
-                <p className="text-xs text-slate-400">{flag.description}</p>
+                <h3 className="text-base font-medium text-foreground mt-1">{flag.name}</h3>
+                <p className="text-xs text-muted-foreground">{flag.description}</p>
 
-                <div className="text-[11px] text-slate-500 pt-1 font-mono">
+                <div className="text-[11px] text-muted-foreground pt-1 ">
                   {t('Rollout:')}{' '}{flag.rolloutPercentage}% • {t('Updated by')} {flag.updatedBy || t('System')} {t('at')} {flag.updatedAt && !Number.isNaN(Date.parse(flag.updatedAt)) ? new Date(flag.updatedAt).toLocaleString() : t('Not recorded')}
                 </div>
               </div>
 
               {/* Action Controls */}
-              <div className="flex items-center gap-6 shrink-0 bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div className="flex items-center gap-6 shrink-0 bg-background p-3 rounded-xl border border-border">
                 <div className="text-right">
-                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold block">
+                  <span className="text-[11px] text-muted-foreground font-medium block">
                     {t('Rollout Gate')}
                   </span>
-                  <span className="text-xs font-mono font-bold text-indigo-300">
+                  <span className="text-xs font-medium text-primary">
                     {flag.rolloutPercentage}% {t('Target')}
                   </span>
                 </div>
@@ -177,7 +177,7 @@ export const FeatureFlagsPage: React.FC = () => {
           />
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-slate-300">
+            <label className="block text-xs font-medium text-foreground">
               {t('Initial Target Rollout')} ({rolloutPercentage}%)
             </label>
             <input
@@ -187,11 +187,11 @@ export const FeatureFlagsPage: React.FC = () => {
               step="5"
               value={rolloutPercentage}
               onChange={(e) => setRolloutPercentage(Number(e.target.value))}
-              className="w-full h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              className="w-full h-2 bg-background rounded-lg appearance-none cursor-pointer accent-primary"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button variant="ghost" size="sm" onClick={() => setIsAddModalOpen(false)}>
               {t('Cancel')}
             </Button>

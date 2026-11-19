@@ -72,15 +72,15 @@ export const TenantParkingMapPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-[330ms]">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161b22] p-6 rounded-2xl border border-[#30363d]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-6 rounded-2xl border border-border">
         <div>
-          <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            <MapPinned className="w-5 h-5 text-[#58a6ff]" />
+          <h2 className="text-xl font-medium text-foreground tracking-tight flex items-center gap-2">
+            <MapPinned className="w-5 h-5 text-primary" />
             {t('Parking Lot Map')}
           </h2>
-          <p className="text-xs text-[#8b949e] mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {t('Levels, parking zones and plate-based vehicle locating — live from monitor cameras.')}
           </p>
         </div>
@@ -121,9 +121,9 @@ export const TenantParkingMapPage: React.FC = () => {
 
       {levels.length === 0 ? (
         <Card className="p-10 flex flex-col items-center text-center gap-3">
-          <Layers className="w-10 h-10 text-[#8b949e]" />
-          <h3 className="text-sm font-bold text-white">{t('No parking map yet')}</h3>
-          <p className="text-xs text-[#8b949e] max-w-md">
+          <Layers className="w-10 h-10 text-muted-foreground" />
+          <h3 className="text-sm font-medium text-foreground">{t('No parking map yet')}</h3>
+          <p className="text-xs text-muted-foreground max-w-md">
             {t('Create levels and zones so monitor cameras can record vehicle positions and guide users.')}
           </p>
           {canWrite && (
@@ -149,28 +149,28 @@ export const TenantParkingMapPage: React.FC = () => {
             {zonePopover && (
               <Card className="p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-white font-mono">
+                  <h4 className="text-xs font-medium text-foreground ">
                     {zonePopover.code ?? zonePopover.name}
                   </h4>
                   <button
                     onClick={() => setZonePopover(null)}
-                    className="text-[#8b949e] hover:text-white cursor-pointer"
+                    className="text-muted-foreground hover:text-foreground cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <p className="text-[11px] text-[#8b949e]">
+                <p className="text-[11px] text-muted-foreground">
                   {zonePopover.occupiedCount}{zonePopover.capacity ? `/${zonePopover.capacity}` : ''} {t('vehicles parked')}
                 </p>
                 <div className="space-y-1 max-h-40 overflow-y-auto">
                   {zonePlates.length === 0 && (
-                    <p className="text-[11px] text-[#8b949e] italic">{t('Empty')}</p>
+                    <p className="text-[11px] text-muted-foreground italic">{t('Empty')}</p>
                   )}
                   {zonePlates.map((p) => (
-                    <div key={p.id} className="flex items-center gap-2 text-xs text-[#c9d1d9]">
-                      <Car className="w-3 h-3 text-[#58a6ff]" />
+                    <div key={p.id} className="flex items-center gap-2 text-xs text-foreground">
+                      <Car className="w-3 h-3 text-primary" />
                       <span className="font-mono">{p.plateNumber}</span>
-                      <span className="text-[10px] text-[#8b949e]">{p.status}</span>
+                      <span className="text-[11px] text-muted-foreground">{p.status}</span>
                     </div>
                   ))}
                 </div>
@@ -180,7 +180,7 @@ export const TenantParkingMapPage: React.FC = () => {
 
           <Card className="lg:col-span-2 p-4">
             {editMode && canWrite && (
-              <p className="text-[11px] text-[#58a6ff] mb-2">
+              <p className="text-[11px] text-primary mb-2">
                 {t('Edit mode: drag on the map to draw a new zone, or click a zone to edit.')}
               </p>
             )}

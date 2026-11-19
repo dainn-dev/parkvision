@@ -313,27 +313,27 @@ export const TenantMembershipsPage: React.FC = () => {
   const siteOptions = tenantSites.map((s) => ({ value: s.id, label: s.name }));
 
   return (
-    <div className="space-y-6 pb-12 animate-in fade-in duration-300">
+    <div className="space-y-6 pb-12 animate-in fade-in duration-[330ms]">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161b22]/70 p-5 rounded-2xl border border-[#30363d] backdrop-blur-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card/70 p-5 rounded-2xl border border-border ">
         <div>
           <div className="flex items-center gap-2.5">
-            <BadgeCheck className="w-6 h-6 text-[#58a6ff]" />
-            <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
+            <BadgeCheck className="w-6 h-6 text-primary" />
+            <h1 className="text-xl md:text-2xl font-medium text-foreground tracking-tight">
               {t('Driver Memberships')}
             </h1>
             {pendingCount > 0 && (
-              <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#9e6a03]/20 border border-[#d29922]/40 text-[#d29922]">
+              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-warning/20 border border-warning/40 text-warning">
                 {t('{{count}} pending', { count: pendingCount })}
               </span>
             )}
           </div>
-          <p className="text-xs text-[#8b949e] mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {t('Review driver membership requests and manage monthly pass plans. Activation whitelists the plate for ANPR entry.')}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => void loadMemberships()} className="text-xs h-9 gap-1.5 border-[#30363d] bg-[#161b22] text-[#c9d1d9]">
+          <Button variant="outline" onClick={() => void loadMemberships()} className="text-xs h-9 gap-1.5 border-border bg-card text-foreground">
             <RefreshCw className="w-4 h-4" />
             {t('Refresh')}
           </Button>
@@ -342,7 +342,7 @@ export const TenantMembershipsPage: React.FC = () => {
               variant="primary"
               onClick={() => openPlanModal(null)}
               disabled={!planSiteId}
-              className="text-xs h-9 bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5"
+              className="text-xs h-9 bg-primary hover:bg-primary/90 text-[#fff] gap-1.5"
             >
               <Plus className="w-4 h-4" />
               {t('New Plan')}
@@ -352,13 +352,13 @@ export const TenantMembershipsPage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-xl bg-[#161b22] border border-[#30363d] w-fit">
+      <div className="flex gap-1 p-1 rounded-xl bg-card border border-border w-fit">
         {(['requests', 'plans', 'payments'] as Tab[]).map((k) => (
           <button
             key={k}
             onClick={() => setTab(k)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-              tab === k ? 'bg-[#388bfd] text-slate-950' : 'text-[#8b949e] hover:text-white'
+            className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+              tab === k ? 'bg-primary text-[#fff]' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {k === 'requests' ? t('Requests') : k === 'plans' ? t('Plans') : t('Payments')}
@@ -369,11 +369,11 @@ export const TenantMembershipsPage: React.FC = () => {
       {tab === 'requests' && (
         <>
           {/* Filters */}
-          <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center gap-2 flex-wrap text-xs">
+          <div className="p-4 rounded-xl bg-card border border-border flex items-center gap-2 flex-wrap text-xs">
             <select
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-              className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
+              className="bg-background border border-border rounded-lg px-2.5 py-2 text-xs text-foreground focus:outline-hidden"
             >
               <option value="">{t('Status: All')}</option>
               {['pending', 'active', 'rejected', 'cancelled', 'expired', 'revoked'].map((s) => (
@@ -383,7 +383,7 @@ export const TenantMembershipsPage: React.FC = () => {
             <select
               value={siteFilter}
               onChange={(e) => { setSiteFilter(e.target.value); setPage(1); }}
-              className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
+              className="bg-background border border-border rounded-lg px-2.5 py-2 text-xs text-foreground focus:outline-hidden"
             >
               <option value="">{t('Site: All')}</option>
               {siteOptions.map((o) => (
@@ -393,10 +393,10 @@ export const TenantMembershipsPage: React.FC = () => {
           </div>
 
           {/* Table */}
-          <div className="rounded-2xl bg-[#161b22] border border-[#30363d] overflow-hidden">
+          <div className="rounded-2xl bg-card border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px]">
+                <thead className="bg-background text-muted-foreground border-b border-border font-medium text-[11px]">
                   <tr>
                     <th className="py-3 px-4">{t('Driver')}</th>
                     <th className="py-3 px-4">{t('Plate')}</th>
@@ -408,48 +408,48 @@ export const TenantMembershipsPage: React.FC = () => {
                     <th className="py-3 px-4 text-right">{t('Actions')}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#30363d]/60 font-medium">
+                <tbody className="divide-y divide-border/60 font-medium">
                   {loadingRows ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-[#8b949e]">{t('Loading…')}</td>
+                      <td colSpan={8} className="py-12 text-center text-muted-foreground">{t('Loading…')}</td>
                     </tr>
                   ) : memberships.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-[#8b949e]">
-                        <CreditCard className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/50" />
-                        <p className="font-semibold text-white">{t('No membership requests')}</p>
+                      <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                        <CreditCard className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
+                        <p className="font-medium text-foreground">{t('No membership requests')}</p>
                         <p className="text-xs mt-1">{t('Driver requests submitted from the mobile app will appear here.')}</p>
                       </td>
                     </tr>
                   ) : (
                     memberships.map((m) => (
-                      <tr key={m.id} className="hover:bg-[#21262d]/60 transition-colors">
+                      <tr key={m.id} className="hover:bg-muted/60 transition-colors">
                         <td className="py-3.5 px-4">
-                          <div className="font-semibold text-white">{m.driverName}</div>
-                          <div className="text-[11px] text-[#8b949e]">{m.driverEmail}</div>
+                          <div className="font-medium text-foreground">{m.driverName}</div>
+                          <div className="text-[11px] text-muted-foreground">{m.driverEmail}</div>
                         </td>
                         <td className="py-3.5 px-4">
-                          <span className="font-mono font-bold text-white px-2.5 py-1 rounded bg-[#0d0e12] border border-[#30363d] text-xs tracking-wider">
+                          <span className=" font-medium text-foreground px-2.5 py-1 rounded bg-background border border-border text-xs tracking-wider">
                             {m.plateNumber}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-white">{m.planName}</td>
-                        <td className="py-3.5 px-4 text-[#8b949e]">{m.siteName}</td>
+                        <td className="py-3.5 px-4 text-foreground">{m.planName}</td>
+                        <td className="py-3.5 px-4 text-muted-foreground">{m.siteName}</td>
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           <Badge variant={MEMBERSHIP_STATUS_VARIANT[m.status]}>{t(m.status)}</Badge>
                           {m.adminNote && (
-                            <div className="text-[10px] text-[#8b949e] mt-1 max-w-[160px] truncate" title={m.adminNote}>
+                            <div className="text-[11px] text-muted-foreground mt-1 max-w-[160px] truncate" title={m.adminNote}>
                               {m.adminNote}
                             </div>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 text-[#8b949e] whitespace-nowrap">
+                        <td className="py-3.5 px-4 text-muted-foreground whitespace-nowrap">
                           {m.startsAt ? `${fmtDate(m.startsAt)} → ${fmtDate(m.endsAt)}` : '—'}
                         </td>
-                        <td className="py-3.5 px-4 text-[#8b949e] whitespace-nowrap">{fmtDate(m.createdAt)}</td>
+                        <td className="py-3.5 px-4 text-muted-foreground whitespace-nowrap">{fmtDate(m.createdAt)}</td>
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
                           {!canManage ? (
-                            <span className="text-[#8b949e] text-[11px] italic">{t('View only')}</span>
+                            <span className="text-muted-foreground text-[11px] italic">{t('View only')}</span>
                           ) : (
                             <>
                               {m.status === 'pending' && (
@@ -457,7 +457,7 @@ export const TenantMembershipsPage: React.FC = () => {
                                   <Button
                                     size="sm"
                                     onClick={() => openAction('activate', m)}
-                                    className="text-[11px] h-7 bg-[#238636] hover:bg-[#2ea043] text-white"
+                                    className="text-[11px] h-7 bg-primary hover:bg-primary/90 text-[#fff]"
                                   >
                                     <ShieldCheck className="w-3.5 h-3.5" />
                                     {t('Activate')}
@@ -466,7 +466,7 @@ export const TenantMembershipsPage: React.FC = () => {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => openAction('reject', m)}
-                                    className="text-[11px] h-7 border-[#30363d] text-[#f85149]"
+                                    className="text-[11px] h-7 border-border text-destructive"
                                   >
                                     <XCircle className="w-3.5 h-3.5" />
                                     {t('Reject')}
@@ -478,7 +478,7 @@ export const TenantMembershipsPage: React.FC = () => {
                                   size="sm"
                                   variant="outline"
                                   onClick={() => openAction('revoke', m)}
-                                  className="text-[11px] h-7 border-[#30363d] text-[#f85149]"
+                                  className="text-[11px] h-7 border-border text-destructive"
                                 >
                                   <XCircle className="w-3.5 h-3.5" />
                                   {t('Revoke')}
@@ -493,7 +493,7 @@ export const TenantMembershipsPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
-            <div className="px-4 py-3 border-t border-[#30363d]">
+            <div className="px-4 py-3 border-t border-border">
               <Pagination
                 currentPage={page}
                 totalPages={Math.max(1, Math.ceil(total / 20))}
@@ -509,24 +509,24 @@ export const TenantMembershipsPage: React.FC = () => {
 
       {tab === 'plans' && (
         <>
-          <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center gap-3 flex-wrap">
+          <div className="p-4 rounded-xl bg-card border border-border flex items-center gap-3 flex-wrap">
             <div className="w-64">
               <Select
                 options={[{ value: '', label: t('Select a site…') }, ...siteOptions]}
                 value={planSiteId}
                 onChange={(e) => setPlanSiteId(e.target.value)}
-                className="bg-[#0d0e12] border-[#30363d] text-xs"
+                className="bg-background border-border text-xs"
               />
             </div>
-            <p className="text-[11px] text-[#8b949e]">
+            <p className="text-[11px] text-muted-foreground">
               {t('Plans published here are visible in the driver mobile app.')}
             </p>
           </div>
 
-          <div className="rounded-2xl bg-[#161b22] border border-[#30363d] overflow-hidden">
+          <div className="rounded-2xl bg-card border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px]">
+                <thead className="bg-background text-muted-foreground border-b border-border font-medium text-[11px]">
                   <tr>
                     <th className="py-3 px-4">{t('Plan')}</th>
                     <th className="py-3 px-4">{t('Price')}</th>
@@ -536,40 +536,40 @@ export const TenantMembershipsPage: React.FC = () => {
                     <th className="py-3 px-4 text-right">{t('Actions')}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#30363d]/60 font-medium">
+                <tbody className="divide-y divide-border/60 font-medium">
                   {!planSiteId ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-[#8b949e]">{t('Select a site to manage its plans.')}</td>
+                      <td colSpan={6} className="py-12 text-center text-muted-foreground">{t('Select a site to manage its plans.')}</td>
                     </tr>
                   ) : loadingPlans ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-[#8b949e]">{t('Loading…')}</td>
+                      <td colSpan={6} className="py-12 text-center text-muted-foreground">{t('Loading…')}</td>
                     </tr>
                   ) : plans.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-[#8b949e]">
-                        <CreditCard className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/50" />
-                        <p className="font-semibold text-white">{t('No plans yet')}</p>
+                      <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                        <CreditCard className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
+                        <p className="font-medium text-foreground">{t('No plans yet')}</p>
                         <p className="text-xs mt-1">{t('Create a plan so drivers can request monthly passes for this site.')}</p>
                       </td>
                     </tr>
                   ) : (
                     plans.map((p) => (
-                      <tr key={p.id} className="hover:bg-[#21262d]/60 transition-colors">
+                      <tr key={p.id} className="hover:bg-muted/60 transition-colors">
                         <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-1.5 font-semibold text-white">
+                          <div className="flex items-center gap-1.5 font-medium text-foreground">
                             {p.name}
                             {p.badge && <Badge variant="blue" size="sm">{p.badge}</Badge>}
                           </div>
                           {p.description && (
-                            <div className="text-[11px] text-[#8b949e] mt-0.5 max-w-[280px] truncate" title={p.description}>
+                            <div className="text-[11px] text-muted-foreground mt-0.5 max-w-[280px] truncate" title={p.description}>
                               {p.description}
                             </div>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 font-mono font-bold text-[#3fb950]">{fmtVnd(p.priceVnd)}</td>
-                        <td className="py-3.5 px-4 text-white">{t('{{days}} days', { days: p.durationDays })}</td>
-                        <td className="py-3.5 px-4 text-[#8b949e]">
+                        <td className="py-3.5 px-4 font-medium text-success">{fmtVnd(p.priceVnd)}</td>
+                        <td className="py-3.5 px-4 text-foreground">{t('{{days}} days', { days: p.durationDays })}</td>
+                        <td className="py-3.5 px-4 text-muted-foreground">
                           {p.perks.length > 0 ? p.perks.join(' · ') : '—'}
                         </td>
                         <td className="py-3.5 px-4">
@@ -581,13 +581,13 @@ export const TenantMembershipsPage: React.FC = () => {
                               size="sm"
                               variant="outline"
                               onClick={() => openPlanModal(p)}
-                              className="text-[11px] h-7 border-[#30363d] text-[#c9d1d9]"
+                              className="text-[11px] h-7 border-border text-foreground"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                               {t('Edit')}
                             </Button>
                           ) : (
-                            <span className="text-[#8b949e] text-[11px] italic">{t('View only')}</span>
+                            <span className="text-muted-foreground text-[11px] italic">{t('View only')}</span>
                           )}
                         </td>
                       </tr>
@@ -603,11 +603,11 @@ export const TenantMembershipsPage: React.FC = () => {
       {tab === 'payments' && (
         <>
           {/* Filters */}
-          <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center gap-2 flex-wrap text-xs">
+          <div className="p-4 rounded-xl bg-card border border-border flex items-center gap-2 flex-wrap text-xs">
             <select
               value={payStatus}
               onChange={(e) => { setPayStatus(e.target.value); setPayPage(1); }}
-              className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
+              className="bg-background border border-border rounded-lg px-2.5 py-2 text-xs text-foreground focus:outline-hidden"
             >
               <option value="">{t('Status: All')}</option>
               {['created', 'paid', 'refunded', 'failed', 'cancelled', 'expired'].map((s) => (
@@ -618,10 +618,10 @@ export const TenantMembershipsPage: React.FC = () => {
               type="button"
               aria-pressed={payAttention}
               onClick={() => { setPayAttention((v) => !v); setPayPage(1); }}
-              className={`rounded-lg px-2.5 py-2 text-xs font-semibold border transition-colors ${
+              className={`rounded-lg px-2.5 py-2 text-xs font-medium border transition-colors ${
                 payAttention
-                  ? 'bg-[#d29922]/15 border-[#d29922]/60 text-[#d29922]'
-                  : 'bg-[#0d0e12] border-[#30363d] text-[#c9d1d9] hover:border-[#484f58]'
+                  ? 'bg-warning/15 border-warning/60 text-warning'
+                  : 'bg-background border-border text-foreground hover:border-muted-foreground/50'
               }`}
             >
               {t('Needs attention')}
@@ -629,23 +629,23 @@ export const TenantMembershipsPage: React.FC = () => {
             <select
               value={paySiteId}
               onChange={(e) => { setPaySiteId(e.target.value); setPayPage(1); }}
-              className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
+              className="bg-background border border-border rounded-lg px-2.5 py-2 text-xs text-foreground focus:outline-hidden"
             >
               <option value="">{t('Site: All')}</option>
               {siteOptions.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
-            <p className="text-[11px] text-[#8b949e] ml-auto">
+            <p className="text-[11px] text-muted-foreground ml-auto">
               {t('Refunding a paid membership payment revokes the membership and suspends gate access.')}
             </p>
           </div>
 
           {/* Table */}
-          <div className="rounded-2xl bg-[#161b22] border border-[#30363d] overflow-hidden">
+          <div className="rounded-2xl bg-card border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px]">
+                <thead className="bg-background text-muted-foreground border-b border-border font-medium text-[11px]">
                   <tr>
                     <th className="py-3 px-4">{t('Driver')}</th>
                     <th className="py-3 px-4">{t('Kind')}</th>
@@ -658,39 +658,39 @@ export const TenantMembershipsPage: React.FC = () => {
                     <th className="py-3 px-4 text-right">{t('Actions')}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#30363d]/60 font-medium">
+                <tbody className="divide-y divide-border/60 font-medium">
                   {loadingPayments ? (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-[#8b949e]">{t('Loading…')}</td>
+                      <td colSpan={9} className="py-12 text-center text-muted-foreground">{t('Loading…')}</td>
                     </tr>
                   ) : payments.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-[#8b949e]">
-                        <CreditCard className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/50" />
-                        <p className="font-semibold text-white">{t('No payments yet')}</p>
+                      <td colSpan={9} className="py-12 text-center text-muted-foreground">
+                        <CreditCard className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
+                        <p className="font-medium text-foreground">{t('No payments yet')}</p>
                         <p className="text-xs mt-1">{t('Driver membership and parking payments appear here.')}</p>
                       </td>
                     </tr>
                   ) : (
                     payments.map((p) => (
-                      <tr key={p.id} className="hover:bg-[#21262d]/60 transition-colors">
+                      <tr key={p.id} className="hover:bg-muted/60 transition-colors">
                         <td className="py-3.5 px-4">
-                          <div className="font-semibold text-white">{p.driverName}</div>
-                          <div className="text-[11px] text-[#8b949e]">{p.driverEmail}</div>
+                          <div className="font-medium text-foreground">{p.driverName}</div>
+                          <div className="text-[11px] text-muted-foreground">{p.driverEmail}</div>
                         </td>
                         <td className="py-3.5 px-4">
                           <Badge variant="blue">{t(p.kind)}</Badge>
                         </td>
                         <td className="py-3.5 px-4">
                           {p.plateNumber ? (
-                            <span className="font-mono font-bold text-white px-2.5 py-1 rounded bg-[#0d0e12] border border-[#30363d] text-xs tracking-wider">
+                            <span className=" font-medium text-foreground px-2.5 py-1 rounded bg-background border border-border text-xs tracking-wider">
                               {p.plateNumber}
                             </span>
                           ) : '—'}
                         </td>
-                        <td className="py-3.5 px-4 text-[#8b949e]">{p.siteName ?? '—'}</td>
-                        <td className="py-3.5 px-4 font-mono font-bold text-[#3fb950]">{fmtVnd(p.amountVnd)}</td>
-                        <td className="py-3.5 px-4 text-[#8b949e] uppercase text-[10px] font-bold">{p.method}</td>
+                        <td className="py-3.5 px-4 text-muted-foreground">{p.siteName ?? '—'}</td>
+                        <td className="py-3.5 px-4 font-medium text-success">{fmtVnd(p.amountVnd)}</td>
+                        <td className="py-3.5 px-4 text-muted-foreground text-[11px] font-medium">{p.method}</td>
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           <Badge variant={PAYMENT_STATUS_VARIANT[p.status] ?? 'slate'}>{t(p.status)}</Badge>
                           {paymentFlags(p).map((f) => (
@@ -709,7 +709,7 @@ export const TenantMembershipsPage: React.FC = () => {
                             </div>
                           ))}
                         </td>
-                        <td className="py-3.5 px-4 text-[#8b949e] whitespace-nowrap">{fmtDate(p.paidAt ?? p.createdAt)}</td>
+                        <td className="py-3.5 px-4 text-muted-foreground whitespace-nowrap">{fmtDate(p.paidAt ?? p.createdAt)}</td>
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
                           <div className="inline-flex items-center gap-1.5">
                             {canRefund && p.status === 'paid' && p.kind !== 'topup' && (
@@ -717,7 +717,7 @@ export const TenantMembershipsPage: React.FC = () => {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => setRefundRow(p)}
-                                className="text-[11px] h-7 border-[#30363d] text-[#f85149]"
+                                className="text-[11px] h-7 border-border text-destructive"
                               >
                                 <XCircle className="w-3.5 h-3.5" />
                                 {t('Refund')}
@@ -728,7 +728,7 @@ export const TenantMembershipsPage: React.FC = () => {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => openExternalRefund(p)}
-                                className="text-[11px] h-7 border-[#30363d] text-[#c9d1d9]"
+                                className="text-[11px] h-7 border-border text-foreground"
                               >
                                 {t('Mark refunded externally')}
                               </Button>
@@ -741,7 +741,7 @@ export const TenantMembershipsPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
-            <div className="px-4 py-3 border-t border-[#30363d]">
+            <div className="px-4 py-3 border-t border-border">
               <Pagination
                 currentPage={payPage}
                 totalPages={Math.max(1, Math.ceil(payTotal / 20))}
@@ -764,7 +764,7 @@ export const TenantMembershipsPage: React.FC = () => {
         maxWidth="sm"
         footer={
           <>
-            <Button variant="outline" onClick={() => setAction(null)} className="border-[#30363d] text-[#c9d1d9]">
+            <Button variant="outline" onClick={() => setAction(null)} className="border-border text-foreground">
               {t('Cancel')}
             </Button>
             <Button
@@ -778,21 +778,21 @@ export const TenantMembershipsPage: React.FC = () => {
           </>
         }
       >
-        <div className="space-y-3 text-xs text-[#8b949e]">
+        <div className="space-y-3 text-xs text-muted-foreground">
           {action?.kind === 'activate' && (
             <p className="flex items-start gap-2">
-              <Car className="w-4 h-4 text-[#3fb950] shrink-0 mt-0.5" />
+              <Car className="w-4 h-4 text-success shrink-0 mt-0.5" />
               {t('Activation whitelists this plate for ANPR gate entry until the end of the plan period.')}
             </p>
           )}
           {action?.kind === 'revoke' && (
             <p className="flex items-start gap-2">
-              <XCircle className="w-4 h-4 text-[#f85149] shrink-0 mt-0.5" />
+              <XCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
               {t('Revoking suspends gate access for this plate immediately.')}
             </p>
           )}
           {action?.kind === 'activate' && reasonRequired && (
-            <p role="alert" className="p-2.5 rounded-lg bg-[#d29922]/10 border border-[#d29922]/40 text-[#d29922]">
+            <p role="alert" className="p-2.5 rounded-lg bg-warning/10 border border-warning/40 text-warning">
               {t('This plan is paid and no payment has been received. Enter a reason to activate it anyway (e.g. paid in cash at the office).')}
             </p>
           )}
@@ -802,7 +802,7 @@ export const TenantMembershipsPage: React.FC = () => {
             onChange={(e) => setActionNote(e.target.value)}
             placeholder={t('e.g. Paid at office, receipt #123')}
             maxLength={300}
-            className="bg-[#0d0e12] border-[#30363d]"
+            className="bg-background border-border"
           />
         </div>
       </Modal>
@@ -816,7 +816,7 @@ export const TenantMembershipsPage: React.FC = () => {
         maxWidth="sm"
         footer={
           <>
-            <Button variant="outline" onClick={() => setExternalRefundRow(null)} className="border-[#30363d] text-[#c9d1d9]">
+            <Button variant="outline" onClick={() => setExternalRefundRow(null)} className="border-border text-foreground">
               {t('Cancel')}
             </Button>
             <Button
@@ -830,7 +830,7 @@ export const TenantMembershipsPage: React.FC = () => {
           </>
         }
       >
-        <div className="space-y-3 text-xs text-[#8b949e]">
+        <div className="space-y-3 text-xs text-muted-foreground">
           <p>
             {t('Use this only when the money was already returned outside ParkVision (bank transfer, cash). No refund is sent to MoMo or the wallet; the payment is set to refunded.')}
           </p>
@@ -841,7 +841,7 @@ export const TenantMembershipsPage: React.FC = () => {
             placeholder={t('e.g. Bank transfer ref. 123456 on 18/11')}
             maxLength={EXTERNAL_REFUND_NOTE_MAX}
             error={externalRefundError || undefined}
-            className="bg-[#0d0e12] border-[#30363d]"
+            className="bg-background border-border"
           />
         </div>
       </Modal>
@@ -855,7 +855,7 @@ export const TenantMembershipsPage: React.FC = () => {
         maxWidth="sm"
         footer={
           <>
-            <Button variant="outline" onClick={() => setRefundRow(null)} className="border-[#30363d] text-[#c9d1d9]">
+            <Button variant="outline" onClick={() => setRefundRow(null)} className="border-border text-foreground">
               {t('Cancel')}
             </Button>
             <Button variant="danger" onClick={() => void runRefund()} isLoading={refunding}>
@@ -864,21 +864,21 @@ export const TenantMembershipsPage: React.FC = () => {
           </>
         }
       >
-        <div className="space-y-3 text-xs text-[#8b949e]">
+        <div className="space-y-3 text-xs text-muted-foreground">
           {refundRow?.method === 'wallet' ? (
             <p className="flex items-start gap-2">
-              <CreditCard className="w-4 h-4 text-[#58a6ff] shrink-0 mt-0.5" />
+              <CreditCard className="w-4 h-4 text-primary shrink-0 mt-0.5" />
               {t('The amount is credited back to the driver wallet immediately.')}
             </p>
           ) : (
             <p className="flex items-start gap-2">
-              <CreditCard className="w-4 h-4 text-[#58a6ff] shrink-0 mt-0.5" />
+              <CreditCard className="w-4 h-4 text-primary shrink-0 mt-0.5" />
               {t('A refund request is sent to the payment provider (MoMo).')}
             </p>
           )}
           {refundRow?.kind === 'membership' && (
             <p className="flex items-start gap-2">
-              <XCircle className="w-4 h-4 text-[#f85149] shrink-0 mt-0.5" />
+              <XCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
               {t('The linked membership is revoked and its gate access suspended.')}
             </p>
           )}
@@ -893,7 +893,7 @@ export const TenantMembershipsPage: React.FC = () => {
         maxWidth="md"
         footer={
           <>
-            <Button variant="outline" onClick={() => setPlanModal(null)} className="border-[#30363d] text-[#c9d1d9]">
+            <Button variant="outline" onClick={() => setPlanModal(null)} className="border-border text-foreground">
               {t('Cancel')}
             </Button>
             <Button
@@ -913,13 +913,13 @@ export const TenantMembershipsPage: React.FC = () => {
             value={planForm.name}
             onChange={(e) => setPlanForm((f) => ({ ...f, name: e.target.value }))}
             placeholder={t('e.g. Monthly Resident')}
-            className="bg-[#0d0e12] border-[#30363d]"
+            className="bg-background border-border"
           />
           <Input
             label={t('Description')}
             value={planForm.description ?? ''}
             onChange={(e) => setPlanForm((f) => ({ ...f, description: e.target.value || null }))}
-            className="bg-[#0d0e12] border-[#30363d]"
+            className="bg-background border-border"
           />
           <div className="grid grid-cols-2 gap-3">
             <Input
@@ -928,7 +928,7 @@ export const TenantMembershipsPage: React.FC = () => {
               min={0}
               value={planForm.priceVnd}
               onChange={(e) => setPlanForm((f) => ({ ...f, priceVnd: Number(e.target.value) || 0 }))}
-              className="bg-[#0d0e12] border-[#30363d]"
+              className="bg-background border-border"
             />
             <Input
               label={t('Duration (days)')}
@@ -936,7 +936,7 @@ export const TenantMembershipsPage: React.FC = () => {
               min={1}
               value={planForm.durationDays}
               onChange={(e) => setPlanForm((f) => ({ ...f, durationDays: Math.max(1, Number(e.target.value) || 1) }))}
-              className="bg-[#0d0e12] border-[#30363d]"
+              className="bg-background border-border"
             />
           </div>
           <Input
@@ -944,7 +944,7 @@ export const TenantMembershipsPage: React.FC = () => {
             value={perksText}
             onChange={(e) => setPerksText(e.target.value)}
             placeholder={t('ANPR fast entry, Reserved zone…')}
-            className="bg-[#0d0e12] border-[#30363d]"
+            className="bg-background border-border"
           />
           <div className="grid grid-cols-2 gap-3">
             <Input
@@ -952,7 +952,7 @@ export const TenantMembershipsPage: React.FC = () => {
               value={planForm.badge ?? ''}
               onChange={(e) => setPlanForm((f) => ({ ...f, badge: e.target.value || null }))}
               placeholder={t('Best value')}
-              className="bg-[#0d0e12] border-[#30363d]"
+              className="bg-background border-border"
             />
             <Select
               label={t('Status')}
@@ -962,7 +962,7 @@ export const TenantMembershipsPage: React.FC = () => {
               ]}
               value={planForm.status ?? 'active'}
               onChange={(e) => setPlanForm((f) => ({ ...f, status: e.target.value as 'active' | 'inactive' }))}
-              className="bg-[#0d0e12] border-[#30363d]"
+              className="bg-background border-border"
             />
           </div>
         </div>

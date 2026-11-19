@@ -131,14 +131,14 @@ export const AuditLogsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-[330ms]">
       {/* Top Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            <FileText className="w-5 h-5 text-emerald-400" /> {t('Platform Governance Audit Logs')}
+          <h2 className="text-xl font-medium text-foreground tracking-tight flex items-center gap-2">
+            <FileText className="w-5 h-5 text-success" /> {t('Platform Governance Audit Logs')}
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {t('Immutable, append-only record of administrative actions, credential rotations, and tenant lifecycle changes.')}
           </p>
         </div>
@@ -197,7 +197,7 @@ export const AuditLogsPage: React.FC = () => {
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+            <thead className="bg-background border-b border-border text-muted-foreground font-medium">
               <tr>
                 <th className="py-3.5 px-4">{t('Timestamp (UTC)')}</th>
                 <th className="py-3.5 px-4">{t('Actor')}</th>
@@ -208,10 +208,10 @@ export const AuditLogsPage: React.FC = () => {
                 <th className="py-3.5 px-4 text-right">{t('Details')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/80 text-slate-200">
+            <tbody className="divide-y divide-border/80 text-foreground">
               {paginatedLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500">
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
                     {t('No matching audit events found.')}
                   </td>
                 </tr>
@@ -219,27 +219,27 @@ export const AuditLogsPage: React.FC = () => {
                 paginatedLogs.map((log) => (
                   <tr
                     key={log.id}
-                    className="hover:bg-slate-800/50 transition-colors cursor-pointer"
+                    className="hover:bg-muted/50 transition-colors cursor-pointer"
                     onClick={() => setSelectedAuditModal(log)}
                   >
-                    <td className="py-3.5 px-4 font-mono text-slate-400 whitespace-nowrap">
+                    <td className="py-3.5 px-4 text-muted-foreground whitespace-nowrap">
                       {formatUtc(log.timestamp)}
                     </td>
 
                     <td className="py-3.5 px-4">
-                      <span className="font-bold text-white block">{log.actorName}</span>
+                      <span className="font-medium text-foreground block">{log.actorName}</span>
                       {log.actorEmail && log.actorEmail !== log.actorName && (
-                        <span className="text-[11px] text-slate-400">{log.actorEmail}</span>
+                        <span className="text-[11px] text-muted-foreground">{log.actorEmail}</span>
                       )}
                     </td>
 
-                    <td className="py-3.5 px-4 font-mono font-bold text-indigo-300">
+                    <td className="py-3.5 px-4 font-medium text-primary">
                       {log.action}
                     </td>
 
                     <td className="py-3.5 px-4">
                       <Badge variant="slate" size="sm">{log.resourceType}</Badge>
-                      <span className="text-[10px] text-slate-400 block mt-0.5 font-mono">
+                      <span className="text-[11px] text-muted-foreground block mt-0.5 ">
                         {log.resourceId}
                       </span>
                     </td>
@@ -250,7 +250,7 @@ export const AuditLogsPage: React.FC = () => {
                       </Badge>
                     </td>
 
-                    <td className="py-3.5 px-4 font-mono text-amber-300">
+                    <td className="py-3.5 px-4 text-warning">
                       {log.ipAddress}
                     </td>
 
@@ -283,20 +283,20 @@ export const AuditLogsPage: React.FC = () => {
           maxWidth="2xl"
         >
           <div className="space-y-4 text-xs">
-            <div className="grid grid-cols-2 gap-3 p-4 bg-slate-950 rounded-xl border border-slate-800 font-mono">
-              <div><span className="text-slate-500">{t('Timestamp:')}</span> {new Date(selectedAuditModal.timestamp).toISOString()}</div>
-              <div><span className="text-slate-500">{t('Category:')}</span> {selectedAuditModal.category}</div>
-              <div><span className="text-slate-500">{t('Actor Email:')}</span> {selectedAuditModal.actorEmail}</div>
-              <div><span className="text-slate-500">{t('Actor Role:')}</span> {selectedAuditModal.actorType}</div>
-              <div><span className="text-slate-500">{t('Source IP:')}</span> <span className="text-amber-300">{selectedAuditModal.ipAddress}</span></div>
-              <div><span className="text-slate-500">{t('Source Type:')}</span> {selectedAuditModal.source}</div>
-              <div><span className="text-slate-500">{t('Request ID:')}</span> {selectedAuditModal.requestId}</div>
-              <div><span className="text-slate-500">{t('Trace ID:')}</span> {selectedAuditModal.traceId}</div>
+            <div className="grid grid-cols-2 gap-3 p-4 bg-background rounded-xl border border-border ">
+              <div><span className="text-muted-foreground">{t('Timestamp:')}</span> {new Date(selectedAuditModal.timestamp).toISOString()}</div>
+              <div><span className="text-muted-foreground">{t('Category:')}</span> {selectedAuditModal.category}</div>
+              <div><span className="text-muted-foreground">{t('Actor Email:')}</span> {selectedAuditModal.actorEmail}</div>
+              <div><span className="text-muted-foreground">{t('Actor Role:')}</span> {selectedAuditModal.actorType}</div>
+              <div><span className="text-muted-foreground">{t('Source IP:')}</span> <span className="text-warning">{selectedAuditModal.ipAddress}</span></div>
+              <div><span className="text-muted-foreground">{t('Source Type:')}</span> {selectedAuditModal.source}</div>
+              <div><span className="text-muted-foreground">{t('Request ID:')}</span> {selectedAuditModal.requestId}</div>
+              <div><span className="text-muted-foreground">{t('Trace ID:')}</span> {selectedAuditModal.traceId}</div>
             </div>
 
             {selectedAuditModal.changes && selectedAuditModal.changes.length > 0 && (
               <div className="space-y-2">
-                <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">
+                <h4 className="font-medium text-foreground text-[11px]">
                   {t('Recorded Field Changes')}
                 </h4>
                 <DiffViewer changes={selectedAuditModal.changes} />

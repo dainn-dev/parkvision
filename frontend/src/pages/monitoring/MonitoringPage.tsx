@@ -90,13 +90,13 @@ export const MonitoringPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-[330ms]">
       {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 p-6 rounded-2xl border border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-6 rounded-2xl border border-border">
         <div>
           <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <Activity className="w-5 h-5 text-sky-400" /> {t('Platform Infrastructure Observability')}
+            <h2 className="text-xl font-medium text-foreground tracking-tight flex items-center gap-2">
+              <Activity className="w-5 h-5 text-primary" /> {t('Platform Infrastructure Observability')}
             </h2>
             <Badge
               variant={services.length === 0 ? 'slate' : allSystemsNormal ? 'emerald' : 'red'}
@@ -109,7 +109,7 @@ export const MonitoringPage: React.FC = () => {
                   : t('● {{count}} SERVICE(S) DEGRADED', { count: degradedServices })}
             </Badge>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {t('Real-time infrastructure health, microservices SLA meters, edge processing telemetry, and active incident queue.')}
           </p>
         </div>
@@ -140,13 +140,13 @@ export const MonitoringPage: React.FC = () => {
                     <span
                       className={`w-2.5 h-2.5 rounded-full ${
                         srv.status === 'HEALTHY'
-                          ? 'bg-emerald-400 animate-pulse'
+                          ? 'bg-success '
                           : srv.status === 'DEGRADED'
-                            ? 'bg-amber-400'
-                            : 'bg-red-500'
+                            ? 'bg-warning'
+                            : 'bg-destructive'
                       }`}
                     />
-                    <h3 className="text-sm font-bold text-white">{srv.name}</h3>
+                    <h3 className="text-sm font-medium text-foreground">{srv.name}</h3>
                   </div>
                   <Badge
                     variant={srv.status === 'HEALTHY' ? 'emerald' : srv.status === 'DEGRADED' ? 'amber' : 'red'}
@@ -156,20 +156,20 @@ export const MonitoringPage: React.FC = () => {
                   </Badge>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-800 grid grid-cols-2 gap-2 text-xs">
+                <div className="mt-4 pt-3 border-t border-border grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <span className="text-slate-500 block">{t('Latency:')}</span>
-                    <span className="font-mono font-bold text-indigo-300">{srv.responseTimeMs} ms</span>
+                    <span className="text-muted-foreground block">{t('Latency:')}</span>
+                    <span className=" font-medium text-primary">{srv.responseTimeMs} ms</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">{t('SLA Uptime:')}</span>
-                    <span className="font-mono font-bold text-emerald-400">
+                    <span className="text-muted-foreground block">{t('SLA Uptime:')}</span>
+                    <span className=" font-medium text-success">
                       {srv.uptimePercent != null ? `${srv.uptimePercent}%` : t('uptime n/a')}
                     </span>
                   </div>
                 </div>
 
-                <div className="mt-2 text-[11px] text-slate-400 font-mono">
+                <div className="mt-2 text-[11px] text-muted-foreground ">
                   {srv.details}
                 </div>
               </Card>
@@ -184,7 +184,7 @@ export const MonitoringPage: React.FC = () => {
           <CardHeader title={t('Edge Hardware Processing Nodes')} subtitle={t('YOLOv11 NPU acceleration boxes deployed across tenant gates')} />
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+              <thead className="bg-background border-b border-border text-muted-foreground font-medium">
                 <tr>
                   <th className="py-3.5 px-4">{t('Edge Device Name')}</th>
                   <th className="py-3.5 px-4">{t('Organization')}</th>
@@ -197,12 +197,12 @@ export const MonitoringPage: React.FC = () => {
                   <th className="py-3.5 px-4 text-right">{t('Actions')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/80 text-slate-200">
+              <tbody className="divide-y divide-border/80 text-foreground">
                 {fleetEdgeDevices.length === 0 ? (
-                  <tr><td colSpan={9} className="py-8 text-center text-slate-500">{t('No edge devices registered.')}</td></tr>
+                  <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">{t('No edge devices registered.')}</td></tr>
                 ) : fleetEdgeDevices.map((e) => (
-                  <tr key={e.id} className="hover:bg-slate-800/50 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-indigo-300">
+                  <tr key={e.id} className="hover:bg-muted/50 transition-colors">
+                    <td className="py-3.5 px-4 font-medium text-primary">
                       {e.deviceName}
                     </td>
                     <td className="py-3.5 px-4">{e.tenantName}</td>
@@ -214,21 +214,21 @@ export const MonitoringPage: React.FC = () => {
                         {e.status}
                       </Badge>
                     </td>
-                    <td className="py-3.5 px-4 font-mono">
+                    <td className="py-3.5 px-4 ">
                       <div className="flex items-center gap-2">
                         <span className="w-12 text-right">{e.cpuPercent}%</span>
-                        <div className="w-16 bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                        <div className="w-16 bg-background h-2 rounded-full overflow-hidden border border-border">
                           <div
-                            className={`h-full rounded-full ${e.cpuPercent > 80 ? 'bg-red-500' : 'bg-indigo-500'}`}
+                            className={`h-full rounded-full ${e.cpuPercent > 80 ? 'bg-destructive' : 'bg-primary'}`}
                             style={{ width: `${e.cpuPercent}%` }}
                           />
                         </div>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 font-mono">{e.memoryPercent}%</td>
-                    <td className="py-3.5 px-4 text-center font-mono font-semibold">{e.connectedCameras}</td>
-                    <td className="py-3.5 px-4 text-center font-mono text-emerald-400 font-bold">{e.eventsPerMin}</td>
-                    <td className="py-3.5 px-4 text-slate-400 font-mono">
+                    <td className="py-3.5 px-4 ">{e.memoryPercent}%</td>
+                    <td className="py-3.5 px-4 text-center font-medium">{e.connectedCameras}</td>
+                    <td className="py-3.5 px-4 text-center text-success font-medium">{e.eventsPerMin}</td>
+                    <td className="py-3.5 px-4 text-muted-foreground ">
                       {e.lastHeartbeat ? new Date(e.lastHeartbeat).toLocaleString() : t('Never')}
                     </td>
                     <td className="py-3.5 px-4 text-right">
@@ -256,15 +256,15 @@ export const MonitoringPage: React.FC = () => {
           />
           {fleetCameras.length === 0 ? (
             <div className="p-8 text-center space-y-2">
-              <Video className="w-6 h-6 mx-auto text-slate-500" />
-              <p className="text-xs text-slate-500">
+              <Video className="w-6 h-6 mx-auto text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">
                 {t('No cameras registered. Manage cameras per site from the tenant Site panel.')}
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+                <thead className="bg-background border-b border-border text-muted-foreground font-medium">
                   <tr>
                     <th className="py-3.5 px-4">{t('Camera')}</th>
                     <th className="py-3.5 px-4">{t('Organization')}</th>
@@ -274,17 +274,17 @@ export const MonitoringPage: React.FC = () => {
                     <th className="py-3.5 px-4">{t('Status')}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/80 text-slate-200">
+                <tbody className="divide-y divide-border/80 text-foreground">
                   {fleetCameras.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-800/50 transition-colors">
+                    <tr key={c.id} className="hover:bg-muted/50 transition-colors">
                       <td className="py-3.5 px-4">
-                        <span className="font-semibold text-slate-100 block">{c.cameraName}</span>
+                        <span className="font-medium text-foreground block">{c.cameraName}</span>
                         {c.code && (
-                          <span className="font-mono text-[10px] text-sky-400">{c.code}</span>
+                          <span className="font-mono text-[11px] text-primary">{c.code}</span>
                         )}
                       </td>
                       <td className="py-3.5 px-4">{c.tenantName}</td>
-                      <td className="py-3.5 px-4 text-slate-400">
+                      <td className="py-3.5 px-4 text-muted-foreground">
                         {c.siteName ?? tenantSites.find((s) => s.id === c.siteId)?.name ?? '—'}
                       </td>
                       <td className="py-3.5 px-4 text-center">
@@ -295,7 +295,7 @@ export const MonitoringPage: React.FC = () => {
                           {c.purpose === 'overview' ? 'OVERVIEW' : c.purpose === 'monitor' ? 'MONITOR' : 'PLATE'}
                         </Badge>
                       </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-400 max-w-[220px] truncate">
+                      <td className="py-3.5 px-4 text-muted-foreground max-w-[220px] truncate">
                         {(c.streamUrl ?? '').replace(/^(\w+:\/\/)[^@/]*@/, '$1•••@') || '—'}
                       </td>
                       <td className="py-3.5 px-4">
@@ -341,12 +341,12 @@ export const MonitoringPage: React.FC = () => {
           <div className="space-y-3">
             {incidents.length === 0 && (
               <div className="p-8 text-center space-y-2">
-                <CheckCircle2 className="w-6 h-6 mx-auto text-emerald-500" />
-                <p className="text-xs text-slate-500">{t('No operational incidents recorded.')}</p>
+                <CheckCircle2 className="w-6 h-6 mx-auto text-success" />
+                <p className="text-xs text-muted-foreground">{t('No operational incidents recorded.')}</p>
               </div>
             )}
             {incidents.map((inc) => (
-              <div key={inc.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div key={inc.id} className="p-4 rounded-xl bg-background border border-border flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <Badge variant={inc.severity === 'CRITICAL' ? 'red' : inc.severity === 'HIGH' ? 'red' : 'amber'} size="sm">
@@ -355,10 +355,10 @@ export const MonitoringPage: React.FC = () => {
                     <Badge variant={inc.status === 'OPEN' ? 'red' : inc.status === 'ACKNOWLEDGED' ? 'amber' : 'emerald'} size="sm">
                       {inc.status}
                     </Badge>
-                    <span className="text-xs font-bold text-white">{inc.title}</span>
+                    <span className="text-xs font-medium text-foreground">{inc.title}</span>
                   </div>
-                  <p className="text-xs text-slate-400">{inc.description}</p>
-                  <div className="text-[10px] text-slate-500 font-mono">
+                  <p className="text-xs text-muted-foreground">{inc.description}</p>
+                  <div className="text-[11px] text-muted-foreground ">
                     {t('Resource:')} {inc.resourceType} ({inc.resourceId}) • {t('Started:')} {new Date(inc.startedAt).toLocaleString()}
                   </div>
                 </div>

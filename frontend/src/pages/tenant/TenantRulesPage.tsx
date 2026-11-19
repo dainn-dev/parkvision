@@ -145,24 +145,24 @@ export const TenantRulesPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-16 animate-in fade-in duration-300">
+    <div className="space-y-6 pb-16 animate-in fade-in duration-[330ms]">
       {/* Top Banner & Title */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 bg-[#161b22]/80 p-6 rounded-2xl border border-[#30363d] backdrop-blur-xs shadow-sm">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 bg-card/80 p-6 rounded-2xl border border-border ">
         <div className="space-y-1.5">
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/15 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 text-primary flex items-center justify-center">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2.5">
-                <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
+                <h1 className="text-xl md:text-2xl font-medium text-foreground tracking-tight">
                   {t('Automated Access Policy Rules')}
                 </h1>
-                <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#21262d] border border-[#30363d] text-[#58a6ff]">
+                <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-muted border border-border text-primary">
                   {t('{{count}} Total Rules', { count: tenantAccessRules.length })}
                 </span>
               </div>
-              <p className="text-xs text-[#8b949e] mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {t('Deterministic priority-ordered policy rules evaluated by edge ANPR barrier controllers')}
               </p>
             </div>
@@ -170,19 +170,19 @@ export const TenantRulesPage: React.FC = () => {
 
           {/* Quick Metrics Pills */}
           <div className="flex items-center gap-2.5 pt-2 flex-wrap text-xs">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#238636]/15 border border-[#238636]/30 text-[#3fb950] font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/15 border border-success/30 text-success font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-success " />
               {t('{{count}} Active (Enforcing)', { count: activeCount })}
             </span>
 
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#da3633]/15 border border-[#da3633]/30 text-[#f85149] font-semibold">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive/15 border border-destructive/30 text-destructive font-medium">
               <ShieldAlert className="w-3.5 h-3.5" />
               {t('{{count}} Blocklists (DENY)', { count: blocklistCount })}
             </span>
 
             {draftCount > 0 && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#d29922]/15 border border-[#d29922]/30 text-[#e3b341] font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#e3b341]" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-warning/15 border border-warning/30 text-warning font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-warning" />
                 {t('{{count}} Draft Policies', { count: draftCount })}
               </span>
             )}
@@ -196,9 +196,9 @@ export const TenantRulesPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => handleOpenSimulator()}
-              className="text-xs border-[#1f6feb]/40 bg-[#1f6feb]/10 text-[#58a6ff] hover:bg-[#1f6feb]/20 gap-1.5"
+              className="text-xs border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 gap-1.5"
             >
-              <Sparkles className="w-3.5 h-3.5 text-[#58a6ff]" />
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
               {t('Test & Simulate Rule')}
             </Button>
 
@@ -206,7 +206,7 @@ export const TenantRulesPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setIsReorderModalOpen(true)}
-              className="text-xs border-[#30363d] text-[#c9d1d9] hover:bg-[#21262d] gap-1.5"
+              className="text-xs border-border text-foreground hover:bg-muted gap-1.5"
             >
               <ArrowUpDown className="w-3.5 h-3.5" />
               {t('Reorder Priorities')}
@@ -216,7 +216,7 @@ export const TenantRulesPage: React.FC = () => {
               variant="primary"
               size="sm"
               onClick={handleOpenCreateModal}
-              className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm font-semibold"
+              className="text-xs bg-primary hover:bg-primary/90 text-[#fff] gap-1.5 font-medium"
             >
               <Plus className="w-4 h-4" />
               {t('Create Access Rule')}
@@ -226,32 +226,32 @@ export const TenantRulesPage: React.FC = () => {
       </div>
 
       {/* Evaluation Sequence Notice Banner */}
-      <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#1f6feb]/15 via-[#161b22] to-[#161b22] border border-[#1f6feb]/30 flex items-center justify-between gap-3 text-xs text-[#c9d1d9]">
+      <div className="p-3.5 rounded-xl bg-card border border-primary/30 flex items-center justify-between gap-3 text-xs text-foreground">
         <div className="flex items-center gap-2.5">
-          <Layers className="w-4 h-4 text-[#58a6ff] shrink-0" />
+          <Layers className="w-4 h-4 text-primary shrink-0" />
           <span>
             <strong>{t('Deterministic Evaluation:')}</strong> {t('Edge controllers process active rules strictly from top to bottom (Priority #1 to #999). As soon as an entry matches target, facility, and time window, evaluation halts and the barrier executes the action.')}
           </span>
         </div>
         <button
           onClick={() => setIsReorderModalOpen(true)}
-          className="text-[#58a6ff] hover:underline whitespace-nowrap font-medium text-[11px] cursor-pointer"
+          className="text-primary hover:underline whitespace-nowrap font-medium text-[11px] cursor-pointer"
         >
           {t('Adjust Sequence')} &rarr;
         </button>
       </div>
 
       {/* Toolbar: Search, Filters & View Switcher */}
-      <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs">
+      <div className="p-4 rounded-xl bg-card border border-border flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             placeholder={t('Search by rule name, code, plate, or target...')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[#0d0e12] border border-[#30363d] rounded-lg pl-9 pr-3 py-2 text-white placeholder-[#8b949e] focus:outline-hidden focus:border-[#58a6ff]"
+            className="w-full bg-background border border-border rounded-lg pl-9 pr-3 py-2 text-foreground placeholder-muted-foreground focus:outline-hidden focus:border-primary"
           />
         </div>
 
@@ -261,7 +261,7 @@ export const TenantRulesPage: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-white"
+            className="bg-background border border-border rounded-lg px-2.5 py-2 text-foreground"
           >
             <option value="ALL">{t('All Statuses')}</option>
             <option value="ACTIVE">{t('Active')}</option>
@@ -275,7 +275,7 @@ export const TenantRulesPage: React.FC = () => {
           <select
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
-            className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-white"
+            className="bg-background border border-border rounded-lg px-2.5 py-2 text-foreground"
           >
             <option value="ALL">{t('All Actions')}</option>
             <option value="ALLOW">{t('ALLOW (Permit)')}</option>
@@ -286,7 +286,7 @@ export const TenantRulesPage: React.FC = () => {
           <select
             value={targetFilter}
             onChange={(e) => setTargetFilter(e.target.value)}
-            className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-white"
+            className="bg-background border border-border rounded-lg px-2.5 py-2 text-foreground"
           >
             <option value="ALL">{t('All Targets')}</option>
             <option value="MEMBER_GROUP">{t('Member Group')}</option>
@@ -299,13 +299,13 @@ export const TenantRulesPage: React.FC = () => {
           </select>
 
           {/* View Mode Toggle */}
-          <div className="flex items-center border border-[#30363d] rounded-lg p-0.5 bg-[#0d0e12]">
+          <div className="flex items-center border border-border rounded-lg p-0.5 bg-background">
             <button
               onClick={() => setViewMode('cards')}
               className={`p-1.5 rounded-md transition-colors cursor-pointer ${
                 viewMode === 'cards'
-                  ? 'bg-[#21262d] text-white'
-                  : 'text-[#8b949e] hover:text-white'
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               title={t('Card Grid View')}
             >
@@ -315,8 +315,8 @@ export const TenantRulesPage: React.FC = () => {
               onClick={() => setViewMode('table')}
               className={`p-1.5 rounded-md transition-colors cursor-pointer ${
                 viewMode === 'table'
-                  ? 'bg-[#21262d] text-white'
-                  : 'text-[#8b949e] hover:text-white'
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               title={t('Dense Table View')}
             >
@@ -328,12 +328,12 @@ export const TenantRulesPage: React.FC = () => {
 
       {/* Rules Display */}
       {filteredRules.length === 0 ? (
-        <div className="p-12 text-center bg-[#161b22] rounded-2xl border border-[#30363d] space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#21262d] border border-[#30363d] text-[#8b949e] flex items-center justify-center mx-auto">
+        <div className="p-12 text-center bg-card rounded-2xl border border-border space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-muted border border-border text-muted-foreground flex items-center justify-center mx-auto">
             <Filter className="w-6 h-6" />
           </div>
-          <h3 className="text-base font-bold text-white">{t('No Matching Access Rules Found')}</h3>
-          <p className="text-xs text-[#8b949e] max-w-sm mx-auto">
+          <h3 className="text-base font-medium text-foreground">{t('No Matching Access Rules Found')}</h3>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
             {t('No rules match the selected search criteria or filter combinations. Try resetting filters or create a new rule.')}
           </p>
           <Button
@@ -346,7 +346,7 @@ export const TenantRulesPage: React.FC = () => {
               setTargetFilter('ALL');
               setSiteFilter('ALL');
             }}
-            className="text-xs border-[#30363d] text-[#58a6ff] hover:bg-[#21262d]"
+            className="text-xs border-border text-primary hover:bg-muted"
           >
             {t('Clear All Filters')}
           </Button>
@@ -358,35 +358,35 @@ export const TenantRulesPage: React.FC = () => {
             return (
               <div
                 key={rule.id}
-                className="p-5 rounded-2xl bg-[#161b22] border border-[#30363d] flex flex-col justify-between space-y-4 hover:border-[#58a6ff]/40 transition-all shadow-xs group"
+                className="p-5 rounded-2xl bg-card border border-border flex flex-col justify-between space-y-4 hover:border-primary/40 transition-colors group"
               >
                 <div>
                   {/* Card Header: Action, Priority & Status */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                        className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full ${
                           isAllow
-                            ? 'bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40'
-                            : 'bg-[#da3633]/20 text-[#f85149] border border-[#da3633]/40'
+                            ? 'bg-success/20 text-success border border-success/40'
+                            : 'bg-destructive/20 text-destructive border border-destructive/40'
                         }`}
                       >
                         {isAllow ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
                         {t(rule.action)}
                       </span>
 
-                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#21262d] border border-[#30363d] text-[#58a6ff]">
+                      <span className=" text-xs font-medium px-2 py-0.5 rounded bg-muted border border-border text-primary">
                         {t('Priority #{{num}}', { num: rule.priority })}
                       </span>
                     </div>
 
                     <span
-                      className={`inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                      className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${
                         rule.status === 'ACTIVE'
-                          ? 'bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30'
+                          ? 'bg-success/15 text-success border border-success/30'
                           : rule.status === 'DRAFT'
-                          ? 'bg-[#d29922]/15 text-[#e3b341] border border-[#d29922]/30'
-                          : 'bg-[#8b949e]/15 text-[#8b949e] border border-[#30363d]'
+                          ? 'bg-warning/15 text-warning border border-warning/30'
+                          : 'bg-muted-foreground/15 text-muted-foreground border border-border'
                       }`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-current" />
@@ -396,21 +396,21 @@ export const TenantRulesPage: React.FC = () => {
 
                   {/* Title & Code */}
                   <div className="mt-3">
-                    <h3 className="text-sm font-bold text-white group-hover:text-[#58a6ff] transition-colors line-clamp-1">
+                    <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">
                       {rule.name}
                     </h3>
-                    <span className="font-mono text-[11px] text-[#8b949e]">{rule.code}</span>
+                    <span className="font-mono text-[11px] text-muted-foreground">{rule.code}</span>
                   </div>
 
                   {/* Target Entity Box */}
-                  <div className="mt-3 p-2.5 rounded-xl bg-[#0d0e12] border border-[#30363d]/60 text-xs space-y-1">
-                    <div className="flex items-center justify-between text-[11px] text-[#8b949e]">
+                  <div className="mt-3 p-2.5 rounded-xl bg-background border border-border/60 text-xs space-y-1">
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                       <span>{t('Target:')}</span>
-                      <span className="font-mono font-medium text-[#58a6ff]">{rule.target?.type || rule.type}</span>
+                      <span className=" font-medium text-primary">{rule.target?.type || rule.type}</span>
                     </div>
-                    <div className="font-semibold text-white truncate">
+                    <div className="font-medium text-foreground truncate">
                       {rule.target?.type === 'LICENSE_PLATE' && rule.target.licensePlate ? (
-                        <span className="font-mono text-[#f0883e]">{rule.target.licensePlate}</span>
+                        <span className="font-mono text-warning">{rule.target.licensePlate}</span>
                       ) : rule.target?.type === 'MEMBER_GROUP' && rule.target.memberGroup ? (
                         <span>{t('Group:')} {rule.target.memberGroup}</span>
                       ) : rule.target?.type === 'SPECIFIC_VEHICLE' && rule.target.vehicleName ? (
@@ -425,13 +425,13 @@ export const TenantRulesPage: React.FC = () => {
 
                   {/* Meta: Schedule & Scope */}
                   <div className="space-y-2 mt-3 text-xs">
-                    <div className="flex items-center gap-2 text-[#8b949e]">
-                      <Clock className="w-3.5 h-3.5 text-[#e3b341] shrink-0" />
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="w-3.5 h-3.5 text-warning shrink-0" />
                       <span className="truncate">{rule.schedule?.summaryText || t('24/7 Always Active')}</span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[#8b949e]">
-                      <Building2 className="w-3.5 h-3.5 text-[#58a6ff] shrink-0" />
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
                       <span className="truncate">
                         {rule.scope?.allSites || rule.sites?.includes('ALL_SITES') || rule.sites?.includes('ALL')
                           ? t('All Facilities')
@@ -446,10 +446,10 @@ export const TenantRulesPage: React.FC = () => {
                 </div>
 
                 {/* Card Actions Footer */}
-                <div className="pt-3 border-t border-[#30363d]/60 flex items-center justify-between text-xs">
+                <div className="pt-3 border-t border-border/60 flex items-center justify-between text-xs">
                   <button
                     onClick={() => setSelectedRuleForDrawer(rule)}
-                    className="text-[#58a6ff] hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                    className="text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
                   >
                     {t('View Details')}
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -459,7 +459,7 @@ export const TenantRulesPage: React.FC = () => {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleOpenSimulator(rule)}
-                        className="p-1.5 rounded hover:bg-[#1f6feb]/20 text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
+                        className="p-1.5 rounded hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors cursor-pointer"
                         title={t('Test in Simulator')}
                       >
                         <Play className="w-3.5 h-3.5" />
@@ -467,7 +467,7 @@ export const TenantRulesPage: React.FC = () => {
 
                       <button
                         onClick={() => handleOpenEditModal(rule)}
-                        className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
+                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                         title={t('Edit Rule')}
                       >
                         <Edit className="w-3.5 h-3.5" />
@@ -475,7 +475,7 @@ export const TenantRulesPage: React.FC = () => {
 
                       <button
                         onClick={() => duplicateTenantAccessRule(rule.id)}
-                        className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
+                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                         title={t('Duplicate Rule')}
                       >
                         <Copy className="w-3.5 h-3.5" />
@@ -485,8 +485,8 @@ export const TenantRulesPage: React.FC = () => {
                         onClick={() => handleToggleStatus(rule.id, rule.status)}
                         className={`p-1.5 rounded transition-colors cursor-pointer ${
                           rule.status === 'ACTIVE'
-                            ? 'text-[#8b949e] hover:text-[#e3b341] hover:bg-[#e3b341]/10'
-                            : 'text-[#8b949e] hover:text-[#3fb950] hover:bg-[#3fb950]/10'
+                            ? 'text-muted-foreground hover:text-warning hover:bg-warning/10'
+                            : 'text-muted-foreground hover:text-success hover:bg-success/10'
                         }`}
                         title={rule.status === 'ACTIVE' ? t('Deactivate Rule') : t('Activate Rule')}
                       >
@@ -495,7 +495,7 @@ export const TenantRulesPage: React.FC = () => {
 
                       <button
                         onClick={() => setRuleToDelete(rule)}
-                        className="p-1.5 rounded hover:bg-[#da3633]/20 text-[#8b949e] hover:text-[#f85149] transition-colors cursor-pointer"
+                        className="p-1.5 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
                         title={t('Delete Rule')}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -509,42 +509,42 @@ export const TenantRulesPage: React.FC = () => {
         </div>
       ) : (
         /* Dense Table View */
-        <div className="bg-[#161b22] rounded-2xl border border-[#30363d] overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#0d0e12] border-b border-[#30363d] text-[#8b949e]">
+              <thead className="bg-background border-b border-border text-muted-foreground">
                 <tr>
-                  <th className="py-3 px-4 font-semibold">{t('Priority')}</th>
-                  <th className="py-3 px-4 font-semibold">{t('Action')}</th>
-                  <th className="py-3 px-4 font-semibold">{t('Rule Name & Code')}</th>
-                  <th className="py-3 px-4 font-semibold">{t('Target Entity')}</th>
-                  <th className="py-3 px-4 font-semibold">{t('Facility & Gates')}</th>
-                  <th className="py-3 px-4 font-semibold">{t('Operating Schedule')}</th>
-                  <th className="py-3 px-4 font-semibold">{t('Status')}</th>
-                  <th className="py-3 px-4 font-semibold text-right">{t('Actions')}</th>
+                  <th className="py-3 px-4 font-medium">{t('Priority')}</th>
+                  <th className="py-3 px-4 font-medium">{t('Action')}</th>
+                  <th className="py-3 px-4 font-medium">{t('Rule Name & Code')}</th>
+                  <th className="py-3 px-4 font-medium">{t('Target Entity')}</th>
+                  <th className="py-3 px-4 font-medium">{t('Facility & Gates')}</th>
+                  <th className="py-3 px-4 font-medium">{t('Operating Schedule')}</th>
+                  <th className="py-3 px-4 font-medium">{t('Status')}</th>
+                  <th className="py-3 px-4 font-medium text-right">{t('Actions')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#30363d]/60">
+              <tbody className="divide-y divide-border/60">
                 {filteredRules.map((rule) => {
                   const isAllow = rule.action === 'ALLOW';
                   return (
                     <tr
                       key={rule.id}
-                      className="hover:bg-[#21262d]/50 transition-colors group cursor-pointer"
+                      className="hover:bg-muted/50 transition-colors group cursor-pointer"
                       onClick={() => setSelectedRuleForDrawer(rule)}
                     >
                       <td className="py-3 px-4">
-                        <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#21262d] text-[#58a6ff]">
+                        <span className=" text-xs font-medium px-2 py-0.5 rounded bg-muted text-primary">
                           #{rule.priority}
                         </span>
                       </td>
 
                       <td className="py-3 px-4">
                         <span
-                          className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                          className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${
                             isAllow
-                              ? 'bg-[#238636]/20 text-[#3fb950]'
-                              : 'bg-[#da3633]/20 text-[#f85149]'
+                              ? 'bg-success/20 text-success'
+                              : 'bg-destructive/20 text-destructive'
                           }`}
                         >
                           {isAllow ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
@@ -553,42 +553,42 @@ export const TenantRulesPage: React.FC = () => {
                       </td>
 
                       <td className="py-3 px-4">
-                        <div className="font-bold text-white group-hover:text-[#58a6ff] transition-colors">
+                        <div className="font-medium text-foreground group-hover:text-primary transition-colors">
                           {rule.name}
                         </div>
-                        <div className="font-mono text-[11px] text-[#8b949e]">{rule.code}</div>
+                        <div className="font-mono text-[11px] text-muted-foreground">{rule.code}</div>
                       </td>
 
                       <td className="py-3 px-4">
-                        <span className="font-mono text-[11px] text-[#58a6ff] block">
+                        <span className=" text-[11px] text-primary block">
                           {rule.target?.type || rule.type}
                         </span>
-                        <span className="text-white font-medium">
+                        <span className="text-foreground font-medium">
                           {rule.target?.licensePlate || rule.target?.memberGroup || rule.target?.vehicleName || t('All Vehicles')}
                         </span>
                       </td>
 
-                      <td className="py-3 px-4 text-[#c9d1d9]">
+                      <td className="py-3 px-4 text-foreground">
                         <div>
                           {rule.scope?.allSites || rule.sites?.includes('ALL_SITES') || rule.sites?.includes('ALL')
                             ? t('All Facilities')
                             : (rule.scope?.siteNames || []).join(', ') || t('Targeted Site')}
                         </div>
-                        <div className="text-[11px] text-[#8b949e]">
+                        <div className="text-[11px] text-muted-foreground">
                           {rule.scope?.allGates || rule.gates?.includes('ALL_GATES') ? t('All Gates') : t('{{count}} Gate(s)', { count: rule.scope?.gateIds?.length || 1 })}
                         </div>
                       </td>
 
-                      <td className="py-3 px-4 text-[#c9d1d9] font-medium max-w-xs truncate">
+                      <td className="py-3 px-4 text-foreground font-medium max-w-xs truncate">
                         {rule.schedule?.summaryText || t('24/7 Always Active')}
                       </td>
 
                       <td className="py-3 px-4">
                         <span
-                          className={`inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                          className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${
                             rule.status === 'ACTIVE'
-                              ? 'bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30'
-                              : 'bg-[#8b949e]/15 text-[#8b949e] border border-[#30363d]'
+                              ? 'bg-success/15 text-success border border-success/30'
+                              : 'bg-muted-foreground/15 text-muted-foreground border border-border'
                           }`}
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-current" />
@@ -601,21 +601,21 @@ export const TenantRulesPage: React.FC = () => {
                           <div className="flex items-center justify-end gap-1">
                             <button
                               onClick={() => handleOpenSimulator(rule)}
-                              className="p-1.5 rounded hover:bg-[#1f6feb]/20 text-[#8b949e] hover:text-[#58a6ff] transition-colors cursor-pointer"
+                              className="p-1.5 rounded hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors cursor-pointer"
                               title={t('Test Rule')}
                             >
                               <Play className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => handleOpenEditModal(rule)}
-                              className="p-1.5 rounded hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-colors cursor-pointer"
+                              className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                               title={t('Edit')}
                             >
                               <Edit className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => setRuleToDelete(rule)}
-                              className="p-1.5 rounded hover:bg-[#da3633]/20 text-[#8b949e] hover:text-[#f85149] transition-colors cursor-pointer"
+                              className="p-1.5 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
                               title={t('Delete')}
                             >
                               <Trash2 className="w-3.5 h-3.5" />

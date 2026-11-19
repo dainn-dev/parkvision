@@ -35,7 +35,7 @@ const useAction = (isOpen: boolean) => {
 
 const ErrorBanner: React.FC<{ error: string | null }> = ({ error }) =>
   error ? (
-    <div className="p-3 rounded-lg bg-[#f85149]/10 border border-[#f85149]/30 text-xs text-[#f85149]">{error}</div>
+    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-xs text-destructive">{error}</div>
   ) : null;
 
 export const RebootDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onClose }) => {
@@ -54,7 +54,7 @@ export const RebootDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onCl
       maxWidth="sm"
       title={
         <span className="flex items-center gap-2">
-          <RotateCcw className="w-5 h-5 text-[#e3b341]" />
+          <RotateCcw className="w-5 h-5 text-warning" />
           {t('Reboot Device')}
         </span>
       }
@@ -82,14 +82,14 @@ export const RebootDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onCl
       <div className="p-6 space-y-4">
         <ErrorBanner error={error} />
         {sentCount !== null ? (
-          <div className="text-xs text-[#3fb950]">
+          <div className="text-xs text-success">
             {t('Reboot command issued to {{count}} gate(s) bound to this device.', { count: sentCount })}
           </div>
         ) : (
-          <div className="p-3.5 rounded-xl bg-[#d29922]/10 border border-[#d29922]/30 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-[#e3b341] shrink-0 mt-0.5" />
-            <div className="text-xs text-[#c9d1d9]">
-              {t('A')} <strong className="text-white">reboot</strong> {t('command will be sent to every barrier gate bound to this edge device.')}
+          <div className="p-3.5 rounded-xl bg-warning/10 border border-warning/30 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+            <div className="text-xs text-foreground">
+              {t('A')} <strong className="text-foreground">reboot</strong> {t('command will be sent to every barrier gate bound to this edge device.')}
             </div>
           </div>
         )}
@@ -110,7 +110,7 @@ export const DecommissionDeviceDialog: React.FC<DialogProps> = ({ device, isOpen
       maxWidth="sm"
       title={
         <span className="flex items-center gap-2">
-          <PowerOff className="w-5 h-5 text-[#e3b341]" />
+          <PowerOff className="w-5 h-5 text-warning" />
           {t('Decommission Device')}
         </span>
       }
@@ -130,10 +130,10 @@ export const DecommissionDeviceDialog: React.FC<DialogProps> = ({ device, isOpen
     >
       <div className="p-6 space-y-4">
         <ErrorBanner error={error} />
-        <div className="p-3.5 rounded-xl bg-[#d29922]/10 border border-[#d29922]/30 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-[#e3b341] shrink-0 mt-0.5" />
-          <div className="text-xs text-[#c9d1d9]">
-            {t('The device will be marked')} <strong className="text-white">DECOMMISSIONED</strong> {t('and any barrier gates bound to it will be unbound. Heartbeats from this device will no longer mark it online. It can be reactivated later.')}
+        <div className="p-3.5 rounded-xl bg-warning/10 border border-warning/30 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+          <div className="text-xs text-foreground">
+            {t('The device will be marked')} <strong className="text-foreground">DECOMMISSIONED</strong> {t('and any barrier gates bound to it will be unbound. Heartbeats from this device will no longer mark it online. It can be reactivated later.')}
           </div>
         </div>
       </div>
@@ -153,7 +153,7 @@ export const ReactivateDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, 
       maxWidth="sm"
       title={
         <span className="flex items-center gap-2">
-          <RefreshCw className="w-5 h-5 text-[#3fb950]" />
+          <RefreshCw className="w-5 h-5 text-success" />
           {t('Reactivate Device')}
         </span>
       }
@@ -173,8 +173,8 @@ export const ReactivateDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, 
     >
       <div className="p-6 space-y-4">
         <ErrorBanner error={error} />
-        <div className="text-xs text-[#c9d1d9]">
-          {t('The device will return to')} <strong className="text-white">PROVISIONING</strong> {t('status and can come back online once it heartbeats.')}
+        <div className="text-xs text-foreground">
+          {t('The device will return to')} <strong className="text-foreground">PROVISIONING</strong> {t('status and can come back online once it heartbeats.')}
         </div>
       </div>
     </Modal>
@@ -227,7 +227,7 @@ export const ActivationCodeDialog: React.FC<DialogProps> = ({ device, isOpen, on
       maxWidth="sm"
       title={
         <span className="flex items-center gap-2">
-          <KeyRound className="w-5 h-5 text-[#58a6ff]" />
+          <KeyRound className="w-5 h-5 text-primary" />
           {t('Activation Code')}
         </span>
       }
@@ -258,23 +258,23 @@ export const ActivationCodeDialog: React.FC<DialogProps> = ({ device, isOpen, on
         <ErrorBanner error={error} />
         {issued ? (
           <>
-            <div className="rounded-xl bg-[#238636]/10 border border-[#238636]/30 p-4 text-center">
-              <div className="font-mono text-2xl font-bold tracking-[0.2em] text-white select-all">
+            <div className="rounded-xl bg-success/10 border border-success/30 p-4 text-center">
+              <div className=" text-2xl font-medium tracking-[0.2em] text-foreground select-all">
                 {issued.code}
               </div>
               <button
                 onClick={copy}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-[#30363d] px-3 py-1.5 text-xs text-[#c9d1d9] hover:bg-[#21262d]"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-muted"
               >
-                {copied ? <Check className="w-3.5 h-3.5 text-[#3fb950]" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
                 {copied ? t('Copied') : t('Copy code')}
               </button>
             </div>
-            <div className="text-xs text-[#8b949e] space-y-1">
+            <div className="text-xs text-muted-foreground space-y-1">
               <p>
-                {t('This code is shown')} <strong className="text-white">{t('once')}</strong> — {t('share it with whoever sets up the edge client.')}
+                {t('This code is shown')} <strong className="text-foreground">{t('once')}</strong> — {t('share it with whoever sets up the edge client.')}
                 {issued.expiresAt && (
-                  <> {t('It expires at')} <strong className="text-white">{new Date(issued.expiresAt).toLocaleString()}</strong>.</>
+                  <> {t('It expires at')} <strong className="text-foreground">{new Date(issued.expiresAt).toLocaleString()}</strong>.</>
                 )}
               </p>
               <p>{t('Generating a new code supersedes any unused code for this device.')}</p>
@@ -282,14 +282,14 @@ export const ActivationCodeDialog: React.FC<DialogProps> = ({ device, isOpen, on
           </>
         ) : (
           <>
-            <div className="p-3.5 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-[#58a6ff] shrink-0 mt-0.5" />
-              <div className="text-xs text-[#c9d1d9]">
-                {t('Generates a')} <strong className="text-white">{t('one-time activation code')}</strong> {t('(valid 24h). The edge client exchanges it for its gate, lane, camera, and credential configuration.')}
+            <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/30 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+              <div className="text-xs text-foreground">
+                {t('Generates a')} <strong className="text-foreground">{t('one-time activation code')}</strong> {t('(valid 24h). The edge client exchanges it for its gate, lane, camera, and credential configuration.')}
               </div>
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-[#8b949e] uppercase tracking-wider mb-1.5">
+              <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">
                 {t('Restrict to IP / CIDR (optional)')}
               </label>
               <input
@@ -297,12 +297,12 @@ export const ActivationCodeDialog: React.FC<DialogProps> = ({ device, isOpen, on
                 value={allowedIp}
                 onChange={(e) => setAllowedIp(e.target.value)}
                 placeholder={t('e.g. 203.0.113.10 or 203.0.113.0/24')}
-                className="w-full rounded-lg bg-[#0d0e12] border border-[#30363d] px-3 py-2 text-xs font-mono text-white focus:outline-hidden focus:border-[#58a6ff]"
+                className="w-full rounded-lg bg-background border border-border px-3 py-2 text-xs text-foreground focus:outline-hidden focus:border-primary"
               />
               {ipError ? (
-                <p className="mt-1.5 text-[11px] text-[#f85149]">{ipError}</p>
+                <p className="mt-1.5 text-[11px] text-destructive">{ipError}</p>
               ) : (
-                <p className="mt-1.5 text-[11px] text-[#8b949e]">
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
                   {t("When set, the code can only be redeemed by a client connecting from this address — e.g. the site's public IP.")}
                 </p>
               )}
@@ -326,7 +326,7 @@ export const RevokeTokenDialog: React.FC<DialogProps> = ({ device, isOpen, onClo
       maxWidth="sm"
       title={
         <span className="flex items-center gap-2">
-          <Ban className="w-5 h-5 text-[#f85149]" />
+          <Ban className="w-5 h-5 text-destructive" />
           {t('Revoke Device Token')}
         </span>
       }
@@ -346,10 +346,10 @@ export const RevokeTokenDialog: React.FC<DialogProps> = ({ device, isOpen, onClo
     >
       <div className="p-6 space-y-4">
         <ErrorBanner error={error} />
-        <div className="p-3.5 rounded-xl bg-[#f85149]/10 border border-[#f85149]/30 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-[#f85149] shrink-0 mt-0.5" />
-          <div className="text-xs text-[#c9d1d9]">
-            {t("The device's API credential is revoked immediately — its")} <strong className="text-white">{t('REST and MQTT access stop working')}</strong> {t('and the client deprovisions itself. Issue a new activation code to reconnect it.')}
+        <div className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/30 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+          <div className="text-xs text-foreground">
+            {t("The device's API credential is revoked immediately — its")} <strong className="text-foreground">{t('REST and MQTT access stop working')}</strong> {t('and the client deprovisions itself. Issue a new activation code to reconnect it.')}
           </div>
         </div>
       </div>
@@ -369,7 +369,7 @@ export const DeleteDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onCl
       maxWidth="sm"
       title={
         <span className="flex items-center gap-2">
-          <Trash2 className="w-5 h-5 text-[#f85149]" />
+          <Trash2 className="w-5 h-5 text-destructive" />
           {t('Delete Device')}
         </span>
       }
@@ -389,10 +389,10 @@ export const DeleteDeviceDialog: React.FC<DialogProps> = ({ device, isOpen, onCl
     >
       <div className="p-6 space-y-4">
         <ErrorBanner error={error} />
-        <div className="p-3.5 rounded-xl bg-[#f85149]/10 border border-[#f85149]/30 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-[#f85149] shrink-0 mt-0.5" />
-          <div className="text-xs text-[#c9d1d9]">
-            {t('This permanently removes the device record. Only')} <strong className="text-white">decommissioned</strong> {t('devices with no bound gates can be deleted.')}
+        <div className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/30 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+          <div className="text-xs text-foreground">
+            {t('This permanently removes the device record. Only')} <strong className="text-foreground">decommissioned</strong> {t('devices with no bound gates can be deleted.')}
           </div>
         </div>
       </div>

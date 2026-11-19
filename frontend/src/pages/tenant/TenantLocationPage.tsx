@@ -125,25 +125,25 @@ export const TenantLocationPage: React.FC = () => {
   const hoursSummary = getOperatingHoursSummary();
 
   return (
-    <div className="space-y-6 pb-12 animate-in fade-in duration-300">
+    <div className="space-y-6 pb-12 animate-in fade-in duration-[330ms]">
       {/* 1. Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#30363d] pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-5">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff]">
+            <div className="p-2 rounded-xl bg-primary/10 border border-primary/30 text-primary">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-white tracking-tight">{t('Location')}</h1>
-                <span className="px-2 py-0.5 rounded-full text-xs bg-[#21262d] text-[#c9d1d9] font-medium border border-[#30363d]">
+                <h1 className="text-xl font-medium text-foreground tracking-tight">{t('Location')}</h1>
+                <span className="px-2 py-0.5 rounded-full text-xs bg-muted text-foreground font-medium border border-border">
                   {location.name}
                 </span>
-                <span className="px-2 py-0.5 rounded-md text-[10px] bg-[#161b22] text-[#8b949e] font-mono border border-[#30363d]">
+                <span className="px-2 py-0.5 rounded-md text-[11px] bg-card text-muted-foreground border border-border">
                   {location.code}
                 </span>
               </div>
-              <p className="text-xs text-[#8b949e]">
+              <p className="text-xs text-muted-foreground">
                 {t("Your organization's physical operating location, hardware topology, and schedule")}
               </p>
             </div>
@@ -157,7 +157,7 @@ export const TenantLocationPage: React.FC = () => {
               variant="primary"
               size="sm"
               onClick={() => setIsEditLocationOpen(true)}
-              className="text-xs bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 font-semibold shadow-xs"
+              className="text-xs bg-primary hover:bg-primary/90 text-[#fff] gap-1.5 font-medium "
             >
               <Edit className="w-3.5 h-3.5" />
               {t('Edit Location')}
@@ -168,7 +168,7 @@ export const TenantLocationPage: React.FC = () => {
           <div className="relative">
             <button
               onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
-              className="p-2 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white hover:border-[#8b949e] transition-colors"
+              className="p-2 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors"
             >
               <MoreVertical className="w-4 h-4" />
             </button>
@@ -179,15 +179,15 @@ export const TenantLocationPage: React.FC = () => {
                   className="fixed inset-0 z-20"
                   onClick={() => setIsMoreMenuOpen(false)}
                 />
-                <div className="absolute right-0 mt-2 w-56 bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl py-1.5 z-30 text-xs animate-in zoom-in-95 duration-150">
+                <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-xl py-1.5 z-30 text-xs animate-in zoom-in-95 duration-[330ms]">
                   <button
                     onClick={() => {
                       setIsMoreMenuOpen(false);
                       setShowInteractiveMap(!showInteractiveMap);
                     }}
-                    className="w-full px-3.5 py-2 text-left text-[#c9d1d9] hover:text-white hover:bg-[#21262d] flex items-center gap-2.5 transition-colors"
+                    className="w-full px-3.5 py-2 text-left text-foreground hover:text-foreground hover:bg-muted flex items-center gap-2.5 transition-colors"
                   >
-                    <Compass className="w-4 h-4 text-[#58a6ff]" />
+                    <Compass className="w-4 h-4 text-primary" />
                     <span>{showInteractiveMap ? t('Hide Map View') : t('View on Map')}</span>
                   </button>
 
@@ -198,13 +198,13 @@ export const TenantLocationPage: React.FC = () => {
                           setIsMoreMenuOpen(false);
                           setIsEditHoursOpen(true);
                         }}
-                        className="w-full px-3.5 py-2 text-left text-[#c9d1d9] hover:text-white hover:bg-[#21262d] flex items-center gap-2.5 transition-colors"
+                        className="w-full px-3.5 py-2 text-left text-foreground hover:text-foreground hover:bg-muted flex items-center gap-2.5 transition-colors"
                       >
-                        <Clock className="w-4 h-4 text-[#3fb950]" />
+                        <Clock className="w-4 h-4 text-success" />
                         <span>{t('Manage Operating Hours')}</span>
                       </button>
 
-                      <div className="border-t border-[#30363d] my-1" />
+                      <div className="border-t border-border my-1" />
 
                       <button
                         onClick={() => {
@@ -213,8 +213,8 @@ export const TenantLocationPage: React.FC = () => {
                         }}
                         className={`w-full px-3.5 py-2 text-left flex items-center gap-2.5 transition-colors ${
                           isActive
-                            ? 'text-[#f85149] hover:bg-[#da3633]/15'
-                            : 'text-[#3fb950] hover:bg-[#238636]/15'
+                            ? 'text-destructive hover:bg-destructive/15'
+                            : 'text-success hover:bg-success/15'
                         }`}
                       >
                         <Power className="w-4 h-4" />
@@ -231,28 +231,28 @@ export const TenantLocationPage: React.FC = () => {
 
       {/* 2. Location Status Banner */}
       <div
-        className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-all ${
+        className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-colors ${
           isActive
-            ? 'bg-[#238636]/10 border-[#238636]/30 text-white'
-            : 'bg-[#da3633]/10 border-[#da3633]/30 text-white'
+            ? 'bg-success/10 border-success/30 text-foreground'
+            : 'bg-destructive/10 border-destructive/30 text-foreground'
         }`}
       >
         <div className="flex items-center gap-3">
           <div
             className={`w-3 h-3 rounded-full shrink-0 ${
-              isActive ? 'bg-[#3fb950] animate-pulse' : 'bg-[#f85149]'
+              isActive ? 'bg-success ' : 'bg-destructive'
             }`}
           />
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-xs">
+              <span className="font-medium text-xs">
                 {isActive ? t('Active & Operational') : t('Location Deactivated')}
               </span>
-              <span className="text-[10px] text-[#8b949e]">
+              <span className="text-[11px] text-muted-foreground">
                 {t('Last updated: 10 seconds ago')}
               </span>
             </div>
-            <p className="text-xs text-[#8b949e]">
+            <p className="text-xs text-muted-foreground">
               {isActive
                 ? t('Location is fully operational and processing live ANPR camera access events across all lanes.')
                 : t('Automated ANPR gate operations are suspended. Hardware telemetry remains in diagnostic mode.')}
@@ -267,8 +267,8 @@ export const TenantLocationPage: React.FC = () => {
             onClick={() => setIsDeactivateOpen(true)}
             className={`text-xs self-start sm:self-auto shrink-0 border ${
               isActive
-                ? 'border-[#30363d] text-[#8b949e] hover:text-[#f85149] hover:border-[#da3633]/40'
-                : 'border-[#238636]/50 bg-[#238636]/20 text-[#3fb950] hover:bg-[#238636]/30'
+                ? 'border-border text-muted-foreground hover:text-destructive hover:border-destructive/40'
+                : 'border-success/50 bg-success/20 text-success hover:bg-success/30'
             }`}
           >
             <Power className="w-3.5 h-3.5 mr-1.5" />
@@ -280,11 +280,11 @@ export const TenantLocationPage: React.FC = () => {
       {/* 3. Overview Row (2 Columns: Location Info + System Health) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Location Information Card (7 cols) */}
-        <div className="lg:col-span-7 bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4 shadow-sm flex flex-col justify-between">
+        <div className="lg:col-span-7 bg-card border border-border rounded-2xl p-5 space-y-4 flex flex-col justify-between">
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
-              <div className="flex items-center gap-2 text-white font-semibold text-xs">
-                <MapPin className="w-4 h-4 text-[#58a6ff]" />
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2 text-foreground font-medium text-xs">
+                <MapPin className="w-4 h-4 text-primary" />
                 <span>{t('Location Information')}</span>
               </div>
               {canManage && (
@@ -292,7 +292,7 @@ export const TenantLocationPage: React.FC = () => {
                   variant="ghost"
                   size="sm"
                   onClick={() => setIsEditLocationOpen(true)}
-                  className="text-[11px] text-[#58a6ff] hover:text-white p-0 h-auto font-medium"
+                  className="text-[11px] text-primary hover:text-foreground p-0 h-auto font-medium"
                 >
                   {t('Edit')}
                 </Button>
@@ -301,21 +301,21 @@ export const TenantLocationPage: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Location Name')}</span>
-                <span className="text-white font-semibold">{location.name}</span>
+                <span className="text-[11px] text-muted-foreground block mb-0.5">{t('Location Name')}</span>
+                <span className="text-foreground font-medium">{location.name}</span>
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Location Code')}</span>
-                <span className="font-mono text-white bg-[#0d0e12] px-2 py-0.5 rounded border border-[#30363d]">
+                <span className="text-[11px] text-muted-foreground block mb-0.5">{t('Location Code')}</span>
+                <span className=" text-foreground bg-background px-2 py-0.5 rounded border border-border">
                   {location.code}
                 </span>
               </div>
 
               <div className="sm:col-span-2">
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Physical Address')}</span>
-                <div className="flex items-start justify-between gap-2 bg-[#0d0e12] p-2.5 rounded-xl border border-[#30363d]">
-                  <p className="text-white text-xs leading-relaxed">
+                <span className="text-[11px] text-muted-foreground block mb-0.5">{t('Physical Address')}</span>
+                <div className="flex items-start justify-between gap-2 bg-background p-2.5 rounded-xl border border-border">
+                  <p className="text-foreground text-xs leading-relaxed">
                     {location.address.line1}
                     {location.address.line2 ? `, ${location.address.line2}` : ''}
                     <br />
@@ -329,10 +329,10 @@ export const TenantLocationPage: React.FC = () => {
                         'Address'
                       )
                     }
-                    className="p-1 text-[#8b949e] hover:text-white transition-colors"
+                    className="p-1 text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {copiedField === 'Address' ? (
-                      <Check className="w-3.5 h-3.5 text-[#3fb950]" />
+                      <Check className="w-3.5 h-3.5 text-success" />
                     ) : (
                       <Copy className="w-3.5 h-3.5" />
                     )}
@@ -341,22 +341,22 @@ export const TenantLocationPage: React.FC = () => {
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Timezone')}</span>
-                <span className="text-white font-mono text-xs flex items-center gap-1.5">
-                  <Globe className="w-3.5 h-3.5 text-[#8b949e]" />
+                <span className="text-[11px] text-muted-foreground block mb-0.5">{t('Timezone')}</span>
+                <span className="text-foreground text-xs flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-muted-foreground" />
                   {location.timezone} (UTC+07:00)
                 </span>
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Coordinates')}</span>
+                <span className="text-[11px] text-muted-foreground block mb-0.5">{t('Coordinates')}</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-white text-xs">
+                  <span className=" text-foreground text-xs">
                     {(Number(location?.latitude) || 10.7769).toFixed(4)}, {(Number(location?.longitude) || 106.7009).toFixed(4)}
                   </span>
                   <button
                     onClick={() => setShowInteractiveMap(!showInteractiveMap)}
-                    className="text-[11px] text-[#58a6ff] hover:underline"
+                    className="text-[11px] text-primary hover:underline"
                   >
                     {showInteractiveMap ? t('Hide map') : t('View on map')}
                   </button>
@@ -364,56 +364,56 @@ export const TenantLocationPage: React.FC = () => {
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Slot Capacity')}</span>
-                <span className="text-white font-semibold text-xs">
+                <span className="text-[11px] text-muted-foreground block mb-0.5">{t('Slot Capacity')}</span>
+                <span className="text-foreground font-medium text-xs">
                   {location.capacity || 0} {t('Vehicles')}
                 </span>
-                <span className="text-[10px] text-[#8b949e] ml-2">
+                <span className="text-[11px] text-muted-foreground ml-2">
                   ({t('Occupancy:')} {location.currentOccupancy || 0}{location.capacity ? ` / ${Math.round((location.currentOccupancy || 0) / location.capacity * 100)}%` : ''})
                 </span>
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Facility Type')}</span>
-                <span className="text-white text-xs">{t('Dedicated Headquarters Campus')}</span>
+                <span className="text-[11px] text-muted-foreground block mb-0.5">{t('Facility Type')}</span>
+                <span className="text-foreground text-xs">{t('Dedicated Headquarters Campus')}</span>
               </div>
             </div>
           </div>
 
           {/* Interactive Map Preview Drawer */}
           {showInteractiveMap && (
-            <div className="pt-3 border-t border-[#30363d] space-y-2 animate-in fade-in">
-              <div className="flex items-center justify-between text-[11px] text-[#8b949e]">
-                <span className="flex items-center gap-1.5 text-white font-medium">
-                  <Compass className="w-3.5 h-3.5 text-[#e3b341]" />
+            <div className="pt-3 border-t border-border space-y-2 animate-in fade-in">
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1.5 text-foreground font-medium">
+                  <Compass className="w-3.5 h-3.5 text-warning" />
                   {t('Geographic Location Overlay')}
                 </span>
-                <span className="font-mono">
+                <span className="">
                   {location.latitude}, {location.longitude}
                 </span>
               </div>
 
               {/* Styled Mock Map Container */}
-              <div className="relative h-44 rounded-xl border border-[#30363d] overflow-hidden bg-[#0a0c10] flex items-center justify-center">
+              <div className="relative h-44 rounded-xl border border-border overflow-hidden bg-background flex items-center justify-center">
                 {/* Visual grid / road simulation */}
                 <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#58a6ff_1px,transparent_1px)] [background-size:16px_16px]" />
                 
                 {/* Simulated Road Lines */}
-                <div className="absolute top-1/2 left-0 right-0 h-4 bg-[#21262d] -translate-y-1/2" />
-                <div className="absolute top-0 bottom-0 left-1/3 w-4 bg-[#21262d]" />
-                <div className="absolute top-0 bottom-0 left-2/3 w-3 bg-[#21262d]" />
+                <div className="absolute top-1/2 left-0 right-0 h-4 bg-muted -translate-y-1/2" />
+                <div className="absolute top-0 bottom-0 left-1/3 w-4 bg-muted" />
+                <div className="absolute top-0 bottom-0 left-2/3 w-3 bg-muted" />
 
                 {/* Marker */}
-                <div className="relative z-10 flex flex-col items-center animate-bounce">
-                  <div className="px-2 py-0.5 bg-[#58a6ff] text-black font-bold text-[10px] rounded-full shadow-lg mb-1">
+                <div className="relative z-10 flex flex-col items-center ">
+                  <div className="px-2 py-0.5 bg-primary text-black font-medium text-[11px] rounded-full mb-1">
                     {location.name}
                   </div>
-                  <div className="p-2 rounded-full bg-[#f85149] text-white shadow-xl ring-4 ring-[#f85149]/30">
-                    <MapPin className="w-4 h-4 fill-white text-white" />
+                  <div className="p-2 rounded-full bg-destructive text-[#fff] ring-4 ring-destructive/30">
+                    <MapPin className="w-4 h-4 fill-white text-foreground" />
                   </div>
                 </div>
 
-                <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-black/80 text-[10px] text-[#8b949e] border border-[#30363d]">
+                <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-black/80 text-[11px] text-muted-foreground border border-border">
                   {t('District 1, Ho Chi Minh City')}
                 </div>
               </div>
@@ -422,127 +422,127 @@ export const TenantLocationPage: React.FC = () => {
         </div>
 
         {/* Right: System Health Card (5 cols) */}
-        <div className="lg:col-span-5 bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4 shadow-sm flex flex-col justify-between">
+        <div className="lg:col-span-5 bg-card border border-border rounded-2xl p-5 space-y-4 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
-              <div className="flex items-center gap-2 text-white font-semibold text-xs">
-                <Activity className="w-4 h-4 text-[#3fb950]" />
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2 text-foreground font-medium text-xs">
+                <Activity className="w-4 h-4 text-success" />
                 <span>{t('System Health & Telemetry')}</span>
               </div>
               <Badge
                 variant={isHealthy ? 'emerald' : 'amber'}
-                className="text-[10px] uppercase font-mono tracking-wider"
+                className="text-[11px] "
               >
                 ● {t(tenantHealth.overall)}
               </Badge>
             </div>
 
-            <div className="divide-y divide-[#21262d] text-xs pt-1">
+            <div className="divide-y divide-muted text-xs pt-1">
               <div className="py-2.5 flex items-center justify-between">
-                <span className="text-[#8b949e] flex items-center gap-2">
-                  <Camera className="w-3.5 h-3.5 text-[#58a6ff]" />
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <Camera className="w-3.5 h-3.5 text-primary" />
                   {t('ANPR Cameras')}
                 </span>
-                <span className="text-white font-mono font-medium">
+                <span className="text-foreground font-medium">
                   {tenantHealth.cameras.online} / {tenantHealth.cameras.total} {t('Online')}
                 </span>
               </div>
 
               <div className="py-2.5 flex items-center justify-between">
-                <span className="text-[#8b949e] flex items-center gap-2">
-                  <DoorOpen className="w-3.5 h-3.5 text-[#3fb950]" />
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <DoorOpen className="w-3.5 h-3.5 text-success" />
                   {t('Barrier Gate Relays')}
                 </span>
-                <span className="text-white font-mono font-medium">
+                <span className="text-foreground font-medium">
                   {tenantHealth.gates.online} / {tenantHealth.gates.total} {t('Online')}
                 </span>
               </div>
 
               <div className="py-2.5 flex items-center justify-between">
-                <span className="text-[#8b949e] flex items-center gap-2">
-                  <Server className="w-3.5 h-3.5 text-[#e3b341]" />
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <Server className="w-3.5 h-3.5 text-warning" />
                   {t('Edge OCR Nodes')}
                 </span>
-                <span className="text-white font-mono font-medium">
+                <span className="text-foreground font-medium">
                   {tenantHealth.edgeDevices.online} / {tenantHealth.edgeDevices.total} {t('Online')}
                 </span>
               </div>
 
               <div className="py-2.5 flex items-center justify-between">
-                <span className="text-[#8b949e] flex items-center gap-2">
-                  <Radio className="w-3.5 h-3.5 text-[#a371f7]" />
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <Radio className="w-3.5 h-3.5 text-chart-5" />
                   {t('Cloud API Latency')}
                 </span>
-                <span className="text-[#3fb950] font-mono text-xs">
+                <span className="text-success text-xs">
                   {tenantHealth.apiLatencyMs}ms ({t('Optimal')})
                 </span>
               </div>
 
               <div className="py-2.5 flex items-center justify-between">
-                <span className="text-[#8b949e] flex items-center gap-2">
-                  <Wifi className="w-3.5 h-3.5 text-[#58a6ff]" />
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <Wifi className="w-3.5 h-3.5 text-primary" />
                   {t('Live Event Stream')}
                 </span>
-                <span className="text-[#3fb950] font-mono text-xs flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-ping" />
+                <span className="text-success text-xs flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-success " />
                   {t('WebSocket Active')}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-[#0d0e12] border border-[#30363d] flex items-center justify-between text-[11px]">
-            <span className="text-[#8b949e]">{t('Status sync:')}</span>
-            <span className="text-white font-mono">{t('Continuous Telemetry Poll')}</span>
+          <div className="p-3 rounded-xl bg-background border border-border flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground">{t('Status sync:')}</span>
+            <span className="text-foreground ">{t('Continuous Telemetry Poll')}</span>
           </div>
         </div>
       </div>
 
       {/* 4. Infrastructure Summary Card */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4 shadow-sm">
-        <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
-          <div className="flex items-center gap-2 text-white font-semibold text-xs">
-            <Server className="w-4 h-4 text-[#58a6ff]" />
+      <div className="bg-card border border-border rounded-2xl p-5 space-y-4 ">
+        <div className="flex items-center justify-between border-b border-border pb-3">
+          <div className="flex items-center gap-2 text-foreground font-medium text-xs">
+            <Server className="w-4 h-4 text-primary" />
             <span>{t('Infrastructure Hardware Summary')}</span>
           </div>
-          <span className="text-[11px] text-[#8b949e]">
+          <span className="text-[11px] text-muted-foreground">
             {t('Installed & configured hardware at this location')}
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Cameras Block */}
-          <div className="bg-[#0d0e12] border border-[#30363d] rounded-xl p-4 flex flex-col justify-between hover:border-[#58a6ff]/40 transition-colors">
+          <div className="bg-background border border-border rounded-xl p-4 flex flex-col justify-between hover:border-primary/40 transition-colors">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="w-9 h-9 rounded-lg bg-[#58a6ff]/15 text-[#58a6ff] flex items-center justify-center">
+                <div className="w-9 h-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
                   <Camera className="w-4 h-4" />
                 </div>
-                <Badge variant="emerald" className="text-[10px]">
+                <Badge variant="emerald" className="text-[11px]">
                   {t('All Operational')}
                 </Badge>
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e]">{t('ANPR Cameras')}</span>
+                <span className="text-[11px] text-muted-foreground">{t('ANPR Cameras')}</span>
                 <div className="flex items-baseline gap-2 mt-0.5">
-                  <span className="text-xl font-bold text-white font-mono">
+                  <span className="text-xl font-medium text-foreground ">
                     {tenantSummary.cameras.total}
                   </span>
-                  <span className="text-xs text-[#3fb950] font-mono">
+                  <span className="text-xs text-success ">
                     {tenantSummary.cameras.online} {t('online')}
                   </span>
                 </div>
               </div>
 
-              <p className="text-[11px] text-[#8b949e]">
+              <p className="text-[11px] text-muted-foreground">
                 {t('Dual-angle optical OCR cameras covering 4 inbound & outbound lanes.')}
               </p>
             </div>
 
             <button
               onClick={() => setIsCameraDrawerOpen(true)}
-              className="mt-4 pt-3 border-t border-[#21262d] flex items-center justify-between text-xs text-[#58a6ff] hover:text-white font-medium group transition-colors"
+              className="mt-4 pt-3 border-t border-muted flex items-center justify-between text-xs text-primary hover:text-foreground font-medium group transition-colors"
             >
               <span>{t('Manage Cameras')}</span>
               <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -550,37 +550,37 @@ export const TenantLocationPage: React.FC = () => {
           </div>
 
           {/* Gates Block */}
-          <div className="bg-[#0d0e12] border border-[#30363d] rounded-xl p-4 flex flex-col justify-between hover:border-[#3fb950]/40 transition-colors">
+          <div className="bg-background border border-border rounded-xl p-4 flex flex-col justify-between hover:border-success/40 transition-colors">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="w-9 h-9 rounded-lg bg-[#3fb950]/15 text-[#3fb950] flex items-center justify-center">
+                <div className="w-9 h-9 rounded-lg bg-success/15 text-success flex items-center justify-center">
                   <DoorOpen className="w-4 h-4" />
                 </div>
-                <Badge variant="emerald" className="text-[10px]">
+                <Badge variant="emerald" className="text-[11px]">
                   {t('4 Relays Synced')}
                 </Badge>
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e]">{t('Barrier Gates')}</span>
+                <span className="text-[11px] text-muted-foreground">{t('Barrier Gates')}</span>
                 <div className="flex items-baseline gap-2 mt-0.5">
-                  <span className="text-xl font-bold text-white font-mono">
+                  <span className="text-xl font-medium text-foreground ">
                     {tenantSummary.gates.total}
                   </span>
-                  <span className="text-xs text-[#3fb950] font-mono">
+                  <span className="text-xs text-success ">
                     {tenantSummary.gates.online} {t('online')}
                   </span>
                 </div>
               </div>
 
-              <p className="text-[11px] text-[#8b949e]">
+              <p className="text-[11px] text-muted-foreground">
                 {t('High-speed motorized boom barriers with MQTT relay control & loop sensors.')}
               </p>
             </div>
 
             <button
               onClick={() => setTenantNavTab('gates' as any)}
-              className="mt-4 pt-3 border-t border-[#21262d] flex items-center justify-between text-xs text-[#3fb950] hover:text-white font-medium group transition-colors"
+              className="mt-4 pt-3 border-t border-muted flex items-center justify-between text-xs text-success hover:text-foreground font-medium group transition-colors"
             >
               <span>{t('Manage Gates')}</span>
               <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -588,37 +588,37 @@ export const TenantLocationPage: React.FC = () => {
           </div>
 
           {/* Edge Devices Block */}
-          <div className="bg-[#0d0e12] border border-[#30363d] rounded-xl p-4 flex flex-col justify-between hover:border-[#e3b341]/40 transition-colors">
+          <div className="bg-background border border-border rounded-xl p-4 flex flex-col justify-between hover:border-warning/40 transition-colors">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="w-9 h-9 rounded-lg bg-[#e3b341]/15 text-[#e3b341] flex items-center justify-center">
+                <div className="w-9 h-9 rounded-lg bg-warning/15 text-warning flex items-center justify-center">
                   <Server className="w-4 h-4" />
                 </div>
-                <Badge variant="emerald" className="text-[10px]">
+                <Badge variant="emerald" className="text-[11px]">
                   {t('3 Active Nodes')}
                 </Badge>
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e]">{t('Edge Gateways')}</span>
+                <span className="text-[11px] text-muted-foreground">{t('Edge Gateways')}</span>
                 <div className="flex items-baseline gap-2 mt-0.5">
-                  <span className="text-xl font-bold text-white font-mono">
+                  <span className="text-xl font-medium text-foreground ">
                     {tenantHealth.edgeDevices.total}
                   </span>
-                  <span className="text-xs text-[#3fb950] font-mono">
+                  <span className="text-xs text-success ">
                     {tenantHealth.edgeDevices.online} {t('online')}
                   </span>
                 </div>
               </div>
 
-              <p className="text-[11px] text-[#8b949e]">
+              <p className="text-[11px] text-muted-foreground">
                 {t('NVIDIA Jetson on-premise compute nodes running real-time license plate detection.')}
               </p>
             </div>
 
             <button
               onClick={() => setTenantNavTab('edge-devices')}
-              className="mt-4 pt-3 border-t border-[#21262d] flex items-center justify-between text-xs text-[#e3b341] hover:text-white font-medium group transition-colors"
+              className="mt-4 pt-3 border-t border-muted flex items-center justify-between text-xs text-warning hover:text-foreground font-medium group transition-colors"
             >
               <span>{t('Manage Edge Devices')}</span>
               <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -630,11 +630,11 @@ export const TenantLocationPage: React.FC = () => {
       {/* 5. 2-Column Operational Grid (Operating Hours & Contact Information) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Operating Hours Card */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4 shadow-sm flex flex-col justify-between">
+        <div className="bg-card border border-border rounded-2xl p-5 space-y-4 flex flex-col justify-between">
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
-              <div className="flex items-center gap-2 text-white font-semibold text-xs">
-                <Clock className="w-4 h-4 text-[#3fb950]" />
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2 text-foreground font-medium text-xs">
+                <Clock className="w-4 h-4 text-success" />
                 <span>{t('Operating Hours')}</span>
               </div>
               {canManage && (
@@ -642,7 +642,7 @@ export const TenantLocationPage: React.FC = () => {
                   variant="ghost"
                   size="sm"
                   onClick={() => setIsEditHoursOpen(true)}
-                  className="text-[11px] text-[#58a6ff] hover:text-white p-0 h-auto font-medium"
+                  className="text-[11px] text-primary hover:text-foreground p-0 h-auto font-medium"
                 >
                   {t('Edit Hours')}
                 </Button>
@@ -650,34 +650,34 @@ export const TenantLocationPage: React.FC = () => {
             </div>
 
             {location.operatingHours.isOpen24_7 ? (
-              <div className="p-4 rounded-xl bg-[#238636]/10 border border-[#238636]/30 flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-[#3fb950] shrink-0" />
+              <div className="p-4 rounded-xl bg-success/10 border border-success/30 flex items-center gap-3">
+                <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
                 <div>
-                  <h4 className="text-white font-bold text-xs">{t('24/7 Operations')}</h4>
-                  <p className="text-[11px] text-[#8b949e]">
+                  <h4 className="text-foreground font-medium text-xs">{t('24/7 Operations')}</h4>
+                  <p className="text-[11px] text-muted-foreground">
                     {t('Facility is open and processing registered vehicle entries around the clock.')}
                   </p>
                 </div>
               </div>
             ) : (
               <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                  <span className="font-semibold text-white">{t('Monday – Friday')}</span>
-                  <span className="font-mono text-[#3fb950]">
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border">
+                  <span className="font-medium text-foreground">{t('Monday – Friday')}</span>
+                  <span className=" text-success">
                     {hoursSummary.monFri || '07:00 – 22:00'}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                  <span className="font-semibold text-white">{t('Saturday')}</span>
-                  <span className="font-mono text-[#e3b341]">
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border">
+                  <span className="font-medium text-foreground">{t('Saturday')}</span>
+                  <span className=" text-warning">
                     {hoursSummary.sat || '08:00 – 18:00'}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#0d0e12] border border-[#30363d]">
-                  <span className="font-semibold text-white">{t('Sunday')}</span>
-                  <span className="text-[#8b949e] font-medium">
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border">
+                  <span className="font-medium text-foreground">{t('Sunday')}</span>
+                  <span className="text-muted-foreground font-medium">
                     {hoursSummary.sun || t('Closed')}
                   </span>
                 </div>
@@ -685,18 +685,18 @@ export const TenantLocationPage: React.FC = () => {
             )}
           </div>
 
-          <div className="pt-2 text-[11px] text-[#8b949e] flex items-center justify-between">
+          <div className="pt-2 text-[11px] text-muted-foreground flex items-center justify-between">
             <span>{t('Enforced Timezone:')}</span>
-            <span className="text-white font-mono">{location.timezone}</span>
+            <span className="text-foreground ">{location.timezone}</span>
           </div>
         </div>
 
         {/* Contact Information Card */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4 shadow-sm flex flex-col justify-between">
+        <div className="bg-card border border-border rounded-2xl p-5 space-y-4 flex flex-col justify-between">
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
-              <div className="flex items-center gap-2 text-white font-semibold text-xs">
-                <Phone className="w-4 h-4 text-[#a371f7]" />
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2 text-foreground font-medium text-xs">
+                <Phone className="w-4 h-4 text-chart-5" />
                 <span>{t('Facility Contact Information')}</span>
               </div>
               {canManage && (
@@ -704,7 +704,7 @@ export const TenantLocationPage: React.FC = () => {
                   variant="ghost"
                   size="sm"
                   onClick={() => setIsEditLocationOpen(true)}
-                  className="text-[11px] text-[#58a6ff] hover:text-white p-0 h-auto font-medium"
+                  className="text-[11px] text-primary hover:text-foreground p-0 h-auto font-medium"
                 >
                   {t('Edit')}
                 </Button>
@@ -713,23 +713,23 @@ export const TenantLocationPage: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Facility Lead')}</span>
-                <span className="text-white font-semibold flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-[#8b949e]" />
+                <span className="text-[11px] text-muted-foreground block mb-0.5">{t('Facility Lead')}</span>
+                <span className="text-foreground font-medium flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-muted-foreground" />
                   {location.contactPerson || '—'}
                 </span>
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Facility Phone')}</span>
+                <span className="text-[11px] text-muted-foreground block mb-0.5">{t('Facility Phone')}</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-white">{location.phone}</span>
+                  <span className=" text-foreground">{location.phone}</span>
                   <button
                     onClick={() => handleCopy(location.phone, 'Phone')}
-                    className="text-[#8b949e] hover:text-white"
+                    className="text-muted-foreground hover:text-foreground"
                   >
                     {copiedField === 'Phone' ? (
-                      <Check className="w-3 h-3 text-[#3fb950]" />
+                      <Check className="w-3 h-3 text-success" />
                     ) : (
                       <Copy className="w-3 h-3" />
                     )}
@@ -738,15 +738,15 @@ export const TenantLocationPage: React.FC = () => {
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Operations Email')}</span>
+                <span className="text-[11px] text-muted-foreground block mb-0.5">{t('Operations Email')}</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-white text-xs">{location.email}</span>
+                  <span className="text-foreground text-xs">{location.email}</span>
                   <button
                     onClick={() => handleCopy(location.email, 'Email')}
-                    className="text-[#8b949e] hover:text-white"
+                    className="text-muted-foreground hover:text-foreground"
                   >
                     {copiedField === 'Email' ? (
-                      <Check className="w-3 h-3 text-[#3fb950]" />
+                      <Check className="w-3 h-3 text-success" />
                     ) : (
                       <Copy className="w-3 h-3" />
                     )}
@@ -755,19 +755,19 @@ export const TenantLocationPage: React.FC = () => {
               </div>
 
               <div>
-                <span className="text-[11px] text-[#8b949e] block mb-0.5">{t('Emergency Hotline')}</span>
+                <span className="text-[11px] text-muted-foreground block mb-0.5">{t('Emergency Hotline')}</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-[#f85149] font-semibold">
+                  <span className=" text-destructive font-medium">
                     {location.emergencyContact || '+84 91 844 5566'}
                   </span>
                   <button
                     onClick={() =>
                       handleCopy(location.emergencyContact || '+84 91 844 5566', 'Hotline')
                     }
-                    className="text-[#8b949e] hover:text-white"
+                    className="text-muted-foreground hover:text-foreground"
                   >
                     {copiedField === 'Hotline' ? (
-                      <Check className="w-3 h-3 text-[#3fb950]" />
+                      <Check className="w-3 h-3 text-success" />
                     ) : (
                       <Copy className="w-3 h-3" />
                     )}
@@ -777,36 +777,36 @@ export const TenantLocationPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-[#0d0e12] border border-[#30363d] text-[11px] text-[#8b949e]">
+          <div className="p-3 rounded-xl bg-background border border-border text-[11px] text-muted-foreground">
             {t('Hotline personnel receive automatic SMS & MQTT dispatch alerts on gate obstruction.')}
           </div>
         </div>
       </div>
 
       {/* 6. Access Overview & Real-Time Traffic Chart */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#30363d] pb-4">
+      <div className="bg-card border border-border rounded-2xl p-5 space-y-5 ">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-white font-semibold text-sm">
-              <Activity className="w-4 h-4 text-[#58a6ff]" />
+            <div className="flex items-center gap-2 text-foreground font-medium text-sm">
+              <Activity className="w-4 h-4 text-primary" />
               <h3>{t('Access Overview & Traffic Telemetry')}</h3>
             </div>
-            <p className="text-xs text-[#8b949e]">
+            <p className="text-xs text-muted-foreground">
               {t('Hourly inbound & outbound ANPR optical recognition activity at {{name}}', { name: location.name })}
             </p>
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
             {/* Time range selector */}
-            <div className="flex items-center bg-[#0d0e12] rounded-lg p-0.5 border border-[#30363d]">
+            <div className="flex items-center bg-background rounded-lg p-0.5 border border-border">
               {(['today', 'yesterday', '7d', '30d'] as const).map((range) => (
                 <button
                   key={range}
                   onClick={() => setTimeRangeFilter(range)}
                   className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
                     timeRangeFilter === range
-                      ? 'bg-[#21262d] text-white'
-                      : 'text-[#8b949e] hover:text-white'
+                      ? 'bg-muted text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {range === 'today'
@@ -824,7 +824,7 @@ export const TenantLocationPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setTenantNavTab('access-events' as any)}
-              className="text-xs border-[#30363d] text-[#58a6ff] hover:text-white gap-1.5"
+              className="text-xs border-border text-primary hover:text-foreground gap-1.5"
             >
               <span>{t('View Access Events')}</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -834,20 +834,20 @@ export const TenantLocationPage: React.FC = () => {
 
         {/* 4 Access KPI Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-[#0d0e12] border border-[#30363d] rounded-xl p-3.5">
-            <span className="text-[11px] text-[#8b949e]">{t('Total Access Today')}</span>
-            <div className="text-xl font-bold text-white font-mono mt-0.5">
+          <div className="bg-background border border-border rounded-xl p-3.5">
+            <span className="text-[11px] text-muted-foreground">{t('Total Access Today')}</span>
+            <div className="text-xl font-medium text-foreground mt-0.5">
               {tenantSummary.accessToday.total.toLocaleString()}
             </div>
-            <span className="text-[10px] text-[#3fb950]">{t('↑ +12.4% vs last week')}</span>
+            <span className="text-[11px] text-success">{t('↑ +12.4% vs last week')}</span>
           </div>
 
-          <div className="bg-[#0d0e12] border border-[#30363d] rounded-xl p-3.5">
-            <span className="text-[11px] text-[#8b949e]">{t('Allowed Access')}</span>
-            <div className="text-xl font-bold text-[#3fb950] font-mono mt-0.5">
+          <div className="bg-background border border-border rounded-xl p-3.5">
+            <span className="text-[11px] text-muted-foreground">{t('Allowed Access')}</span>
+            <div className="text-xl font-medium text-success mt-0.5">
               {tenantSummary.accessToday.allowed.toLocaleString()}
             </div>
-            <span className="text-[10px] text-[#8b949e]">
+            <span className="text-[11px] text-muted-foreground">
               {(
                 (tenantSummary.accessToday.allowed / (tenantSummary.accessToday.total || 1)) *
                 100
@@ -856,20 +856,20 @@ export const TenantLocationPage: React.FC = () => {
             </span>
           </div>
 
-          <div className="bg-[#0d0e12] border border-[#30363d] rounded-xl p-3.5">
-            <span className="text-[11px] text-[#8b949e]">{t('Denied Attempts')}</span>
-            <div className="text-xl font-bold text-[#f85149] font-mono mt-0.5">
+          <div className="bg-background border border-border rounded-xl p-3.5">
+            <span className="text-[11px] text-muted-foreground">{t('Denied Attempts')}</span>
+            <div className="text-xl font-medium text-destructive mt-0.5">
               {tenantSummary.accessToday.denied.toLocaleString()}
             </div>
-            <span className="text-[10px] text-[#f85149]">{t('Unregistered / expired')}</span>
+            <span className="text-[11px] text-destructive">{t('Unregistered / expired')}</span>
           </div>
 
-          <div className="bg-[#0d0e12] border border-[#30363d] rounded-xl p-3.5">
-            <span className="text-[11px] text-[#8b949e]">{t('Unknown / Review')}</span>
-            <div className="text-xl font-bold text-[#e3b341] font-mono mt-0.5">
+          <div className="bg-background border border-border rounded-xl p-3.5">
+            <span className="text-[11px] text-muted-foreground">{t('Unknown / Review')}</span>
+            <div className="text-xl font-medium text-warning mt-0.5">
               {tenantSummary.accessToday.unknown.toLocaleString()}
             </div>
-            <span className="text-[10px] text-[#8b949e]">{t('Low confidence OCR')}</span>
+            <span className="text-[11px] text-muted-foreground">{t('Low confidence OCR')}</span>
           </div>
         </div>
 
@@ -944,40 +944,40 @@ export const TenantLocationPage: React.FC = () => {
       {/* 7. Vehicles & Access Rules Summary Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Vehicles Card */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4 shadow-sm flex flex-col justify-between">
+        <div className="bg-card border border-border rounded-2xl p-5 space-y-4 flex flex-col justify-between">
           <div className="space-y-3">
-            <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
-              <div className="flex items-center gap-2 text-white font-semibold text-xs">
-                <Car className="w-4 h-4 text-[#58a6ff]" />
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2 text-foreground font-medium text-xs">
+                <Car className="w-4 h-4 text-primary" />
                 <span>{t('Registered Vehicles & Whitelist')}</span>
               </div>
-              <Badge variant="slate" className="text-[10px] font-mono">
+              <Badge variant="slate" className="text-[11px] ">
                 {t('{{count}} Enrolled', { count: tenantSummary.vehicles.total })}
               </Badge>
             </div>
 
             <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="p-3 rounded-xl bg-[#0d0e12] border border-[#30363d]">
-                <span className="text-[10px] text-[#8b949e] block">{t('Total')}</span>
-                <span className="text-lg font-bold text-white font-mono">
+              <div className="p-3 rounded-xl bg-background border border-border">
+                <span className="text-[11px] text-muted-foreground block">{t('Total')}</span>
+                <span className="text-lg font-medium text-foreground ">
                   {tenantSummary.vehicles.total}
                 </span>
               </div>
-              <div className="p-3 rounded-xl bg-[#0d0e12] border border-[#30363d]">
-                <span className="text-[10px] text-[#3fb950] block">{t('Active Whitelist')}</span>
-                <span className="text-lg font-bold text-[#3fb950] font-mono">
+              <div className="p-3 rounded-xl bg-background border border-border">
+                <span className="text-[11px] text-success block">{t('Active Whitelist')}</span>
+                <span className="text-lg font-medium text-success ">
                   {tenantSummary.vehicles.active}
                 </span>
               </div>
-              <div className="p-3 rounded-xl bg-[#0d0e12] border border-[#30363d]">
-                <span className="text-[10px] text-[#f85149] block">{t('Blocked / Expired')}</span>
-                <span className="text-lg font-bold text-[#f85149] font-mono">
+              <div className="p-3 rounded-xl bg-background border border-border">
+                <span className="text-[11px] text-destructive block">{t('Blocked / Expired')}</span>
+                <span className="text-lg font-medium text-destructive ">
                   {tenantSummary.vehicles.inactive}
                 </span>
               </div>
             </div>
 
-            <p className="text-xs text-[#8b949e] leading-relaxed">
+            <p className="text-xs text-muted-foreground leading-relaxed">
               {t('Authorized employee vehicles, VIP pass-holders, and permanent delivery trucks mapped to this location.')}
             </p>
           </div>
@@ -986,22 +986,22 @@ export const TenantLocationPage: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={() => setTenantNavTab('vehicles')}
-            className="w-full text-xs border-[#30363d] text-[#c9d1d9] hover:text-white justify-between"
+            className="w-full text-xs border-border text-foreground hover:text-foreground justify-between"
           >
             <span>{t('View Vehicles Whitelist')}</span>
-            <ChevronRight className="w-3.5 h-3.5 text-[#8b949e]" />
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
           </Button>
         </div>
 
         {/* Access Rules Card */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-5 space-y-4 shadow-sm flex flex-col justify-between">
+        <div className="bg-card border border-border rounded-2xl p-5 space-y-4 flex flex-col justify-between">
           <div className="space-y-3">
-            <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
-              <div className="flex items-center gap-2 text-white font-semibold text-xs">
-                <ShieldCheck className="w-4 h-4 text-[#3fb950]" />
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2 text-foreground font-medium text-xs">
+                <ShieldCheck className="w-4 h-4 text-success" />
                 <span>{t('Access Control Rules')}</span>
               </div>
-              <Badge variant="emerald" className="text-[10px]">
+              <Badge variant="emerald" className="text-[11px]">
                 {t('{{count}} Active Rules', { count: tenantAccessRules.filter((r) => r.status === 'ACTIVE').length })}
               </Badge>
             </div>
@@ -1010,17 +1010,17 @@ export const TenantLocationPage: React.FC = () => {
               {tenantAccessRules.slice(0, 3).map((rule) => (
                 <div
                   key={rule.id}
-                  className="p-2.5 rounded-xl bg-[#0d0e12] border border-[#30363d] flex items-center justify-between"
+                  className="p-2.5 rounded-xl bg-background border border-border flex items-center justify-between"
                 >
                   <div>
-                    <span className="font-semibold text-white">{rule.name}</span>
-                    <span className="text-[10px] text-[#8b949e] block font-mono">
+                    <span className="font-medium text-foreground">{rule.name}</span>
+                    <span className="text-[11px] text-muted-foreground block ">
                       {typeof rule.schedule === 'string'
                         ? rule.schedule
                         : rule.schedule?.summaryText || rule.schedule?.type || t('Always Active (24/7)')}
                     </span>
                   </div>
-                  <Badge variant={rule.status === 'ACTIVE' ? 'emerald' : 'slate'} className="text-[10px]">
+                  <Badge variant={rule.status === 'ACTIVE' ? 'emerald' : 'slate'} className="text-[11px]">
                     {t(rule.status)}
                   </Badge>
                 </div>
@@ -1032,10 +1032,10 @@ export const TenantLocationPage: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={() => setTenantNavTab('access_rules' as any)}
-            className="w-full text-xs border-[#30363d] text-[#c9d1d9] hover:text-white justify-between"
+            className="w-full text-xs border-border text-foreground hover:text-foreground justify-between"
           >
             <span>{t('Manage Access Rules')}</span>
-            <ChevronRight className="w-3.5 h-3.5 text-[#8b949e]" />
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
           </Button>
         </div>
       </div>

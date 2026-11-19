@@ -75,57 +75,57 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
   const occupancyPercent = site.capacity ? Math.round(((site.currentOccupancy || 0) / site.capacity) * 100) : 0;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden flex justify-end animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 overflow-hidden flex justify-end animate-in fade-in duration-[330ms]">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60 transition-opacity" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="relative w-full max-w-2xl bg-[#0d0e12] border-l border-[#30363d] shadow-2xl h-full flex flex-col z-10 overflow-y-auto">
+      <div className="relative w-full max-w-2xl bg-background border-l border-border h-full flex flex-col z-10 overflow-y-auto">
         {/* Header */}
-        <div className="p-5 border-b border-[#30363d] flex items-center justify-between bg-[#161b22]/80 sticky top-0 z-20 backdrop-blur-md">
+        <div className="p-5 border-b border-border flex items-center justify-between bg-card/80 sticky top-0 z-20 ">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center font-bold">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 text-primary flex items-center justify-center font-medium">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2.5">
-                <h3 className="text-base font-bold text-white tracking-tight">{site.name}</h3>
-                <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#21262d] border border-[#30363d] text-[#58a6ff] font-bold">
+                <h3 className="text-base font-medium text-foreground tracking-tight">{site.name}</h3>
+                <span className=" text-xs px-2 py-0.5 rounded bg-muted border border-border text-primary font-medium">
                   {site.code}
                 </span>
-                <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-semibold ${
+                <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${
                   site.status === 'HEALTHY'
-                    ? 'bg-[#238636]/15 text-[#3fb950] border border-[#238636]/30'
+                    ? 'bg-success/15 text-success border border-success/30'
                     : site.status === 'WARNING'
-                    ? 'bg-[#d29922]/15 text-[#e3b341] border border-[#d29922]/30'
-                    : 'bg-[#da3633]/15 text-[#f85149] border border-[#da3633]/30'
+                    ? 'bg-warning/15 text-warning border border-warning/30'
+                    : 'bg-destructive/15 text-destructive border border-destructive/30'
                 }`}>
                   <span className="w-1.5 h-1.5 rounded-full bg-current" />
                   {t(site.status)}
                 </span>
               </div>
-              <p className="text-xs text-[#8b949e] flex items-center gap-1.5 mt-1">
-                <MapPin className="w-3.5 h-3.5 text-[#8b949e]" /> {site.address}
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+                <MapPin className="w-3.5 h-3.5 text-muted-foreground" /> {site.address}
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white hover:bg-[#30363d] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground hover:bg-border flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="px-5 border-b border-[#30363d] flex gap-2 bg-[#161b22]/40 text-xs">
+        <div className="px-5 border-b border-border flex gap-2 bg-card/40 text-xs">
           <button
             onClick={() => setActiveTab('overview')}
             className={`py-3 px-3 border-b-2 font-medium transition-colors cursor-pointer ${
               activeTab === 'overview'
-                ? 'border-[#58a6ff] text-[#58a6ff]'
-                : 'border-transparent text-[#8b949e] hover:text-[#c9d1d9]'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {t('Site Overview')}
@@ -134,8 +134,8 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
             onClick={() => setActiveTab('lanes_gates')}
             className={`py-3 px-3 border-b-2 font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'lanes_gates'
-                ? 'border-[#58a6ff] text-[#58a6ff]'
-                : 'border-transparent text-[#8b949e] hover:text-[#c9d1d9]'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             <DoorOpen className="w-3.5 h-3.5" />
@@ -145,8 +145,8 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
             onClick={() => setActiveTab('cameras')}
             className={`py-3 px-3 border-b-2 font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'cameras'
-                ? 'border-[#58a6ff] text-[#58a6ff]'
-                : 'border-transparent text-[#8b949e] hover:text-[#c9d1d9]'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             <Camera className="w-3.5 h-3.5" />
@@ -156,8 +156,8 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
             onClick={() => setActiveTab('edge_nodes')}
             className={`py-3 px-3 border-b-2 font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'edge_nodes'
-                ? 'border-[#58a6ff] text-[#58a6ff]'
-                : 'border-transparent text-[#8b949e] hover:text-[#c9d1d9]'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             <HardDrive className="w-3.5 h-3.5" />
@@ -171,42 +171,42 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
             <>
               {/* Site KPI Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3.5 rounded-xl bg-[#161b22] border border-[#30363d]">
-                  <span className="text-[#8b949e] text-[11px] block">{t("Today's Access")}</span>
-                  <span className="text-xl font-bold text-white font-mono mt-1 block">
+                <div className="p-3.5 rounded-xl bg-card border border-border">
+                  <span className="text-muted-foreground text-[11px] block">{t("Today's Access")}</span>
+                  <span className="text-xl font-medium text-foreground mt-1 block">
                     {site.todayAccessCount.toLocaleString()}
                   </span>
-                  <span className="text-[10px] text-[#3fb950] font-medium mt-0.5 flex items-center gap-1">
+                  <span className="text-[11px] text-success font-medium mt-0.5 flex items-center gap-1">
                     ↑ {t('Active sync')}
                   </span>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-[#161b22] border border-[#30363d]">
-                  <span className="text-[#8b949e] text-[11px] block">{t('Active Vehicles')}</span>
-                  <span className="text-xl font-bold text-[#58a6ff] font-mono mt-1 block">
+                <div className="p-3.5 rounded-xl bg-card border border-border">
+                  <span className="text-muted-foreground text-[11px] block">{t('Active Vehicles')}</span>
+                  <span className="text-xl font-medium text-primary mt-1 block">
                     {site.vehicleCount}
                   </span>
-                  <span className="text-[10px] text-[#8b949e] mt-0.5 block">{t('Enrolled plates')}</span>
+                  <span className="text-[11px] text-muted-foreground mt-0.5 block">{t('Enrolled plates')}</span>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-[#161b22] border border-[#30363d]">
-                  <span className="text-[#8b949e] text-[11px] block">{t('Cameras Online')}</span>
-                  <span className="text-xl font-bold text-white font-mono mt-1 block">
+                <div className="p-3.5 rounded-xl bg-card border border-border">
+                  <span className="text-muted-foreground text-[11px] block">{t('Cameras Online')}</span>
+                  <span className="text-xl font-medium text-foreground mt-1 block">
                     {site.onlineCameraCount} / {site.cameraCount}
                   </span>
-                  <span className={`text-[10px] font-medium mt-0.5 block ${
-                    site.onlineCameraCount === site.cameraCount ? 'text-[#3fb950]' : 'text-[#f85149]'
+                  <span className={`text-[11px] font-medium mt-0.5 block ${
+                    site.onlineCameraCount === site.cameraCount ? 'text-success' : 'text-destructive'
                   }`}>
                     {site.onlineCameraCount === site.cameraCount ? `● 100% ${t('Online')}` : `⚠ ${site.cameraCount - site.onlineCameraCount} ${t('Offline')}`}
                   </span>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-[#161b22] border border-[#30363d]">
-                  <span className="text-[#8b949e] text-[11px] block">{t('Gates Online')}</span>
-                  <span className="text-xl font-bold text-white font-mono mt-1 block">
+                <div className="p-3.5 rounded-xl bg-card border border-border">
+                  <span className="text-muted-foreground text-[11px] block">{t('Gates Online')}</span>
+                  <span className="text-xl font-medium text-foreground mt-1 block">
                     {site.onlineGateCount} / {site.gateCount}
                   </span>
-                  <span className="text-[10px] text-[#3fb950] font-medium mt-0.5 block">
+                  <span className="text-[11px] text-success font-medium mt-0.5 block">
                     ● {t('Barrier relays ok')}
                   </span>
                 </div>
@@ -214,31 +214,31 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
 
               {/* Occupancy Progress Bar */}
               {site.capacity && (
-                <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-2">
+                <div className="p-4 rounded-xl bg-card border border-border space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-white font-semibold flex items-center gap-1.5">
-                      <Car className="w-4 h-4 text-[#58a6ff]" />
+                    <span className="text-foreground font-medium flex items-center gap-1.5">
+                      <Car className="w-4 h-4 text-primary" />
                       {t('Real-time Facility Occupancy')}
                     </span>
-                    <span className="text-white font-mono font-bold">
+                    <span className="text-foreground font-medium">
                       {t('{{current}} / {{capacity}} bays ({{percent}}%)', { current: site.currentOccupancy, capacity: site.capacity, percent: occupancyPercent })}
                     </span>
                   </div>
 
-                  <div className="w-full h-2.5 rounded-full bg-[#0d0e12] overflow-hidden border border-[#30363d]">
+                  <div className="w-full h-2.5 rounded-full bg-background overflow-hidden border border-border">
                     <div
-                      className={`h-full rounded-full transition-all duration-500 ${
+                      className={`h-full rounded-full transition-colors duration-500 ${
                         occupancyPercent > 85
-                          ? 'bg-[#f85149]'
+                          ? 'bg-destructive'
                           : occupancyPercent > 65
-                          ? 'bg-[#d29922]'
-                          : 'bg-[#3fb950]'
+                          ? 'bg-warning'
+                          : 'bg-success'
                       }`}
                       style={{ width: `${occupancyPercent}%` }}
                     />
                   </div>
 
-                  <div className="flex items-center justify-between text-[10px] text-[#8b949e] pt-1">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
                     <span>{t('Available bays: {{count}}', { count: site.capacity - (site.currentOccupancy || 0) })}</span>
                     <span>{t('Schedule:')} {site.operatingHours}</span>
                   </div>
@@ -246,33 +246,33 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
               )}
 
               {/* Facility Details */}
-              <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
-                <h4 className="text-white font-semibold border-b border-[#30363d]/60 pb-2">
+              <div className="p-4 rounded-xl bg-card border border-border space-y-3">
+                <h4 className="text-foreground font-medium border-b border-border/60 pb-2">
                   {t('Operations & Facility Profile')}
                 </h4>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Operating Schedule')}</span>
-                    <p className="text-white font-medium mt-0.5">{site.operatingHours}</p>
+                    <span className="text-[11px] text-muted-foreground font-medium">{t('Operating Schedule')}</span>
+                    <p className="text-foreground font-medium mt-0.5">{site.operatingHours}</p>
                   </div>
                   <div>
-                    <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Lanes Configured')}</span>
-                    <p className="text-white font-medium mt-0.5">{site.lanesCount} {t('Inbound/Outbound Lanes')}</p>
+                    <span className="text-[11px] text-muted-foreground font-medium">{t('Lanes Configured')}</span>
+                    <p className="text-foreground font-medium mt-0.5">{site.lanesCount} {t('Inbound/Outbound Lanes')}</p>
                   </div>
                   <div>
-                    <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Site Manager')}</span>
-                    <p className="text-white font-medium mt-0.5">{site.managerName || 'Le Hoang Nam'}</p>
+                    <span className="text-[11px] text-muted-foreground font-medium">{t('Site Manager')}</span>
+                    <p className="text-foreground font-medium mt-0.5">{site.managerName || 'Le Hoang Nam'}</p>
                   </div>
                   <div>
-                    <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Contact Phone')}</span>
-                    <p className="text-white font-medium mt-0.5">{site.managerPhone || '+84 90 311 2233'}</p>
+                    <span className="text-[11px] text-muted-foreground font-medium">{t('Contact Phone')}</span>
+                    <p className="text-foreground font-medium mt-0.5">{site.managerPhone || '+84 90 311 2233'}</p>
                   </div>
                 </div>
 
                 <div className="pt-2">
-                  <span className="text-[10px] text-[#8b949e] uppercase font-semibold">{t('Description / Notes')}</span>
-                  <p className="text-[#8b949e] mt-1 text-xs">{site.description}</p>
+                  <span className="text-[11px] text-muted-foreground font-medium">{t('Description / Notes')}</span>
+                  <p className="text-muted-foreground mt-1 text-xs">{site.description}</p>
                 </div>
               </div>
             </>
@@ -281,12 +281,12 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
           {activeTab === 'lanes_gates' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-white font-semibold text-xs">{t('Barrier Gates & Relay Telemetry')}</h4>
+                <h4 className="text-foreground font-medium text-xs">{t('Barrier Gates & Relay Telemetry')}</h4>
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-[#8b949e]">{t('Protocol: MQTT / Modbus TCP')}</span>
+                  <span className="text-[11px] text-muted-foreground">{t('Protocol: MQTT / Modbus TCP')}</span>
                   <button
                     onClick={() => setGateModal({ open: true, gate: null })}
-                    className="px-2.5 py-1 rounded-lg bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] hover:bg-[#58a6ff]/20 transition-colors cursor-pointer text-[10px] font-semibold"
+                    className="px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-colors cursor-pointer text-[11px] font-medium"
                   >
                     + {t('Add Gate')}
                   </button>
@@ -300,25 +300,25 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                 const stateLabel = gate.rawStatus ? gate.rawStatus.toUpperCase() : '—';
 
                 return (
-                  <div key={gate.id} className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
+                  <div key={gate.id} className="p-4 rounded-xl bg-card border border-border space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                          isOffline ? 'bg-[#da3633]/20 text-[#f85149]' : 'bg-[#238636]/20 text-[#3fb950]'
+                          isOffline ? 'bg-destructive/20 text-destructive' : 'bg-success/20 text-success'
                         }`}>
                           <DoorOpen className="w-4 h-4" />
                         </div>
                         <div>
-                          <span className="text-white font-bold font-mono text-xs">{gate.gateName}</span>
-                          <span className="text-[11px] text-[#8b949e] block">
+                          <span className="text-foreground font-medium text-xs">{gate.gateName}</span>
+                          <span className="text-[11px] text-muted-foreground block">
                             {lane ? `${lane.direction === 'exit' ? t('Outbound Exit Lane') : t('Inbound Entry Lane')} · ` : ''}{t('Automatic Barrier')}
                           </span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded ${
-                          isOffline ? 'bg-[#da3633]/20 text-[#f85149]' : 'bg-[#238636]/20 text-[#3fb950]'
+                        <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded ${
+                          isOffline ? 'bg-destructive/20 text-destructive' : 'bg-success/20 text-success'
                         }`}>
                           <span className="w-1.5 h-1.5 rounded-full bg-current" />
                           {isOffline ? gate.status : t('ONLINE / ARMED')}
@@ -326,8 +326,8 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-[#30363d]/60 text-[11px]">
-                      <span className="text-[#8b949e]">{t('Relay Latency:')} {isOffline ? '--' : `${Math.round(gate.averageLatencyMs)}ms`} · {t('State:')} {stateLabel}</span>
+                    <div className="flex items-center justify-between pt-2 border-t border-border/60 text-[11px]">
+                      <span className="text-muted-foreground">{t('Relay Latency:')} {isOffline ? '--' : `${Math.round(gate.averageLatencyMs)}ms`} · {t('State:')} {stateLabel}</span>
 
                       <div className="flex items-center gap-2">
                         <Button
@@ -335,7 +335,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                           size="sm"
                           isLoading={isOperating}
                           onClick={() => handleGateOverride(gate.id, 'OPEN')}
-                          className="text-xs bg-[#238636]/10 text-[#3fb950] hover:bg-[#238636]/20 border-[#238636]/30 gap-1"
+                          className="text-xs bg-success/10 text-success hover:bg-success/20 border-success/30 gap-1"
                         >
                           <Unlock className="w-3 h-3" />
                           {t('Open Barrier')}
@@ -346,7 +346,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                           size="sm"
                           isLoading={isOperating}
                           onClick={() => handleGateOverride(gate.id, 'LOCK')}
-                          className="text-xs text-[#f85149] hover:bg-[#da3633]/20 border-[#da3633]/30 gap-1"
+                          className="text-xs text-destructive hover:bg-destructive/20 border-destructive/30 gap-1"
                         >
                           <Lock className="w-3 h-3" />
                           {t('Lock')}
@@ -355,7 +355,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                         <button
                           onClick={() => setGateModal({ open: true, gate })}
                           title={t('Edit gate')}
-                          className="w-7 h-7 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white hover:bg-[#30363d] flex items-center justify-center transition-colors cursor-pointer"
+                          className="w-7 h-7 rounded-lg bg-muted border border-border text-muted-foreground hover:text-foreground hover:bg-border flex items-center justify-center transition-colors cursor-pointer"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -365,7 +365,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                 );
               })}
               {siteGates.length === 0 && (
-                <p className="text-xs text-[#8b949e] py-4 text-center">
+                <p className="text-xs text-muted-foreground py-4 text-center">
                   {t('No barrier gates bound to this site yet.')}
                 </p>
               )}
@@ -375,12 +375,12 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
           {activeTab === 'cameras' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-white font-semibold text-xs">{t('ANPR Video Feeds & OCR Sensors')}</h4>
+                <h4 className="text-foreground font-medium text-xs">{t('ANPR Video Feeds & OCR Sensors')}</h4>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setCameraModal({ open: true, camera: null })}
-                  className="text-xs gap-1 text-[#58a6ff] border-[#58a6ff]/40 hover:bg-[#58a6ff]/10"
+                  className="text-xs gap-1 text-primary border-primary/40 hover:bg-primary/10"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   {t('Add Camera')}
@@ -388,10 +388,10 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
               </div>
 
               {siteCams.length === 0 ? (
-                <div className="p-6 rounded-xl bg-[#161b22] border border-dashed border-[#30363d] text-center space-y-2">
-                  <Camera className="w-6 h-6 mx-auto text-[#8b949e] opacity-60" />
-                  <p className="text-[#8b949e] text-xs">
-                    {t('No cameras registered — use')} <span className="text-[#58a6ff]">{t('Add Camera')}</span> {t('to register the first ANPR feed.')}
+                <div className="p-6 rounded-xl bg-card border border-dashed border-border text-center space-y-2">
+                  <Camera className="w-6 h-6 mx-auto text-muted-foreground opacity-60" />
+                  <p className="text-muted-foreground text-xs">
+                    {t('No cameras registered — use')} <span className="text-primary">{t('Add Camera')}</span> {t('to register the first ANPR feed.')}
                   </p>
                 </div>
               ) : (
@@ -408,27 +408,27 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                           : t('DISABLED');
                     const tileCls =
                       cam.status === 'ONLINE'
-                        ? 'text-[#3fb950]'
+                        ? 'text-success'
                         : cam.status === 'DEGRADED'
-                          ? 'text-[#e3b341]'
-                          : 'text-[#f85149]';
+                          ? 'text-warning'
+                          : 'text-destructive';
 
                     return (
-                      <div key={cam.id} className="p-3 rounded-xl bg-[#161b22] border border-[#30363d] space-y-2">
-                        <div className="relative rounded-lg bg-[#0d0e12] border border-[#30363d] h-24 flex items-center justify-center overflow-hidden">
+                      <div key={cam.id} className="p-3 rounded-xl bg-card border border-border space-y-2">
+                        <div className="relative rounded-lg bg-background border border-border h-24 flex items-center justify-center overflow-hidden">
                           <div className={`text-center space-y-1 ${tileCls}`}>
                             {cam.status === 'OFFLINE' ? (
                               <AlertTriangle className="w-5 h-5 mx-auto" />
                             ) : (
-                              <Camera className="w-6 h-6 mx-auto text-[#58a6ff] opacity-70" />
+                              <Camera className="w-6 h-6 mx-auto text-primary opacity-70" />
                             )}
-                            <span className="text-[9px] font-mono block">{tileLabel}</span>
+                            <span className="text-[11px] block">{tileLabel}</span>
                           </div>
 
-                          <div className="absolute top-1.5 left-2 text-[9px] font-mono text-white bg-black/60 px-1.5 py-0.5 rounded">
+                          <div className="absolute top-1.5 left-2 text-[11px] text-foreground bg-black/60 px-1.5 py-0.5 rounded">
                             {cam.code ?? cam.cameraName}
                           </div>
-                          <div className="absolute top-1.5 right-2 text-[9px] font-mono text-[#8b949e] bg-black/60 px-1.5 py-0.5 rounded">
+                          <div className="absolute top-1.5 right-2 text-[11px] text-muted-foreground bg-black/60 px-1.5 py-0.5 rounded">
                             {cam.purpose === 'overview'
                               ? t('OVERVIEW')
                               : cam.purpose === 'monitor'
@@ -439,8 +439,8 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
 
                         <div className="flex items-center justify-between text-[11px] gap-2">
                           <div className="min-w-0">
-                            <span className="text-white font-medium block truncate">{cam.cameraName}</span>
-                            <span className="text-[#8b949e] font-mono text-[10px] block truncate">
+                            <span className="text-foreground font-medium block truncate">{cam.cameraName}</span>
+                            <span className="text-muted-foreground text-[11px] block truncate">
                               {maskStreamUrl(cam.streamUrl) || '—'}
                               {laneName ? ` · ${laneName}` : ''}
                             </span>
@@ -448,7 +448,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               onClick={() => setCameraModal({ open: true, camera: cam })}
-                              className="w-6 h-6 rounded-md bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white flex items-center justify-center cursor-pointer"
+                              className="w-6 h-6 rounded-md bg-muted border border-border text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer"
                               title={t('Edit camera')}
                             >
                               <Pencil className="w-3 h-3" />
@@ -459,7 +459,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                                   deleteTenantCamera(cam.id);
                                 }
                               }}
-                              className="w-6 h-6 rounded-md bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-[#f85149] flex items-center justify-center cursor-pointer"
+                              className="w-6 h-6 rounded-md bg-muted border border-border text-muted-foreground hover:text-destructive flex items-center justify-center cursor-pointer"
                               title={t('Delete camera')}
                             >
                               <Trash2 className="w-3 h-3" />
@@ -476,46 +476,46 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
 
           {activeTab === 'edge_nodes' && (
             <div className="space-y-4">
-              <h4 className="text-white font-semibold text-xs">{t('Edge AI Inference Compute Nodes')}</h4>
+              <h4 className="text-foreground font-medium text-xs">{t('Edge AI Inference Compute Nodes')}</h4>
               
               {Array.from({ length: site.edgeDeviceCount }).map((_, idx) => {
                 const nodeId = `EDGE-${site.code}-0${idx + 1}`;
                 const isHighCpu = site.name.includes('Warehouse') && nodeId.includes('03');
 
                 return (
-                  <div key={idx} className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] space-y-3">
+                  <div key={idx} className="p-4 rounded-xl bg-card border border-border space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-[#58a6ff]/10 text-[#58a6ff] flex items-center justify-center font-mono text-xs">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs">
                           <HardDrive className="w-4 h-4" />
                         </div>
                         <div>
-                          <span className="text-white font-mono font-bold text-xs">{nodeId}</span>
-                          <span className="text-[11px] text-[#8b949e] block">NVIDIA Jetson Orin 64GB · Docker v26.1</span>
+                          <span className="text-foreground font-medium text-xs">{nodeId}</span>
+                          <span className="text-[11px] text-muted-foreground block">NVIDIA Jetson Orin 64GB · Docker v26.1</span>
                         </div>
                       </div>
 
-                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
-                        isHighCpu ? 'bg-[#d29922]/20 text-[#e3b341]' : 'bg-[#238636]/20 text-[#3fb950]'
+                      <span className={`text-[11px] px-2 py-0.5 rounded ${
+                        isHighCpu ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'
                       }`}>
                         {isHighCpu ? t('HIGH LOAD') : t('ONLINE')}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2 text-[11px] pt-1">
-                      <div className="p-2 rounded bg-[#0d0e12] border border-[#30363d]">
-                        <span className="text-[#8b949e] block text-[10px]">{t('CPU Load')}</span>
-                        <span className={`font-mono font-bold ${isHighCpu ? 'text-[#f85149]' : 'text-white'}`}>
+                      <div className="p-2 rounded bg-background border border-border">
+                        <span className="text-muted-foreground block text-[11px]">{t('CPU Load')}</span>
+                        <span className={` font-medium ${isHighCpu ? 'text-destructive' : 'text-foreground'}`}>
                           {isHighCpu ? '91%' : '34%'}
                         </span>
                       </div>
-                      <div className="p-2 rounded bg-[#0d0e12] border border-[#30363d]">
-                        <span className="text-[#8b949e] block text-[10px]">GPU / NPU</span>
-                        <span className="font-mono font-bold text-white">48%</span>
+                      <div className="p-2 rounded bg-background border border-border">
+                        <span className="text-muted-foreground block text-[11px]">GPU / NPU</span>
+                        <span className=" font-medium text-foreground">48%</span>
                       </div>
-                      <div className="p-2 rounded bg-[#0d0e12] border border-[#30363d]">
-                        <span className="text-[#8b949e] block text-[10px]">{t('Temp')}</span>
-                        <span className="font-mono font-bold text-white">46°C</span>
+                      <div className="p-2 rounded bg-background border border-border">
+                        <span className="text-muted-foreground block text-[11px]">{t('Temp')}</span>
+                        <span className=" font-medium text-foreground">46°C</span>
                       </div>
                     </div>
                   </div>
@@ -526,7 +526,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-[#30363d] bg-[#161b22]/90 flex items-center justify-between sticky bottom-0 z-20">
+        <div className="p-4 border-t border-border bg-card/90 flex items-center justify-between sticky bottom-0 z-20">
           <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
             {t('Close Panel')}
           </Button>
@@ -541,7 +541,7 @@ export const SiteDetailDrawer: React.FC<SiteDetailDrawerProps> = ({ site, isOpen
                 description: t('Running remote heartbeat & sensor self-test on {{name}}.', { name: site.name })
               });
             }}
-            className="text-xs bg-[#58a6ff] hover:bg-[#58a6ff]/90 text-slate-950 font-bold gap-1.5"
+            className="text-xs bg-primary hover:bg-primary/90 text-[#fff] font-medium gap-1.5"
           >
             <Zap className="w-3.5 h-3.5" />
             {t('Run Site Self-Test')}

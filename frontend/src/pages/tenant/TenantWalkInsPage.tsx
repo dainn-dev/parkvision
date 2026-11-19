@@ -19,7 +19,7 @@ const vnd = (n: number | null | undefined) => (n == null ? '—' : `${n.toLocale
 const dt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('vi-VN') : '—');
 
 const inputCls =
-  'bg-[#0d0e12] border border-[#30363d] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-hidden';
+  'bg-background border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus:outline-hidden';
 
 export const TenantWalkInsPage: React.FC = () => {
   const { t } = useTranslation('tenant');
@@ -91,50 +91,50 @@ export const TenantWalkInsPage: React.FC = () => {
       label: t('Cash'),
       value: String(summary?.cashCount ?? 0),
       sub: vnd(summary?.cashTotalVnd ?? 0),
-      icon: <Banknote className="w-4 h-4 text-[#3fb950]" />,
+      icon: <Banknote className="w-4 h-4 text-success" />,
     },
     {
       id: 'bank',
       label: t('Bank transfer'),
       value: String(summary?.bankQrCount ?? 0),
       sub: vnd(summary?.bankQrTotalVnd ?? 0),
-      icon: <QrCode className="w-4 h-4 text-[#58a6ff]" />,
+      icon: <QrCode className="w-4 h-4 text-primary" />,
     },
-    { id: 'waived', label: t('Waived'), value: String(summary?.waivedCount ?? 0), icon: <Gift className="w-4 h-4 text-[#e3b341]" /> },
-    { id: 'open', label: t('In lot'), value: String(summary?.openCount ?? 0), icon: <Car className="w-4 h-4 text-[#c9d1d9]" /> },
+    { id: 'waived', label: t('Waived'), value: String(summary?.waivedCount ?? 0), icon: <Gift className="w-4 h-4 text-warning" /> },
+    { id: 'open', label: t('In lot'), value: String(summary?.openCount ?? 0), icon: <Car className="w-4 h-4 text-foreground" /> },
     {
       id: 'mismatch',
       label: t('Price mismatch'),
       value: String(summary?.mismatchCount ?? 0),
-      icon: <AlertTriangle className="w-4 h-4 text-[#f85149]" />,
+      icon: <AlertTriangle className="w-4 h-4 text-destructive" />,
     },
   ];
 
   return (
-    <div className="space-y-6 pb-12 animate-in fade-in duration-300">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161b22]/70 p-5 rounded-2xl border border-[#30363d]">
+    <div className="space-y-6 pb-12 animate-in fade-in duration-[330ms]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card/70 p-5 rounded-2xl border border-border">
         <div>
           <div className="flex items-center gap-2.5">
-            <Banknote className="w-6 h-6 text-[#58a6ff]" />
-            <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">{t('Walk-in vehicles')}</h1>
+            <Banknote className="w-6 h-6 text-primary" />
+            <h1 className="text-xl md:text-2xl font-medium text-foreground tracking-tight">{t('Walk-in vehicles')}</h1>
           </div>
-          <p className="text-xs text-[#8b949e] mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {t('Fees collected at the gate from vehicles without an account, by cash or bank transfer')}
           </p>
         </div>
         <button
           type="button"
           onClick={() => setReloadKey((k) => k + 1)}
-          className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-[#0d0e12] border border-[#30363d] text-white hover:border-[#58a6ff] cursor-pointer"
+          className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-background border border-border text-foreground hover:border-primary cursor-pointer"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           {t('Refresh')}
         </button>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 bg-[#161b22] p-4 rounded-xl border border-[#30363d]">
+      <div className="flex flex-wrap items-end gap-3 bg-card p-4 rounded-xl border border-border">
         <div className="space-y-1">
-          <label htmlFor="walkin-site" className="block text-[11px] text-[#8b949e]">{t('Facility Site')}</label>
+          <label htmlFor="walkin-site" className="block text-[11px] text-muted-foreground">{t('Facility Site')}</label>
           <select id="walkin-site" value={siteId} onChange={(e) => resetPage(setSiteId)(e.target.value)} className={inputCls}>
             <option value="">{t('All Facilities')}</option>
             {tenantSites.map((s) => (
@@ -145,34 +145,34 @@ export const TenantWalkInsPage: React.FC = () => {
           </select>
         </div>
         <div className="space-y-1">
-          <label htmlFor="walkin-from" className="block text-[11px] text-[#8b949e]">{t('From date')}</label>
+          <label htmlFor="walkin-from" className="block text-[11px] text-muted-foreground">{t('From date')}</label>
           <input id="walkin-from" type="date" value={fromDate} max={toDate || undefined} onChange={(e) => resetPage(setFromDate)(e.target.value)} className={inputCls} />
         </div>
         <div className="space-y-1">
-          <label htmlFor="walkin-to" className="block text-[11px] text-[#8b949e]">{t('To date')}</label>
+          <label htmlFor="walkin-to" className="block text-[11px] text-muted-foreground">{t('To date')}</label>
           <input id="walkin-to" type="date" value={toDate} min={fromDate || undefined} onChange={(e) => resetPage(setToDate)(e.target.value)} className={inputCls} />
         </div>
       </div>
 
-      {error && <p className="text-xs text-[#f85149]">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {tiles.map((tile) => (
-          <div key={tile.id} data-testid={`tile-${tile.id}`} className="bg-[#161b22] border border-[#30363d] rounded-xl p-4">
-            <div className="flex items-center gap-2 text-[11px] text-[#8b949e]">
+          <div key={tile.id} data-testid={`tile-${tile.id}`} className="bg-card border border-border rounded-xl p-4">
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
               {tile.icon}
               <span>{tile.label}</span>
             </div>
-            <div className="mt-2 text-2xl font-bold text-white font-mono">{tile.value}</div>
-            {tile.sub && <div className="text-xs text-[#8b949e] font-mono">{tile.sub}</div>}
+            <div className="mt-2 text-2xl font-medium text-foreground ">{tile.value}</div>
+            {tile.sub && <div className="text-xs text-muted-foreground ">{tile.sub}</div>}
           </div>
         ))}
       </div>
 
-      <div className="rounded-2xl bg-[#161b22] border border-[#30363d] overflow-hidden">
+      <div className="rounded-2xl bg-card border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px]">
+            <thead className="bg-background text-muted-foreground border-b border-border font-medium text-[11px]">
               <tr>
                 <th className="py-3 px-4">{t('Plate')}</th>
                 <th className="py-3 px-4">{t('Entry time')}</th>
@@ -183,27 +183,27 @@ export const TenantWalkInsPage: React.FC = () => {
                 <th className="py-3 px-4">{t('Price mismatch warning')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#30363d]/60 font-medium">
+            <tbody className="divide-y divide-border/60 font-medium">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-[#8b949e]">
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
                     {t('No walk-in vehicles in this period')}
                   </td>
                 </tr>
               ) : (
                 rows.map((r) => (
-                  <tr key={r.id} className={r.amountMismatch ? 'bg-[#da3633]/5' : undefined}>
-                    <td className="py-3 px-4 font-mono font-bold text-white tracking-wider">{r.plateNumber}</td>
-                    <td className="py-3 px-4 text-[#8b949e] whitespace-nowrap">{dt(r.enteredAt)}</td>
-                    <td className="py-3 px-4 text-[#8b949e] whitespace-nowrap">{dt(r.exitedAt)}</td>
-                    <td className="py-3 px-4 text-right font-mono text-white whitespace-nowrap">
+                  <tr key={r.id} className={r.amountMismatch ? 'bg-destructive/5' : undefined}>
+                    <td className="py-3 px-4 font-mono font-medium text-foreground tracking-wider">{r.plateNumber}</td>
+                    <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">{dt(r.enteredAt)}</td>
+                    <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">{dt(r.exitedAt)}</td>
+                    <td className="py-3 px-4 text-right text-foreground whitespace-nowrap">
                       {r.status === 'open' ? '—' : vnd(r.amountVnd)}
                     </td>
-                    <td className="py-3 px-4 text-[#c9d1d9] whitespace-nowrap">{methodLabel(r)}</td>
-                    <td className="py-3 px-4 text-[#c9d1d9]">{r.status === 'waived' ? r.waiveReason || '—' : ''}</td>
+                    <td className="py-3 px-4 text-foreground whitespace-nowrap">{methodLabel(r)}</td>
+                    <td className="py-3 px-4 text-foreground">{r.status === 'waived' ? r.waiveReason || '—' : ''}</td>
                     <td className="py-3 px-4 whitespace-nowrap">
                       {r.amountMismatch && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-[#da3633]/15 text-[#f85149] border border-[#da3633]/30">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-destructive/15 text-destructive border border-destructive/30">
                           <AlertTriangle className="w-3 h-3" />
                           {t('Price mismatch')}: {t('expected')} {vnd(r.expectedAmountVnd)}
                         </span>

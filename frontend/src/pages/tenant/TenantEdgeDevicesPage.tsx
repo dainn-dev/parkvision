@@ -33,11 +33,11 @@ import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 
 const STATUS_STYLES: Record<string, { dot: string; text: string; bg: string }> = {
-  ONLINE: { dot: 'bg-[#3fb950]', text: 'text-[#3fb950]', bg: 'bg-[#238636]/10 border-[#238636]/30' },
-  OFFLINE: { dot: 'bg-[#f85149]', text: 'text-[#f85149]', bg: 'bg-[#f85149]/10 border-[#f85149]/30' },
-  DEGRADED: { dot: 'bg-[#e3b341]', text: 'text-[#e3b341]', bg: 'bg-[#d29922]/10 border-[#d29922]/30' },
-  PROVISIONING: { dot: 'bg-[#58a6ff]', text: 'text-[#58a6ff]', bg: 'bg-[#58a6ff]/10 border-[#58a6ff]/30' },
-  DECOMMISSIONED: { dot: 'bg-[#8b949e]', text: 'text-[#8b949e]', bg: 'bg-[#21262d]/50 border-[#30363d]' }
+  ONLINE: { dot: 'bg-success', text: 'text-success', bg: 'bg-success/10 border-success/30' },
+  OFFLINE: { dot: 'bg-destructive', text: 'text-destructive', bg: 'bg-destructive/10 border-destructive/30' },
+  DEGRADED: { dot: 'bg-warning', text: 'text-warning', bg: 'bg-warning/10 border-warning/30' },
+  PROVISIONING: { dot: 'bg-primary', text: 'text-primary', bg: 'bg-primary/10 border-primary/30' },
+  DECOMMISSIONED: { dot: 'bg-muted-foreground', text: 'text-muted-foreground', bg: 'bg-muted/50 border-border' }
 };
 
 const timeAgo = (iso?: string): string => {
@@ -56,14 +56,14 @@ const timeAgo = (iso?: string): string => {
 
 const UsageBar: React.FC<{ label: string; value: number }> = ({ label, value }) => {
   const pct = Math.max(0, Math.min(100, value));
-  const color = pct >= 90 ? 'bg-[#f85149]' : pct >= 70 ? 'bg-[#e3b341]' : 'bg-[#3fb950]';
+  const color = pct >= 90 ? 'bg-destructive' : pct >= 70 ? 'bg-warning' : 'bg-success';
   return (
     <div className="flex items-center gap-1.5" title={`${label}: ${pct.toFixed(0)}%`}>
-      <span className="text-[9px] text-[#8b949e] uppercase w-6">{label}</span>
-      <div className="w-12 h-1.5 rounded-full bg-[#21262d] overflow-hidden">
+      <span className="text-[11px] text-muted-foreground w-6">{label}</span>
+      <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-[10px] font-mono text-[#c9d1d9] w-8">{pct.toFixed(0)}%</span>
+      <span className="text-[11px] text-foreground w-8">{pct.toFixed(0)}%</span>
     </div>
   );
 };
@@ -120,20 +120,20 @@ export const TenantEdgeDevicesPage: React.FC = () => {
   const paginatedDevices = filteredDevices.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <div className="space-y-6 pb-12 animate-in fade-in duration-300">
+    <div className="space-y-6 pb-12 animate-in fade-in duration-[330ms]">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161b22]/70 p-5 rounded-2xl border border-[#30363d] backdrop-blur-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card/70 p-5 rounded-2xl border border-border ">
         <div>
           <div className="flex items-center gap-2.5">
-            <Server className="w-6 h-6 text-[#58a6ff]" />
-            <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
+            <Server className="w-6 h-6 text-primary" />
+            <h1 className="text-xl md:text-2xl font-medium text-foreground tracking-tight">
               {t('Edge Device Management')}
             </h1>
-            <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#21262d] border border-[#30363d] text-[#58a6ff]">
+            <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-muted border border-border text-primary">
               {t('{{count}} Devices', { count: tenantDevices.length })}
             </span>
           </div>
-          <p className="text-xs text-[#8b949e] mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {t('Register, monitor, reboot, and decommission edge gateways powering your barrier gates')}
           </p>
         </div>
@@ -143,7 +143,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
             <Button
               variant="primary"
               onClick={() => setIsSetupOpen(true)}
-              className="text-xs h-9 bg-[#238636] hover:bg-[#2ea043] text-white gap-1.5 shadow-sm"
+              className="text-xs h-9 bg-primary hover:bg-primary/90 text-[#fff] gap-1.5 "
             >
               <Plus className="w-4 h-4" />
               {t('Set up Edge Client')}
@@ -153,7 +153,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
       </div>
 
       {tenantDevicesTotal > tenantDevices.length && (
-        <div className="p-3 rounded-xl bg-[#d29922]/10 border border-[#d29922]/30 text-[#e3b341] text-xs" role="alert">
+        <div className="p-3 rounded-xl bg-warning/10 border border-warning/30 text-warning text-xs" role="alert">
           {t('Showing {{count}} of {{total}} devices. Contact your platform administrator if you need to view more.', {
             count: tenantDevices.length,
             total: tenantDevicesTotal
@@ -163,57 +163,57 @@ export const TenantEdgeDevicesPage: React.FC = () => {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
+        <div className="p-4 rounded-xl bg-card border border-border flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Total Devices')}</span>
-            <div className="text-xl font-bold text-white mt-1">{metrics.total}</div>
-            <span className="text-[10px] text-[#8b949e]">
+            <span className="text-[11px] text-muted-foreground font-medium block ">{t('Total Devices')}</span>
+            <div className="text-xl font-medium text-foreground mt-1">{metrics.total}</div>
+            <span className="text-[11px] text-muted-foreground">
               {hasSeveralSites ? t('Across all sites') : t('At your location')}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-[#58a6ff]/10 border border-[#58a6ff]/30 text-[#58a6ff] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 text-primary flex items-center justify-center">
             <Server className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
+        <div className="p-4 rounded-xl bg-card border border-border flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Online')}</span>
-            <div className="text-xl font-bold text-[#3fb950] mt-1">{metrics.online}</div>
-            <span className="text-[10px] text-[#8b949e]">{t('Heartbeat active')}</span>
+            <span className="text-[11px] text-muted-foreground font-medium block ">{t('Online')}</span>
+            <div className="text-xl font-medium text-success mt-1">{metrics.online}</div>
+            <span className="text-[11px] text-muted-foreground">{t('Heartbeat active')}</span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-[#238636]/10 border border-[#238636]/30 text-[#3fb950] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-success/10 border border-success/30 text-success flex items-center justify-center">
             <Wifi className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
+        <div className="p-4 rounded-xl bg-card border border-border flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Offline')}</span>
-            <div className="text-xl font-bold text-[#f85149] mt-1">{metrics.offline}</div>
-            <span className="text-[10px] text-[#8b949e]">{t('Heartbeat stale')}</span>
+            <span className="text-[11px] text-muted-foreground font-medium block ">{t('Offline')}</span>
+            <div className="text-xl font-medium text-destructive mt-1">{metrics.offline}</div>
+            <span className="text-[11px] text-muted-foreground">{t('Heartbeat stale')}</span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-[#f85149]/10 border border-[#f85149]/30 text-[#f85149] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive flex items-center justify-center">
             <WifiOff className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex items-center justify-between">
+        <div className="p-4 rounded-xl bg-card border border-border flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-[#8b949e] font-medium block uppercase tracking-wider">{t('Decommissioned')}</span>
-            <div className="text-xl font-bold text-[#8b949e] mt-1">{metrics.decommissioned}</div>
-            <span className="text-[10px] text-[#8b949e]">{t('Retired devices')}</span>
+            <span className="text-[11px] text-muted-foreground font-medium block ">{t('Decommissioned')}</span>
+            <div className="text-xl font-medium text-muted-foreground mt-1">{metrics.decommissioned}</div>
+            <span className="text-[11px] text-muted-foreground">{t('Retired devices')}</span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-[#21262d] border border-[#30363d] text-[#8b949e] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-muted border border-border text-muted-foreground flex items-center justify-center">
             <PowerOff className="w-5 h-5" />
           </div>
         </div>
       </div>
 
       {/* Filter & Toolbar */}
-      <div className="p-4 rounded-xl bg-[#161b22] border border-[#30363d] flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="p-4 rounded-xl bg-card border border-border flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-[#8b949e] absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none" />
           <Input
             placeholder={
               hasSeveralSites
@@ -225,7 +225,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
               setSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
-            className="pl-9 bg-[#0d0e12] border-[#30363d] text-white text-xs h-9"
+            className="pl-9 bg-background border-border text-foreground text-xs h-9"
           />
         </div>
 
@@ -236,7 +236,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
               setStatusFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
+            className="bg-background border border-border rounded-lg px-2.5 py-2 text-xs text-foreground focus:outline-hidden"
           >
             <option value="ALL">{t('Status: All')}</option>
             <option value="ONLINE">{t('Online')}</option>
@@ -252,7 +252,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                 setSiteFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-[#0d0e12] border border-[#30363d] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-hidden"
+              className="bg-background border border-border rounded-lg px-2.5 py-2 text-xs text-foreground focus:outline-hidden"
             >
               <option value="ALL">{t('Site: All')}</option>
               {tenantSites.map((s) => (
@@ -271,7 +271,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                 setSiteFilter('ALL');
                 setCurrentPage(1);
               }}
-              className="text-[11px] h-8 text-[#8b949e] hover:text-white"
+              className="text-[11px] h-8 text-muted-foreground hover:text-foreground"
             >
               {t('Reset Filters')}
             </Button>
@@ -280,10 +280,10 @@ export const TenantEdgeDevicesPage: React.FC = () => {
       </div>
 
       {/* Main Table */}
-      <div className="rounded-2xl bg-[#161b22] border border-[#30363d] overflow-hidden">
+      <div className="rounded-2xl bg-card border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#0d0e12] text-[#8b949e] border-b border-[#30363d] uppercase font-semibold text-[10px]">
+            <thead className="bg-background text-muted-foreground border-b border-border font-medium text-[11px]">
               <tr>
                 <th className="py-3 px-4">{t('Device')}</th>
                 {hasSeveralSites && <th className="py-3 px-4">{t('Site')}</th>}
@@ -295,12 +295,12 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                 <th className="py-3 px-4 text-right">{t('Actions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#30363d]/60 font-medium">
+            <tbody className="divide-y divide-border/60 font-medium">
               {paginatedDevices.length === 0 ? (
                 <tr>
-                  <td colSpan={hasSeveralSites ? 8 : 7} className="py-12 text-center text-[#8b949e]">
-                    <Server className="w-8 h-8 mx-auto mb-2 text-[#8b949e]/50" />
-                    <p className="font-semibold text-white">{t('No edge devices found')}</p>
+                  <td colSpan={hasSeveralSites ? 8 : 7} className="py-12 text-center text-muted-foreground">
+                    <Server className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
+                    <p className="font-medium text-foreground">{t('No edge devices found')}</p>
                     <p className="text-xs mt-1">{t('Register a device or reset your filters')}</p>
                   </td>
                 </tr>
@@ -310,16 +310,16 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                   const isDecommissioned = device.status === 'DECOMMISSIONED';
 
                   return (
-                    <tr key={device.id} className="hover:bg-[#21262d]/60 transition-colors">
+                    <tr key={device.id} className="hover:bg-muted/60 transition-colors">
                       {/* Device */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-[#21262d] border border-[#30363d] text-[#58a6ff] flex items-center justify-center shrink-0">
+                          <div className="w-8 h-8 rounded-lg bg-muted border border-border text-primary flex items-center justify-center shrink-0">
                             <Server className="w-4 h-4" />
                           </div>
                           <div>
-                            <div className="font-semibold text-white text-xs">{device.name}</div>
-                            <div className="text-[10px] text-[#8b949e] font-mono mt-0.5">
+                            <div className="font-medium text-foreground text-xs">{device.name}</div>
+                            <div className="text-[11px] text-muted-foreground mt-0.5">
                               {device.deviceSerial || device.deviceKey}
                             </div>
                           </div>
@@ -328,12 +328,12 @@ export const TenantEdgeDevicesPage: React.FC = () => {
 
                       {/* Site */}
                       {hasSeveralSites && (
-                        <td className="py-3.5 px-4 text-[#c9d1d9]">{device.siteName || '—'}</td>
+                        <td className="py-3.5 px-4 text-foreground">{device.siteName || '—'}</td>
                       )}
 
                       {/* Status */}
                       <td className="py-3.5 px-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wide ${st.bg} ${st.text}`}>
+                        <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full border text-[11px] font-medium ${st.bg} ${st.text}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
                           {device.status}
                         </span>
@@ -349,19 +349,19 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                       </td>
 
                       {/* Latency */}
-                      <td className="py-3.5 px-4 font-mono text-[#c9d1d9]">
+                      <td className="py-3.5 px-4 text-foreground">
                         {device.latencyMs != null ? `${device.latencyMs} ms` : '—'}
                       </td>
 
                       {/* Firmware */}
-                      <td className="py-3.5 px-4 font-mono text-[#c9d1d9]">
+                      <td className="py-3.5 px-4 text-foreground">
                         {device.firmwareVersion || '—'}
                       </td>
 
                       {/* Heartbeat */}
                       <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-1.5 text-[#c9d1d9]">
-                          <Activity className="w-3.5 h-3.5 text-[#8b949e]" />
+                        <div className="flex items-center gap-1.5 text-foreground">
+                          <Activity className="w-3.5 h-3.5 text-muted-foreground" />
                           <span className="text-[11px]">{timeAgo(device.lastHeartbeatAt)}</span>
                         </div>
                       </td>
@@ -373,7 +373,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                             <button
                               title={t('Edit device')}
                               onClick={() => setEditTarget(device)}
-                              className="p-1.5 rounded-lg text-[#8b949e] hover:text-white hover:bg-[#30363d] transition-colors cursor-pointer"
+                              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-border transition-colors cursor-pointer"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
@@ -382,35 +382,35 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                                 <button
                                   title={t('Add gate to Edge Client')}
                                   onClick={() => setAddGateTarget(device)}
-                                  className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#3fb950] hover:bg-[#238636]/10 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-success hover:bg-success/10 transition-colors cursor-pointer"
                                 >
                                   <Plus className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   title={t('Generate activation code')}
                                   onClick={() => setActivationTarget(device)}
-                                  className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#58a6ff] hover:bg-[#58a6ff]/10 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
                                 >
                                   <KeyRound className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   title={t('Revoke device token')}
                                   onClick={() => setRevokeTarget(device)}
-                                  className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#f85149] hover:bg-[#f85149]/10 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                                 >
                                   <Ban className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   title={t('Reboot device')}
                                   onClick={() => setRebootTarget(device)}
-                                  className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#e3b341] hover:bg-[#d29922]/10 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-warning hover:bg-warning/10 transition-colors cursor-pointer"
                                 >
                                   <RotateCcw className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   title={t('Decommission device')}
                                   onClick={() => setDecommissionTarget(device)}
-                                  className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#e3b341] hover:bg-[#d29922]/10 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-warning hover:bg-warning/10 transition-colors cursor-pointer"
                                 >
                                   <PowerOff className="w-3.5 h-3.5" />
                                 </button>
@@ -421,14 +421,14 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                                 <button
                                   title={t('Reactivate device')}
                                   onClick={() => setReactivateTarget(device)}
-                                  className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#3fb950] hover:bg-[#238636]/10 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-success hover:bg-success/10 transition-colors cursor-pointer"
                                 >
                                   <RefreshCw className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   title={t('Delete permanently')}
                                   onClick={() => setDeleteTarget(device)}
-                                  className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#f85149] hover:bg-[#f85149]/10 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -436,7 +436,7 @@ export const TenantEdgeDevicesPage: React.FC = () => {
                             )}
                           </div>
                         ) : (
-                          <span className="text-[#8b949e] text-[11px] italic block text-right">{t('View only')}</span>
+                          <span className="text-muted-foreground text-[11px] italic block text-right">{t('View only')}</span>
                         )}
                       </td>
                     </tr>
