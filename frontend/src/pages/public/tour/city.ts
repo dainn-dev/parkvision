@@ -127,6 +127,149 @@ function makeFacade(style: Style, seed: number): Facade {
   return { map: tex(cc, true), orm: tex(oc, false) };
 }
 
+// ---------------------------------------------------------------------------
+// Street grid
+// ---------------------------------------------------------------------------
+
+/** A straight road. `axis: 'x'` runs east–west at y = `at`; `'y'` runs north–south at x = `at`. */
+export interface Road {
+  axis: 'x' | 'y';
+  at: number;
+  from: number;
+  to: number;
+  width: number;
+}
+
+const SIDEWALK = 2.5;
+const REACH = 1250;
+
+/**
+ * The plot sits in the block bounded by the main street (y = -46, drawn by the plot model
+ * between x = ±90), the avenues at x = ±100 and the road at y = 100.
+ */
+export const ROADS: readonly Road[] = [
+  // the main street beyond the plot model
+  { axis: 'x', at: -46, from: -REACH, to: -90, width: 12 },
+  { axis: 'x', at: -46, from: 90, to: REACH, width: 12 },
+  // other east–west roads
+  ...[-200, -112, 100, 200].map((at) => ({ axis: 'x' as const, at, from: -REACH, to: REACH, width: 10 })),
+  // north–south avenues
+  ...[-300, -200, -100, 100, 200, 300].map((at) => ({ axis: 'y' as const, at, from: -REACH, to: REACH, width: 10 })),
+  // the side streets on the plot's axis stop at the roads either side of it
+  { axis: 'y', at: 0, from: -REACH, to: -112, width: 10 },
+  { axis: 'y', at: 0, from: 100, to: REACH, width: 10 },
+];
+
+/** Grid lines that bound the city blocks (the plot's block is left out). */
+const XS = [-300, -200, -100, 0, 100, 200, 300];
+const YS = [-200, -112, -46, 100, 200];
+
+const crosses = (r: Road, along: number) => along >= r.from && along <= r.to;
+
+/** Distance-based test: is (x, y) on a road or its sidewalks (plus `margin`)? */
+export function onRoad(x: number, y: number, margin = 0): boolean {
+  return ROADS.some((r) => {
+    const half = r.width / 2 + SIDEWALK + margin;
+    return r.axis === 'x'
+      ? Math.abs(y - r.at) < half && x > r.from - half && x < r.to + half
+      : Math.abs(x - r.at) < half && y > r.from - half && y < r.to + half;
+  });
+}
+
+/** [start, end) intervals of `road` that stay outside every crossing road's corridor at `lineAt`. */
+function openIntervals(road: Road, lineAt: number, pad: number): [number, number][] {
+  const cuts = ROADS.filter((o) => o.axis !== road.axis && o.at > road.from - 1 && o.at < road.to + 1 && crosses(o, lineAt))
+    .map((o) => [o.at - o.width / 2 - pad, o.at + o.width / 2 + pad] as [number, number])
+    .sort((a, b) => a[0] - b[0]);
+  const out: [number, number][] = [];
+  let start = road.from;
+  for (const [a, b] of cuts) {
+    if (a > start) out.push([start, Math.min(a, road.to)]);
+    start = Math.max(start, b);
+  }
+  if (start < road.to) out.push([start, road.to]);
+  return out.filter(([a, b]) => b - a > 0.5);
+}
+
+export interface StreetMaterials {
+  asphalt: THREE.Material;
+  sidewalk: THREE.Material;
+  line: THREE.Material;
+  tiles: { asphalt: number; sidewalk: number };
+}
+
+function buildStreets(m: StreetMaterials, disposables: { dispose(): void }[]): THREE.Group {
+  const g = new THREE.Group();
+  g.name = 'Streets';
+  const slab = (axis: 'x' | 'y', at: number, a: number, b: number, width: number, h: number, mat: THREE.Material, tile: number) => {
+    const len = b - a;
+    const [sx, sz] = axis === 'x' ? [len, width] : [width, len];
+    // carriageways are flat planes: box side faces would show as hairlines where slabs abut
+    const flat = h < 0.1;
+    const geo = flat ? new THREE.PlaneGeometry(sx, sz).rotateX(-Math.PI / 2) : new THREE.BoxGeometry(sx, h, sz);
+    const mesh = new THREE.Mesh(geo, mat);
+    const mid = (a + b) / 2;
+    const y = flat ? h : h / 2;
+    mesh.position.copy(axis === 'x' ? P(mid, at, y) : P(at, mid, y));
+    mesh.receiveShadow = true;
+    applyWorldUVs(mesh, tile);
+    g.add(mesh);
+    disposables.push(geo);
+  };
+  const dashGeo = new THREE.PlaneGeometry(2, 0.15).rotateX(-Math.PI / 2);
+  const dashMatrices: THREE.Matrix4[] = [];
+  const q = new THREE.Quaternion();
+  const one = new THREE.Vector3(1, 1, 1);
+  for (const road of ROADS) {
+    // carriageway: north–south roads run through every junction; east–west ones stop at each
+    // crossing, so no two slabs overlap (overlapping coplanar slabs z-fight)
+    const spans = road.axis === 'y' ? [[road.from, road.to] as [number, number]] : openIntervals(road, road.at, 0);
+    for (const [a, b] of spans) slab(road.axis, road.at, a, b, road.width, 0.04, m.asphalt, m.tiles.asphalt);
+    // sidewalks, cut open where another road crosses that side
+    for (const side of [-1, 1]) {
+      const lineAt = road.at + side * (road.width / 2 + SIDEWALK / 2);
+      for (const [a, b] of openIntervals(road, lineAt, SIDEWALK)) {
+        slab(road.axis, lineAt, a, b, SIDEWALK, 0.2, m.sidewalk, m.tiles.sidewalk);
+      }
+    }
+    // centre-line dashes, kept out of the junctions
+    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), road.axis === 'x' ? 0 : Math.PI / 2);
+    for (const [a, b] of openIntervals(road, road.at, 1)) {
+      for (let t = a + 2; t < b - 2; t += 4) {
+        const pos = road.axis === 'x' ? P(t, road.at, 0.05) : P(road.at, t, 0.05);
+        dashMatrices.push(new THREE.Matrix4().compose(pos, q, one));
+      }
+    }
+  }
+  // corner squares: where both roads carry on into a quadrant, pave where their sidewalks meet
+  for (const a of ROADS.filter((r) => r.axis === 'x')) {
+    for (const b of ROADS.filter((r) => r.axis === 'y')) {
+      if (b.at < a.from - 1 || b.at > a.to + 1 || !crosses(b, a.at)) continue;
+      for (const sx of [-1, 1]) {
+        for (const sy of [-1, 1]) {
+          const aGoes = sx < 0 ? a.from < b.at - 1 : a.to > b.at + 1;
+          const bGoes = sy < 0 ? b.from < a.at - 1 : b.to > a.at + 1;
+          if (!aGoes || !bGoes) continue;
+          const cx = b.at + sx * (b.width / 2 + SIDEWALK / 2);
+          const cy = a.at + sy * (a.width / 2 + SIDEWALK / 2);
+          slab('x', cy, cx - SIDEWALK / 2, cx + SIDEWALK / 2, SIDEWALK, 0.2, m.sidewalk, m.tiles.sidewalk);
+        }
+      }
+    }
+  }
+  const dashes = new THREE.InstancedMesh(dashGeo, m.line, dashMatrices.length);
+  dashMatrices.forEach((mx, i) => dashes.setMatrixAt(i, mx));
+  dashes.receiveShadow = true;
+  dashes.computeBoundingSphere();
+  g.add(dashes);
+  disposables.push(dashGeo);
+  return g;
+}
+
+// ---------------------------------------------------------------------------
+// Blocks and buildings
+// ---------------------------------------------------------------------------
+
 interface Block {
   x: number;
   y: number;
@@ -136,63 +279,67 @@ interface Block {
   style: Style;
 }
 
-/** The layout: hand-placed nearby blocks plus a scattered skyline. */
+/** Fill every city block with buildings that front its streets, then scatter a far skyline. */
 function layout(): Block[] {
   const r = rng(91);
   const out: Block[] = [];
   const styles: Style[] = ['glass', 'apartment', 'brick', 'cream'];
   const pick = () => styles[Math.floor(r() * styles.length)];
   const floors = (lo: number, hi: number) => (lo + Math.floor(r() * (hi - lo + 1))) * 3;
+  // setback from the road centre line: half the road, the sidewalk and a front strip
+  const SET = 5 + SIDEWALK + 3;
 
-  // across the street, set back behind a verge
-  for (let x = -230; x < 230; ) {
-    const w = 22 + r() * 22;
-    const d = 18 + r() * 14;
-    out.push({ x: x + w / 2, y: -64 - d / 2 - r() * 6, w, d, h: floors(3, 7), style: pick() });
-    x += w + 7 + r() * 10;
-  }
-  // second row behind it
-  for (let x = -260; x < 260; ) {
-    const w = 26 + r() * 28;
-    const d = 22 + r() * 16;
-    out.push({ x: x + w / 2, y: -122 - d / 2 - r() * 10, w, d, h: floors(6, 18), style: pick() });
-    x += w + 10 + r() * 14;
-  }
-  // west and east of the plot
-  for (const side of [-1, 1]) {
-    for (let y = -30; y < 150; ) {
-      const d = 22 + r() * 22;
-      const w = 20 + r() * 18;
-      out.push({ x: side * (102 + w / 2 + r() * 8), y: y + d / 2, w, d, h: floors(3, 10), style: pick() });
-      y += d + 8 + r() * 10;
+  /** Fill one rectangle with buildings in one or two rows along x. */
+  const fill = (x0: number, x1: number, y0: number, y1: number, lo: number, hi: number) => {
+    const depth = y1 - y0;
+    const rows = depth > 58 ? 2 : 1;
+    for (let row = 0; row < rows; row++) {
+      // with two rows, one fronts the southern street and one the northern street
+      const rowDepth = rows === 2 ? Math.min(28, depth / 2 - 4) : Math.min(30, depth);
+      for (let x = x0; x < x1 - 12; ) {
+        const w = Math.min(x1 - x, 18 + r() * 24);
+        if (w < 12) break;
+        const d = rowDepth * (0.7 + r() * 0.3);
+        const y = rows === 1 ? (y0 + y1) / 2 : row === 0 ? y0 + d / 2 : y1 - d / 2;
+        out.push({ x: x + w / 2, y, w, d, h: floors(lo, hi), style: pick() });
+        x += w + 4 + r() * 6; // narrow gaps between neighbours, like an alley or a side yard
+      }
+    }
+  };
+
+  for (let i = 0; i < XS.length - 1; i++) {
+    for (let j = 0; j < YS.length - 1; j++) {
+      const [ax, bx, ay, by] = [XS[i], XS[i + 1], YS[j], YS[j + 1]];
+      // the plot's own block, and the strip across the plot's axis where no road splits it
+      if (ax >= -100 && bx <= 100 && ay >= -46 && by <= 100) continue;
+      // the x = 0 side street only runs south of -112 and north of 100: in between, the two
+      // halves either side of it are one block
+      const unsplit = ay >= -112 && by <= 100;
+      if (unsplit && ax === 0) continue;
+      const right = unsplit && bx === 0 ? 100 : bx;
+      const near = Math.max(Math.abs((ax + bx) / 2), Math.abs((ay + by) / 2)) < 160;
+      fill(ax + SET, right - SET, ay + SET, by - SET, near ? 3 : 6, near ? 8 : 16);
     }
   }
-  // behind the office building
-  for (let x = -90; x < 90; ) {
-    const w = 24 + r() * 20;
-    out.push({ x: x + w / 2, y: 112 + r() * 14, w, d: 20 + r() * 12, h: floors(5, 14), style: pick() });
-    x += w + 9 + r() * 10;
-  }
-  // skyline: towers well beyond, mostly to the south and north where the wide shots look
-  for (let i = 0; i < 34; i++) {
+  // skyline: towers further out, off the roads
+  for (let i = 0, tries = 0; i < 40 && tries < 600; tries++) {
     const ang = r() * Math.PI * 2;
-    const rad = 280 + r() * 260;
-    const w = 26 + r() * 26;
-    out.push({
-      x: Math.cos(ang) * rad,
-      y: Math.sin(ang) * rad,
-      w,
-      d: w * (0.8 + r() * 0.5),
-      h: floors(14, 34),
-      style: r() < 0.55 ? 'glass' : pick(),
-    });
+    const rad = 340 + r() * 280;
+    const x = Math.cos(ang) * rad;
+    const y = Math.sin(ang) * rad;
+    const w = 24 + r() * 24;
+    const d = w * (0.8 + r() * 0.4);
+    if (onRoad(x, y, Math.max(w, d) / 2 + 2)) continue;
+    if (out.some((b) => Math.abs(b.x - x) < (b.w + w) / 2 + 6 && Math.abs(b.y - y) < (b.d + d) / 2 + 6)) continue;
+    out.push({ x, y, w, d, h: floors(14, 34), style: r() < 0.55 ? 'glass' : pick() });
+    i++;
   }
   return out;
 }
 
 export interface City {
   group: THREE.Group;
-  /** true where a building stands (Blender x/y), so trees can stay out of it */
+  /** true where a building or a road is (Blender x/y), so trees stay off them */
   occupied(x: number, y: number): boolean;
   disposables: { dispose(): void }[];
 }
@@ -201,10 +348,15 @@ export interface City {
  * `keepClear`: camera positions (Blender x/y/z) the tour flies through. Buildings that would
  * contain or loom over one are dropped or cut down, so no shot starts inside a wall.
  */
-export function buildCity(roof: THREE.Material, keepClear: readonly (readonly [number, number, number])[] = []): City {
+export function buildCity(
+  roof: THREE.Material,
+  streets: StreetMaterials,
+  keepClear: readonly (readonly [number, number, number])[] = [],
+): City {
   const group = new THREE.Group();
   group.name = 'City';
   const disposables: { dispose(): void }[] = [];
+  group.add(buildStreets(streets, disposables));
 
   const facades = new Map<Style, THREE.MeshPhysicalMaterial>();
   const facadeMat = (style: Style) => {
@@ -279,6 +431,6 @@ export function buildCity(roof: THREE.Material, keepClear: readonly (readonly [n
   }
 
   const occupied = (x: number, y: number) =>
-    blocks.some((b) => Math.abs(x - b.x) < b.w / 2 + 6 && Math.abs(y - b.y) < b.d / 2 + 6);
+    onRoad(x, y, 3) || blocks.some((b) => Math.abs(x - b.x) < b.w / 2 + 6 && Math.abs(y - b.y) < b.d / 2 + 6);
   return { group, occupied, disposables };
 }

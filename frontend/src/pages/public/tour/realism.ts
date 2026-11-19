@@ -483,6 +483,8 @@ export function buildSurroundings(
   forest?: (spots: { pos: THREE.Vector3; height: number; yaw: number }[]) => THREE.Object3D,
   /** keeps trees out of building footprints (Blender x/y) */
   blocked?: (x: number, y: number) => boolean,
+  /** the city draws the street network itself, main street extension included */
+  skipStreet = false,
   radius = 1400,
 ): THREE.Group {
   const g = new THREE.Group();
@@ -503,7 +505,7 @@ export function buildSurroundings(
   // the street (Blender y = -46) and its sidewalks, continued past both ends of the plot
   const PLOT_X = 90;
   const len = radius - PLOT_X;
-  for (const side of [-1, 1]) {
+  for (const side of skipStreet ? [] : [-1, 1]) {
     const cx = side * (PLOT_X + len / 2);
     const street = add(new THREE.BoxGeometry(len, 0.04, 12), materials.asphalt, tiles.asphalt);
     street.position.copy(P(cx, -46, 0.02));
@@ -518,7 +520,7 @@ export function buildSurroundings(
   const dashes = new THREE.InstancedMesh(dashGeo, materials.line, dashCount);
   const m4 = new THREE.Matrix4();
   let d = 0;
-  for (const side of [-1, 1]) {
+  for (const side of skipStreet ? [] : [-1, 1]) {
     for (let x = PLOT_X + 2; x < radius && d < dashCount; x += 4) {
       m4.makeTranslation(P(side * x, -46, 0.045));
       dashes.setMatrixAt(d++, m4);

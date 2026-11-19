@@ -342,8 +342,12 @@ export class ParkingScene {
     this.sun = sun;
     this.scene.environmentIntensity = 0.3;
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    Object.assign(sun.shadow.camera, { left: -75, right: 75, top: 75, bottom: -75, near: 10, far: 260 });
+    // cover the blocks around the plot too, so nearby buildings cast whole shadows instead of
+    // ones cut off square at the edge of the shadow map; same texel size at high quality
+    const wide = this.quality === 'high';
+    const half = wide ? 150 : 75;
+    sun.shadow.mapSize.set(wide ? 4096 : 2048, wide ? 4096 : 2048);
+    Object.assign(sun.shadow.camera, { left: -half, right: half, top: half, bottom: -half, near: 10, far: 400 });
     sun.shadow.bias = -0.0004;
     sun.shadow.normalBias = 0.03;
     this.scene.add(sun, sun.target, this.parkedGroup);
@@ -462,7 +466,16 @@ export class ParkingScene {
     // carry the ground, street and trees out to the horizon
     const mat = (n: string) => upgraded.get(n) as THREE.Material;
     // neighbourhood: buildings across the street, either side and behind; roofs in the concrete
-    const city = buildCity(mat('Concrete'), [...CAMERA_KEYS.map((k) => k.pos), [-30, -58, 3.5], [44, -26, 27]]);
+    const city = buildCity(
+      mat('Concrete'),
+      {
+        asphalt: mat('Asphalt'),
+        sidewalk: mat('Sidewalk'),
+        line: mat('LineWhite'),
+        tiles: photo ? { asphalt: PHOTO_TILE.asphalt, sidewalk: PHOTO_TILE.concrete } : { asphalt: 4, sidewalk: 3 },
+      },
+      [...CAMERA_KEYS.map((k) => k.pos), [-30, -58, 3.5], [44, -26, 27]],
+    );
     this.disposables.push(...city.disposables);
     this.scene.add(city.group);
     const around = buildSurroundings(
@@ -484,6 +497,7 @@ export class ParkingScene {
           }
         : undefined,
       city.occupied,
+      true,
     );
     if (trees) {
       // the scanned trees replace the plot's low-poly crowns, trunks and planter bushes
