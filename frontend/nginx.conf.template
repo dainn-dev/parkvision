@@ -10,7 +10,12 @@ server {
     # Security headers. CSP allows same-origin and the API/WS upstream,
     # but no inline scripts — tightening XSS so localStorage tokens (if any
     # legacy client still uses them) are harder to exfiltrate.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://images.unsplash.com ${S3_PUBLIC_ORIGIN}; connect-src 'self' ws: wss: ${S3_PUBLIC_ORIGIN}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    # - the one inline script (theme bootstrap in index.html) is allowed by its hash only;
+    #   src/lib/__tests__/csp.test.ts fails if the script and the hash drift apart
+    # - 'wasm-unsafe-eval' lets the 3D tour compile its WebAssembly mesh decoder (meshopt);
+    #   it does not allow JavaScript eval
+    # - blob: is how GLTFLoader hands textures embedded in .glb files to the browser
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-oAZ+lm4+H77dOSIILpCpC51MxBK3u8yR1O75VDgblyc='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://images.unsplash.com ${S3_PUBLIC_ORIGIN}; connect-src 'self' blob: ws: wss: ${S3_PUBLIC_ORIGIN}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options DENY always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
