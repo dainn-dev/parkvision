@@ -12,6 +12,7 @@ import { MfaFlowModal } from './components/modals/MfaFlowModal';
 import { PublicNavbar } from './components/layout/PublicNavbar';
 import { PUBLIC_ROUTES, shouldResetToLanding, viewFromPath, type PublicViewType } from './lib/publicRoutes';
 import { DownloadPage } from './pages/public/DownloadPage';
+import { TourPage } from './pages/public/TourPage';
 import { PublicFooter } from './components/layout/PublicFooter';
 import { LandingPage } from './pages/public/LandingPage';
 import { PrivacyPolicyPage } from './pages/public/PrivacyPolicyPage';
@@ -145,6 +146,8 @@ const PlatformAppContent: React.FC = () => {
               )}
 
               {publicView === 'download' && <DownloadPage />}
+
+              {publicView === 'tour' && <TourPage onNavigate={onNavigate} />}
 
               {publicView === 'privacy' && (
                 <PrivacyPolicyPage onNavigate={onNavigate} />

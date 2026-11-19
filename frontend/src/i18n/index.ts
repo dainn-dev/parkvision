@@ -11,6 +11,7 @@ import viSecurity from './locales/vi/security.json';
 import viAudit from './locales/vi/audit.json';
 import viTenant from './locales/vi/tenant.json';
 import viDownload from './locales/vi/download.json';
+import viTour from './locales/vi/tour.json';
 
 export const LANG_STORAGE_KEY = 'pv-language';
 export type AppLanguage = 'en' | 'vi';
@@ -23,7 +24,7 @@ void i18n.use(initReactI18next).init({
   fallbackLng: 'en',
   supportedLngs: ['en', 'vi'],
   defaultNS: 'common',
-  ns: ['common', 'layout', 'landing', 'auth', 'platform', 'monitoring', 'security', 'audit', 'tenant', 'download'],
+  ns: ['common', 'layout', 'landing', 'auth', 'platform', 'monitoring', 'security', 'audit', 'tenant', 'download', 'tour'],
   resources: {
     vi: {
       common: viCommon,
@@ -36,6 +37,7 @@ void i18n.use(initReactI18next).init({
       audit: viAudit,
       tenant: viTenant,
       download: viDownload,
+      tour: viTour,
     },
   },
   // English copy lives inline as the translation key, so keys must be taken literally.

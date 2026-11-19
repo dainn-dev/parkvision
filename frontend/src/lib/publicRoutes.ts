@@ -1,6 +1,7 @@
 export type PublicViewType =
   | 'landing'
   | 'download'
+  | 'tour'
   | 'login'
   | 'register'
   | 'privacy'
@@ -13,6 +14,7 @@ export type PublicViewType =
 export const PUBLIC_ROUTES: Record<PublicViewType, string> = {
   landing: '/',
   download: '/download',
+  tour: '/tour',
   login: '/login',
   register: '/register',
   privacy: '/privacy',

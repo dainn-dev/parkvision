@@ -15,7 +15,8 @@ import {
   PhoneCall,
   ExternalLink,
   ChevronRight,
-  Download
+  Download,
+  Box
 } from 'lucide-react';
 import { Link, NavLink } from 'react-router';
 import { usePlatform } from '../../context/PlatformContext';
@@ -111,6 +112,17 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
           >
             {t('FAQ')}
           </button>
+          <NavLink
+            to="/tour"
+            className={({ isActive }) =>
+              `px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
+                isActive ? 'bg-primary/10 text-primary' : 'hover:text-white hover:bg-white/10'
+              }`
+            }
+          >
+            <Box className="w-3.5 h-3.5" />
+            {t('3D Tour')}
+          </NavLink>
           <NavLink
             to="/download"
             className={({ isActive }) =>
@@ -254,6 +266,20 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               <span>{t('FAQ')}</span>
               <ChevronRight className="w-4 h-4 text-[#8b949e]" />
             </button>
+            <NavLink
+              to="/tour"
+              onClick={() => setMobileMenuOpen(false)}
+              className={({ isActive }) =>
+                `w-full px-3 py-2 rounded-lg flex items-center justify-between hover:bg-white/10 hover:text-white ${
+                  isActive ? 'text-primary' : ''
+                }`
+              }
+            >
+              <span className="flex items-center gap-2">
+                <Box className="w-4 h-4" /> {t('3D Tour')}
+              </span>
+              <ChevronRight className="w-4 h-4 text-white/60" />
+            </NavLink>
             <NavLink
               to="/download"
               onClick={() => setMobileMenuOpen(false)}
